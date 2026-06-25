@@ -86,6 +86,31 @@ namespace AIVillage.AI
         /// <summary>주변 타일에 수집 가능한 자원 노드가 있으면 true.</summary>
         public bool NearResource    { get; set; } = false;
 
+        // [PR Fix R-001]: Miner 역할의 자원별 플래닝 분기를 분리하기 위해
+        // 자원 종류별 근접 플래그를 추가한다. 동일 조건 사용으로 MineStone에
+        // 절대 도달하지 못하는 Dead Code 버그를 수정한다.
+
+        /// <summary>주변 타일에 채석 가능한 바위(Rock)가 있으면 true. MineStone의 Precondition.</summary>
+        public bool NearRock        { get; set; } = false;
+
+        /// <summary>주변 타일에 철 광석(IronOre)이 있으면 true. MineIron의 Precondition.</summary>
+        public bool NearIronOre     { get; set; } = false;
+
+        /// <summary>주변 타일에 구리 광석(CopperOre)이 있으면 true. MineCopper의 Precondition.</summary>
+        public bool NearCopperOre   { get; set; } = false;
+
+        // [PR Fix R-003]: FoW(안개 전쟁) 필터를 플래닝에 적용하기 위해 복합 플래그를 추가한다.
+        // SensorSystem이 (NearResource AND isDiscovered) 양쪽이 모두 true일 때만 이 플래그를 true로 설정한다.
+        // Plan_GatherResources()는 brain.NearResource 대신 이 플래그를 참조하여
+        // 발견되지 않은 자원 노드가 플래닝에 포함되는 것을 차단한다.
+
+        /// <summary>
+        /// 주변에 수집 가능한 자원 노드가 있으면서 FoW(안개전쟁)에서 이미 발견된 경우 true.
+        /// NearResource AND isDiscovered 두 조건을 모두 충족해야 true가 된다.
+        /// SensorSystem이 매 틱마다 갱신한다.
+        /// </summary>
+        public bool NearDiscoveredResource { get; set; } = false;
+
         /// <summary>적이 인식 범위 내에 있으면 true. ConflictScore SafetyUrgency 0.8f 적용.</summary>
         public bool NearEnemy       { get; set; } = false;
 

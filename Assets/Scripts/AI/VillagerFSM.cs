@@ -25,6 +25,7 @@
 
 using System;
 using System.Collections;
+using System.Collections.Generic; // List<T> — VillagerDied 드롭 아이템 목록 구성
 using UnityEngine;
 using AIVillage.Core;
 
@@ -93,28 +94,53 @@ namespace AIVillage.AI
         private AuthoritativeWorldState _worldState;
 
         // 현재 처리 중인 자원 예약 정보 (Executing 진입 시 기록, Replanning 시 해제)
+        // 4단계 이전 단일 자원 예약 필드 — ReleaseCurrentReservation 롤백 전용으로 남겨둠
         private ResourceType _reservedResourceType;
         private float        _reservedAmount;
         private bool         _hasActiveReservation = false;
 
-        // 수신된 AI 메시지 임시 저장 (우선순위 정렬 없이 단순 큐 — 2단계)
-        // TODO: 3단계에서 우선순위 큐(SortedList)로 교체
-        private readonly System.Collections.Generic.Queue<AIMessage> _messageQueue
-            = new System.Collections.Generic.Queue<AIMessage>();
+        // ── 4단계 신규: 다중 자원 예약 추적 ─────────────────────────────────
+        // TryReserveForAction()이 ActionDatabase를 조회하여 다중 자원을 예약한 경우
+        // 이 배열에 소비한 ResourceCostEntry[] 를 캐싱한다.
+        // ReleaseCurrentReservation()에서 항목별로 Registry.Release()를 호출한다.
+        // OnActionCompleted()에서 Commit 시에도 이 배열을 기준으로 처리한다.
+        private ResourceCostEntry[] _pendingResourceCosts;
+
+        // ── 4단계 신규: ActionDatabase / BuildingQueue 의존성 ────────────────
+        // GameManager.InjectDependencies() 호출 시 주입된다.
+        // Update() 및 Tick() 내부에서는 절대 GetComponent/FindObjectOfType 호출 금지.
+        private ActionDatabase _actionDatabase;
+        private BuildingQueue  _buildingQueue;
+
+        // ── 수신 메시지 내부 큐 (우선순위 정렬 SortedList — 3단계) ──────────────
+        // MessageBus가 이 에이전트에게 전달한 메시지를 우선순위 순으로 처리한다.
+        // key = (int)MessagePriority (0=High, 1=Medium, 2=Low) — 작은 값이 먼저 처리됨
+        // 같은 우선순위 내에서는 ReceiveMessage() 호출 순서(FIFO)를 유지한다.
+        // 2단계의 Queue<AIMessage>를 SortedList<int, List<AIMessage>>로 교체했다.
+        private readonly SortedList<int, List<AIMessage>> _messageQueue
+            = new SortedList<int, List<AIMessage>>
+            {
+                // 버킷을 미리 생성하여 ReceiveMessage()에서 null 체크를 생략한다.
+                { (int)MessagePriority.High,   new List<AIMessage>() },
+                { (int)MessagePriority.Medium, new List<AIMessage>() },
+                { (int)MessagePriority.Low,    new List<AIMessage>() }
+            };
 
         // [PR Fix]: F-007 — DeactivateAfterDelay 코루틴 참조를 필드에 저장하여
         // OnDestroy()에서 명시적으로 정지할 수 있도록 한다. 씬 전환이나 Destroy 시 고아 코루틴 방지.
         private Coroutine _deactivateCoroutine;
 
-        // [PR Fix]: F-004 — 2단계에서 MessageBus가 없으므로 C# static event로 사망 이벤트를 발행한다.
-        // GameManager나 UI 시스템이 이 이벤트를 구독하여 사망 처리를 수행한다.
-        // 3단계에서 MessageBus 구현 시 이 이벤트를 래핑하거나 교체할 수 있다.
-        /// <summary>
-        /// 주민 사망 시 발행되는 이벤트.
-        /// 파라미터: (agentId, tileX, tileY)
-        /// GameManager, UI 등 외부 시스템이 Subscribe하여 사망 후처리를 수행한다.
-        /// </summary>
-        public static event System.Action<string, int, int> OnVillagerDied;
+        // ── 3단계: static OnVillagerDied event 제거 완료 ─────────────────────────
+        // 2단계의 'public static event Action<string, int, int> OnVillagerDied'는
+        // 3단계에서 MessageBus.Publish()로 교체되었다.
+        // 기존에 OnVillagerDied를 구독하던 GameManager는 아래와 같이 교체해야 한다:
+        //
+        //   [변경 전] VillagerFSM.OnVillagerDied += OnVillagerDiedHandler;
+        //   [변경 후] MessageBus.Instance.Subscribe(MessageType.VillagerDied, OnVillagerDiedHandler);
+        //             // 핸들러 시그니처: void OnVillagerDiedHandler(AIMessage msg)
+        //             // 페이로드 접근: var payload = (MessageBus.VillagerDiedPayload)msg.Payload;
+        //
+        // ─────────────────────────────────────────────────────────────────────────
 
         #endregion
 
@@ -248,12 +274,25 @@ namespace AIVillage.AI
         #region ── IAutonomousAgent 메서드 구현 ──
 
         /// <summary>
-        /// 외부 시스템이 이 에이전트에 메시지를 전달한다.
-        /// 메시지는 내부 큐에 쌓이며 다음 Tick()에서 처리된다.
+        /// 외부 시스템(MessageBus 구독 콜백)이 이 에이전트에 메시지를 전달한다.
+        /// 메시지는 우선순위 버킷(_messageQueue)에 적재되며 다음 Tick()에서 처리된다.
         /// </summary>
         public void ReceiveMessage(AIMessage message)
         {
-            _messageQueue.Enqueue(message);
+            int priorityKey = (int)message.Priority;
+
+            // 버킷은 생성자에서 미리 초기화했으므로 키 존재 여부를 별도로 체크하지 않는다.
+            // 예상치 못한 Priority 값(3 이상)에 대한 방어 처리
+            if (!_messageQueue.ContainsKey(priorityKey))
+            {
+                UnityEngine.Debug.LogWarning(
+                    $"[VillagerFSM] ReceiveMessage: 알 수 없는 Priority 키 {priorityKey}. " +
+                    $"Low 버킷으로 강제 분류합니다. AgentId={AgentId}"
+                );
+                priorityKey = (int)MessagePriority.Low;
+            }
+
+            _messageQueue[priorityKey].Add(message);
         }
 
         /// <summary>
@@ -295,11 +334,22 @@ namespace AIVillage.AI
         }
 
         /// <summary>
-        /// GameManager에서 ResourceRegistry와 WorldState를 주입한다.
+        /// GameManager에서 ResourceRegistry, WorldState, ActionDatabase, BuildingQueue를 주입한다.
         /// Script Execution Order 문제로 Awake 시점에 싱글턴이 없을 수 있으므로
         /// 이 메서드를 GameManager.Start() 또는 GameManager.Awake() 마지막에 호출한다.
+        ///
+        /// 4단계 변경: actionDatabase, buildingQueue 파라미터 추가.
+        ///   - actionDatabase: TryReserveForAction, ApplyActionEffect, SimulatePlanResult 교체용
+        ///   - buildingQueue:  BuildStructure Goal의 다음 건물 조회용
+        ///   두 파라미터는 null 허용 — null이면 기존 더미 로직으로 폴백한다.
+        ///
+        /// GameManager 호출 예시:
+        ///   villagerFSM.InjectDependencies(registry, actionDatabase, buildingQueue);
         /// </summary>
-        public void InjectDependencies(ResourceRegistry registry)
+        public void InjectDependencies(
+            ResourceRegistry registry,
+            ActionDatabase   actionDatabase = null,
+            BuildingQueue    buildingQueue  = null)
         {
             if (registry == null)
             {
@@ -307,13 +357,22 @@ namespace AIVillage.AI
                 return;
             }
 
-            _registry   = registry;
-            _worldState = AuthoritativeWorldState.Instance;
+            _registry       = registry;
+            _worldState     = AuthoritativeWorldState.Instance;
+            _actionDatabase = actionDatabase; // null이면 기존 더미 로직 사용 (폴백)
+            _buildingQueue  = buildingQueue;  // null이면 BuildingQueue.Instance로 대체
 
             if (_worldState == null)
             {
                 Debug.LogError($"[VillagerFSM] InjectDependencies: AuthoritativeWorldState.Instance가 여전히 null입니다. " +
                                $"GameManager가 먼저 초기화되었는지 확인하세요. AgentId={AgentId}");
+            }
+
+            if (_actionDatabase == null)
+            {
+                // 경고: 더미 플래닝 로직으로 폴백하지만 기능상 제한이 있음
+                Debug.LogWarning($"[VillagerFSM] InjectDependencies: actionDatabase가 null입니다. " +
+                                 $"SimulatePlanResult 더미 로직으로 폴백합니다. AgentId={AgentId}");
             }
         }
 
@@ -382,8 +441,13 @@ namespace AIVillage.AI
                 }
 
                 // 우선순위 P2a: 건설 대기 + 자원 충족 여부
-                // 실제 자원 충족 확인은 WorldState를 통해 수행
-                if (_worldState != null && _worldState.BuildingQueued && HasResourcesForBuilding())
+                // [PR Fix R-002]: HasResourcesForBuilding()의 하드코딩 수치(Wood>=10, Stone>=5)가
+                // ActionDatabase 실제 건물 비용과 불일치하여 Planning→Replanning 루프를 유발한다.
+                // ActionDatabase.CanBuildNextBuilding()을 통해 실제 비용 테이블로 간접 판단한다.
+                if (_worldState != null && _worldState.BuildingQueued
+                    && (_actionDatabase != null
+                        ? _actionDatabase.CanBuildNextBuilding(_registry, _worldState)
+                        : HasResourcesForBuilding()))
                 {
                     _brain.CurrentGoalId = "BuildStructure";
                     TransitionTo(VillagerState.Planning);
@@ -568,7 +632,7 @@ namespace AIVillage.AI
 
         /// <summary>
         /// [RefusingOrder] 명령 거부를 3초간 유지하고 Idle로 복귀하는 상태.
-        /// 실제 MessageBus 구현 전까지 Debug.Log로 거부 사유를 출력한다.
+        /// MessageBus를 통해 OrderRefused 메시지를 발행하며, 타이머 종료 후 Idle로 복귀한다.
         /// </summary>
         private void State_RefusingOrder()
         {
@@ -871,30 +935,90 @@ namespace AIVillage.AI
             Debug.Log($"[VillagerFSM] Replanning 진입. FallbackCounter={_brain.FallbackCounter}, Cooldown={_brain.ReplanCooldown:F2}초. AgentId={AgentId}");
         }
 
-        /// <summary>RefusingOrder 상태 진입 초기화. 거부 이유 결정 및 메시지 발행.</summary>
+        /// <summary>RefusingOrder 상태 진입 초기화. 거부 이유 결정 및 MessageBus를 통해 메시지 발행.</summary>
         private void EnterRefusingOrder()
         {
-            RefusalReasonCode reason = ConflictScoreCalculator.DetermineReason(_brain);
+            // ConflictScoreCalculator에서 현재 Brain 상태 기반으로 거부 이유 코드 결정
+            RefusalReasonCode refusalCode = ConflictScoreCalculator.DetermineReason(_brain);
             _brain.RefuseMessageTimer = REFUSE_DISPLAY_SEC;
 
-            // 2단계: MessageBus 미구현 → Debug.Log로 대체
-            // TODO: 3단계 — MessageBus.Publish(new AIMessage { Type = MessageType.OrderRefused, ... })
-            Debug.Log($"[VillagerFSM] 명령 거부. 이유: {reason}. AgentId={AgentId}");
+            // 거부 후 수행할 대안 Goal 결정 (먹기, 치료, 피하기 등)
+            _brain.AlternativeGoalId = DetermineAlternativeGoal(refusalCode);
 
-            // 거부 후 수행할 대안 Goal 결정
-            _brain.AlternativeGoalId = DetermineAlternativeGoal(reason);
+            // ── ConflictScoreData 재계산: 페이로드에 점수 정보를 포함시키기 위해 ──
+            // HasPendingOrder는 CommandConflict 핸들러에서 이미 false로 설정되었다.
+            // 여기서는 Brain에 저장된 마지막 PendingOrder로 점수를 재계산하기 어려우므로
+            // ConflictScore와 Threshold를 Brain에서 직접 읽는 대신 0으로 기록한다.
+            // TODO: 기획팀 — ConflictScoreData를 Brain에 캐싱하여 페이로드에 포함시킬지 확인 필요
+            //              현재는 UI/디버그보다 이벤트 전달 자체가 우선이므로 0 처리 허용
+            string refusalMessage = BuildRefusalMessage(refusalCode);
 
-            // 거부 메시지 발행 (2단계: 로그로 대체)
-            AIMessage refuseMsg = new AIMessage
+            // ── OrderRefused 페이로드 구성 ──────────────────────────────────────
+            var refusedPayload = new MessageBus.OrderRefusedPayload
             {
-                Type      = MessageType.OrderRefused,
-                Priority  = MessagePriority.Medium,
-                SenderId  = AgentId,
-                Payload   = reason,
-                IssuedAt  = Time.time
+                VillagerId        = AgentId,
+                RefusalReasonCode = refusalCode,
+                RefusalMessage    = refusalMessage,
+                ConflictScore     = 0f,    // TODO: Brain에 마지막 ConflictScoreData를 캐싱하면 실값 전달 가능
+                Threshold         = 0f,    // TODO: 동일
+                AlternativeGoalId = _brain.AlternativeGoalId,
+                LoyaltyLevel      = _brain.LoyaltyLevel
             };
-            // TODO: MessageBus.Instance.Publish(refuseMsg);
-            Debug.Log($"[VillagerFSM] OrderRefused 메시지 발행 (더미). 이유코드={reason}. AgentId={AgentId}");
+
+            // ── MessageBus를 통해 OrderRefused 발행 ─────────────────────────────
+            // UI 시스템이 이 메시지를 구독하여 화면에 거부 이유를 표시한다.
+            // MessageBus가 null이면 씬 초기화 순서 문제 — 경고만 출력하고 계속 진행한다.
+            if (MessageBus.Instance != null)
+            {
+                MessageBus.Instance.Publish(new AIMessage
+                {
+                    Type     = MessageType.OrderRefused,
+                    Priority = MessagePriority.Low,
+                    SenderId = AgentId,
+                    Payload  = refusedPayload,
+                    IssuedAt = Time.time
+                });
+            }
+            else
+            {
+                UnityEngine.Debug.LogWarning(
+                    $"[VillagerFSM] EnterRefusingOrder: MessageBus.Instance가 null입니다. " +
+                    $"OrderRefused 메시지를 발행할 수 없습니다. AgentId={AgentId}"
+                );
+            }
+
+            UnityEngine.Debug.Log(
+                $"[VillagerFSM] 명령 거부. 이유={refusalCode}, 대안Goal={_brain.AlternativeGoalId ?? "없음"}. " +
+                $"AgentId={AgentId}"
+            );
+        }
+
+        /// <summary>
+        /// RefusalReasonCode를 사람이 읽을 수 있는 한국어 메시지로 변환한다.
+        /// UI 시스템이 OrderRefusedPayload.RefusalMessage를 화면에 직접 표시한다.
+        /// TODO: 기획팀 — 로컬라이제이션 키 체계 도입 시 이 메서드를 LocalizationManager로 교체
+        /// </summary>
+        private string BuildRefusalMessage(RefusalReasonCode code)
+        {
+            switch (code)
+            {
+                case RefusalReasonCode.REFUSE_HUNGER:
+                    return "너무 배가 고파서 움직일 수 없습니다. 먼저 식사가 필요합니다.";
+                case RefusalReasonCode.REFUSE_INJURY:
+                    return "부상이 심해서 명령을 수행할 수 없습니다. 치료가 먼저입니다.";
+                case RefusalReasonCode.REFUSE_FATIGUE:
+                    return "탈진 상태입니다. 쉬지 않으면 쓰러집니다.";
+                case RefusalReasonCode.REFUSE_LOYALTY:
+                    return "당신의 명령을 따를 이유를 모르겠습니다.";
+                case RefusalReasonCode.REFUSE_DANGER:
+                    return "적이 근처에 있습니다. 무기 없이 그 명령은 수행할 수 없습니다.";
+                case RefusalReasonCode.REFUSE_NO_TOOL:
+                    return "도구가 없어서 채집할 수 없습니다.";
+                case RefusalReasonCode.REFUSE_INSUFFICIENT_RESOURCES:
+                    return "자원이 부족하여 건설할 수 없습니다.";
+                default:
+                    return $"명령을 거부합니다. (코드: {code})";
+            }
         }
 
         /// <summary>
@@ -929,18 +1053,114 @@ namespace AIVillage.AI
             // 4. 인벤토리 아이템 드롭
             DropInventoryItems();
 
-            // 5. VillagerDied 이벤트 발행
-            // [PR Fix]: F-004 — MessageBus가 없으므로 2단계에서는 C# static event를 통해 발행한다.
-            // GameManager나 UI 시스템이 VillagerFSM.OnVillagerDied를 Subscribe하여 처리한다.
-            // 3단계에서 MessageBus 연결 시 이 이벤트를 래핑하거나 OnVillagerDied 구독자를 교체한다.
-            // Debug.Log 더미는 디버깅 목적으로 유지한다.
-            Debug.Log($"[VillagerFSM] VillagerDied 이벤트 발행. AgentId={AgentId}, Tile=({_brain.TileX},{_brain.TileY})");
-            OnVillagerDied?.Invoke(AgentId, _brain.TileX, _brain.TileY);
+            // 5. VillagerDied 메시지 발행 (MessageBus 경유)
+            // ──────────────────────────────────────────────────────────────────
+            // 3단계: static OnVillagerDied event → MessageBus.Publish() 로 교체.
+            // GameManager가 MessageBus.Subscribe(MessageType.VillagerDied, ...)로
+            // 구독하여 사망 후처리(주변 주민 패널티, 드롭 아이템 스폰 등)를 수행한다.
+            // ──────────────────────────────────────────────────────────────────
+
+            // ── 드롭 아이템 목록 구성 ─────────────────────────────────────────
+            // _brain 인벤토리 플래그를 읽어 실제 드롭된 아이템을 기록한다.
+            // DropInventoryItems()가 이미 _worldState.DroppedItems에 추가했으므로
+            // 여기서는 메시지 페이로드 전달용으로만 사용한다.
+
+            // [PR Fix R-003]: 초기 용량을 4로 지정하여 내부 배열 재할당을 방지한다.
+            // 드롭 가능한 아이템 종류는 HasTool, HasWeapon, HasPrimitiveWeapon, HasFood 4종으로 고정이다.
+            // 용량 힌트를 주지 않으면 기본 용량(4)에서 Add 시 8 → 16 식으로 재할당이 발생할 수 있다.
+            var droppedItemList = new List<MessageBus.DroppedItemInfo>(4);
+
+            if (_brain.HasTool)
+            {
+                // 역할에 따라 도끼 또는 곡괭이
+                ItemType toolType = DetermineToolType(_brain.Role);
+                droppedItemList.Add(new MessageBus.DroppedItemInfo
+                {
+                    ItemType = toolType,
+                    TileX    = _brain.TileX,
+                    TileY    = _brain.TileY
+                });
+            }
+
+            if (_brain.HasWeapon)
+            {
+                droppedItemList.Add(new MessageBus.DroppedItemInfo
+                {
+                    ItemType = ItemType.Weapon,
+                    TileX    = _brain.TileX,
+                    TileY    = _brain.TileY
+                });
+            }
+
+            if (_brain.HasPrimitiveWeapon)
+            {
+                droppedItemList.Add(new MessageBus.DroppedItemInfo
+                {
+                    ItemType = ItemType.PrimitiveWeapon,
+                    TileX    = _brain.TileX,
+                    TileY    = _brain.TileY
+                });
+            }
+
+            if (_brain.HasFood)
+            {
+                droppedItemList.Add(new MessageBus.DroppedItemInfo
+                {
+                    ItemType = ItemType.Food,
+                    TileX    = _brain.TileX,
+                    TileY    = _brain.TileY
+                });
+            }
+
+            // ── VillagerDiedPayload 구성 ──────────────────────────────────────
+            var diedPayload = new MessageBus.VillagerDiedPayload
+            {
+                VillagerId        = AgentId,
+                DeathTileX        = _brain.TileX,
+                DeathTileY        = _brain.TileY,
+                DroppedItems      = droppedItemList.ToArray(),
+                // NearbyVillagerIds: GameManager가 구독 콜백에서 공간 쿼리로 채워야 한다.
+                // Publish 시점의 VillagerFSM은 다른 주민 목록을 알 수 없으므로 빈 배열로 초기화.
+                NearbyVillagerIds = System.Array.Empty<string>()
+            };
+
+            // ── MessageBus로 VillagerDied 발행 ────────────────────────────────
+            if (MessageBus.Instance != null)
+            {
+                MessageBus.Instance.Publish(new AIMessage
+                {
+                    Type     = MessageType.VillagerDied,
+                    Priority = MessagePriority.High,
+                    SenderId = AgentId,
+                    Payload  = diedPayload,
+                    IssuedAt = Time.time
+                });
+
+                UnityEngine.Debug.Log(
+                    $"[VillagerFSM] VillagerDied 메시지 발행 완료. " +
+                    $"AgentId={AgentId}, Tile=({_brain.TileX},{_brain.TileY}), " +
+                    $"드롭아이템={droppedItemList.Count}개"
+                );
+            }
+            else
+            {
+                // MessageBus가 초기화되지 않은 경우 경고 출력
+                // 씬 전환 중이거나 초기화 순서 문제일 수 있다
+                UnityEngine.Debug.LogWarning(
+                    $"[VillagerFSM] EnterDead: MessageBus.Instance가 null입니다. " +
+                    $"VillagerDied 메시지를 발행할 수 없습니다. AgentId={AgentId}"
+                );
+            }
 
             // 6. 주변 주민 loyalty/mood 패널티
-            // 2단계: 저장만 수행, MessageBus 구현 후 전파
-            // TODO: 3단계 — 주변 주민에게 mood -= 10, loyalty -= 5 전파
-            Debug.Log($"[VillagerFSM] 주변 주민 loyalty/mood 패널티 기록 (2단계 더미). AgentId={AgentId}");
+            // GameManager가 VillagerDied 메시지를 구독하여 NearbyVillagerIds를 채우고
+            // 각 주민에게 ReceiveMessage(VillagerDied)를 전달하면,
+            // ProcessMessageQueue()의 VillagerDied 핸들러가 mood -= 5, loyalty -= 2를 적용한다.
+            // (VillagerFSM.ProcessMessageQueue() 라인 참조)
+            UnityEngine.Debug.Log(
+                $"[VillagerFSM] 주변 주민 loyalty/mood 패널티는 GameManager의 VillagerDied 구독 콜백에서 처리됩니다. " +
+                $"AgentId={AgentId}"
+            );
 
             // 7. 5초 후 GameObject 비활성화 (연출 시간 확보)
             // [PR Fix]: F-007 — StartCoroutine 반환값을 _deactivateCoroutine 필드에 저장한다.
@@ -1030,7 +1250,13 @@ namespace AIVillage.AI
 
         /// <summary>
         /// Action ID를 기반으로 자원 예약을 시도한다.
-        /// 2단계: 간소화된 더미 예약 (Action별 정확한 소비량은 3단계에서 정의).
+        ///
+        /// 4단계: ActionDatabase에서 actionId별 ResourceCosts 테이블을 조회하여
+        ///        다중 자원 예약을 수행한다. 하나라도 실패하면 전체 롤백하고 false 반환.
+        ///        ActionDatabase가 주입되지 않았으면 기존 더미 로직으로 폴백한다.
+        ///
+        /// 예약 성공 시 _pendingResourceCosts에 소비 목록을 캐싱하고
+        /// _hasActiveReservation = true로 설정한다.
         /// </summary>
         /// <returns>예약 성공 또는 예약 불필요(true), 예약 실패(false)</returns>
         private bool TryReserveForAction(string actionId)
@@ -1038,12 +1264,64 @@ namespace AIVillage.AI
             if (_registry == null)
             {
                 Debug.LogWarning($"[VillagerFSM] TryReserveForAction: _registry가 null입니다. AgentId={AgentId}");
-                // Registry 없으면 예약 없이 진행 (더미 모드)
+                return true; // Registry 없으면 예약 없이 진행 (더미 모드)
+            }
+
+            // ── 4단계: ActionDatabase 조회 ────────────────────────────────────
+            if (_actionDatabase != null)
+            {
+                // ActionDatabase에 해당 Action 정의가 없거나 소비 자원이 없으면 예약 불필요
+                if (!_actionDatabase.TryGetAction(actionId, out ActionDefinition def))
+                {
+                    // 등록되지 않은 Action은 자원 소비 없음으로 간주 (Explore, MoveToBase 등)
+                    return true;
+                }
+
+                if (def.ResourceCosts == null || def.ResourceCosts.Length == 0)
+                {
+                    // 자원 소비 없는 Action (ChopWood, MineStone 등 수집 Action)
+                    return true;
+                }
+
+                // ── 다중 자원 예약 시도 (전부 성공해야 진행) ─────────────────────
+                // 예약 성공 목록을 로컬 리스트에 누적하다가 하나라도 실패 시 전체 롤백
+                var successfulReservations = new System.Collections.Generic.List<(ResourceType, float)>(
+                    def.ResourceCosts.Length);
+
+                foreach (ResourceCostEntry cost in def.ResourceCosts)
+                {
+                    bool reserved = _registry.Reserve(AgentId, cost.ResourceType, cost.Amount);
+
+                    if (reserved)
+                    {
+                        successfulReservations.Add((cost.ResourceType, cost.Amount));
+                    }
+                    else
+                    {
+                        // 하나라도 실패 → 이미 예약 성공한 자원 전부 롤백
+                        foreach (var (rollbackType, rollbackAmount) in successfulReservations)
+                        {
+                            _registry.Release(AgentId, rollbackType, rollbackAmount);
+                        }
+
+                        Debug.Log($"[VillagerFSM] TryReserveForAction: '{actionId}' 다중 예약 실패 " +
+                                  $"(실패 자원: {cost.ResourceType} {cost.Amount:F0}). 전체 롤백 완료. AgentId={AgentId}");
+                        return false;
+                    }
+                }
+
+                // 전체 예약 성공 — _pendingResourceCosts에 캐싱
+                // [PR Fix R-005]: def.ResourceCosts를 직접 참조하면 에디터 핫 리로드 시
+                // ScriptableObject가 재로드될 때 구 버전 배열을 가리키는 문제가 생긴다.
+                // Clone()으로 독립적인 사본을 만들어 참조 안전성을 확보한다.
+                _pendingResourceCosts = (ResourceCostEntry[])def.ResourceCosts.Clone();
+                _hasActiveReservation = successfulReservations.Count > 0;
+
                 return true;
             }
 
-            // 2단계 더미 예약 로직
-            // TODO: 3단계 — ActionDatabase에서 actionId별 ResourceCost 테이블 조회
+            // ── Fallback: ActionDatabase 없으면 기존 단일 자원 더미 로직 ──────
+            // 2단계 더미 예약 로직 (ActionDatabase 주입 전 호환성 유지)
             ResourceType reserveType;
             float        reserveAmount;
 
@@ -1064,39 +1342,68 @@ namespace AIVillage.AI
                     break;
                 case "BuildTownHall":
                     reserveType   = ResourceType.Wood;
-                    reserveAmount = 10f;
+                    reserveAmount = 35f; // 기획서 수치: Wood 35
+                    break;
+                case "BuildForge":
+                    reserveType   = ResourceType.Wood;
+                    reserveAmount = 20f; // 기획서 수치: Wood 20 (다중 자원 중 대표값)
                     break;
                 default:
                     // 자원 소비 없는 Action (이동, 수집 자체, 전투 등)
                     return true;
             }
 
-            bool success = _registry.Reserve(AgentId, reserveType, reserveAmount);
-            if (success)
+            bool fallbackSuccess = _registry.Reserve(AgentId, reserveType, reserveAmount);
+            if (fallbackSuccess)
             {
-                _reservedResourceType  = reserveType;
-                _reservedAmount        = reserveAmount;
-                _hasActiveReservation  = true;
+                // 단일 자원 더미 예약 — 기존 필드에 저장
+                _reservedResourceType = reserveType;
+                _reservedAmount       = reserveAmount;
+                _hasActiveReservation = true;
+                // _pendingResourceCosts는 null 유지 (Commit/Release에서 단일 필드 사용)
+                _pendingResourceCosts = null;
             }
 
-            return success;
+            return fallbackSuccess;
         }
 
         /// <summary>
         /// Action 완료 시 자원 Commit과 Brain 효과(Effect) 적용을 수행한다.
+        ///
+        /// 4단계 변경: _pendingResourceCosts가 있으면(ActionDatabase 경로) 다중 Commit 수행.
+        ///             없으면(더미 폴백 경로) 기존 단일 Commit 수행.
         /// </summary>
         private void OnActionCompleted(string actionId)
         {
             if (string.IsNullOrEmpty(actionId)) return;
 
-            // 자원 Commit (예약된 자원을 실제로 차감)
+            // ── 자원 Commit: 예약된 자원을 실제로 차감 ───────────────────────
             if (_hasActiveReservation && _registry != null)
             {
-                bool committed = _registry.Commit(AgentId, _reservedResourceType, _reservedAmount);
-                if (!committed)
+                if (_pendingResourceCosts != null && _pendingResourceCosts.Length > 0)
                 {
-                    Debug.LogWarning($"[VillagerFSM] Action '{actionId}' Commit 실패. AgentId={AgentId}");
+                    // 4단계: ActionDatabase 경로 — 다중 자원 Commit
+                    foreach (ResourceCostEntry cost in _pendingResourceCosts)
+                    {
+                        bool committed = _registry.Commit(AgentId, cost.ResourceType, cost.Amount);
+                        if (!committed)
+                        {
+                            Debug.LogWarning($"[VillagerFSM] Action '{actionId}' 다중 Commit 실패. " +
+                                             $"자원: {cost.ResourceType} {cost.Amount:F0}. AgentId={AgentId}");
+                        }
+                    }
+                    _pendingResourceCosts = null;
                 }
+                else
+                {
+                    // 더미 폴백 경로 — 단일 자원 Commit
+                    bool committed = _registry.Commit(AgentId, _reservedResourceType, _reservedAmount);
+                    if (!committed)
+                    {
+                        Debug.LogWarning($"[VillagerFSM] Action '{actionId}' Commit 실패. AgentId={AgentId}");
+                    }
+                }
+
                 _hasActiveReservation = false;
             }
 
@@ -1107,82 +1414,236 @@ namespace AIVillage.AI
         }
 
         /// <summary>
-        /// Action 완료 시 Brain의 수치에 효과를 적용한다.
-        /// 2단계: 더미 효과값 사용. 3단계에서 ActionDatabase로 교체.
-        /// TODO: 기획팀 — 각 Action의 정확한 수치 효과 확인 필요
+        /// Action 완료 시 Brain의 수치 또는 WorldState 플래그에 효과를 적용한다.
+        ///
+        /// 4단계: ActionDatabase가 주입되어 있으면 ActionDefinition.Effects[] 배열을 순회하여
+        ///        ActionEffectType별로 처리한다.
+        ///        ActionDatabase가 없으면 기존 더미 switch 로직으로 폴백한다.
+        ///
+        /// 참고: ConsumeResource 효과는 OnActionCompleted()의 Commit 단계에서 이미 처리되므로
+        ///       여기서는 Brain 수치 변경과 WorldState 플래그 갱신만 수행한다.
         /// </summary>
         private void ApplyActionEffect(string actionId)
         {
+            // ── 4단계: ActionDatabase 경로 ────────────────────────────────────
+            if (_actionDatabase != null)
+            {
+                if (!_actionDatabase.TryGetAction(actionId, out ActionDefinition def))
+                {
+                    // 등록되지 않은 Action은 효과 없음으로 처리
+                    return;
+                }
+
+                if (def.Effects == null || def.Effects.Length == 0) return;
+
+                foreach (ActionEffect effect in def.Effects)
+                {
+                    // ── 효과 타입별 처리 ──────────────────────────────────────
+                    switch (effect.EffectType)
+                    {
+                        // 자원 획득: WorldState 재고 증가
+                        case ActionEffectType.GainResource:
+                            if (_worldState != null)
+                            {
+                                float current = _worldState.GetStock(effect.ResourceType);
+                                _worldState.SetStock(effect.ResourceType, current + effect.Amount);
+                            }
+                            break;
+
+                        // 자원 소비: Commit 단계에서 처리됨 — 여기서는 건너뜀
+                        case ActionEffectType.ConsumeResource:
+                            // OnActionCompleted()의 Registry.Commit()이 이미 처리함
+                            break;
+
+                        // Brain 수치: 배고픔 감소 (하한 0 클램프)
+                        case ActionEffectType.ReduceHunger:
+                            _brain.HungerLevel = Mathf.Max(0f, _brain.HungerLevel - effect.Amount);
+                            break;
+
+                        // Brain 수치: 피로 감소 — 땅에서 쉬기 (20 감소)
+                        case ActionEffectType.ReduceFatigue:
+                            _brain.FatigueLevel = Mathf.Max(0f, _brain.FatigueLevel - effect.Amount);
+                            break;
+
+                        // Brain 수치: 피로 회복 — 수면 (90 감소)
+                        // ReduceFatigue와 수식은 같지만 GameDesign상 의미가 다르므로 분리
+                        case ActionEffectType.RestoreFatigue:
+                            _brain.FatigueLevel = Mathf.Max(0f, _brain.FatigueLevel - effect.Amount);
+                            break;
+
+                        // Brain 수치: 체력 회복 (상한 100 클램프)
+                        case ActionEffectType.GainHealth:
+                            _brain.HealthLevel = Mathf.Min(100f, _brain.HealthLevel + effect.Amount);
+                            break;
+
+                        // Brain 수치: 피로 증가 (수집/전투 부작용, 상한 100 클램프)
+                        case ActionEffectType.IncreaseFatigue:
+                            _brain.FatigueLevel = Mathf.Min(100f, _brain.FatigueLevel + effect.Amount);
+                            break;
+
+                        // Brain 수치: 기분 향상
+                        case ActionEffectType.GainMood:
+                            _brain.MoodLevel = Mathf.Min(100f, _brain.MoodLevel + effect.Amount);
+                            break;
+
+                        // Brain 위치 플래그: 기지 도착 완료
+                        case ActionEffectType.SetAtBase:
+                            _brain.AtBase = true;
+                            break;
+
+                        // Brain 환경 플래그: 모닥불 근처 (건설 완료 후)
+                        case ActionEffectType.SetNearFireplace:
+                            _brain.NearFireplace = true;
+                            break;
+
+                        // WorldState 건물 완료 플래그
+                        case ActionEffectType.SetCampfireBuilt:
+                            // 모닥불 완료: NearFireplace는 SensorSystem이 갱신
+                            _brain.NearFireplace = true;
+                            break;
+
+                        case ActionEffectType.SetHouseBuilt:
+                            // WorldState에 HouseBuilt 필드 없음 — 미래 확장 시 추가
+                            Debug.Log("[VillagerFSM] ApplyActionEffect: SetHouseBuilt — 미래 구현 예정.");
+                            break;
+
+                        case ActionEffectType.SetStorehouseBuilt:
+                            if (_worldState != null) _worldState.StorehouseBuilt = true;
+                            break;
+
+                        case ActionEffectType.SetTownHallBuilt:
+                            if (_worldState != null) _worldState.TownHallBuilt = true;
+                            break;
+
+                        case ActionEffectType.SetForgeBuilt:
+                            if (_worldState != null) _worldState.ForgeBuilt = true;
+                            break;
+
+                        case ActionEffectType.SetWatchtowerBuilt:
+                            // WorldState에 WatchtowerBuilt 필드 없음 — 미래 확장 시 추가
+                            Debug.Log("[VillagerFSM] ApplyActionEffect: SetWatchtowerBuilt — 미래 구현 예정.");
+                            break;
+
+                        // Brain 인벤토리 플래그
+                        case ActionEffectType.SetHasTool:
+                            _brain.HasTool = true;
+                            break;
+
+                        case ActionEffectType.SetHasPrimitiveWeapon:
+                            _brain.HasPrimitiveWeapon = true;
+                            break;
+
+                        case ActionEffectType.SetHasWeapon:
+                            _brain.HasWeapon = true;
+                            break;
+
+                        // 탐험 효과: FoW isDiscovered 갱신 (미래 TileMap 시스템에서 구현)
+                        case ActionEffectType.DiscoverNearby:
+                            // TODO: TileMap/FoW 시스템 구현 후 주변 타일 isDiscovered = true 처리
+                            Debug.Log("[VillagerFSM] ApplyActionEffect: DiscoverNearby — FoW 시스템 연동 예정.");
+                            break;
+
+                        default:
+                            Debug.LogWarning($"[VillagerFSM] ApplyActionEffect: 처리되지 않은 ActionEffectType " +
+                                             $"'{effect.EffectType}'. Action='{actionId}'. AgentId={AgentId}");
+                            break;
+                    }
+                }
+
+                return; // ActionDatabase 경로 처리 완료
+            }
+
+            // ── Fallback: ActionDatabase 없으면 기존 더미 switch 로직 ──────────
+            // 2단계 하드코딩 효과 — ActionDatabase 주입 전 호환성 유지
             switch (actionId)
             {
                 case "EatCookedFood":
-                    _brain.HungerLevel  = Mathf.Max(0f, _brain.HungerLevel  - 40f);
-                    _brain.MoodLevel    = Mathf.Min(100f, _brain.MoodLevel   + 5f);
+                    _brain.HungerLevel = Mathf.Max(0f, _brain.HungerLevel  - 50f); // 기획서 수치
+                    _brain.MoodLevel   = Mathf.Min(100f, _brain.MoodLevel   + 5f);
                     break;
                 case "EatRawFood":
-                    // 생 식량은 효율이 낮음 (기획서: CookedFood의 절반 효과)
-                    _brain.HungerLevel  = Mathf.Max(0f, _brain.HungerLevel  - 20f);
+                    _brain.HungerLevel = Mathf.Max(0f, _brain.HungerLevel   - 15f); // 기획서 수치
                     break;
-                // [PR Fix]: F-005 — Sleep과 RestOnGround를 동일 case에서 처리하던 구조를 분리한다.
-                // 기존 코드는 두 Action을 같은 case에 묶은 뒤 if(actionId == "RestOnGround")로 분기하여
-                // -50 후 +20 = 순 -30 만 적용되는 dead code가 존재했다.
-                // 각 Action의 회복량을 상수로 명시하고 단일 수식으로 정리한다.
                 case "Sleep":
-                    // 침대에서 수면: 충분한 회복 (기획서: 피로 90 감소)
                     _brain.FatigueLevel = Mathf.Max(0f, _brain.FatigueLevel - SLEEP_FATIGUE_RECOVERY);
                     break;
                 case "RestOnGround":
-                    // 땅에서 쉬기: 수면보다 회복 효율 낮음 (기획서: 피로 20 감소)
                     _brain.FatigueLevel = Mathf.Max(0f, _brain.FatigueLevel - REST_ON_GROUND_FATIGUE_RECOVERY);
                     break;
                 case "SeekMedicalAid":
                     _brain.HealthLevel  = Mathf.Min(100f, _brain.HealthLevel + 40f);
                     break;
                 case "ChopWood":
-                    // 나무 수집: WorldState에 Wood 추가
-                    if (_worldState != null)
-                        _worldState.WoodStock += 5f; // TODO: 기획팀 — 수집량 확인
+                    if (_worldState != null) _worldState.WoodStock  += 10f; // 기획서 수치: wood += 10
                     _brain.FatigueLevel = Mathf.Min(100f, _brain.FatigueLevel + 10f);
-                    _brain.HasTool      = true; // 도끼를 사용했다는 전제
                     break;
                 case "MineStone":
-                    if (_worldState != null)
-                        _worldState.StoneStock += 3f; // TODO: 기획팀 — 수집량 확인
+                    if (_worldState != null) _worldState.StoneStock += 8f;  // 기획서 수치: stone += 8
+                    _brain.FatigueLevel = Mathf.Min(100f, _brain.FatigueLevel + 15f);
+                    break;
+                case "MineIron":
+                    if (_worldState != null) _worldState.IronStock  += 5f;  // 기획서 수치: iron += 5
                     _brain.FatigueLevel = Mathf.Min(100f, _brain.FatigueLevel + 15f);
                     break;
                 case "CookMeal":
-                    // 요리: RawFood 3 → CookedFood 2 (Commit은 RawFood 3을 처리, 여기서 CookedFood 추가)
-                    if (_worldState != null)
-                        _worldState.CookedFoodStock += 2f;
+                    if (_worldState != null) _worldState.CookedFoodStock += 2f; // 기획서 수치: cookedFood += 2
                     break;
                 case "AttackEnemy":
                     _brain.FatigueLevel = Mathf.Min(100f, _brain.FatigueLevel + 20f);
                     break;
                 case "CraftPrimitiveWeapon":
-                    _brain.HasPrimitiveWeapon = true;
+                case "CraftWeapon":
+                    _brain.HasWeapon = true;
                     break;
                 case "Explore":
-                    _brain.FatigueLevel = Mathf.Min(100f, _brain.FatigueLevel + 5f);
+                    _brain.FatigueLevel = Mathf.Min(100f, _brain.FatigueLevel + 5f); // 기획서 수치: fatigue += 5
                     break;
-                // BuildTownHall, MoveToBase, 기타 Action은 효과 없음 (2단계 더미)
+                case "SetTownHallBuilt":
+                case "BuildTownHall":
+                    if (_worldState != null) _worldState.TownHallBuilt = true;
+                    break;
+                case "BuildForge":
+                    if (_worldState != null) _worldState.ForgeBuilt = true;
+                    break;
+                case "BuildStorehouse":
+                    if (_worldState != null) _worldState.StorehouseBuilt = true;
+                    break;
+                // MoveToBase, MoveToTarget, FleeFromEnemy, AlertVillage 등: 더미에서 효과 없음
             }
         }
 
         /// <summary>
         /// 현재 활성화된 자원 예약을 해제한다.
         /// Replanning 진입 또는 비정상 Executing 탈출 시 호출한다.
+        ///
+        /// 4단계 변경: _pendingResourceCosts가 있으면(ActionDatabase 경로) 다중 Release 수행.
+        ///             없으면(더미 폴백 경로) 기존 단일 Release 수행.
         /// </summary>
         private void ReleaseCurrentReservation()
         {
             if (!_hasActiveReservation) return;
 
-            if (_registry != null)
+            if (_registry == null)
             {
-                _registry.Release(AgentId, _reservedResourceType, _reservedAmount);
+                Debug.LogWarning($"[VillagerFSM] ReleaseCurrentReservation: _registry가 null입니다. AgentId={AgentId}");
+                _hasActiveReservation = false;
+                _pendingResourceCosts = null;
+                return;
+            }
+
+            if (_pendingResourceCosts != null && _pendingResourceCosts.Length > 0)
+            {
+                // 4단계: ActionDatabase 경로 — 다중 자원 해제
+                foreach (ResourceCostEntry cost in _pendingResourceCosts)
+                {
+                    _registry.Release(AgentId, cost.ResourceType, cost.Amount);
+                }
+                _pendingResourceCosts = null;
             }
             else
             {
-                Debug.LogWarning($"[VillagerFSM] ReleaseCurrentReservation: _registry가 null입니다. AgentId={AgentId}");
+                // 더미 폴백 경로 — 단일 자원 해제
+                _registry.Release(AgentId, _reservedResourceType, _reservedAmount);
             }
 
             _hasActiveReservation = false;
@@ -1302,8 +1763,23 @@ namespace AIVillage.AI
         {
             _brain.NeedsHelp = true;
 
-            // Fallback Goal 결정: 배고프면 RestOnGround, 그 외 MoveToBase
-            string fallbackGoal = _brain.HungerLevel < 50f ? "RestOnGround" : "MoveToBase";
+            // [PR Fix R-007]: 기존 폴백 로직(HungerLevel < 50 → RestOnGround)은 P0 생존 위기가
+            // 이미 실패한 Deadlock 상황에서 부적절하다. 허기가 낮다고 RestOnGround로 가면
+            // 오히려 Goal을 잃고 표류할 위험이 크다.
+            // 기본 폴백을 MoveToBase로 설정하고, P0 Goal이 활성 상태이면 해당 Goal을 우선 사용한다.
+            // P0 Goal이 이미 실패하여 Deadlock에 빠진 경우에도 기지 복귀가 가장 안전한 행동이다.
+            string fallbackGoal;
+
+            if (IsP0GoalActive())
+            {
+                // P0 Goal이 활성이면 해당 Goal ID를 우선 사용 (SurviveInjury/SurviveHunger/SurviveFatigue)
+                fallbackGoal = GetP0GoalId() ?? "MoveToBase";
+            }
+            else
+            {
+                // P0 Goal이 없는 일반 Deadlock: 기지 복귀를 기본 폴백으로 설정
+                fallbackGoal = "MoveToBase";
+            }
 
             Debug.LogWarning($"[VillagerFSM] Deadlock 감지! FallbackCounter={_brain.FallbackCounter}. " +
                              $"NeedsHelp=true. FallbackGoal={fallbackGoal}. AgentId={AgentId}");
@@ -1356,70 +1832,122 @@ namespace AIVillage.AI
         }
 
         /// <summary>
-        /// 수신된 AI 메시지 큐를 처리한다. Tick() 시작 시 호출된다.
-        /// EnemyDetected → LOD_Alert 전이, OrderIssued → CommandConflict 전이 등을 처리한다.
+        /// 수신된 AI 메시지 큐를 우선순위 순으로 처리한다. Tick() 시작 시 호출된다.
+        /// High(0) 버킷부터 순서대로 처리하며, 각 버킷 내부는 FIFO 순서를 따른다.
+        ///
+        /// 안전 처리:
+        ///   - 처리 시작 시점의 메시지 개수만큼만 처리한다 (배치 스냅샷 패턴).
+        ///   - 처리 중 ReceiveMessage()로 새 메시지가 추가되면 다음 Tick에서 처리된다.
+        ///   - 이를 통해 무한 루프(처리 → 새 메시지 추가 → 처리 → ...)를 방지한다.
         /// </summary>
         private void ProcessMessageQueue()
         {
-            // [PR Fix]: F-006 — 큐 스냅샷(snapshot) 패턴 적용.
-            // _messageQueue 필드는 readonly이므로 참조 교체가 불가능하다.
-            // 대신 처리 시작 시점의 메시지 개수를 캡처(messageCountThisBatch)하여
-            // 그 수만큼만 Dequeue한다.
-            // 처리 중(예: TryExecuteOrder 내부)에 새 메시지가 추가되면 큐 뒤에 쌓이지만
-            // 현재 for 루프에서는 처리하지 않고 다음 Tick에서 처리된다.
-            // 이를 통해 큐가 무한히 자라나는 무한루프 위험을 방지한다.
-            int messageCountThisBatch = _messageQueue.Count;
-
-            for (int i = 0; i < messageCountThisBatch; i++)
+            // ── 배치 스냅샷: 각 버킷의 현재 개수를 미리 캡처 ───────────────────
+            // SortedList는 key 오름차순(0=High → 1=Medium → 2=Low)으로 순회된다.
+            foreach (KeyValuePair<int, List<AIMessage>> bucket in _messageQueue)
             {
-                if (_messageQueue.Count == 0) break; // 안전 장치: 예상치 못한 외부 Dequeue 대비
+                List<AIMessage> messages = bucket.Value;
+                if (messages.Count == 0) continue;
 
-                AIMessage msg = _messageQueue.Dequeue();
+                // 처리 시작 시점의 메시지 수만큼만 처리 (배치 스냅샷 패턴)
+                // 처리 중 추가된 메시지는 messages.Count가 증가하지만 for 조건에 포함되지 않는다.
+                int countThisBatch = messages.Count;
 
-                switch (msg.Type)
+                for (int i = 0; i < countThisBatch; i++)
                 {
-                    case MessageType.EnemyDetected:
-                        // LOD 모드에서 적 탐지 시 LOD_Alert로 전이
-                        if (_brain.FSMState == VillagerState.LOD_FSM)
-                        {
-                            TransitionToLOD(LODState.LOD_Alert);
-                        }
-                        // 일반 모드에서는 NearEnemy 플래그 갱신으로 처리 (SensorSystem이 Brain을 직접 갱신)
-                        break;
+                    AIMessage msg = messages[i];
+                    HandleMessage(msg);
+                }
 
-                    case MessageType.OrderIssued:
-                        // 외부에서 메시지로 명령을 전달하는 경우 (TryExecuteOrder 경유 없이)
-                        // payload가 PlayerOrder인지 확인
-                        if (msg.Payload is PlayerOrder orderFromMsg)
-                        {
-                            TryExecuteOrder(orderFromMsg);
-                        }
-                        break;
-
-                    case MessageType.ResourceDepleted:
-                        // 현재 수집 중인 자원이 고갈되면 재플래닝
-                        if (_brain.FSMState == VillagerState.Executing
-                            && (_brain.CurrentActionId == "ChopWood"
-                                || _brain.CurrentActionId == "MineStone"))
-                        {
-                            Debug.Log($"[VillagerFSM] 자원 고갈 메시지 수신. Replanning. AgentId={AgentId}");
-                            TransitionTo(VillagerState.Replanning);
-                        }
-                        break;
-
-                    case MessageType.VillagerDied:
-                        // 동료 사망 → mood와 loyalty 소폭 감소
-                        // 2단계: Brain에만 저장, 실제 전파는 3단계 MessageBus 구현 후
-                        _brain.MoodLevel    = Mathf.Max(0f, _brain.MoodLevel    - 5f);
-                        _brain.LoyaltyLevel = Mathf.Max(0f, _brain.LoyaltyLevel - 2f);
-                        break;
+                // 이번 배치에서 처리한 메시지를 제거한다.
+                // countThisBatch 이후에 추가된 메시지는 남긴다.
+                if (messages.Count == countThisBatch)
+                {
+                    // 처리 중 추가된 메시지가 없는 일반 케이스: 전체 Clear로 빠르게 처리
+                    messages.Clear();
+                }
+                else
+                {
+                    // 처리 중 ReceiveMessage()로 새 메시지가 추가된 케이스:
+                    // 앞의 countThisBatch 개만 제거하고 뒤에 추가된 메시지는 남긴다.
+                    messages.RemoveRange(0, countThisBatch);
                 }
             }
         }
 
         /// <summary>
-        /// Goal ID와 Brain 상태를 기반으로 더미 플랜 결과를 반환한다.
-        /// 3단계에서 실제 GOAP Job System으로 교체될 예정.
+        /// 단일 AIMessage를 처리하여 FSM 상태 전이 또는 Brain 수치 갱신을 수행한다.
+        /// ProcessMessageQueue()의 내부 루프에서 호출된다.
+        /// </summary>
+        private void HandleMessage(AIMessage msg)
+        {
+            switch (msg.Type)
+            {
+                case MessageType.EnemyDetected:
+                    // LOD 모드에서 적 탐지 시 즉시 LOD_Alert로 전이하여 Full GOAP 복귀 준비
+                    if (_brain.FSMState == VillagerState.LOD_FSM)
+                    {
+                        TransitionToLOD(LODState.LOD_Alert);
+                    }
+                    // 일반 모드에서는 SensorSystem이 Brain.NearEnemy 플래그를 직접 갱신한다.
+                    // Update()의 AnyState P0 체크가 즉시 반응하므로 여기서는 별도 전이 불필요.
+                    break;
+
+                case MessageType.OrderIssued:
+                    // MessageBus를 통해 외부에서 명령이 도착한 경우 (TryExecuteOrder 경유 없이)
+                    // Payload가 OrderIssuedPayload인지 확인 후 PlayerOrder로 변환하여 처리
+                    if (msg.Payload is MessageBus.OrderIssuedPayload orderPayload
+                        && orderPayload.TargetVillagerId == AgentId)
+                    {
+                        TryExecuteOrder(new PlayerOrder
+                        {
+                            TargetVillagerId = orderPayload.TargetVillagerId,
+                            OrderType        = orderPayload.OrderType,
+                            TargetTileX      = orderPayload.TargetTileX,
+                            TargetTileY      = orderPayload.TargetTileY,
+                            BuildingTypeId   = orderPayload.BuildingTypeId,
+                            IssuedAt         = orderPayload.IssuedAt
+                        });
+                    }
+                    break;
+
+                case MessageType.ResourceDepleted:
+                    // 현재 수집 중인 자원이 고갈되면 즉시 재플래닝
+                    // ChopWood와 MineStone 외의 Action은 영향을 받지 않는다.
+                    if (_brain.FSMState == VillagerState.Executing
+                        && (_brain.CurrentActionId == "ChopWood"
+                            || _brain.CurrentActionId == "MineStone"))
+                    {
+                        UnityEngine.Debug.Log(
+                            $"[VillagerFSM] 자원 고갈 메시지 수신 → Replanning. " +
+                            $"Action={_brain.CurrentActionId}, AgentId={AgentId}"
+                        );
+                        TransitionTo(VillagerState.Replanning);
+                    }
+                    break;
+
+                case MessageType.VillagerDied:
+                    // 동료 사망 소식 수신 → 심리적 충격: mood와 loyalty 소폭 감소
+                    // 기획서 수치: mood -= 5, loyalty -= 2 (TODO: 기획팀 최종 수치 확인)
+                    _brain.MoodLevel    = Mathf.Max(0f, _brain.MoodLevel    - 5f);
+                    _brain.LoyaltyLevel = Mathf.Max(0f, _brain.LoyaltyLevel - 2f);
+                    break;
+
+                // RaidDecision, ResourceDiscovered, OrderRefused:
+                // 현재 VillagerFSM이 직접 처리할 로직 없음 → 무시 (GameManager가 처리)
+                default:
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// Goal ID와 Brain 상태를 기반으로 플랜 결과를 반환한다.
+        ///
+        /// 4단계 변경: ActionDatabase가 주입되어 있으면 GetDefaultActionSequence()에 위임한다.
+        ///             ActionDatabase가 없으면 기존 더미 switch 로직으로 폴백한다.
+        ///
+        /// 5단계에서 실제 GOAP Job System으로 교체될 예정.
+        /// TODO: 5단계 — WorldStateSnapshot + GOAPPlannerJob 스케줄링으로 교체
         /// </summary>
         private GOAPPlanResult SimulatePlanResult(string goalId)
         {
@@ -1427,13 +1955,58 @@ namespace AIVillage.AI
             {
                 return new GOAPPlanResult
                 {
-                    AgentId    = AgentId,
-                    Success    = false,
-                    ResultType = PlanResultType.NoSolutionFound,
+                    AgentId        = AgentId,
+                    Success        = false,
+                    ResultType     = PlanResultType.NoSolutionFound,
                     ActionSequence = null
                 };
             }
 
+            // ── 4단계: ActionDatabase 경로 ────────────────────────────────────
+            // [PR Fix R-004]: 기존 '_actionDatabase != null && _worldState != null' 복합 조건에서
+            // _worldState null 체크를 분리한다. 이전 코드에서는 worldState가 null이면
+            // ActionDatabase가 정상 주입되어도 조용히 더미 폴백으로 떨어져 디버깅이 어려웠다.
+            // 이제 _worldState가 null인 경우 명시적으로 LogError를 출력하고 별도 폴백 처리한다.
+            if (_actionDatabase != null && _brain != null && _registry != null)
+            {
+                if (_worldState == null)
+                {
+                    // worldState만 없는 경우: ActionDatabase는 있지만 월드 상태를 읽을 수 없음.
+                    // 이 상황은 InjectDependencies()가 올바르게 호출되지 않은 것이므로
+                    // 조용한 폴백 대신 명시적 에러로 디버깅을 돕는다.
+                    Debug.LogError($"[VillagerFSM] SimulatePlanResult: _worldState가 null입니다. " +
+                                   $"ActionDatabase 경로를 사용할 수 없으므로 더미 폴백으로 전환합니다. " +
+                                   $"GameManager.InjectDependencies() 호출 순서를 확인하세요. AgentId={AgentId}");
+                    // 아래 더미 폴백으로 fall-through
+                }
+                else
+                {
+                    string[] sequence = _actionDatabase.GetDefaultActionSequence(
+                        goalId,
+                        _brain.Role,
+                        _brain,
+                        _worldState,
+                        _registry);
+
+                    bool planSuccess = sequence != null && sequence.Length > 0;
+
+                    return new GOAPPlanResult
+                    {
+                        AgentId            = AgentId,
+                        Success            = planSuccess,
+                        ResultType         = planSuccess
+                                                ? PlanResultType.Success
+                                                : PlanResultType.NoSolutionFound,
+                        ActionSequence     = planSuccess
+                                                ? new System.Collections.Generic.List<string>(sequence)
+                                                : new System.Collections.Generic.List<string>(),
+                        SearchDepth        = sequence?.Length ?? 0,
+                        TotalEstimatedCost = CalculateTotalCost(sequence, _brain.Role)
+                    };
+                }
+            }
+
+            // ── Fallback: ActionDatabase 없으면 기존 더미 switch 로직 ──────────
             var actions = new System.Collections.Generic.List<string>();
             bool success = true;
 
@@ -1448,7 +2021,6 @@ namespace AIVillage.AI
                     break;
 
                 case "SurviveInjury":
-                    // 치료사 근처이면 의료 치료, 없으면 땅에서 휴식
                     if (_brain.NearHealer)
                         actions.Add("SeekMedicalAid");
                     else
@@ -1456,7 +2028,6 @@ namespace AIVillage.AI
                     break;
 
                 case "SurviveFatigue":
-                    // 침대 근처이면 수면, 없으면 땅에서 휴식
                     if (_brain.NearBed)
                         actions.Add("Sleep");
                     else
@@ -1465,7 +2036,6 @@ namespace AIVillage.AI
 
                 case "GatherResources":
                 case "GatherWood":
-                    // 역할에 따른 수집 Action
                     actions.Add(GetGatherActionByRole());
                     break;
 
@@ -1474,15 +2044,14 @@ namespace AIVillage.AI
                     break;
 
                 case "GatherIron":
-                    actions.Add("MineIron"); // TODO: 기획팀 — Iron 수집 Action 확인
+                    actions.Add("MineIron");
                     break;
 
                 case "GatherCopper":
-                    actions.Add("MineCopper"); // TODO: 기획팀 — Copper 수집 Action 확인
+                    actions.Add("MineCopper");
                     break;
 
                 case "DefendVillage":
-                    // 무기 있으면 공격, 없으면 원시 무기 제작
                     if (_brain.HasWeapon || _brain.HasPrimitiveWeapon)
                         actions.Add("AttackEnemy");
                     else
@@ -1491,7 +2060,7 @@ namespace AIVillage.AI
 
                 case "BuildStructure":
                 case "BuildTownHall":
-                    actions.Add("BuildTownHall"); // TODO: 기획팀 — 건물 타입별 분기 필요
+                    actions.Add("BuildTownHall");
                     break;
 
                 case "Explore":
@@ -1525,15 +2094,35 @@ namespace AIVillage.AI
 
             return new GOAPPlanResult
             {
-                AgentId         = AgentId,
-                Success         = success && actions.Count > 0,
-                ResultType      = (success && actions.Count > 0)
-                                    ? PlanResultType.Success
-                                    : PlanResultType.NoSolutionFound,
+                AgentId            = AgentId,
+                Success            = success && actions.Count > 0,
+                ResultType         = (success && actions.Count > 0)
+                                        ? PlanResultType.Success
+                                        : PlanResultType.NoSolutionFound,
                 TotalEstimatedCost = actions.Count * _brain.GetLoyaltyCostModifier(),
-                SearchDepth     = 1, // 2단계: 항상 깊이 1 (더미)
-                ActionSequence  = success ? actions : null
+                SearchDepth        = 1, // 더미: 항상 깊이 1
+                ActionSequence     = success ? actions : null
             };
+        }
+
+        /// <summary>
+        /// Action 시퀀스의 총 예상 비용을 계산한다.
+        /// 역할 보정이 적용된 GetCostForRole()을 Action별로 합산한다.
+        /// </summary>
+        /// <param name="sequence">Action ID 배열. null이면 0f 반환.</param>
+        /// <param name="role">비용 보정 기준 역할.</param>
+        /// <returns>시퀀스 전체 예상 비용.</returns>
+        private float CalculateTotalCost(string[] sequence, AgentRole role)
+        {
+            if (sequence == null || sequence.Length == 0 || _actionDatabase == null) return 0f;
+
+            float total = 0f;
+            foreach (string actionId in sequence)
+            {
+                total += _actionDatabase.GetCostForRole(actionId, role);
+            }
+
+            return total;
         }
 
         /// <summary>

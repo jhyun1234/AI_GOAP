@@ -699,5 +699,44 @@ ScriptableObject 분리 대상 (코드 수정 없이 밸런스 조정):
 
 ---
 
+## 14. 구현 진행 상태 (Implementation Progress)
+
+> 이 섹션은 세션마다 갱신한다. 설계(GDD)와 구현 진행을 한 파일에서 추적하기 위해 추가.
+
+### 구현 완료
+
+#### 1단계 — 기반 시스템 (`Assets/Scripts/Core/`) ✅
+| 파일 | 핵심 내용 |
+|---|---|
+| `ResourceType.cs` | ResourceType / ItemType / Season 열거형 |
+| `WorldStateIndices.cs` | NativeArray 슬롯 인덱스 상수, ReservedOffset 상수화 |
+| `AuthoritativeWorldState.cs` | 실행용 월드 스테이트 싱글턴, Reserved setter Mathf.Clamp(stock 상한) 적용 |
+| `WorldStateSnapshot.cs` | Job System용 NativeArray<int> 스냅샷 (IDisposable, TempJob) |
+| `ResourceRegistry.cs` | Reserve / Release / ReleaseAll / Commit / ValidateIntegrity(이중 검증) |
+
+#### 2단계 — AI 코어 (`Assets/Scripts/AI/`) ✅
+| 파일 | 핵심 내용 |
+|---|---|
+| `IAutonomousAgent.cs` | 에이전트 공통 인터페이스 |
+| `VillagerEnums.cs` | VillagerState(8) / LODState(4) / MessageType(7) / 구조체 전체 |
+| `VillagerBrain.cs` | 주민 런타임 상태 데이터 클래스 |
+| `ConflictScoreCalculator.cs` | ConflictScore = Σ(urgency) × impact, DetermineReason 7케이스 |
+| `VillagerFSM.cs` | FSM 8상태 + LOD 4상태, OnVillagerDied static event, OnDestroy 코루틴 정리 |
+
+**2단계 더미 항목 (3단계·4단계에서 교체 예정):**
+- `SimulatePlanResult()` → 실제 GOAPPlannerJob (Job System + Burst Compiler)
+- `TryReserveForAction()` / `ApplyActionEffect()` → ActionDatabase ScriptableObject
+- `VillagerFSM.OnVillagerDied` static event → MessageBus.Publish()
+
+### 구현 예정
+
+#### 3단계 — 통신 레이어 ⬜
+`MessageBus` 구현 (7개 메시지 타입, 우선순위 큐, 동일 Tick 중복 병합)
+
+#### 4단계 — Action 구현 ⬜
+생존 → 수집 → 건설 → 전투 → 탐험 순서
+
+---
+
 *작성일: 2026-06-25 | 버전: v0.4*
-*다음 단계: unity-ai-behavior-architect 에이전트로 GOAP 아키텍처 설계 → unity-senior-programmer로 코어 구현 시작*
+*최종 업데이트: 2026-06-25 — 1단계·2단계 구현 완료, 3단계 MessageBus 구현 예정*

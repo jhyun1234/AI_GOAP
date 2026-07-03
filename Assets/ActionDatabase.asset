@@ -1,0 +1,659 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6e158569bcbef0946ba5749d98d88118, type: 3}
+  m_Name: ActionDatabase
+  m_EditorClassIdentifier: Assembly-CSharp::AIVillage.Core.ActionDatabase
+  _actions:
+  - ActionId: EatCookedFood
+    BaseCost: 2
+    RequiresAtBase: 1
+    RequiresNearFireplace: 0
+    RequiresNearBerryBush: 0
+    RequiresNearTree: 0
+    RequiresNearRock: 0
+    RequiresNearIronOre: 0
+    RequiresNearCopperOre: 0
+    RequiresNearBed: 0
+    RequiresHasTool: 0
+    RequiresForgeBuilt: 0
+    RequiresTownHallBuilt: 0
+    RequiresEnemyNotNearby: 0
+    RequiresNearHealer: 0
+    RequiresNearDroppedItem: 0
+    RequiresIsDiscovered: 0
+    ResourceCosts:
+    - ResourceType: 1
+      Amount: 1
+    Effects:
+    - EffectType: 1
+      ResourceType: 1
+      Amount: 1
+    - EffectType: 2
+      ResourceType: 0
+      Amount: 50
+    - EffectType: 7
+      ResourceType: 0
+      Amount: 5
+  - ActionId: EatRawFood
+    BaseCost: 4
+    RequiresAtBase: 0
+    RequiresNearFireplace: 0
+    RequiresNearBerryBush: 0
+    RequiresNearTree: 0
+    RequiresNearRock: 0
+    RequiresNearIronOre: 0
+    RequiresNearCopperOre: 0
+    RequiresNearBed: 0
+    RequiresHasTool: 0
+    RequiresForgeBuilt: 0
+    RequiresTownHallBuilt: 0
+    RequiresEnemyNotNearby: 0
+    RequiresNearHealer: 0
+    RequiresNearDroppedItem: 0
+    RequiresIsDiscovered: 0
+    ResourceCosts:
+    - ResourceType: 0
+      Amount: 1
+    Effects:
+    - EffectType: 1
+      ResourceType: 0
+      Amount: 1
+    - EffectType: 2
+      ResourceType: 0
+      Amount: 15
+  - ActionId: HarvestWildBerries
+    BaseCost: 5
+    RequiresAtBase: 0
+    RequiresNearFireplace: 0
+    RequiresNearBerryBush: 1
+    RequiresNearTree: 0
+    RequiresNearRock: 0
+    RequiresNearIronOre: 0
+    RequiresNearCopperOre: 0
+    RequiresNearBed: 0
+    RequiresHasTool: 0
+    RequiresForgeBuilt: 0
+    RequiresTownHallBuilt: 0
+    RequiresEnemyNotNearby: 0
+    RequiresNearHealer: 0
+    RequiresNearDroppedItem: 0
+    RequiresIsDiscovered: 1
+    ResourceCosts: []
+    Effects:
+    - EffectType: 0
+      ResourceType: 0
+      Amount: 5
+  - ActionId: CookMeal
+    BaseCost: 8
+    RequiresAtBase: 0
+    RequiresNearFireplace: 1
+    RequiresNearBerryBush: 0
+    RequiresNearTree: 0
+    RequiresNearRock: 0
+    RequiresNearIronOre: 0
+    RequiresNearCopperOre: 0
+    RequiresNearBed: 0
+    RequiresHasTool: 0
+    RequiresForgeBuilt: 0
+    RequiresTownHallBuilt: 0
+    RequiresEnemyNotNearby: 0
+    RequiresNearHealer: 0
+    RequiresNearDroppedItem: 0
+    RequiresIsDiscovered: 0
+    ResourceCosts:
+    - ResourceType: 0
+      Amount: 3
+    Effects:
+    - EffectType: 1
+      ResourceType: 0
+      Amount: 3
+    - EffectType: 0
+      ResourceType: 1
+      Amount: 2
+  - ActionId: Sleep
+    BaseCost: 6
+    RequiresAtBase: 0
+    RequiresNearFireplace: 0
+    RequiresNearBerryBush: 0
+    RequiresNearTree: 0
+    RequiresNearRock: 0
+    RequiresNearIronOre: 0
+    RequiresNearCopperOre: 0
+    RequiresNearBed: 1
+    RequiresHasTool: 0
+    RequiresForgeBuilt: 0
+    RequiresTownHallBuilt: 0
+    RequiresEnemyNotNearby: 1
+    RequiresNearHealer: 0
+    RequiresNearDroppedItem: 0
+    RequiresIsDiscovered: 0
+    ResourceCosts: []
+    Effects:
+    - EffectType: 4
+      ResourceType: 0
+      Amount: 90
+  - ActionId: RestOnGround
+    BaseCost: 10
+    RequiresAtBase: 0
+    RequiresNearFireplace: 0
+    RequiresNearBerryBush: 0
+    RequiresNearTree: 0
+    RequiresNearRock: 0
+    RequiresNearIronOre: 0
+    RequiresNearCopperOre: 0
+    RequiresNearBed: 0
+    RequiresHasTool: 0
+    RequiresForgeBuilt: 0
+    RequiresTownHallBuilt: 0
+    RequiresEnemyNotNearby: 0
+    RequiresNearHealer: 0
+    RequiresNearDroppedItem: 0
+    RequiresIsDiscovered: 0
+    ResourceCosts: []
+    Effects:
+    - EffectType: 3
+      ResourceType: 0
+      Amount: 20
+  - ActionId: SeekMedicalAid
+    BaseCost: 3
+    RequiresAtBase: 0
+    RequiresNearFireplace: 0
+    RequiresNearBerryBush: 0
+    RequiresNearTree: 0
+    RequiresNearRock: 0
+    RequiresNearIronOre: 0
+    RequiresNearCopperOre: 0
+    RequiresNearBed: 0
+    RequiresHasTool: 0
+    RequiresForgeBuilt: 0
+    RequiresTownHallBuilt: 0
+    RequiresEnemyNotNearby: 0
+    RequiresNearHealer: 1
+    RequiresNearDroppedItem: 0
+    RequiresIsDiscovered: 0
+    ResourceCosts: []
+    Effects:
+    - EffectType: 5
+      ResourceType: 0
+      Amount: 40
+  - ActionId: MoveToBase
+    BaseCost: 5
+    RequiresAtBase: 0
+    RequiresNearFireplace: 0
+    RequiresNearBerryBush: 0
+    RequiresNearTree: 0
+    RequiresNearRock: 0
+    RequiresNearIronOre: 0
+    RequiresNearCopperOre: 0
+    RequiresNearBed: 0
+    RequiresHasTool: 0
+    RequiresForgeBuilt: 0
+    RequiresTownHallBuilt: 0
+    RequiresEnemyNotNearby: 0
+    RequiresNearHealer: 0
+    RequiresNearDroppedItem: 0
+    RequiresIsDiscovered: 0
+    ResourceCosts: []
+    Effects:
+    - EffectType: 8
+      ResourceType: 0
+      Amount: 0
+  - ActionId: ChopWood
+    BaseCost: 4
+    RequiresAtBase: 0
+    RequiresNearFireplace: 0
+    RequiresNearBerryBush: 0
+    RequiresNearTree: 1
+    RequiresNearRock: 0
+    RequiresNearIronOre: 0
+    RequiresNearCopperOre: 0
+    RequiresNearBed: 0
+    RequiresHasTool: 1
+    RequiresForgeBuilt: 0
+    RequiresTownHallBuilt: 0
+    RequiresEnemyNotNearby: 0
+    RequiresNearHealer: 0
+    RequiresNearDroppedItem: 0
+    RequiresIsDiscovered: 1
+    ResourceCosts: []
+    Effects:
+    - EffectType: 0
+      ResourceType: 2
+      Amount: 10
+    - EffectType: 6
+      ResourceType: 0
+      Amount: 10
+  - ActionId: MineStone
+    BaseCost: 5
+    RequiresAtBase: 0
+    RequiresNearFireplace: 0
+    RequiresNearBerryBush: 0
+    RequiresNearTree: 0
+    RequiresNearRock: 1
+    RequiresNearIronOre: 0
+    RequiresNearCopperOre: 0
+    RequiresNearBed: 0
+    RequiresHasTool: 1
+    RequiresForgeBuilt: 0
+    RequiresTownHallBuilt: 0
+    RequiresEnemyNotNearby: 0
+    RequiresNearHealer: 0
+    RequiresNearDroppedItem: 0
+    RequiresIsDiscovered: 1
+    ResourceCosts: []
+    Effects:
+    - EffectType: 0
+      ResourceType: 3
+      Amount: 8
+    - EffectType: 6
+      ResourceType: 0
+      Amount: 15
+  - ActionId: MineIron
+    BaseCost: 6
+    RequiresAtBase: 0
+    RequiresNearFireplace: 0
+    RequiresNearBerryBush: 0
+    RequiresNearTree: 0
+    RequiresNearRock: 0
+    RequiresNearIronOre: 1
+    RequiresNearCopperOre: 0
+    RequiresNearBed: 0
+    RequiresHasTool: 1
+    RequiresForgeBuilt: 0
+    RequiresTownHallBuilt: 0
+    RequiresEnemyNotNearby: 0
+    RequiresNearHealer: 0
+    RequiresNearDroppedItem: 0
+    RequiresIsDiscovered: 1
+    ResourceCosts: []
+    Effects:
+    - EffectType: 0
+      ResourceType: 4
+      Amount: 5
+    - EffectType: 6
+      ResourceType: 0
+      Amount: 15
+  - ActionId: MineCopper
+    BaseCost: 9
+    RequiresAtBase: 0
+    RequiresNearFireplace: 0
+    RequiresNearBerryBush: 0
+    RequiresNearTree: 0
+    RequiresNearRock: 0
+    RequiresNearIronOre: 0
+    RequiresNearCopperOre: 1
+    RequiresNearBed: 0
+    RequiresHasTool: 1
+    RequiresForgeBuilt: 1
+    RequiresTownHallBuilt: 0
+    RequiresEnemyNotNearby: 0
+    RequiresNearHealer: 0
+    RequiresNearDroppedItem: 0
+    RequiresIsDiscovered: 1
+    ResourceCosts: []
+    Effects:
+    - EffectType: 0
+      ResourceType: 5
+      Amount: 3
+    - EffectType: 6
+      ResourceType: 0
+      Amount: 15
+  - ActionId: PickUpDroppedItem
+    BaseCost: 1
+    RequiresAtBase: 0
+    RequiresNearFireplace: 0
+    RequiresNearBerryBush: 0
+    RequiresNearTree: 0
+    RequiresNearRock: 0
+    RequiresNearIronOre: 0
+    RequiresNearCopperOre: 0
+    RequiresNearBed: 0
+    RequiresHasTool: 0
+    RequiresForgeBuilt: 0
+    RequiresTownHallBuilt: 0
+    RequiresEnemyNotNearby: 0
+    RequiresNearHealer: 0
+    RequiresNearDroppedItem: 1
+    RequiresIsDiscovered: 0
+    ResourceCosts: []
+    Effects:
+    - EffectType: 16
+      ResourceType: 0
+      Amount: 0
+  - ActionId: Explore
+    BaseCost: 7
+    RequiresAtBase: 0
+    RequiresNearFireplace: 0
+    RequiresNearBerryBush: 0
+    RequiresNearTree: 0
+    RequiresNearRock: 0
+    RequiresNearIronOre: 0
+    RequiresNearCopperOre: 0
+    RequiresNearBed: 0
+    RequiresHasTool: 0
+    RequiresForgeBuilt: 0
+    RequiresTownHallBuilt: 0
+    RequiresEnemyNotNearby: 0
+    RequiresNearHealer: 0
+    RequiresNearDroppedItem: 0
+    RequiresIsDiscovered: 0
+    ResourceCosts: []
+    Effects:
+    - EffectType: 6
+      ResourceType: 0
+      Amount: 5
+    - EffectType: 19
+      ResourceType: 0
+      Amount: 0
+  - ActionId: BuildCampfire
+    BaseCost: 3
+    RequiresAtBase: 0
+    RequiresNearFireplace: 0
+    RequiresNearBerryBush: 0
+    RequiresNearTree: 0
+    RequiresNearRock: 0
+    RequiresNearIronOre: 0
+    RequiresNearCopperOre: 0
+    RequiresNearBed: 0
+    RequiresHasTool: 0
+    RequiresForgeBuilt: 0
+    RequiresTownHallBuilt: 0
+    RequiresEnemyNotNearby: 0
+    RequiresNearHealer: 0
+    RequiresNearDroppedItem: 0
+    RequiresIsDiscovered: 0
+    ResourceCosts:
+    - ResourceType: 2
+      Amount: 5
+    Effects:
+    - EffectType: 1
+      ResourceType: 2
+      Amount: 5
+    - EffectType: 10
+      ResourceType: 0
+      Amount: 0
+  - ActionId: BuildHouse
+    BaseCost: 15
+    RequiresAtBase: 0
+    RequiresNearFireplace: 0
+    RequiresNearBerryBush: 0
+    RequiresNearTree: 0
+    RequiresNearRock: 0
+    RequiresNearIronOre: 0
+    RequiresNearCopperOre: 0
+    RequiresNearBed: 0
+    RequiresHasTool: 0
+    RequiresForgeBuilt: 0
+    RequiresTownHallBuilt: 0
+    RequiresEnemyNotNearby: 0
+    RequiresNearHealer: 0
+    RequiresNearDroppedItem: 0
+    RequiresIsDiscovered: 0
+    ResourceCosts:
+    - ResourceType: 2
+      Amount: 20
+    - ResourceType: 3
+      Amount: 10
+    Effects:
+    - EffectType: 1
+      ResourceType: 2
+      Amount: 20
+    - EffectType: 1
+      ResourceType: 3
+      Amount: 10
+    - EffectType: 11
+      ResourceType: 0
+      Amount: 0
+  - ActionId: BuildStorehouse
+    BaseCost: 10
+    RequiresAtBase: 0
+    RequiresNearFireplace: 0
+    RequiresNearBerryBush: 0
+    RequiresNearTree: 0
+    RequiresNearRock: 0
+    RequiresNearIronOre: 0
+    RequiresNearCopperOre: 0
+    RequiresNearBed: 0
+    RequiresHasTool: 0
+    RequiresForgeBuilt: 0
+    RequiresTownHallBuilt: 0
+    RequiresEnemyNotNearby: 0
+    RequiresNearHealer: 0
+    RequiresNearDroppedItem: 0
+    RequiresIsDiscovered: 0
+    ResourceCosts:
+    - ResourceType: 2
+      Amount: 15
+    - ResourceType: 3
+      Amount: 5
+    Effects:
+    - EffectType: 1
+      ResourceType: 2
+      Amount: 15
+    - EffectType: 1
+      ResourceType: 3
+      Amount: 5
+    - EffectType: 12
+      ResourceType: 0
+      Amount: 0
+  - ActionId: BuildTownHall
+    BaseCost: 25
+    RequiresAtBase: 0
+    RequiresNearFireplace: 0
+    RequiresNearBerryBush: 0
+    RequiresNearTree: 0
+    RequiresNearRock: 0
+    RequiresNearIronOre: 0
+    RequiresNearCopperOre: 0
+    RequiresNearBed: 0
+    RequiresHasTool: 0
+    RequiresForgeBuilt: 0
+    RequiresTownHallBuilt: 0
+    RequiresEnemyNotNearby: 0
+    RequiresNearHealer: 0
+    RequiresNearDroppedItem: 0
+    RequiresIsDiscovered: 0
+    ResourceCosts:
+    - ResourceType: 2
+      Amount: 35
+    - ResourceType: 3
+      Amount: 30
+    - ResourceType: 4
+      Amount: 6
+    Effects:
+    - EffectType: 1
+      ResourceType: 2
+      Amount: 35
+    - EffectType: 1
+      ResourceType: 3
+      Amount: 30
+    - EffectType: 1
+      ResourceType: 4
+      Amount: 6
+    - EffectType: 13
+      ResourceType: 0
+      Amount: 0
+  - ActionId: BuildForge
+    BaseCost: 20
+    RequiresAtBase: 0
+    RequiresNearFireplace: 0
+    RequiresNearBerryBush: 0
+    RequiresNearTree: 0
+    RequiresNearRock: 0
+    RequiresNearIronOre: 0
+    RequiresNearCopperOre: 0
+    RequiresNearBed: 0
+    RequiresHasTool: 0
+    RequiresForgeBuilt: 0
+    RequiresTownHallBuilt: 0
+    RequiresEnemyNotNearby: 0
+    RequiresNearHealer: 0
+    RequiresNearDroppedItem: 0
+    RequiresIsDiscovered: 0
+    ResourceCosts:
+    - ResourceType: 2
+      Amount: 20
+    - ResourceType: 3
+      Amount: 20
+    - ResourceType: 4
+      Amount: 15
+    Effects:
+    - EffectType: 1
+      ResourceType: 2
+      Amount: 20
+    - EffectType: 1
+      ResourceType: 3
+      Amount: 20
+    - EffectType: 1
+      ResourceType: 4
+      Amount: 15
+    - EffectType: 14
+      ResourceType: 0
+      Amount: 0
+  - ActionId: BuildWatchtower
+    BaseCost: 12
+    RequiresAtBase: 0
+    RequiresNearFireplace: 0
+    RequiresNearBerryBush: 0
+    RequiresNearTree: 0
+    RequiresNearRock: 0
+    RequiresNearIronOre: 0
+    RequiresNearCopperOre: 0
+    RequiresNearBed: 0
+    RequiresHasTool: 0
+    RequiresForgeBuilt: 0
+    RequiresTownHallBuilt: 0
+    RequiresEnemyNotNearby: 0
+    RequiresNearHealer: 0
+    RequiresNearDroppedItem: 0
+    RequiresIsDiscovered: 0
+    ResourceCosts:
+    - ResourceType: 2
+      Amount: 10
+    - ResourceType: 3
+      Amount: 30
+    - ResourceType: 4
+      Amount: 5
+    Effects:
+    - EffectType: 1
+      ResourceType: 2
+      Amount: 10
+    - EffectType: 1
+      ResourceType: 3
+      Amount: 30
+    - EffectType: 1
+      ResourceType: 4
+      Amount: 5
+    - EffectType: 15
+      ResourceType: 0
+      Amount: 0
+  - ActionId: AttackEnemy
+    BaseCost: 8
+    RequiresAtBase: 0
+    RequiresNearFireplace: 0
+    RequiresNearBerryBush: 0
+    RequiresNearTree: 0
+    RequiresNearRock: 0
+    RequiresNearIronOre: 0
+    RequiresNearCopperOre: 0
+    RequiresNearBed: 0
+    RequiresHasTool: 0
+    RequiresForgeBuilt: 0
+    RequiresTownHallBuilt: 0
+    RequiresEnemyNotNearby: 0
+    RequiresNearHealer: 0
+    RequiresNearDroppedItem: 0
+    RequiresIsDiscovered: 0
+    ResourceCosts: []
+    Effects:
+    - EffectType: 6
+      ResourceType: 0
+      Amount: 20
+  - ActionId: CraftWeapon
+    BaseCost: 10
+    RequiresAtBase: 0
+    RequiresNearFireplace: 0
+    RequiresNearBerryBush: 0
+    RequiresNearTree: 0
+    RequiresNearRock: 0
+    RequiresNearIronOre: 0
+    RequiresNearCopperOre: 0
+    RequiresNearBed: 0
+    RequiresHasTool: 0
+    RequiresForgeBuilt: 1
+    RequiresTownHallBuilt: 0
+    RequiresEnemyNotNearby: 0
+    RequiresNearHealer: 0
+    RequiresNearDroppedItem: 0
+    RequiresIsDiscovered: 0
+    ResourceCosts: []
+    Effects:
+    - EffectType: 18
+      ResourceType: 0
+      Amount: 0
+  - ActionId: FleeFromEnemy
+    BaseCost: 3
+    RequiresAtBase: 0
+    RequiresNearFireplace: 0
+    RequiresNearBerryBush: 0
+    RequiresNearTree: 0
+    RequiresNearRock: 0
+    RequiresNearIronOre: 0
+    RequiresNearCopperOre: 0
+    RequiresNearBed: 0
+    RequiresHasTool: 0
+    RequiresForgeBuilt: 0
+    RequiresTownHallBuilt: 0
+    RequiresEnemyNotNearby: 0
+    RequiresNearHealer: 0
+    RequiresNearDroppedItem: 0
+    RequiresIsDiscovered: 0
+    ResourceCosts: []
+    Effects: []
+  - ActionId: AlertVillage
+    BaseCost: 1
+    RequiresAtBase: 0
+    RequiresNearFireplace: 0
+    RequiresNearBerryBush: 0
+    RequiresNearTree: 0
+    RequiresNearRock: 0
+    RequiresNearIronOre: 0
+    RequiresNearCopperOre: 0
+    RequiresNearBed: 0
+    RequiresHasTool: 0
+    RequiresForgeBuilt: 0
+    RequiresTownHallBuilt: 0
+    RequiresEnemyNotNearby: 0
+    RequiresNearHealer: 0
+    RequiresNearDroppedItem: 0
+    RequiresIsDiscovered: 0
+    ResourceCosts: []
+    Effects: []
+  - ActionId: MoveToTarget
+    BaseCost: 5
+    RequiresAtBase: 0
+    RequiresNearFireplace: 0
+    RequiresNearBerryBush: 0
+    RequiresNearTree: 0
+    RequiresNearRock: 0
+    RequiresNearIronOre: 0
+    RequiresNearCopperOre: 0
+    RequiresNearBed: 0
+    RequiresHasTool: 0
+    RequiresForgeBuilt: 0
+    RequiresTownHallBuilt: 0
+    RequiresEnemyNotNearby: 0
+    RequiresNearHealer: 0
+    RequiresNearDroppedItem: 0
+    RequiresIsDiscovered: 0
+    ResourceCosts: []
+    Effects: []

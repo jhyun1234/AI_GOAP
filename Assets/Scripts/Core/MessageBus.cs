@@ -172,6 +172,22 @@ namespace AIVillage.Core
         }
 
         /// <summary>
+        /// RageKill 메시지 페이로드. [8단계]
+        /// Rage 상태 주민이 적을 처치했을 때 발행. 6타일 이내 주민의 RageKillWitness를 증가시킨다.
+        /// </summary>
+        public struct RageKillPayload
+        {
+            /// <summary>처치를 수행한 주민의 AgentId.</summary>
+            public string KillerVillagerId;
+
+            /// <summary>처치 발생 타일 X 좌표.</summary>
+            public int KillTileX;
+
+            /// <summary>처치 발생 타일 Y 좌표.</summary>
+            public int KillTileY;
+        }
+
+        /// <summary>
         /// OrderIssued 메시지 페이로드.
         /// 플레이어가 특정 주민에게 명령을 내렸을 때 발행된다.
         /// 수신자(VillagerFSM)는 TryExecuteOrder() 또는 CommandConflict 상태로 처리한다.
@@ -227,6 +243,41 @@ namespace AIVillage.Core
         }
 
         /// <summary>
+        /// SeasonChanged 메시지 페이로드. [14단계]
+        /// 계절이 전환될 때 SeasonManager가 발행한다.
+        /// </summary>
+        public struct SeasonChangedPayload
+        {
+            /// <summary>이전 계절.</summary>
+            public Season PreviousSeason;
+
+            /// <summary>새로 전환된 계절.</summary>
+            public Season NewSeason;
+
+            /// <summary>전환 발생 시점의 게임 일수.</summary>
+            public float GameDay;
+        }
+
+        /// <summary>
+        /// WinterCrisis 메시지 페이로드. [14단계]
+        /// 겨울 돌입 전 조리된 식량이 임계값 미달일 때 SeasonManager가 발행한다.
+        /// </summary>
+        public struct WinterCrisisPayload
+        {
+            /// <summary>현재 조리된 식량 재고.</summary>
+            public float CurrentCookedFood;
+
+            /// <summary>위험 판정 임계값 (villagerCount × _winterFoodCostPerDay × _winterCrisisBufferDays).</summary>
+            public float Threshold;
+
+            /// <summary>현재 생존 주민 수.</summary>
+            public int VillagerCount;
+
+            /// <summary>위기 발생 시점의 게임 일수.</summary>
+            public float GameDay;
+        }
+
+        /// <summary>
         /// RaidDecision 메시지 페이로드.
         /// 팩션 AI가 다른 팩션을 침략하기로 결정했을 때 발행된다.
         /// </summary>
@@ -278,6 +329,7 @@ namespace AIVillage.Core
         /// | VillagerDied       | High     |
         /// | EnemyDetected      | High     |
         /// | RaidDecision       | High     |
+        /// | RageKill           | High     |
         /// | ResourceDiscovered | Medium   |
         /// | ResourceDepleted   | Medium   |
         /// | OrderIssued        | Medium   |
@@ -289,6 +341,9 @@ namespace AIVillage.Core
                 { MessageType.VillagerDied,       MessagePriority.High   },
                 { MessageType.EnemyDetected,      MessagePriority.High   },
                 { MessageType.RaidDecision,       MessagePriority.High   },
+                { MessageType.RageKill,           MessagePriority.High   }, // [8단계] Rage 전염 즉시 처리
+                { MessageType.SeasonChanged,      MessagePriority.Medium }, // [14단계] 계절 전환
+                { MessageType.WinterCrisis,       MessagePriority.High   }, // [14단계] 겨울 위기 즉시 처리
                 { MessageType.ResourceDiscovered, MessagePriority.Medium },
                 { MessageType.ResourceDepleted,   MessagePriority.Medium },
                 { MessageType.OrderIssued,        MessagePriority.Medium },
@@ -383,8 +438,9 @@ namespace AIVillage.Core
 
             Instance = this;
 
-            // 씬 전환 시에도 MessageBus를 유지한다.
-            // 씬마다 재초기화가 필요하면 이 줄을 제거하고 씬별로 배치할 것.
+            // DontDestroyOnLoad는 root GameObject에만 동작한다.
+            // _Managers 등의 자식으로 배치된 경우 먼저 부모를 해제해야 경고가 사라진다.
+            transform.SetParent(null);
             DontDestroyOnLoad(gameObject);
 
             // ── 우선순위 버킷 사전 생성 ───────────────────────────────────────────

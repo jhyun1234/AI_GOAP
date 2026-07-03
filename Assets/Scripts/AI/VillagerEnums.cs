@@ -32,7 +32,9 @@ namespace AIVillage.AI
         CommandConflict, // 플레이어 명령과 현재 Goal 충돌 계산 중.
         RefusingOrder,   // 명령 거부. 3초 후 Idle로 복귀.
         Dead,            // 사망. 자원 해제 및 드롭 아이템 생성 후 GameObject 비활성화.
-        LOD_FSM          // 원거리 경량 시뮬레이션 모드.
+        LOD_FSM,         // 원거리 경량 시뮬레이션 모드.
+        Fighting,        // [8단계] 적과 근접 전투 중. EvaluateCombatMentalState() 호출.
+        Fleeing          // [8단계] Fear 상태 → 기지 방향 도주.
     }
 
     /// <summary>
@@ -62,7 +64,8 @@ namespace AIVillage.AI
         Builder,    // 건설자 → BuildTownHall
         Warrior,    // 전사   → AttackEnemy
         Medic,      // 치료사 → SeekMedicalAid 지원
-        Cook        // 요리사 → CookMeal
+        Cook,       // 요리사 → CookMeal
+        Explorer    // 탐험가 → Day7 마일스톤 합류, 자원 노드 탐색 선호
     }
 
     /// <summary>
@@ -87,7 +90,10 @@ namespace AIVillage.AI
         ResourceDepleted,   // 자원 고갈 → 재플래닝 유발
         OrderIssued,        // 플레이어 명령 수신 → CommandConflict 상태 진입
         OrderRefused,       // 이 에이전트가 거부 메시지를 발행할 때 사용
-        RaidDecision        // 팩션 침략 결정 공지
+        RaidDecision,       // 팩션 침략 결정 공지
+        RageKill,           // [8단계] Rage 상태 주민이 적을 처치 → 6타일 이내 Rage 전염 유발
+        SeasonChanged,      // [14단계] 계절 전환 발생
+        WinterCrisis        // [14단계] 겨울 식량 비축 임계값 미달
     }
 
     /// <summary>
@@ -226,6 +232,16 @@ namespace AIVillage.AI
         /// <summary>ConflictScore >= Threshold 이면 true → RefusingOrder 상태로 전이한다.</summary>
         public bool ShouldRefuse;
     }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // 전투 정신 상태 / 역할 열거형 (8단계)
+    // ══════════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// 전투 심리 상태. VillagerBrain이 보유하며 AttackModifier와 도주 여부에 영향.
+    /// Normal=기본 / Fear=도주 / Rage=공격력 ×1.5 (8초 지속).
+    /// </summary>
+    public enum CombatMentalState { Normal, Fear, Rage }
 
     /// <summary>
     /// GOAP 플래닝 결과. SimulatePlanResult()가 반환하며 VillagerFSM이 소비한다.

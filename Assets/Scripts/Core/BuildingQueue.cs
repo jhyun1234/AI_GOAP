@@ -170,8 +170,8 @@ namespace AIVillage.Core
                     && (existing.Status == BuildingStatus.Pending
                      || existing.Status == BuildingStatus.InProgress))
                 {
-                    Debug.LogWarning($"[BuildingQueue] EnqueueBuilding: '{buildingId}'가 이미 대기열에 있습니다 " +
-                                     $"(QueueId={existing.QueueId}, Status={existing.Status}). 중복 추가 거부.");
+                    Debug.Log($"[BuildingQueue] EnqueueBuilding: '{buildingId}'가 이미 대기열에 있습니다 " +
+                                  $"(QueueId={existing.QueueId}, Status={existing.Status}). 중복 추가 거부.");
                     return false;
                 }
             }
@@ -459,9 +459,9 @@ namespace AIVillage.Core
             switch (buildingId)
             {
                 case "Campfire":
-                    // 모닥불 완료: brain.NearFireplace는 SensorSystem이 갱신
+                    worldState.CampfireBuilt  = true;
                     worldState.BuildingQueued = anyPending;
-                    Debug.Log("[BuildingQueue] Campfire 완료 — brain.NearFireplace는 SensorSystem이 갱신합니다.");
+                    Debug.Log("[BuildingQueue] Campfire 완료 — worldState.CampfireBuilt = true.");
                     break;
 
                 case "Storehouse":
@@ -471,9 +471,17 @@ namespace AIVillage.Core
                     break;
 
                 case "TownHall":
-                    worldState.TownHallBuilt  = true;
-                    worldState.BuildingQueued = anyPending;
-                    Debug.Log("[BuildingQueue] TownHall 완료 — worldState.TownHallBuilt = true.");
+                    worldState.TownHallBuilt    = true;
+                    worldState.TownHallEverBuilt = true; // 11단계 추가: 한번이라도 완성됐음을 영구 기록 (패배 조건 오탐 방지)
+                    worldState.BuildingQueued   = anyPending;
+                    Debug.Log("[BuildingQueue] TownHall 완료 — worldState.TownHallBuilt = true, TownHallEverBuilt = true.");
+                    break;
+
+                case "SilverCitadel":
+                    // 11단계 추가: 최종 승리(번영) 조건 — 완성 즉시 GameManager.CheckWinLoseConditions()가 Win3_Prosperity를 발생시킨다.
+                    worldState.SilverCitadelBuilt = true;
+                    worldState.BuildingQueued     = anyPending;
+                    Debug.Log("[BuildingQueue] SilverCitadel 완료 — worldState.SilverCitadelBuilt = true.");
                     break;
 
                 case "Forge":
@@ -483,11 +491,15 @@ namespace AIVillage.Core
                     break;
 
                 case "House":
-                case "Watchtower":
-                    // 현재 WorldState에 House/Watchtower 전용 플래그 없음 — 미래 확장 시 추가
+                    worldState.HouseBuilt     = true;
                     worldState.BuildingQueued = anyPending;
-                    Debug.Log($"[BuildingQueue] '{buildingId}' 완료. " +
-                              $"WorldState 전용 플래그는 미래 확장에서 추가 예정.");
+                    Debug.Log("[BuildingQueue] House 완료 — worldState.HouseBuilt = true.");
+                    break;
+
+                case "Watchtower":
+                    worldState.WatchtowerBuilt = true;
+                    worldState.BuildingQueued  = anyPending;
+                    Debug.Log("[BuildingQueue] Watchtower 완료 — worldState.WatchtowerBuilt = true.");
                     break;
 
                 default:

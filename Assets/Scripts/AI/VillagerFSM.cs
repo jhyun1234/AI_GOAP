@@ -13,6 +13,14 @@
 ///   - VillagerBrain.cs, VillagerEnums.cs, IAutonomousAgent.cs
 ///   - ConflictScoreCalculator.cs
 ///   - AIVillage.Core: ResourceRegistry, AuthoritativeWorldState, WorldStateSnapshot
+///   - JPSPathfinder.cs (12단계: JPS 경로 탐색)
+///
+/// 12단계 변경 (경로이동 시스템):
+///   - Update()의 순간이동을 MoveTowards 기반 실제 이동으로 교체
+///   - MoveTileForAction()에서 Brain.TileX/Y 직접 설정을 StartPathTo()로 교체
+///   - State_Executing()에서 이동 완료 후 액션 타이머 시작으로 변경
+///   - State_Fleeing()에서 VILLAGER_FLEE_SPEED 적용 (EnterFleeing에서 경로 시작)
+///   - AbortCurrentPath() 헬퍼 추가 (전투/사망/재플래닝 시 경로 즉시 중단)
 ///
 /// Tick 그룹 분산 (성능 예산):
 ///   60fps 기준 매 프레임 모든 주민을 업데이트하면 과부하가 발생한다.
@@ -28,6 +36,7 @@ using System.Collections;
 using System.Collections.Generic; // List<T> — VillagerDied 드롭 아이템 목록 구성
 using UnityEngine;
 using AIVillage.Core;
+using AIVillage.Core.GOAP; // GOAPPlannerScheduler, GOAPPlannerJob
 
 namespace AIVillage.AI
 {
@@ -40,7 +49,9 @@ namespace AIVillage.AI
         #region ── 상수 ──
 
         // 기획서 수치 — 아래 값들은 기획팀과 협의한 확정값
-        private const float PLANNING_TIMEOUT_SEC   = 0.5f;  // 이 시간 초과 시 Replanning
+        // 주민 1명의 실효 틱 주기 = 0.1s × 6그룹 = 0.6s. 최초 폴링이 0.6s 후에 도달하므로
+        // 타임아웃은 반드시 0.6s보다 충분히 커야 한다 (3.0s = 5 틱 여유).
+        private const float PLANNING_TIMEOUT_SEC   = 3.0f;  // 이 시간 초과 시 Replanning
         private const float ACTION_SIMULATE_SEC    = 2.0f;  // 2단계 더미: Action 1개 수행 시뮬레이션 시간
         private const float REFUSE_DISPLAY_SEC     = 3.0f;  // 거부 메시지 표시 시간
         private const float LOD_TICK_INTERVAL_SEC  = 0.5f;  // LOD 내부 틱 간격
@@ -64,6 +75,28 @@ namespace AIVillage.AI
         private const float REST_ON_GROUND_FATIGUE_RECOVERY = 20f; // 땅에서 쉬기: 회복량 낮음
         private const float SLEEP_FATIGUE_RECOVERY          = 90f; // 수면: 회복량 높음
 
+        // ── [8단계] 전투 / 정신 상태 수치 ────────────────────────────────────────
+        private const float BASE_VILLAGER_DAMAGE     = 8f;   // 틱당 주민이 적에게 입히는 기본 피해
+        private const float ATTACK_RANGE_TILES       = 2f;   // 공격 유효 타일 거리 (맨해튼)
+        private const float FEAR_CONTAGION_RADIUS    = 5f;   // 아군 사망 목격 Fear 전염 반경
+        private const float RAGE_CONTAGION_RADIUS    = 6f;   // Rage 처치 목격 전염 반경
+        private const float RAGE_DURATION_SEC        = 8f;   // Rage 지속 시간(초)
+        private const float RAGE_ATTACK_MODIFIER     = 1.5f; // Rage 공격 배율
+        private const float FEAR_HEALTH_OVERRIDE     = 30f;  // 이 HP 미만 → 무조건 Fear 오버라이드
+        private const float FEAR_RECOVERY_HEALTH     = 40f;  // Fear → Normal 회복 기준 체력
+        private const float FEAR_RAGE_REVERSE_HEALTH = 60f;  // Fear → Rage 역전 최소 체력
+        // 틱당 Rage 타이머 감소량 = GameManager 코루틴 주기(0.1s) × 그룹 수(6)
+        // GameManager의 틱 간격 또는 그룹 수 변경 시 이 값도 반드시 동기화해야 한다.
+        private const float GAME_TICK_INTERVAL_SEC   = 0.1f; // GameManager 코루틴과 동기화 필요
+        private const int   TICK_GROUP_COUNT         = 6;    // GameManager 그룹 수와 동기화 필요
+        private const float RAGE_TIMER_TICK_DELTA    = GAME_TICK_INTERVAL_SEC * TICK_GROUP_COUNT; // 0.6f
+
+        // ── [12단계] 경로 이동 속도 상수 ─────────────────────────────────────────
+        // 기획서 수치 확정값
+        private const float VILLAGER_MOVE_SPEED  = 2.0f;  // 기획서 수치: 일반 이동 속도 (타일/초)
+        private const float VILLAGER_FLEE_SPEED  = 3.0f;  // 기획서 수치: Fleeing 상태 이동 속도 (타일/초)
+        private const float WAYPOINT_ARRIVE_DIST = 0.05f; // 이 거리(Unity 유닛) 이하면 웨이포인트 도착 간주
+
         #endregion
 
         #region ── Serialized Fields (Inspector) ──
@@ -84,8 +117,12 @@ namespace AIVillage.AI
 
         #region ── Private Fields ──
 
-        // 주민 상태 데이터 (Awake에서 초기화)
-        private VillagerBrain _brain;
+        // ── 5단계 신규: SensorSystem이 Brain에 접근하기 위한 공개 프로퍼티 ──────────
+        // SensorSystem.RegisterVillager()에서 Brain.VillagerId를 읽고,
+        // UpdateAllSensors()에서 Brain을 통해 환경 플래그를 직접 갱신한다.
+        // private set: VillagerFSM.Awake()에서만 할당하고 외부에서는 읽기만 허용한다.
+        // 기존 private Brain 필드를 이 auto-property로 교체 — 의미는 동일하다.
+        public VillagerBrain Brain { get; private set; }
 
         // Core 레이어 의존성 (외부에서 InjectDependencies()로 주입)
         private ResourceRegistry _registry;
@@ -106,11 +143,19 @@ namespace AIVillage.AI
         // OnActionCompleted()에서 Commit 시에도 이 배열을 기준으로 처리한다.
         private ResourceCostEntry[] _pendingResourceCosts;
 
+        // 현재 점유 중인 자원 노드. 채집 완료/중단 시 Release() 호출을 위해 추적한다.
+        private ResourceNode _currentGatherNode;
+
         // ── 4단계 신규: ActionDatabase / BuildingQueue 의존성 ────────────────
         // GameManager.InjectDependencies() 호출 시 주입된다.
         // Update() 및 Tick() 내부에서는 절대 GetComponent/FindObjectOfType 호출 금지.
         private ActionDatabase _actionDatabase;
         private BuildingQueue  _buildingQueue;
+
+        // ── 5B단계 신규: GOAPPlannerJob 스케줄링 컨텍스트 ──────────────────
+        // Planning 상태 진입 시 Schedule()로 생성, 완료 또는 타임아웃 시 Dispose()된다.
+        // IsScheduled 플래그로 유효성을 확인한다.
+        private GOAPPlannerScheduler.PlanningContext _planningContext;
 
         // ── 수신 메시지 내부 큐 (우선순위 정렬 SortedList — 3단계) ──────────────
         // MessageBus가 이 에이전트에게 전달한 메시지를 우선순위 순으로 처리한다.
@@ -130,6 +175,32 @@ namespace AIVillage.AI
         // OnDestroy()에서 명시적으로 정지할 수 있도록 한다. 씬 전환이나 Destroy 시 고아 코루틴 방지.
         private Coroutine _deactivateCoroutine;
 
+        // ── [12단계] 경로 이동 추적 필드 ──────────────────────────────────────────
+        // JPS 경로 탐색 결과를 저장하고 웨이포인트 단위로 이동을 관리한다.
+
+        /// <summary>
+        /// 현재 이동 중인 경로. StartPathTo()에서 JPS 결과로 채워진다.
+        /// 중간 타일까지 포함한 완전한 타일 단위 경로 (보간 포함).
+        /// </summary>
+        private List<Vector2Int> _currentPath = new List<Vector2Int>();
+
+        /// <summary>_currentPath에서 현재 향하고 있는 웨이포인트의 인덱스.</summary>
+        private int _pathIndex = 0;
+
+        /// <summary>
+        /// MoveTowards로 이동 중인지 여부.
+        /// false이면 Update()에서 transform을 Brain 논리 위치로 부드럽게 스냅한다.
+        /// </summary>
+        private bool _isMoving = false;
+
+        /// <summary>현재 이동 중인 웨이포인트의 월드 좌표. Vector3.MoveTowards의 목표값.</summary>
+        private Vector3 _waypointTarget = Vector3.zero;
+
+        // ── [12단계] 공유 walkable 그리드 (static — 모든 주민 공유) ─────────────
+        // 현재 맵은 100×100 전체 통행 가능. 장애물 추가 시 이 배열을 수정한다.
+        // null이면 첫 번째 StartPathTo() 호출 시 초기화된다.
+        private static bool[,] _walkableGrid = null;
+
         // ── 3단계: static OnVillagerDied event 제거 완료 ─────────────────────────
         // 2단계의 'public static event Action<string, int, int> OnVillagerDied'는
         // 3단계에서 MessageBus.Publish()로 교체되었다.
@@ -147,28 +218,31 @@ namespace AIVillage.AI
         #region ── IAutonomousAgent 프로퍼티 구현 ──
 
         /// <summary>에이전트 고유 ID. Awake()에서 GUID로 자동 생성된다.</summary>
-        public string AgentId => _brain?.VillagerId ?? string.Empty;
+        public string AgentId => Brain?.VillagerId ?? string.Empty;
 
         /// <summary>현재 FSM 최상위 상태.</summary>
-        public VillagerState CurrentState => _brain?.FSMState ?? VillagerState.Dead;
+        public VillagerState CurrentState => Brain?.FSMState ?? VillagerState.Dead;
 
         /// <summary>충성도 (0~100).</summary>
-        public float LoyaltyLevel => _brain?.LoyaltyLevel ?? 0f;
+        public float LoyaltyLevel => Brain?.LoyaltyLevel ?? 0f;
 
         /// <summary>원래 소속 팩션 ID.</summary>
-        public int OriginalFactionId => _brain?.OriginalFactionId ?? 0;
+        public int OriginalFactionId => Brain?.OriginalFactionId ?? 0;
 
         /// <summary>현재 체력 (0~100).</summary>
-        public float HealthLevel => _brain?.HealthLevel ?? 0f;
+        public float HealthLevel => Brain?.HealthLevel ?? 0f;
 
         /// <summary>현재 배고픔 (0~100).</summary>
-        public float HungerLevel => _brain?.HungerLevel ?? 0f;
+        public float HungerLevel => Brain?.HungerLevel ?? 0f;
 
         /// <summary>현재 피로도 (0~100).</summary>
-        public float FatigueLevel => _brain?.FatigueLevel ?? 0f;
+        public float FatigueLevel => Brain?.FatigueLevel ?? 0f;
 
         /// <summary>생존 여부.</summary>
-        public bool IsAlive => _brain?.IsAlive ?? false;
+        public bool IsAlive => Brain?.IsAlive ?? false;
+
+        /// <summary>현재 목표 타일로 이동 중이면 true. 채취/건설 전 이동과 실제 작업을 구분하는 데 사용.</summary>
+        public bool IsMoving => _isMoving;
 
         #endregion
 
@@ -181,7 +255,7 @@ namespace AIVillage.AI
         private void Awake()
         {
             // VillagerBrain 초기화 — 모든 상태 데이터의 컨테이너
-            _brain = new VillagerBrain
+            Brain = new VillagerBrain
             {
                 // 런타임 GUID 생성: 에디터에서 복사본을 만들어도 ID가 충돌하지 않는다
                 VillagerId       = Guid.NewGuid().ToString(),
@@ -201,7 +275,32 @@ namespace AIVillage.AI
                 // InjectDependencies()에서 재할당하므로 경고만 출력한다.
                 Debug.LogWarning($"[VillagerFSM] Awake: AuthoritativeWorldState.Instance가 null입니다. " +
                                  $"GameManager의 Script Execution Order를 VillagerFSM보다 높게 설정하거나 " +
-                                 $"InjectDependencies()를 호출하세요. AgentId={_brain.VillagerId}");
+                                 $"InjectDependencies()를 호출하세요. AgentId={Brain.VillagerId}");
+            }
+
+            // ── [9단계] 물리 감지용 SphereCollider 자동 추가 ─────────────────
+            // PlayerInputController가 Physics.Raycast로 주민을 감지하려면
+            // Collider 컴포넌트가 반드시 있어야 한다.
+            // Inspector에서 수동으로 부착하지 않아도 Awake에서 자동으로 추가된다.
+            if (GetComponent<SphereCollider>() == null)
+            {
+                SphereCollider sc = gameObject.AddComponent<SphereCollider>();
+                sc.radius    = 0.5f;  // 2D-in-3D 씬: 타일 1칸의 절반 크기로 클릭 판정
+                sc.isTrigger = true;  // 물리 충돌 없이 레이캐스트만 감지
+            }
+
+            // ── Villager 레이어 설정 ─────────────────────────────────────────
+            // PlayerInputController의 레이어 마스크가 "Villager" 레이어만 감지하므로
+            // 이 GameObject가 "Villager" 레이어에 있어야 한다.
+            int villagerLayer = LayerMask.NameToLayer("Villager");
+            if (villagerLayer >= 0)
+            {
+                gameObject.layer = villagerLayer;
+            }
+            else
+            {
+                Debug.LogError("[VillagerFSM] 'Villager' 레이어가 Project Settings > Tags and Layers에 " +
+                               "등록되지 않았습니다. 레이어를 추가한 뒤 실행하세요.");
             }
         }
 
@@ -212,7 +311,7 @@ namespace AIVillage.AI
         /// </summary>
         private void Update()
         {
-            if (_brain == null) return;
+            if (Brain == null) return;
 
             // [PR Fix]: F-009 — P0(생존 위기)와 Dead 전이는 Tick 분산 없이 매 프레임 즉시 반응이
             // 필요하므로 Update에서 처리한다. 일반 상태 로직은 외부 GameManager가 Tick()으로
@@ -222,7 +321,7 @@ namespace AIVillage.AI
             // ── AnyState 전이 #1: 사망 감지 ──────────────────────────────────
             // isAlive가 false가 되는 순간 어떤 상태에서도 즉시 Dead로 전이한다.
             // 이 체크는 Update에서 수행하여 Tick 간격(0.1초) 지연 없이 즉시 반응한다.
-            if (!_brain.IsAlive && _brain.FSMState != VillagerState.Dead)
+            if (!Brain.IsAlive && Brain.FSMState != VillagerState.Dead)
             {
                 TransitionTo(VillagerState.Dead);
                 return;
@@ -231,41 +330,116 @@ namespace AIVillage.AI
             // ── AnyState 전이 #2: P0 Goal 긴급 감지 ─────────────────────────
             // 사망 외 P0(생존 위기) 조건이 발동되면 현재 상태에 관계없이 Planning으로 이동.
             // 이미 Planning/Dead 상태이면 중복 전이를 방지한다.
-            if (_brain.IsAlive
-                && _brain.FSMState != VillagerState.Planning
-                && _brain.FSMState != VillagerState.Dead
+            if (Brain.IsAlive
+                && Brain.FSMState != VillagerState.Planning
+                && Brain.FSMState != VillagerState.Dead
                 && IsP0GoalActive())
             {
                 string p0GoalId = GetP0GoalId();
 
                 // 현재 추구 중인 Goal이 이미 P0 Goal과 동일하면 재전이 불필요
-                if (_brain.CurrentGoalId != p0GoalId)
+                if (Brain.CurrentGoalId != p0GoalId)
                 {
                     Debug.Log($"[VillagerFSM] AnyState → Planning (P0 Goal: {p0GoalId}). AgentId={AgentId}");
-                    _brain.CurrentGoalId = p0GoalId;
+                    Brain.CurrentGoalId = p0GoalId;
                     TransitionTo(VillagerState.Planning);
                     return;
                 }
             }
 
+            // ── AnyState 전이 #3: HP 30% 미만 + 전투 중 → Fear → Fleeing [8단계] ─
+            // 아무리 분노 상태여도 체력이 임계값 미만이면 즉시 도주.
+            if (Brain.IsAlive
+                && Brain.NearEnemy
+                && Brain.FSMState != VillagerState.Dead
+                && Brain.FSMState != VillagerState.Fleeing
+                && Brain.HealthLevel < FEAR_HEALTH_OVERRIDE)
+            {
+                Brain.CombatMentalState = CombatMentalState.Fear;
+                Brain.AttackModifier    = 1.0f;
+                TransitionTo(VillagerState.Fleeing);
+                return;
+            }
+
             // ── LOD 틱 누적 (LOD_FSM 상태일 때만) ───────────────────────────
             // LOD 모드의 내부 상태는 매 프레임이 아닌 0.5초 간격으로만 실행한다.
-            if (_brain.FSMState == VillagerState.LOD_FSM)
+            if (Brain.FSMState == VillagerState.LOD_FSM)
             {
-                _brain.LODTickAccumulator += Time.deltaTime;
+                Brain.LODTickAccumulator += Time.deltaTime;
             }
 
             // Replanning 쿨다운 감소
-            if (_brain.ReplanCooldown > 0f)
+            if (Brain.ReplanCooldown > 0f)
             {
-                _brain.ReplanCooldown -= Time.deltaTime;
-                if (_brain.ReplanCooldown < 0f) _brain.ReplanCooldown = 0f;
+                Brain.ReplanCooldown -= Time.deltaTime;
+                if (Brain.ReplanCooldown < 0f) Brain.ReplanCooldown = 0f;
             }
 
             // RefusingOrder 타이머 감소
-            if (_brain.FSMState == VillagerState.RefusingOrder && _brain.RefuseMessageTimer > 0f)
+            if (Brain.FSMState == VillagerState.RefusingOrder && Brain.RefuseMessageTimer > 0f)
             {
-                _brain.RefuseMessageTimer -= Time.deltaTime;
+                Brain.RefuseMessageTimer -= Time.deltaTime;
+            }
+
+            // ── [12단계] 경로 이동 처리 ──────────────────────────────────────────
+            // 이동 중이면 MoveTowards로 다음 웨이포인트로 부드럽게 이동한다.
+            // 이동 중이 아니면 transform을 Brain 논리 위치로 부드럽게 스냅 유지한다.
+            if (_isMoving)
+            {
+                // Fleeing 상태이면 도주 속도(3.0 타일/초), 그 외엔 일반 속도(2.0 타일/초)
+                float speed = (Brain.FSMState == VillagerState.Fleeing)
+                              ? VILLAGER_FLEE_SPEED
+                              : VILLAGER_MOVE_SPEED;
+
+                transform.position = Vector3.MoveTowards(
+                    transform.position,
+                    _waypointTarget,
+                    speed * Time.deltaTime);
+
+                // 웨이포인트에 충분히 가까워졌으면 도착 처리
+                if (Vector3.Distance(transform.position, _waypointTarget) < WAYPOINT_ARRIVE_DIST)
+                {
+                    // 웨이포인트 도착 시점에 Brain 논리 좌표를 갱신한다.
+                    // (이동 시작 시가 아닌 도착 시 갱신 — SensorSystem 감지 정확성 보장)
+                    Brain.TileX = _currentPath[_pathIndex].x;
+                    Brain.TileY = _currentPath[_pathIndex].y;
+
+                    // ── [13단계] 웨이포인트 도착 시 FoW 시야 + 자원 노드 발견 갱신 ──
+                    // 주민이 이동하는 매 타일마다 FoW와 ResourceNode.IsDiscovered를 동시에 갱신한다.
+                    // SensorSystem.DiscoverArea를 함께 호출해야 NearDiscoveredResource=true가 되어
+                    // GOAP 플래너의 [Explore → ChopWood] 체인이 실제로 동작한다.
+                    if (MapConfig.Active != null)
+                    {
+                        int sight = MapConfig.Active.villagerSightRadius;
+                        FowManager.Instance?.RevealArea(Brain.TileX, Brain.TileY, sight);
+                        SensorSystem.Instance?.DiscoverArea(Brain.TileX, Brain.TileY, sight);
+                    }
+
+                    _pathIndex++;
+
+                    if (_pathIndex >= _currentPath.Count)
+                    {
+                        // 전체 경로 완료
+                        _isMoving = false;
+                    }
+                    else
+                    {
+                        // 다음 웨이포인트로 이동 목표 전환
+                        _waypointTarget = new Vector3(
+                            _currentPath[_pathIndex].x,
+                            _currentPath[_pathIndex].y,
+                            0f);
+                    }
+                }
+            }
+            else
+            {
+                // 이동 중이 아닐 때: transform을 Brain 논리 위치로 부드럽게 스냅 유지
+                // 순간이동 없이 논리 위치로 자연스럽게 정렬된다.
+                transform.position = Vector3.MoveTowards(
+                    transform.position,
+                    new Vector3(Brain.TileX, Brain.TileY, 0f),
+                    VILLAGER_MOVE_SPEED * Time.deltaTime);
             }
         }
 
@@ -303,15 +477,15 @@ namespace AIVillage.AI
         /// <returns>명령 처리 시작됨 = true, 즉시 거부(사망/null 상태) = false</returns>
         public bool TryExecuteOrder(PlayerOrder order)
         {
-            if (_brain == null || !_brain.IsAlive)
+            if (Brain == null || !Brain.IsAlive)
             {
                 Debug.LogWarning($"[VillagerFSM] TryExecuteOrder: 사망하거나 초기화되지 않은 에이전트. AgentId={AgentId}");
                 return false;
             }
 
             // 명령을 Brain에 저장한 뒤 CommandConflict 상태에서 처리
-            _brain.PendingOrder    = order;
-            _brain.HasPendingOrder = true;
+            Brain.PendingOrder    = order;
+            Brain.HasPendingOrder = true;
 
             // Idle 상태이면 바로 CommandConflict로 진입하여 점수 계산
             // Executing/Planning 중이면 마찬가지로 CommandConflict — 기존 행동과 충돌 평가
@@ -324,7 +498,7 @@ namespace AIVillage.AI
         /// </summary>
         public void ForceTransitionTo(VillagerState state)
         {
-            if (_brain == null)
+            if (Brain == null)
             {
                 Debug.LogWarning($"[VillagerFSM] ForceTransitionTo({state}): brain이 null입니다.");
                 return;
@@ -390,13 +564,13 @@ namespace AIVillage.AI
         /// </summary>
         public void Tick()
         {
-            if (_brain == null) return;
+            if (Brain == null) return;
 
             // 수신된 메시지를 먼저 처리한다 (상태 전이를 유발할 수 있음)
             ProcessMessageQueue();
 
             // 현재 상태 핸들러 실행
-            switch (_brain.FSMState)
+            switch (Brain.FSMState)
             {
                 case VillagerState.Idle:            State_Idle();            break;
                 case VillagerState.Planning:         State_Planning();        break;
@@ -406,14 +580,22 @@ namespace AIVillage.AI
                 case VillagerState.RefusingOrder:    State_RefusingOrder();   break;
                 case VillagerState.Dead:             State_Dead();            break;
                 case VillagerState.LOD_FSM:          State_LOD_FSM();         break;
+                case VillagerState.Fighting:         State_Fighting();        break;
+                case VillagerState.Fleeing:          State_Fleeing();         break;
                 default:
-                    Debug.LogWarning($"[VillagerFSM] Tick: 처리되지 않은 상태 '{_brain.FSMState}'. AgentId={AgentId}");
+                    Debug.LogWarning($"[VillagerFSM] Tick: 처리되지 않은 상태 '{Brain.FSMState}'. AgentId={AgentId}");
                     break;
             }
         }
 
         /// <summary>Tick 그룹 인덱스. GameManager가 읽어서 호출 여부를 판단한다.</summary>
         public int TickGroupIndex => _tickGroupIndex;
+
+        /// <summary>
+        /// 동적 스폰 주민의 틱 그룹을 배정한다. GameManager.SpawnVillager()에서 호출.
+        /// Inspector 직렬화 기본값(0)이 아닌 분산된 그룹 번호를 주입하여 6-그룹 부하 분산을 유지한다.
+        /// </summary>
+        public void SetTickGroupIndex(int groupIndex) => _tickGroupIndex = Mathf.Clamp(groupIndex, 0, 5);
 
         #endregion
 
@@ -428,15 +610,14 @@ namespace AIVillage.AI
         {
             // 쿨다운이 남아있으면 P0 외 모든 전이를 차단한다.
             // (P0는 Update()의 AnyState 체크에서 쿨다운 무시하고 처리됨)
-            bool cooldownActive = _brain.ReplanCooldown > 0f;
+            bool cooldownActive = Brain.ReplanCooldown > 0f;
 
             if (!cooldownActive)
             {
-                // 우선순위 P1: 적 위협
-                if (_brain.NearEnemy)
+                // 우선순위 P1: 적 위협 → [8단계] Fighting 상태 직접 진입
+                if (Brain.NearEnemy)
                 {
-                    _brain.CurrentGoalId = "DefendVillage";
-                    TransitionTo(VillagerState.Planning);
+                    TransitionTo(VillagerState.Fighting);
                     return;
                 }
 
@@ -449,7 +630,7 @@ namespace AIVillage.AI
                         ? _actionDatabase.CanBuildNextBuilding(_registry, _worldState)
                         : HasResourcesForBuilding()))
                 {
-                    _brain.CurrentGoalId = "BuildStructure";
+                    Brain.CurrentGoalId = "BuildStructure";
                     TransitionTo(VillagerState.Planning);
                     return;
                 }
@@ -457,7 +638,7 @@ namespace AIVillage.AI
                 // 우선순위 P2b: 자원 부족 (어떤 자원이든 30 미만)
                 if (_worldState != null && IsAnyStockLow())
                 {
-                    _brain.CurrentGoalId = "GatherResources";
+                    Brain.CurrentGoalId = "GatherResources";
                     TransitionTo(VillagerState.Planning);
                     return;
                 }
@@ -467,7 +648,7 @@ namespace AIVillage.AI
                 // 현재는 WorldState 자원이 모두 50 이상이면 Explore Goal로 전환 (더미)
                 if (_worldState != null && AreAllStocksAboveThreshold(GATHER_STOCK_HIGH_THRESHOLD))
                 {
-                    _brain.CurrentGoalId = "Explore";
+                    Brain.CurrentGoalId = "Explore";
                     TransitionTo(VillagerState.Planning);
                     return;
                 }
@@ -475,7 +656,7 @@ namespace AIVillage.AI
 
             // 우선순위 P4: LOD 모드 진입 (30타일 초과 + 비전투)
             // 쿨다운과 무관하게 거리 조건만으로 LOD 진입 가능
-            if (!_brain.NearEnemy && GetDistanceToBase() > LOD_DISTANCE_THRESHOLD)
+            if (!Brain.NearEnemy && GetDistanceToBase() > LOD_DISTANCE_THRESHOLD)
             {
                 TransitionTo(VillagerState.LOD_FSM);
                 return;
@@ -485,76 +666,163 @@ namespace AIVillage.AI
         }
 
         /// <summary>
-        /// [Planning] GOAP 플래너가 Action 시퀀스를 탐색하는 상태.
-        /// 2단계에서는 SimulatePlanResult()로 더미 플랜을 즉시 반환한다.
-        /// 3단계에서 실제 Job System 연동으로 교체된다.
+        /// [Planning] GOAPPlannerJob의 완료를 폴링하고 결과를 처리하는 상태.
+        ///
+        /// 5B단계: SimulatePlanResult() 더미를 Job System 기반 실제 A* GOAP로 교체.
+        /// EnterPlanning()에서 Job을 스케줄하고, 이 핸들러에서 완료를 폴링한다.
+        /// Job이 완료되면 결과를 읽어 Brain.CurrentPlan에 적재하고 Executing으로 전이한다.
         /// </summary>
         private void State_Planning()
         {
-            // 타임아웃 체크: 플래닝이 0.5초를 초과하면 Replanning
-            if (Time.time - _brain.PlanningStartTime > PLANNING_TIMEOUT_SEC)
+            // ── 타임아웃 체크 ─────────────────────────────────────────────────
+            // 0.5초 이내에 Job이 완료되지 않으면 강제 종료 후 Replanning으로 전이한다.
+            if (Time.time - Brain.PlanningStartTime > PLANNING_TIMEOUT_SEC)
             {
-                Debug.LogWarning($"[VillagerFSM] Planning 타임아웃 ({PLANNING_TIMEOUT_SEC}초 초과). Replanning으로 전이. AgentId={AgentId}, GoalId={_brain.CurrentGoalId}");
+                Debug.LogWarning(
+                    $"[VillagerFSM] Planning 타임아웃 ({PLANNING_TIMEOUT_SEC}초 초과). " +
+                    $"Replanning으로 전이. AgentId={AgentId}, GoalId={Brain.CurrentGoalId}"
+                );
+
+                // 진행 중인 Job이 있으면 강제 완료 후 NativeArray 해제
+                if (_planningContext.IsScheduled)
+                {
+                    _planningContext.JobHandle.Complete();
+                    _planningContext.Dispose();
+                }
+
                 TransitionTo(VillagerState.Replanning);
                 return;
             }
 
-            // 2단계: 더미 플랜 즉시 반환 (Job System은 3단계에서 연동)
-            // TODO: 3단계에서 GOAPPlannerJob 스케줄링으로 교체
-            GOAPPlanResult planResult = SimulatePlanResult(_brain.CurrentGoalId);
-
-            if (planResult.Success)
+            // ── Job 스케줄 실패 체크 ──────────────────────────────────────────
+            // EnterPlanning()에서 Schedule()이 실패한 경우 (null 입력 등)
+            if (!_planningContext.IsScheduled)
             {
-                // 유효한 플랜 수신 → Brain의 CurrentPlan 큐에 적재
-                _brain.CurrentPlan.Clear();
-                if (planResult.ActionSequence != null)
+                Debug.LogWarning(
+                    $"[VillagerFSM] Planning: _planningContext가 스케줄되지 않았습니다. " +
+                    $"Replanning으로 전이. AgentId={AgentId}"
+                );
+                TransitionTo(VillagerState.Replanning);
+                return;
+            }
+
+            // ── Job 완료 대기 (비블로킹 폴링) ────────────────────────────────
+            // IsCompleted가 false이면 이번 Tick에서는 아무것도 하지 않는다.
+            // 다음 Tick(0.1초 후)에 다시 확인한다.
+            if (!_planningContext.JobHandle.IsCompleted) return;
+
+            // ── Job 완료 → 결과 읽기 ─────────────────────────────────────────
+            // Complete()를 명시적으로 호출해야 JobHandle이 정리되고 NativeArray 접근이 안전해진다.
+            _planningContext.JobHandle.Complete();
+
+            // [PR Fix]: N-001 — ReadResult() 호출부를 새 시그니처로 변경
+            // alreadySatisfied=true이면 현재 상태가 이미 목표를 달성한 것이므로
+            // 빈 플랜으로 바로 Executing 전이 (Replanning 무한루프 방지)
+            List<string> actionSequence = _planningContext.ReadResult(out bool alreadySatisfied);
+            _planningContext.Dispose(); // NativeArray 즉시 해제
+
+            // [PR Fix]: N-001 수정 — 이미 목표 달성 상태에서 Idle 직접 전이
+            // 기존: TransitionTo(Executing) → EnterExecuting()이 빈 CurrentPlan 감지 → 경고 로그 → Idle
+            //       정상 달성 상황에서 "CurrentPlan이 비어있습니다" 오탐 경고가 매번 출력됨
+            // 수정: 불필요한 Executing 경유 없이 Idle로 직접 전이하여 경고 제거 및 상태 전이 간소화
+            if (alreadySatisfied)
+            {
+                Debug.Log(
+                    $"[VillagerFSM] 현재 상태가 이미 목표를 달성했습니다. 직접 Idle로 복귀. " +
+                    $"AgentId={AgentId}"
+                );
+                Brain.CurrentGoalId   = null;
+                Brain.CurrentActionId = null;
+                TransitionTo(VillagerState.Idle);
+                return;
+            }
+
+            bool planSuccess = actionSequence != null && actionSequence.Count > 0;
+
+            if (planSuccess)
+            {
+                // 플랜 성공 → Brain.CurrentPlan 큐에 적재
+                Brain.CurrentPlan.Clear();
+                foreach (string actionId in actionSequence)
                 {
-                    foreach (string actionId in planResult.ActionSequence)
-                    {
-                        _brain.CurrentPlan.Enqueue(actionId);
-                    }
+                    Brain.CurrentPlan.Enqueue(actionId);
                 }
 
-                // 재플래닝 횟수 초기화 (성공했으므로)
-                _brain.FallbackCounter = 0;
+                Brain.FallbackCounter = 0;
 
-                Debug.Log($"[VillagerFSM] Planning 성공. 플랜: [{string.Join(" → ", planResult.ActionSequence ?? new System.Collections.Generic.List<string>())}]. AgentId={AgentId}");
+                Debug.Log(
+                    $"[VillagerFSM] Planning 성공 (GOAPPlannerJob). " +
+                    $"플랜: [{string.Join(" → ", actionSequence)}]. AgentId={AgentId}"
+                );
 
                 TransitionTo(VillagerState.Executing);
             }
             else
             {
-                // 해결책을 찾지 못함 → Replanning
-                Debug.LogWarning($"[VillagerFSM] Planning 실패 ({planResult.ResultType}). Goal={_brain.CurrentGoalId}. AgentId={AgentId}");
+                // 해결책 없음 → Replanning
+                Debug.LogWarning(
+                    $"[VillagerFSM] Planning 실패 (NoSolutionFound). " +
+                    $"Goal={Brain.CurrentGoalId}. AgentId={AgentId}"
+                );
                 TransitionTo(VillagerState.Replanning);
             }
         }
 
         /// <summary>
         /// [Executing] 플래닝된 Action을 순차적으로 실행하는 상태.
-        /// 2단계에서는 ACTION_SIMULATE_SEC(2초) 후 Action이 완료된 것으로 시뮬레이션한다.
+        ///
+        /// [12단계 수정]: 이동 완료 후 액션 타이머를 시작한다.
+        ///   1. _isMoving == true이면 아직 목표 타일에 이동 중 → 타이머 보류
+        ///   2. Brain.ActionStartTime == 0f이면 이동 완료 직후 최초 1회 → 타이머 시작
+        ///   3. 타이머 경과(ACTION_SIMULATE_SEC) 후 OnActionCompleted() 호출
         /// </summary>
         private void State_Executing()
         {
-            // 현재 실행 중인 Action이 완료 시간에 도달했는지 확인
-            if (Time.time - _brain.ActionStartTime >= ACTION_SIMULATE_SEC)
-            {
-                // Action 완료 처리
-                OnActionCompleted(_brain.CurrentActionId);
+            // ── [12단계] 이동 중이면 액션 타이머 보류 ────────────────────────────
+            // 목표 타일에 도착해야 액션을 수행할 수 있다.
+            if (_isMoving) return;
 
-                // 큐에 남은 Action이 있으면 다음 Action 시작
-                if (_brain.CurrentPlan.Count > 0)
+            // ── 도착 후 최초 1회: 액션 타이머 시작 ──────────────────────────────
+            // StartNextAction()에서 ActionStartTime = -1f(센티넬)로 초기화했다.
+            // 이동이 완료된 첫 틱에 이 조건이 true → 타이머를 Time.time으로 설정한다.
+            if (Brain.ActionStartTime < 0f)
+            {
+                Brain.ActionStartTime = Time.time;
+
+                // ── [13단계] 액션 목적지 도착 시 FoW 시야 + 자원 노드 발견 갱신 ────
+                // 이동이 완료되어 목적지 타일에 실제로 서있을 때 주변 시야를 공개한다.
+                // 웨이포인트 단위 갱신에 추가로 목적지에서 한 번 더 갱신하여
+                // 채집 장소나 기지 주변 시야가 확실히 열리도록 한다.
+                if (FowManager.Instance != null && MapConfig.Active != null)
                 {
-                    StartNextAction();
+                    int sight = MapConfig.Active.villagerSightRadius;
+                    FowManager.Instance.RevealArea(Brain.TileX, Brain.TileY, sight);
+                    SensorSystem.Instance?.DiscoverArea(Brain.TileX, Brain.TileY, sight);
                 }
-                else
-                {
-                    // 모든 Action 완료 → Goal 달성, Idle로 복귀
-                    Debug.Log($"[VillagerFSM] 플랜 완료. Goal={_brain.CurrentGoalId}. AgentId={AgentId}");
-                    _brain.CurrentGoalId  = null;
-                    _brain.CurrentActionId = null;
-                    TransitionTo(VillagerState.Idle);
-                }
+
+                Debug.Log($"[VillagerFSM] 목표 도착 후 액션 타이머 시작: '{Brain.CurrentActionId}'. " +
+                          $"완료까지 {ACTION_SIMULATE_SEC}초. AgentId={AgentId}");
+                return; // 다음 Tick에서 타이머 체크
+            }
+
+            // ── 액션 완료 체크 ────────────────────────────────────────────────
+            if (Time.time - Brain.ActionStartTime < ACTION_SIMULATE_SEC) return;
+
+            // Action 완료 처리
+            OnActionCompleted(Brain.CurrentActionId);
+
+            // 큐에 남은 Action이 있으면 다음 Action 시작
+            if (Brain.CurrentPlan.Count > 0)
+            {
+                StartNextAction();
+            }
+            else
+            {
+                // 모든 Action 완료 → Goal 달성, Idle로 복귀
+                Debug.Log($"[VillagerFSM] 플랜 완료. Goal={Brain.CurrentGoalId}. AgentId={AgentId}");
+                Brain.CurrentGoalId   = null;
+                Brain.CurrentActionId = null;
+                TransitionTo(VillagerState.Idle);
             }
         }
 
@@ -566,19 +834,19 @@ namespace AIVillage.AI
         private void State_Replanning()
         {
             // Deadlock 판정: 너무 많이 실패했으면 강제 Fallback Goal
-            if (_brain.FallbackCounter >= DEADLOCK_THRESHOLD)
+            if (Brain.FallbackCounter >= DEADLOCK_THRESHOLD)
             {
                 HandleDeadlock();
                 return;
             }
 
             // 쿨다운이 끝나면 다시 Planning 시도
-            if (_brain.ReplanCooldown <= 0f)
+            if (Brain.ReplanCooldown <= 0f)
             {
                 // P0 Goal이 활성화되어 있으면 해당 Goal로 다시 Planning
                 if (IsP0GoalActive())
                 {
-                    _brain.CurrentGoalId = GetP0GoalId();
+                    Brain.CurrentGoalId = GetP0GoalId();
                 }
 
                 TransitionTo(VillagerState.Planning);
@@ -594,7 +862,7 @@ namespace AIVillage.AI
         /// </summary>
         private void State_CommandConflict()
         {
-            if (!_brain.HasPendingOrder)
+            if (!Brain.HasPendingOrder)
             {
                 // 처리할 명령이 없으면 Idle로 복귀
                 Debug.LogWarning($"[VillagerFSM] CommandConflict: HasPendingOrder가 false입니다. Idle로 복귀. AgentId={AgentId}");
@@ -603,18 +871,18 @@ namespace AIVillage.AI
             }
 
             // [PR Fix]: F-002 — HasPendingOrder = false를 설정하기 전에 PendingOrder를 로컬 변수에
-            // 복사한다. 플래그를 먼저 false로 만든 뒤 _brain.PendingOrder를 다시 읽으면
+            // 복사한다. 플래그를 먼저 false로 만든 뒤 Brain.PendingOrder를 다시 읽으면
             // 다른 경로에서 PendingOrder가 덮어쓰일 경우 잘못된 명령을 참조하는 버그가 발생한다.
-            PlayerOrder localOrder = _brain.PendingOrder;
+            PlayerOrder localOrder = Brain.PendingOrder;
 
             // ConflictScore 계산 (복사된 로컬 명령 데이터 사용)
-            ConflictScoreData scoreData = ConflictScoreCalculator.Calculate(_brain, localOrder);
+            ConflictScoreData scoreData = ConflictScoreCalculator.Calculate(Brain, localOrder);
 
             Debug.Log($"[VillagerFSM] ConflictScore={scoreData.ConflictScore:F2}, Threshold={scoreData.Threshold:F2}, " +
                       $"ShouldRefuse={scoreData.ShouldRefuse}. AgentId={AgentId}");
 
             // 플래그 소비: PendingOrder 복사 완료 후에 false로 설정한다
-            _brain.HasPendingOrder = false;
+            Brain.HasPendingOrder = false;
 
             if (scoreData.ShouldRefuse)
             {
@@ -625,7 +893,7 @@ namespace AIVillage.AI
             {
                 // 수락 → 로컬 복사본으로 Goal로 변환하여 Planning
                 // (HasPendingOrder = false 이후에도 localOrder는 안전하게 참조 가능)
-                _brain.CurrentGoalId = ConvertOrderToGoalId(localOrder.OrderType);
+                Brain.CurrentGoalId = ConvertOrderToGoalId(localOrder.OrderType);
                 TransitionTo(VillagerState.Planning);
             }
         }
@@ -637,7 +905,7 @@ namespace AIVillage.AI
         private void State_RefusingOrder()
         {
             // 타이머 경과 → Idle 복귀
-            if (_brain.RefuseMessageTimer <= 0f)
+            if (Brain.RefuseMessageTimer <= 0f)
             {
                 Debug.Log($"[VillagerFSM] 거부 메시지 표시 완료. Idle로 복귀. AgentId={AgentId}");
                 TransitionTo(VillagerState.Idle);
@@ -665,29 +933,96 @@ namespace AIVillage.AI
         private void State_LOD_FSM()
         {
             // LOD 탈출 조건: 위협 또는 기지 복귀
-            if (_brain.NearEnemy || GetDistanceToBase() <= LOD_DISTANCE_THRESHOLD)
+            if (Brain.NearEnemy || GetDistanceToBase() <= LOD_DISTANCE_THRESHOLD)
             {
-                Debug.Log($"[VillagerFSM] LOD → Full GOAP 복귀 (nearEnemy={_brain.NearEnemy}, dist={GetDistanceToBase():F0}). AgentId={AgentId}");
-                _brain.IsLODMode           = false;
-                _brain.LODTickAccumulator  = 0f;
+                Debug.Log($"[VillagerFSM] LOD → Full GOAP 복귀 (nearEnemy={Brain.NearEnemy}, dist={GetDistanceToBase():F0}). AgentId={AgentId}");
+                Brain.IsLODMode           = false;
+                Brain.LODTickAccumulator  = 0f;
                 TransitionTo(VillagerState.Idle);
                 return;
             }
 
             // 0.5초 간격 틱
-            if (_brain.LODTickAccumulator < LOD_TICK_INTERVAL_SEC) return;
-            _brain.LODTickAccumulator -= LOD_TICK_INTERVAL_SEC;
+            if (Brain.LODTickAccumulator < LOD_TICK_INTERVAL_SEC) return;
+            Brain.LODTickAccumulator -= LOD_TICK_INTERVAL_SEC;
 
             // 내부 LOD 상태 실행
-            switch (_brain.LODState)
+            switch (Brain.LODState)
             {
                 case LODState.LOD_Idle:            LOD_State_Idle();            break;
                 case LODState.LOD_GatheringResource: LOD_State_GatheringResource(); break;
                 case LODState.LOD_MovingToBase:    LOD_State_MovingToBase();    break;
                 case LODState.LOD_Alert:           LOD_State_Alert();           break;
                 default:
-                    Debug.LogWarning($"[VillagerFSM] LOD_FSM: 처리되지 않은 LOD 상태 '{_brain.LODState}'. AgentId={AgentId}");
+                    Debug.LogWarning($"[VillagerFSM] LOD_FSM: 처리되지 않은 LOD 상태 '{Brain.LODState}'. AgentId={AgentId}");
                     break;
+            }
+        }
+
+        /// <summary>
+        /// [Fighting] 적과 근접 전투 상태. [8단계]
+        /// 매 틱 공격 범위 내 가장 가까운 적에게 피해를 입히고 심리 상태를 평가한다.
+        /// </summary>
+        private void State_Fighting()
+        {
+            EvaluateCombatMentalState();
+
+            if (Brain.CombatMentalState == CombatMentalState.Fear)
+            {
+                TransitionTo(VillagerState.Fleeing);
+                return;
+            }
+
+            if (!Brain.NearEnemy)
+            {
+                Brain.CombatMentalState = CombatMentalState.Normal;
+                Brain.AttackModifier    = 1.0f;
+                TransitionTo(VillagerState.Idle);
+                return;
+            }
+
+            EnemyFSM target = FindNearestEnemy(ATTACK_RANGE_TILES);
+            if (target != null && target.Brain != null && target.Brain.IsAlive)
+            {
+                float damage = BASE_VILLAGER_DAMAGE * Brain.AttackModifier;
+                target.Brain.HealthLevel = Mathf.Max(0f, target.Brain.HealthLevel - damage);
+                Debug.Log($"[VillagerFSM] Fighting: Enemy={target.Brain.EnemyId} HP={target.Brain.HealthLevel:F0} " +
+                          $"(dmg={damage:F1}, {Brain.CombatMentalState}). AgentId={AgentId}");
+
+                if (target.Brain.HealthLevel <= 0f && target.Brain.IsAlive)
+                {
+                    target.Brain.IsAlive = false;
+                    Debug.Log($"[VillagerFSM] 적 처치! Enemy={target.Brain.EnemyId}. AgentId={AgentId}");
+                    if (Brain.CombatMentalState == CombatMentalState.Rage)
+                        PublishRageKillEvent();
+                }
+            }
+        }
+
+        /// <summary>
+        /// [Fleeing] Fear 상태 도주. [8단계]
+        ///
+        /// [12단계 수정]: Brain.TileX/Y 직접 조작을 제거한다.
+        ///   이동은 EnterFleeing()에서 StartPathTo(_baseTileX, _baseTileY)로 시작된 JPS 경로가
+        ///   Update()의 MoveTowards 루프에서 VILLAGER_FLEE_SPEED(3.0)로 처리한다.
+        ///   이 핸들러는 심리 상태 전이 판정만 담당한다.
+        /// </summary>
+        private void State_Fleeing()
+        {
+            EvaluateCombatMentalState();
+
+            if (Brain.CombatMentalState == CombatMentalState.Rage)
+            {
+                // 의도적 역전: Fear→Rage 조건 충족 시 같은 틱에 Fighting으로 복귀.
+                Debug.Log($"[VillagerFSM] Fleeing → Rage 역전 → Fighting. AgentId={AgentId}");
+                TransitionTo(VillagerState.Fighting);
+                return;
+            }
+
+            if (Brain.CombatMentalState == CombatMentalState.Normal && !Brain.NearEnemy)
+            {
+                Debug.Log($"[VillagerFSM] Fleeing → 회복 완료 → Idle. AgentId={AgentId}");
+                TransitionTo(VillagerState.Idle);
             }
         }
 
@@ -701,7 +1036,7 @@ namespace AIVillage.AI
         private void LOD_State_Idle()
         {
             // 자원이 부족하고 주변에 자원 노드가 있으면 수집 시작
-            if (_worldState != null && IsAnyStockLow() && _brain.NearResource)
+            if (_worldState != null && IsAnyStockLow() && Brain.NearResource)
             {
                 TransitionToLOD(LODState.LOD_GatheringResource);
             }
@@ -713,7 +1048,7 @@ namespace AIVillage.AI
         /// </summary>
         private void LOD_State_GatheringResource()
         {
-            if (Time.time - _brain.LODActionStartTime >= LOD_GATHER_DURATION)
+            if (Time.time - Brain.LODActionStartTime >= LOD_GATHER_DURATION)
             {
                 Debug.Log($"[VillagerFSM] LOD 수집 완료. MovingToBase로 전이. AgentId={AgentId}");
                 TransitionToLOD(LODState.LOD_MovingToBase);
@@ -725,7 +1060,7 @@ namespace AIVillage.AI
         /// </summary>
         private void LOD_State_MovingToBase()
         {
-            if (Time.time - _brain.LODActionStartTime >= LOD_MOVE_DURATION)
+            if (Time.time - Brain.LODActionStartTime >= LOD_MOVE_DURATION)
             {
                 // 기지 도달: 수집한 자원을 WorldState에 더미 추가
                 ApplyLODResourceGain();
@@ -741,8 +1076,8 @@ namespace AIVillage.AI
         private void LOD_State_Alert()
         {
             Debug.Log($"[VillagerFSM] LOD_Alert → Full GOAP 복귀. AgentId={AgentId}");
-            _brain.IsLODMode           = false;
-            _brain.LODTickAccumulator  = 0f;
+            Brain.IsLODMode           = false;
+            Brain.LODTickAccumulator  = 0f;
             TransitionTo(VillagerState.Idle);
         }
 
@@ -757,15 +1092,15 @@ namespace AIVillage.AI
         /// </summary>
         private void TransitionTo(VillagerState newState)
         {
-            if (_brain == null) return;
+            if (Brain == null) return;
 
-            VillagerState prevState = _brain.FSMState;
+            VillagerState prevState = Brain.FSMState;
 
             // ── Exit 처리: 이전 상태 정리 ─────────────────────────────────────
             OnStateExit(prevState, newState);
 
             // 상태 변경
-            _brain.FSMState = newState;
+            Brain.FSMState = newState;
 
             // ── Enter 처리: 새 상태 초기화 ────────────────────────────────────
             OnStateEnter(newState, prevState);
@@ -776,10 +1111,10 @@ namespace AIVillage.AI
         /// </summary>
         private void TransitionToLOD(LODState newLODState)
         {
-            if (_brain == null) return;
+            if (Brain == null) return;
 
-            _brain.LODState         = newLODState;
-            _brain.LODActionStartTime = Time.time;
+            Brain.LODState         = newLODState;
+            Brain.LODActionStartTime = Time.time;
         }
 
         /// <summary>
@@ -791,22 +1126,23 @@ namespace AIVillage.AI
             switch (exitingState)
             {
                 case VillagerState.Executing:
-                    // [PR Fix]: F-003 — 'enteringState != VillagerState.Idle' 조건을 제거한다.
-                    // 기존 조건은 Executing → Idle 전이(정상 완료) 시 예약을 해제하지 않아 자원이 누수되었다.
-                    // 정상 완료(Goal 달성 후 Idle)는 OnActionCompleted()에서 Commit을 호출하며
-                    // Commit이 완료되면 _hasActiveReservation = false로 설정된다.
-                    // 따라서 _hasActiveReservation이 true인 채로 이 Exit 코드에 도달하는 경우는
-                    // 항상 '완료되지 않은 중단'이므로 조건 없이 무조건 해제한다.
+                    // [PR Fix]: F-003 — 조건 없이 무조건 해제
                     if (_hasActiveReservation)
-                    {
                         ReleaseCurrentReservation();
-                    }
-                    _brain.IsExecutingPlan = false;
+                    ReleaseGatherNode();
+                    Brain.IsExecutingPlan = false;
                     break;
 
                 case VillagerState.LOD_FSM:
-                    _brain.IsLODMode          = false;
-                    _brain.LODTickAccumulator = 0f;
+                    Brain.IsLODMode          = false;
+                    Brain.LODTickAccumulator = 0f;
+                    break;
+
+                // ── [12단계] Fleeing 종료 시 경로 즉시 중단 ─────────────────────
+                // Rage 역전(→Fighting) 또는 회복(→Idle) 시 도주 경로를 중단하고
+                // transform을 Brain 논리 위치로 스냅한다.
+                case VillagerState.Fleeing:
+                    AbortCurrentPath();
                     break;
             }
         }
@@ -844,43 +1180,80 @@ namespace AIVillage.AI
                     break;
 
                 case VillagerState.LOD_FSM:
-                    _brain.IsLODMode          = true;
-                    _brain.LODState           = LODState.LOD_Idle;
-                    _brain.LODTickAccumulator = 0f;
-                    _brain.LODActionStartTime = Time.time;
+                    Brain.IsLODMode          = true;
+                    Brain.LODState           = LODState.LOD_Idle;
+                    Brain.LODTickAccumulator = 0f;
+                    Brain.LODActionStartTime = Time.time;
+                    break;
+
+                case VillagerState.Fighting:
+                    EnterFighting();
+                    break;
+
+                case VillagerState.Fleeing:
+                    EnterFleeing();
                     break;
             }
         }
 
         // ── Enter 헬퍼 메서드 ──────────────────────────────────────────────────
 
-        /// <summary>Planning 상태 진입 초기화.</summary>
+        /// <summary>
+        /// Planning 상태 진입 초기화.
+        ///
+        /// 5B단계: GOAPPlannerJob을 스케줄링한다.
+        /// Brain.CurrentGoalId, _registry, _worldState가 모두 유효한 경우에만 스케줄링된다.
+        /// 하나라도 null이면 _planningContext.IsScheduled = false로 설정되고,
+        /// State_Planning()이 다음 Tick에서 Replanning으로 전이한다.
+        /// </summary>
         private void EnterPlanning()
         {
-            // 이전에 실행 중이던 플랜 큐를 비운다
-            _brain.CurrentPlan.Clear();
-            _brain.IsExecutingPlan  = false;
-            _brain.PlanningStartTime = Time.time;
+            // 이전 플랜 큐 초기화
+            Brain.CurrentPlan.Clear();
+            Brain.IsExecutingPlan   = false;
+            Brain.PlanningStartTime = Time.time;
 
-            // 2단계에서는 즉시 WorldStateSnapshot을 생성하고 더미 결과를 반환한다.
-            // 3단계에서 Job System 스케줄링으로 교체한다.
-            // TODO: 3단계 — WorldStateSnapshot.CreateFrom() 후 GOAPPlannerJob 스케줄링
-            if (_worldState != null)
+            // ── 5B단계: GOAPPlannerJob 스케줄링 ──────────────────────────────
+            // Brain.CurrentGoalId와 의존성이 모두 유효한 경우에만 스케줄링한다.
+            if (Brain.CurrentGoalId != null && _worldState != null && _registry != null)
             {
-                // 스냅샷은 Planning Tick에서 더미 플래닝 시 사용 (현재는 생성 후 즉시 Dispose)
-                // 실제 Job 연결 전까지 스냅샷 생성 테스트용으로만 호출
-                using var snapshot = WorldStateSnapshot.CreateFrom(_worldState);
-                // snapshot은 2단계에서는 SimulatePlanResult가 Brain을 직접 읽으므로 사용하지 않음
-                _ = snapshot; // 컴파일러 경고 억제
+                _planningContext = GOAPPlannerScheduler.Schedule(
+                    Brain.CurrentGoalId,
+                    Brain.Role,
+                    Brain,
+                    _worldState,
+                    _registry);
+
+                if (!_planningContext.IsScheduled)
+                {
+                    // Schedule 내부에서 실패 (null 입력 등) — 이미 LogWarning이 출력됨
+                    Debug.LogWarning(
+                        $"[VillagerFSM] EnterPlanning: GOAPPlannerScheduler.Schedule() 실패. " +
+                        $"다음 Tick에서 Replanning으로 전이됩니다. AgentId={AgentId}"
+                    );
+                }
+            }
+            else
+            {
+                // 의존성 부족: IsScheduled = false인 default 컨텍스트
+                _planningContext = default;
+
+                Debug.LogWarning(
+                    $"[VillagerFSM] EnterPlanning: 스케줄링 조건 미충족 " +
+                    $"(GoalId={Brain.CurrentGoalId ?? "null"}, " +
+                    $"worldState={(_worldState != null ? "ok" : "null")}, " +
+                    $"registry={(_registry != null ? "ok" : "null")}). " +
+                    $"AgentId={AgentId}"
+                );
             }
         }
 
         /// <summary>Executing 상태 진입 초기화. 첫 Action을 큐에서 꺼내 실행 시작.</summary>
         private void EnterExecuting()
         {
-            _brain.IsExecutingPlan = true;
+            Brain.IsExecutingPlan = true;
 
-            if (_brain.CurrentPlan.Count == 0)
+            if (Brain.CurrentPlan.Count == 0)
             {
                 Debug.LogWarning($"[VillagerFSM] EnterExecuting: CurrentPlan이 비어있습니다. Idle로 복귀. AgentId={AgentId}");
                 TransitionTo(VillagerState.Idle);
@@ -893,57 +1266,62 @@ namespace AIVillage.AI
         /// <summary>다음 Action을 큐에서 꺼내 자원 예약 후 실행 시작.</summary>
         private void StartNextAction()
         {
-            _brain.CurrentActionId = _brain.CurrentPlan.Dequeue();
-            _brain.ActionStartTime = Time.time;
+            Brain.CurrentActionId = Brain.CurrentPlan.Dequeue();
+            Brain.ActionStartTime = -1f; // -1f 센티넬: 이동 완료 후 State_Executing()에서 타이머 시작
+
+            // 7단계: Action에 따라 목표 타일로 Brain 위치 이동
+            MoveTileForAction(Brain.CurrentActionId);
 
             // 자원 예약 시도 (Action에 따라 필요한 자원이 다름)
             // 2단계: 간소화된 자원 예약 — 실제 Action별 자원 요구량은 3단계에서 정밀화
-            if (!TryReserveForAction(_brain.CurrentActionId))
+            if (!TryReserveForAction(Brain.CurrentActionId))
             {
                 // 자원 예약 실패 → Replanning
-                Debug.LogWarning($"[VillagerFSM] Action '{_brain.CurrentActionId}' 자원 예약 실패. Replanning으로 전이. AgentId={AgentId}");
+                Debug.LogWarning($"[VillagerFSM] Action '{Brain.CurrentActionId}' 자원 예약 실패. Replanning으로 전이. AgentId={AgentId}");
                 TransitionTo(VillagerState.Replanning);
                 return;
             }
 
-            Debug.Log($"[VillagerFSM] Action 시작: '{_brain.CurrentActionId}'. 완료까지 {ACTION_SIMULATE_SEC}초. AgentId={AgentId}");
+            Debug.Log($"[VillagerFSM] Action 시작: '{Brain.CurrentActionId}'. 완료까지 {ACTION_SIMULATE_SEC}초. AgentId={AgentId}");
         }
 
         /// <summary>Replanning 상태 진입 초기화. 자원 해제 및 쿨다운 설정.</summary>
         private void EnterReplanning()
         {
-            // 현재 예약 해제
+            AbortCurrentPath();
+            // 현재 예약 해제 + 채집 노드 점유 해제 (예약 실패 케이스도 커버)
             ReleaseCurrentReservation();
+            ReleaseGatherNode();
 
             // 현재 플랜 초기화
-            _brain.CurrentPlan.Clear();
-            _brain.IsExecutingPlan = false;
+            Brain.CurrentPlan.Clear();
+            Brain.IsExecutingPlan = false;
 
             // 쿨다운 설정 (P0 Goal은 이 쿨다운을 무시하고 Update()에서 강제 전이)
-            _brain.ReplanCooldown       = UnityEngine.Random.Range(REPLAN_COOLDOWN_MIN, REPLAN_COOLDOWN_MAX);
-            _brain.LastReplanTimestamp  = Time.time;
-            _brain.FallbackCounter++;
+            Brain.ReplanCooldown       = UnityEngine.Random.Range(REPLAN_COOLDOWN_MIN, REPLAN_COOLDOWN_MAX);
+            Brain.LastReplanTimestamp  = Time.time;
+            Brain.FallbackCounter++;
 
             // ReplanCount 딕셔너리 갱신
-            if (_brain.CurrentGoalId != null)
+            if (Brain.CurrentGoalId != null)
             {
-                if (!_brain.ReplanCount.ContainsKey(_brain.CurrentGoalId))
-                    _brain.ReplanCount[_brain.CurrentGoalId] = 0;
-                _brain.ReplanCount[_brain.CurrentGoalId]++;
+                if (!Brain.ReplanCount.ContainsKey(Brain.CurrentGoalId))
+                    Brain.ReplanCount[Brain.CurrentGoalId] = 0;
+                Brain.ReplanCount[Brain.CurrentGoalId]++;
             }
 
-            Debug.Log($"[VillagerFSM] Replanning 진입. FallbackCounter={_brain.FallbackCounter}, Cooldown={_brain.ReplanCooldown:F2}초. AgentId={AgentId}");
+            Debug.Log($"[VillagerFSM] Replanning 진입. FallbackCounter={Brain.FallbackCounter}, Cooldown={Brain.ReplanCooldown:F2}초. AgentId={AgentId}");
         }
 
         /// <summary>RefusingOrder 상태 진입 초기화. 거부 이유 결정 및 MessageBus를 통해 메시지 발행.</summary>
         private void EnterRefusingOrder()
         {
             // ConflictScoreCalculator에서 현재 Brain 상태 기반으로 거부 이유 코드 결정
-            RefusalReasonCode refusalCode = ConflictScoreCalculator.DetermineReason(_brain);
-            _brain.RefuseMessageTimer = REFUSE_DISPLAY_SEC;
+            RefusalReasonCode refusalCode = ConflictScoreCalculator.DetermineReason(Brain);
+            Brain.RefuseMessageTimer = REFUSE_DISPLAY_SEC;
 
             // 거부 후 수행할 대안 Goal 결정 (먹기, 치료, 피하기 등)
-            _brain.AlternativeGoalId = DetermineAlternativeGoal(refusalCode);
+            Brain.AlternativeGoalId = DetermineAlternativeGoal(refusalCode);
 
             // ── ConflictScoreData 재계산: 페이로드에 점수 정보를 포함시키기 위해 ──
             // HasPendingOrder는 CommandConflict 핸들러에서 이미 false로 설정되었다.
@@ -961,8 +1339,8 @@ namespace AIVillage.AI
                 RefusalMessage    = refusalMessage,
                 ConflictScore     = 0f,    // TODO: Brain에 마지막 ConflictScoreData를 캐싱하면 실값 전달 가능
                 Threshold         = 0f,    // TODO: 동일
-                AlternativeGoalId = _brain.AlternativeGoalId,
-                LoyaltyLevel      = _brain.LoyaltyLevel
+                AlternativeGoalId = Brain.AlternativeGoalId,
+                LoyaltyLevel      = Brain.LoyaltyLevel
             };
 
             // ── MessageBus를 통해 OrderRefused 발행 ─────────────────────────────
@@ -988,7 +1366,7 @@ namespace AIVillage.AI
             }
 
             UnityEngine.Debug.Log(
-                $"[VillagerFSM] 명령 거부. 이유={refusalCode}, 대안Goal={_brain.AlternativeGoalId ?? "없음"}. " +
+                $"[VillagerFSM] 명령 거부. 이유={refusalCode}, 대안Goal={Brain.AlternativeGoalId ?? "없음"}. " +
                 $"AgentId={AgentId}"
             );
         }
@@ -1022,6 +1400,32 @@ namespace AIVillage.AI
         }
 
         /// <summary>
+        /// Fighting 상태 진입 초기화. 현재 플랜을 중단하고 전투 준비 상태로 전환한다.
+        /// CombatMentalState는 진입 전 이미 설정된 값(Normal/Rage)을 유지한다.
+        /// </summary>
+        private void EnterFighting()
+        {
+            AbortCurrentPath();
+            Brain.CurrentGoalId   = null;
+            Brain.CurrentPlan.Clear();
+            Brain.IsExecutingPlan = false;
+            Debug.Log($"[VillagerFSM] → Fighting ({Brain.CombatMentalState}). AgentId={AgentId}");
+        }
+
+        /// <summary>
+        /// Fleeing 상태 진입 초기화. 현재 플랜을 중단하고 기지 방향 도주를 시작한다.
+        /// CombatMentalState는 Fear로 이미 설정된 상태에서 진입한다.
+        /// </summary>
+        private void EnterFleeing()
+        {
+            Brain.CurrentGoalId   = null;
+            Brain.CurrentPlan.Clear();
+            Brain.IsExecutingPlan = false;
+            StartPathTo(_baseTileX, _baseTileY);
+            Debug.Log($"[VillagerFSM] → Fleeing (HP={Brain.HealthLevel:F0}). AgentId={AgentId}");
+        }
+
+        /// <summary>
         /// Dead 상태 진입 처리 (순서 엄수):
         /// 1. IsAlive = false
         /// 2. 플랜 실행 중지
@@ -1033,11 +1437,12 @@ namespace AIVillage.AI
         /// </summary>
         private void EnterDead()
         {
+            AbortCurrentPath();
             // 1. 생존 플래그 false 확정
-            _brain.IsAlive         = false;
+            Brain.IsAlive         = false;
             // 2. 플랜 실행 중지
-            _brain.IsExecutingPlan = false;
-            _brain.CurrentPlan.Clear();
+            Brain.IsExecutingPlan = false;
+            Brain.CurrentPlan.Clear();
 
             // 3. 모든 자원 예약 해제 — 다른 주민이 이 자원을 즉시 사용할 수 있도록
             if (_registry != null)
@@ -1061,7 +1466,7 @@ namespace AIVillage.AI
             // ──────────────────────────────────────────────────────────────────
 
             // ── 드롭 아이템 목록 구성 ─────────────────────────────────────────
-            // _brain 인벤토리 플래그를 읽어 실제 드롭된 아이템을 기록한다.
+            // Brain 인벤토리 플래그를 읽어 실제 드롭된 아이템을 기록한다.
             // DropInventoryItems()가 이미 _worldState.DroppedItems에 추가했으므로
             // 여기서는 메시지 페이로드 전달용으로만 사용한다.
 
@@ -1070,45 +1475,45 @@ namespace AIVillage.AI
             // 용량 힌트를 주지 않으면 기본 용량(4)에서 Add 시 8 → 16 식으로 재할당이 발생할 수 있다.
             var droppedItemList = new List<MessageBus.DroppedItemInfo>(4);
 
-            if (_brain.HasTool)
+            if (Brain.HasTool)
             {
                 // 역할에 따라 도끼 또는 곡괭이
-                ItemType toolType = DetermineToolType(_brain.Role);
+                ItemType toolType = DetermineToolType(Brain.Role);
                 droppedItemList.Add(new MessageBus.DroppedItemInfo
                 {
                     ItemType = toolType,
-                    TileX    = _brain.TileX,
-                    TileY    = _brain.TileY
+                    TileX    = Brain.TileX,
+                    TileY    = Brain.TileY
                 });
             }
 
-            if (_brain.HasWeapon)
+            if (Brain.HasWeapon)
             {
                 droppedItemList.Add(new MessageBus.DroppedItemInfo
                 {
                     ItemType = ItemType.Weapon,
-                    TileX    = _brain.TileX,
-                    TileY    = _brain.TileY
+                    TileX    = Brain.TileX,
+                    TileY    = Brain.TileY
                 });
             }
 
-            if (_brain.HasPrimitiveWeapon)
+            if (Brain.HasPrimitiveWeapon)
             {
                 droppedItemList.Add(new MessageBus.DroppedItemInfo
                 {
                     ItemType = ItemType.PrimitiveWeapon,
-                    TileX    = _brain.TileX,
-                    TileY    = _brain.TileY
+                    TileX    = Brain.TileX,
+                    TileY    = Brain.TileY
                 });
             }
 
-            if (_brain.HasFood)
+            if (Brain.HasFood)
             {
                 droppedItemList.Add(new MessageBus.DroppedItemInfo
                 {
                     ItemType = ItemType.Food,
-                    TileX    = _brain.TileX,
-                    TileY    = _brain.TileY
+                    TileX    = Brain.TileX,
+                    TileY    = Brain.TileY
                 });
             }
 
@@ -1116,8 +1521,8 @@ namespace AIVillage.AI
             var diedPayload = new MessageBus.VillagerDiedPayload
             {
                 VillagerId        = AgentId,
-                DeathTileX        = _brain.TileX,
-                DeathTileY        = _brain.TileY,
+                DeathTileX        = Brain.TileX,
+                DeathTileY        = Brain.TileY,
                 DroppedItems      = droppedItemList.ToArray(),
                 // NearbyVillagerIds: GameManager가 구독 콜백에서 공간 쿼리로 채워야 한다.
                 // Publish 시점의 VillagerFSM은 다른 주민 목록을 알 수 없으므로 빈 배열로 초기화.
@@ -1138,7 +1543,7 @@ namespace AIVillage.AI
 
                 UnityEngine.Debug.Log(
                     $"[VillagerFSM] VillagerDied 메시지 발행 완료. " +
-                    $"AgentId={AgentId}, Tile=({_brain.TileX},{_brain.TileY}), " +
+                    $"AgentId={AgentId}, Tile=({Brain.TileX},{Brain.TileY}), " +
                     $"드롭아이템={droppedItemList.Count}개"
                 );
             }
@@ -1178,10 +1583,10 @@ namespace AIVillage.AI
         /// </summary>
         private bool IsP0GoalActive()
         {
-            if (_brain == null) return false;
-            return _brain.HealthLevel  < 20f
-                || _brain.HungerLevel  > 80f
-                || _brain.FatigueLevel > 90f;
+            if (Brain == null) return false;
+            return Brain.HealthLevel  < 20f
+                || Brain.HungerLevel  > 80f
+                || Brain.FatigueLevel > 90f;
         }
 
         /// <summary>
@@ -1190,9 +1595,9 @@ namespace AIVillage.AI
         /// </summary>
         private string GetP0GoalId()
         {
-            if (_brain.HealthLevel  < 20f) return "SurviveInjury";
-            if (_brain.HungerLevel  > 80f) return "SurviveHunger";
-            if (_brain.FatigueLevel > 90f) return "SurviveFatigue";
+            if (Brain.HealthLevel  < 20f) return "SurviveInjury";
+            if (Brain.HungerLevel  > 80f) return "SurviveHunger";
+            if (Brain.FatigueLevel > 90f) return "SurviveFatigue";
             return null;
         }
 
@@ -1204,11 +1609,11 @@ namespace AIVillage.AI
         {
             if (_worldState == null || _registry == null) return false;
 
-            // 주요 자원(Food, Wood, Stone)만 부족 감지 — 희귀 자원은 별도 Goal로 처리
-            return _registry.GetAvailable(ResourceType.RawFood)    < GATHER_STOCK_LOW_THRESHOLD
-                || _registry.GetAvailable(ResourceType.CookedFood) < GATHER_STOCK_LOW_THRESHOLD
-                || _registry.GetAvailable(ResourceType.Wood)       < GATHER_STOCK_LOW_THRESHOLD
-                || _registry.GetAvailable(ResourceType.Stone)      < GATHER_STOCK_LOW_THRESHOLD;
+            // CookedFood는 Campfire가 없으면 0으로 고정 → 영구 true 방지를 위해 제외
+            // 조리 식량 부족은 별도 CookFood Goal에서 처리 (Campfire 건설 후)
+            return _registry.GetAvailable(ResourceType.RawFood) < GATHER_STOCK_LOW_THRESHOLD
+                || _registry.GetAvailable(ResourceType.Wood)    < GATHER_STOCK_LOW_THRESHOLD
+                || _registry.GetAvailable(ResourceType.Stone)   < GATHER_STOCK_LOW_THRESHOLD;
         }
 
         /// <summary>
@@ -1245,7 +1650,7 @@ namespace AIVillage.AI
         /// </summary>
         private float GetDistanceToBase()
         {
-            return Mathf.Abs(_brain.TileX - _baseTileX) + Mathf.Abs(_brain.TileY - _baseTileY);
+            return Mathf.Abs(Brain.TileX - _baseTileX) + Mathf.Abs(Brain.TileY - _baseTileY);
         }
 
         /// <summary>
@@ -1407,6 +1812,9 @@ namespace AIVillage.AI
                 _hasActiveReservation = false;
             }
 
+            // 채집 노드 점유 해제 (완료 후 다른 주민이 사용 가능하도록)
+            ReleaseGatherNode();
+
             // Brain에 Action 효과 적용
             ApplyActionEffect(actionId);
 
@@ -1457,49 +1865,49 @@ namespace AIVillage.AI
 
                         // Brain 수치: 배고픔 감소 (하한 0 클램프)
                         case ActionEffectType.ReduceHunger:
-                            _brain.HungerLevel = Mathf.Max(0f, _brain.HungerLevel - effect.Amount);
+                            Brain.HungerLevel = Mathf.Max(0f, Brain.HungerLevel - effect.Amount);
                             break;
 
                         // Brain 수치: 피로 감소 — 땅에서 쉬기 (20 감소)
                         case ActionEffectType.ReduceFatigue:
-                            _brain.FatigueLevel = Mathf.Max(0f, _brain.FatigueLevel - effect.Amount);
+                            Brain.FatigueLevel = Mathf.Max(0f, Brain.FatigueLevel - effect.Amount);
                             break;
 
                         // Brain 수치: 피로 회복 — 수면 (90 감소)
                         // ReduceFatigue와 수식은 같지만 GameDesign상 의미가 다르므로 분리
                         case ActionEffectType.RestoreFatigue:
-                            _brain.FatigueLevel = Mathf.Max(0f, _brain.FatigueLevel - effect.Amount);
+                            Brain.FatigueLevel = Mathf.Max(0f, Brain.FatigueLevel - effect.Amount);
                             break;
 
                         // Brain 수치: 체력 회복 (상한 100 클램프)
                         case ActionEffectType.GainHealth:
-                            _brain.HealthLevel = Mathf.Min(100f, _brain.HealthLevel + effect.Amount);
+                            Brain.HealthLevel = Mathf.Min(100f, Brain.HealthLevel + effect.Amount);
                             break;
 
                         // Brain 수치: 피로 증가 (수집/전투 부작용, 상한 100 클램프)
                         case ActionEffectType.IncreaseFatigue:
-                            _brain.FatigueLevel = Mathf.Min(100f, _brain.FatigueLevel + effect.Amount);
+                            Brain.FatigueLevel = Mathf.Min(100f, Brain.FatigueLevel + effect.Amount);
                             break;
 
                         // Brain 수치: 기분 향상
                         case ActionEffectType.GainMood:
-                            _brain.MoodLevel = Mathf.Min(100f, _brain.MoodLevel + effect.Amount);
+                            Brain.MoodLevel = Mathf.Min(100f, Brain.MoodLevel + effect.Amount);
                             break;
 
                         // Brain 위치 플래그: 기지 도착 완료
                         case ActionEffectType.SetAtBase:
-                            _brain.AtBase = true;
+                            Brain.AtBase = true;
                             break;
 
                         // Brain 환경 플래그: 모닥불 근처 (건설 완료 후)
                         case ActionEffectType.SetNearFireplace:
-                            _brain.NearFireplace = true;
+                            Brain.NearFireplace = true;
                             break;
 
                         // WorldState 건물 완료 플래그
                         case ActionEffectType.SetCampfireBuilt:
                             // 모닥불 완료: NearFireplace는 SensorSystem이 갱신
-                            _brain.NearFireplace = true;
+                            Brain.NearFireplace = true;
                             break;
 
                         case ActionEffectType.SetHouseBuilt:
@@ -1526,15 +1934,15 @@ namespace AIVillage.AI
 
                         // Brain 인벤토리 플래그
                         case ActionEffectType.SetHasTool:
-                            _brain.HasTool = true;
+                            Brain.HasTool = true;
                             break;
 
                         case ActionEffectType.SetHasPrimitiveWeapon:
-                            _brain.HasPrimitiveWeapon = true;
+                            Brain.HasPrimitiveWeapon = true;
                             break;
 
                         case ActionEffectType.SetHasWeapon:
-                            _brain.HasWeapon = true;
+                            Brain.HasWeapon = true;
                             break;
 
                         // 탐험 효과: FoW isDiscovered 갱신 (미래 TileMap 시스템에서 구현)
@@ -1558,45 +1966,45 @@ namespace AIVillage.AI
             switch (actionId)
             {
                 case "EatCookedFood":
-                    _brain.HungerLevel = Mathf.Max(0f, _brain.HungerLevel  - 50f); // 기획서 수치
-                    _brain.MoodLevel   = Mathf.Min(100f, _brain.MoodLevel   + 5f);
+                    Brain.HungerLevel = Mathf.Max(0f, Brain.HungerLevel  - 50f); // 기획서 수치
+                    Brain.MoodLevel   = Mathf.Min(100f, Brain.MoodLevel   + 5f);
                     break;
                 case "EatRawFood":
-                    _brain.HungerLevel = Mathf.Max(0f, _brain.HungerLevel   - 15f); // 기획서 수치
+                    Brain.HungerLevel = Mathf.Max(0f, Brain.HungerLevel   - 15f); // 기획서 수치
                     break;
                 case "Sleep":
-                    _brain.FatigueLevel = Mathf.Max(0f, _brain.FatigueLevel - SLEEP_FATIGUE_RECOVERY);
+                    Brain.FatigueLevel = Mathf.Max(0f, Brain.FatigueLevel - SLEEP_FATIGUE_RECOVERY);
                     break;
                 case "RestOnGround":
-                    _brain.FatigueLevel = Mathf.Max(0f, _brain.FatigueLevel - REST_ON_GROUND_FATIGUE_RECOVERY);
+                    Brain.FatigueLevel = Mathf.Max(0f, Brain.FatigueLevel - REST_ON_GROUND_FATIGUE_RECOVERY);
                     break;
                 case "SeekMedicalAid":
-                    _brain.HealthLevel  = Mathf.Min(100f, _brain.HealthLevel + 40f);
+                    Brain.HealthLevel  = Mathf.Min(100f, Brain.HealthLevel + 40f);
                     break;
                 case "ChopWood":
                     if (_worldState != null) _worldState.WoodStock  += 10f; // 기획서 수치: wood += 10
-                    _brain.FatigueLevel = Mathf.Min(100f, _brain.FatigueLevel + 10f);
+                    Brain.FatigueLevel = Mathf.Min(100f, Brain.FatigueLevel + 10f);
                     break;
                 case "MineStone":
                     if (_worldState != null) _worldState.StoneStock += 8f;  // 기획서 수치: stone += 8
-                    _brain.FatigueLevel = Mathf.Min(100f, _brain.FatigueLevel + 15f);
+                    Brain.FatigueLevel = Mathf.Min(100f, Brain.FatigueLevel + 15f);
                     break;
                 case "MineIron":
                     if (_worldState != null) _worldState.IronStock  += 5f;  // 기획서 수치: iron += 5
-                    _brain.FatigueLevel = Mathf.Min(100f, _brain.FatigueLevel + 15f);
+                    Brain.FatigueLevel = Mathf.Min(100f, Brain.FatigueLevel + 15f);
                     break;
                 case "CookMeal":
                     if (_worldState != null) _worldState.CookedFoodStock += 2f; // 기획서 수치: cookedFood += 2
                     break;
                 case "AttackEnemy":
-                    _brain.FatigueLevel = Mathf.Min(100f, _brain.FatigueLevel + 20f);
+                    Brain.FatigueLevel = Mathf.Min(100f, Brain.FatigueLevel + 20f);
                     break;
                 case "CraftPrimitiveWeapon":
                 case "CraftWeapon":
-                    _brain.HasWeapon = true;
+                    Brain.HasWeapon = true;
                     break;
                 case "Explore":
-                    _brain.FatigueLevel = Mathf.Min(100f, _brain.FatigueLevel + 5f); // 기획서 수치: fatigue += 5
+                    Brain.FatigueLevel = Mathf.Min(100f, Brain.FatigueLevel + 5f); // 기획서 수치: fatigue += 5
                     break;
                 case "SetTownHallBuilt":
                 case "BuildTownHall":
@@ -1661,57 +2069,57 @@ namespace AIVillage.AI
             }
 
             // 도구 드롭
-            if (_brain.HasTool)
+            if (Brain.HasTool)
             {
                 var droppedTool = new DroppedItem
                 {
                     ItemId                  = Guid.NewGuid().ToString(),
-                    ItemType                = DetermineToolType(_brain.Role),
-                    TileX                   = _brain.TileX,
-                    TileY                   = _brain.TileY,
+                    ItemType                = DetermineToolType(Brain.Role),
+                    TileX                   = Brain.TileX,
+                    TileY                   = Brain.TileY,
                     OriginalOwnerVillagerId = AgentId
                 };
                 _worldState.DroppedItems.Add(droppedTool);
-                Debug.Log($"[VillagerFSM] 도구 드롭: {droppedTool.ItemType} at ({_brain.TileX},{_brain.TileY}). AgentId={AgentId}");
+                Debug.Log($"[VillagerFSM] 도구 드롭: {droppedTool.ItemType} at ({Brain.TileX},{Brain.TileY}). AgentId={AgentId}");
             }
 
             // 무기 드롭
-            if (_brain.HasWeapon)
+            if (Brain.HasWeapon)
             {
                 var droppedWeapon = new DroppedItem
                 {
                     ItemId                  = Guid.NewGuid().ToString(),
                     ItemType                = ItemType.Weapon,
-                    TileX                   = _brain.TileX,
-                    TileY                   = _brain.TileY,
+                    TileX                   = Brain.TileX,
+                    TileY                   = Brain.TileY,
                     OriginalOwnerVillagerId = AgentId
                 };
                 _worldState.DroppedItems.Add(droppedWeapon);
             }
 
             // 원시 무기 드롭
-            if (_brain.HasPrimitiveWeapon)
+            if (Brain.HasPrimitiveWeapon)
             {
                 var droppedPrimWeapon = new DroppedItem
                 {
                     ItemId                  = Guid.NewGuid().ToString(),
                     ItemType                = ItemType.PrimitiveWeapon,
-                    TileX                   = _brain.TileX,
-                    TileY                   = _brain.TileY,
+                    TileX                   = Brain.TileX,
+                    TileY                   = Brain.TileY,
                     OriginalOwnerVillagerId = AgentId
                 };
                 _worldState.DroppedItems.Add(droppedPrimWeapon);
             }
 
             // 식량 드롭
-            if (_brain.HasFood)
+            if (Brain.HasFood)
             {
                 var droppedFood = new DroppedItem
                 {
                     ItemId                  = Guid.NewGuid().ToString(),
                     ItemType                = ItemType.Food,
-                    TileX                   = _brain.TileX,
-                    TileY                   = _brain.TileY,
+                    TileX                   = Brain.TileX,
+                    TileY                   = Brain.TileY,
                     OriginalOwnerVillagerId = AgentId
                 };
                 _worldState.DroppedItems.Add(droppedFood);
@@ -1737,7 +2145,7 @@ namespace AIVillage.AI
         {
             if (_worldState == null) return;
 
-            switch (_brain.Role)
+            switch (Brain.Role)
             {
                 case AgentRole.Lumberjack:
                     _worldState.WoodStock  += LOD_RESOURCE_STOCK_ADD;
@@ -1756,12 +2164,131 @@ namespace AIVillage.AI
         }
 
         /// <summary>
+        // ── [8단계] 전투 헬퍼 메서드 ──────────────────────────────────────────
+
+        /// <summary>
+        /// 현재 틱의 목격 이벤트와 체력을 기반으로 전투 심리 상태를 갱신한다.
+        /// 호출 후 RecentAllyDeathWitness, RecentRageKillWitness를 0으로 초기화한다.
+        /// </summary>
+        private void EvaluateCombatMentalState()
+        {
+            if (Brain.HealthLevel < FEAR_HEALTH_OVERRIDE)
+            {
+                Brain.CombatMentalState = CombatMentalState.Fear;
+                Brain.AttackModifier    = 1.0f;
+                Brain.RecentAllyDeathWitness = 0;
+                Brain.RecentRageKillWitness  = 0;
+                return;
+            }
+
+            switch (Brain.CombatMentalState)
+            {
+                case CombatMentalState.Normal:
+                    if (Brain.RecentAllyDeathWitness > 0)
+                    {
+                        if (Brain.HealthLevel < 50f)
+                        {
+                            Brain.CombatMentalState = CombatMentalState.Fear;
+                            Brain.AttackModifier    = 1.0f;
+                            Debug.Log($"[VillagerFSM] Normal→Fear (HP={Brain.HealthLevel:F0}). AgentId={AgentId}");
+                        }
+                        else
+                        {
+                            Brain.CombatMentalState = CombatMentalState.Rage;
+                            Brain.AttackModifier    = RAGE_ATTACK_MODIFIER;
+                            Brain.RageTimer         = RAGE_DURATION_SEC;
+                            Debug.Log($"[VillagerFSM] Normal→Rage (HP={Brain.HealthLevel:F0}). AgentId={AgentId}");
+                        }
+                    }
+                    else if (Brain.RecentRageKillWitness > 0 && Brain.HealthLevel >= 40f)
+                    {
+                        Brain.CombatMentalState = CombatMentalState.Rage;
+                        Brain.AttackModifier    = RAGE_ATTACK_MODIFIER;
+                        Brain.RageTimer         = RAGE_DURATION_SEC;
+                        Debug.Log($"[VillagerFSM] Normal→Rage 전염 (HP={Brain.HealthLevel:F0}). AgentId={AgentId}");
+                    }
+                    break;
+
+                case CombatMentalState.Fear:
+                    if (Brain.RecentRageKillWitness > 0 && Brain.HealthLevel >= FEAR_RAGE_REVERSE_HEALTH)
+                    {
+                        Brain.CombatMentalState = CombatMentalState.Rage;
+                        Brain.AttackModifier    = RAGE_ATTACK_MODIFIER;
+                        Brain.RageTimer         = RAGE_DURATION_SEC;
+                        Debug.Log($"[VillagerFSM] Fear→Rage 역전 (HP={Brain.HealthLevel:F0}). AgentId={AgentId}");
+                    }
+                    else if (Brain.NearbyEnemyCount == 0 && Brain.HealthLevel >= FEAR_RECOVERY_HEALTH)
+                    {
+                        Brain.CombatMentalState = CombatMentalState.Normal;
+                        Brain.AttackModifier    = 1.0f;
+                        Debug.Log($"[VillagerFSM] Fear→Normal 회복 (HP={Brain.HealthLevel:F0}). AgentId={AgentId}");
+                    }
+                    break;
+
+                case CombatMentalState.Rage:
+                    // 주의: 진입 첫 틱에도 즉시 차감되므로 실효 Rage 지속 시간은
+                    // RAGE_DURATION_SEC - RAGE_TIMER_TICK_DELTA(≈7.4초) ~ RAGE_DURATION_SEC(8초) 범위임.
+                    Brain.RageTimer -= RAGE_TIMER_TICK_DELTA;
+                    if (Brain.RageTimer <= 0f)
+                    {
+                        Brain.CombatMentalState = CombatMentalState.Normal;
+                        Brain.AttackModifier    = 1.0f;
+                        Debug.Log($"[VillagerFSM] Rage→Normal (타이머 만료). AgentId={AgentId}");
+                    }
+                    break;
+            }
+
+            Brain.RecentAllyDeathWitness = 0;
+            Brain.RecentRageKillWitness  = 0;
+        }
+
+        private EnemyFSM FindNearestEnemy(float rangeTiles)
+        {
+            if (GameManager.Instance == null) return null;
+
+            EnemyFSM nearest = null;
+            float minDist = float.MaxValue;
+
+            foreach (EnemyFSM e in GameManager.Instance.Enemies)
+            {
+                if (e == null || e.Brain == null || !e.Brain.IsAlive) continue;
+                float dist = Mathf.Abs(e.Brain.TileX - Brain.TileX)
+                           + Mathf.Abs(e.Brain.TileY - Brain.TileY);
+                if (dist <= rangeTiles && dist < minDist)
+                {
+                    minDist = dist;
+                    nearest = e;
+                }
+            }
+            return nearest;
+        }
+
+        private void PublishRageKillEvent()
+        {
+            if (MessageBus.Instance == null) return;
+
+            MessageBus.Instance.Publish(new AIMessage
+            {
+                Type     = MessageType.RageKill,
+                Priority = MessagePriority.High,
+                SenderId = AgentId,
+                Payload  = new MessageBus.RageKillPayload
+                {
+                    KillerVillagerId = AgentId,
+                    KillTileX        = Brain.TileX,
+                    KillTileY        = Brain.TileY
+                },
+                IssuedAt = Time.time
+            });
+        }
+
+        /// <summary>
         /// Deadlock 상태 처리: needsHelp 플래그 설정 및 강제 Fallback Goal 실행.
         /// fallbackCounter >= DEADLOCK_THRESHOLD일 때 Replanning 핸들러에서 호출된다.
         /// </summary>
         private void HandleDeadlock()
         {
-            _brain.NeedsHelp = true;
+            Brain.NeedsHelp = true;
 
             // [PR Fix R-007]: 기존 폴백 로직(HungerLevel < 50 → RestOnGround)은 P0 생존 위기가
             // 이미 실패한 Deadlock 상황에서 부적절하다. 허기가 낮다고 RestOnGround로 가면
@@ -1781,13 +2308,13 @@ namespace AIVillage.AI
                 fallbackGoal = "MoveToBase";
             }
 
-            Debug.LogWarning($"[VillagerFSM] Deadlock 감지! FallbackCounter={_brain.FallbackCounter}. " +
+            Debug.LogWarning($"[VillagerFSM] Deadlock 감지! FallbackCounter={Brain.FallbackCounter}. " +
                              $"NeedsHelp=true. FallbackGoal={fallbackGoal}. AgentId={AgentId}");
 
             // FallbackCounter 초기화 (무한 루프 방지)
-            _brain.FallbackCounter  = 0;
-            _brain.CurrentGoalId    = fallbackGoal;
-            _brain.ReplanCooldown   = 0f;
+            Brain.FallbackCounter  = 0;
+            Brain.CurrentGoalId    = fallbackGoal;
+            Brain.ReplanCooldown   = 0f;
 
             TransitionTo(VillagerState.Planning);
         }
@@ -1885,7 +2412,7 @@ namespace AIVillage.AI
             {
                 case MessageType.EnemyDetected:
                     // LOD 모드에서 적 탐지 시 즉시 LOD_Alert로 전이하여 Full GOAP 복귀 준비
-                    if (_brain.FSMState == VillagerState.LOD_FSM)
+                    if (Brain.FSMState == VillagerState.LOD_FSM)
                     {
                         TransitionToLOD(LODState.LOD_Alert);
                     }
@@ -1914,196 +2441,45 @@ namespace AIVillage.AI
                 case MessageType.ResourceDepleted:
                     // 현재 수집 중인 자원이 고갈되면 즉시 재플래닝
                     // ChopWood와 MineStone 외의 Action은 영향을 받지 않는다.
-                    if (_brain.FSMState == VillagerState.Executing
-                        && (_brain.CurrentActionId == "ChopWood"
-                            || _brain.CurrentActionId == "MineStone"))
+                    if (Brain.FSMState == VillagerState.Executing
+                        && (Brain.CurrentActionId == "ChopWood"
+                            || Brain.CurrentActionId == "MineStone"))
                     {
                         UnityEngine.Debug.Log(
                             $"[VillagerFSM] 자원 고갈 메시지 수신 → Replanning. " +
-                            $"Action={_brain.CurrentActionId}, AgentId={AgentId}"
+                            $"Action={Brain.CurrentActionId}, AgentId={AgentId}"
                         );
                         TransitionTo(VillagerState.Replanning);
                     }
                     break;
 
                 case MessageType.VillagerDied:
-                    // 동료 사망 소식 수신 → 심리적 충격: mood와 loyalty 소폭 감소
-                    // 기획서 수치: mood -= 5, loyalty -= 2 (TODO: 기획팀 최종 수치 확인)
-                    _brain.MoodLevel    = Mathf.Max(0f, _brain.MoodLevel    - 5f);
-                    _brain.LoyaltyLevel = Mathf.Max(0f, _brain.LoyaltyLevel - 2f);
-                    break;
-
-                // RaidDecision, ResourceDiscovered, OrderRefused:
-                // 현재 VillagerFSM이 직접 처리할 로직 없음 → 무시 (GameManager가 처리)
-                default:
-                    break;
-            }
-        }
-
-        /// <summary>
-        /// Goal ID와 Brain 상태를 기반으로 플랜 결과를 반환한다.
-        ///
-        /// 4단계 변경: ActionDatabase가 주입되어 있으면 GetDefaultActionSequence()에 위임한다.
-        ///             ActionDatabase가 없으면 기존 더미 switch 로직으로 폴백한다.
-        ///
-        /// 5단계에서 실제 GOAP Job System으로 교체될 예정.
-        /// TODO: 5단계 — WorldStateSnapshot + GOAPPlannerJob 스케줄링으로 교체
-        /// </summary>
-        private GOAPPlanResult SimulatePlanResult(string goalId)
-        {
-            if (string.IsNullOrEmpty(goalId))
-            {
-                return new GOAPPlanResult
-                {
-                    AgentId        = AgentId,
-                    Success        = false,
-                    ResultType     = PlanResultType.NoSolutionFound,
-                    ActionSequence = null
-                };
-            }
-
-            // ── 4단계: ActionDatabase 경로 ────────────────────────────────────
-            // [PR Fix R-004]: 기존 '_actionDatabase != null && _worldState != null' 복합 조건에서
-            // _worldState null 체크를 분리한다. 이전 코드에서는 worldState가 null이면
-            // ActionDatabase가 정상 주입되어도 조용히 더미 폴백으로 떨어져 디버깅이 어려웠다.
-            // 이제 _worldState가 null인 경우 명시적으로 LogError를 출력하고 별도 폴백 처리한다.
-            if (_actionDatabase != null && _brain != null && _registry != null)
-            {
-                if (_worldState == null)
-                {
-                    // worldState만 없는 경우: ActionDatabase는 있지만 월드 상태를 읽을 수 없음.
-                    // 이 상황은 InjectDependencies()가 올바르게 호출되지 않은 것이므로
-                    // 조용한 폴백 대신 명시적 에러로 디버깅을 돕는다.
-                    Debug.LogError($"[VillagerFSM] SimulatePlanResult: _worldState가 null입니다. " +
-                                   $"ActionDatabase 경로를 사용할 수 없으므로 더미 폴백으로 전환합니다. " +
-                                   $"GameManager.InjectDependencies() 호출 순서를 확인하세요. AgentId={AgentId}");
-                    // 아래 더미 폴백으로 fall-through
-                }
-                else
-                {
-                    string[] sequence = _actionDatabase.GetDefaultActionSequence(
-                        goalId,
-                        _brain.Role,
-                        _brain,
-                        _worldState,
-                        _registry);
-
-                    bool planSuccess = sequence != null && sequence.Length > 0;
-
-                    return new GOAPPlanResult
+                    Brain.MoodLevel    = Mathf.Max(0f, Brain.MoodLevel    - 5f);
+                    Brain.LoyaltyLevel = Mathf.Max(0f, Brain.LoyaltyLevel - 2f);
+                    // [8단계] Fear 전염: 5타일 이내 아군 사망 목격
+                    if (msg.Payload is MessageBus.VillagerDiedPayload diedPayload)
                     {
-                        AgentId            = AgentId,
-                        Success            = planSuccess,
-                        ResultType         = planSuccess
-                                                ? PlanResultType.Success
-                                                : PlanResultType.NoSolutionFound,
-                        ActionSequence     = planSuccess
-                                                ? new System.Collections.Generic.List<string>(sequence)
-                                                : new System.Collections.Generic.List<string>(),
-                        SearchDepth        = sequence?.Length ?? 0,
-                        TotalEstimatedCost = CalculateTotalCost(sequence, _brain.Role)
-                    };
-                }
-            }
-
-            // ── Fallback: ActionDatabase 없으면 기존 더미 switch 로직 ──────────
-            var actions = new System.Collections.Generic.List<string>();
-            bool success = true;
-
-            switch (goalId)
-            {
-                case "SurviveHunger":
-                    // 조리된 식량 우선, 없으면 생 식량
-                    if (_worldState != null && _worldState.CookedFoodStock >= 1f)
-                        actions.Add("EatCookedFood");
-                    else
-                        actions.Add("EatRawFood");
+                        float dist = Mathf.Abs(Brain.TileX - diedPayload.DeathTileX)
+                                   + Mathf.Abs(Brain.TileY - diedPayload.DeathTileY);
+                        if (dist <= FEAR_CONTAGION_RADIUS)
+                            Brain.RecentAllyDeathWitness = Mathf.Min(1, Brain.RecentAllyDeathWitness + 1);
+                    }
                     break;
 
-                case "SurviveInjury":
-                    if (_brain.NearHealer)
-                        actions.Add("SeekMedicalAid");
-                    else
-                        actions.Add("RestOnGround");
-                    break;
-
-                case "SurviveFatigue":
-                    if (_brain.NearBed)
-                        actions.Add("Sleep");
-                    else
-                        actions.Add("RestOnGround");
-                    break;
-
-                case "GatherResources":
-                case "GatherWood":
-                    actions.Add(GetGatherActionByRole());
-                    break;
-
-                case "GatherStone":
-                    actions.Add("MineStone");
-                    break;
-
-                case "GatherIron":
-                    actions.Add("MineIron");
-                    break;
-
-                case "GatherCopper":
-                    actions.Add("MineCopper");
-                    break;
-
-                case "DefendVillage":
-                    if (_brain.HasWeapon || _brain.HasPrimitiveWeapon)
-                        actions.Add("AttackEnemy");
-                    else
-                        actions.Add("CraftPrimitiveWeapon");
-                    break;
-
-                case "BuildStructure":
-                case "BuildTownHall":
-                    actions.Add("BuildTownHall");
-                    break;
-
-                case "Explore":
-                    actions.Add("Explore");
-                    break;
-
-                case "CookMeal":
-                    actions.Add("CookMeal");
-                    break;
-
-                case "AttackEnemy":
-                    actions.Add("AttackEnemy");
-                    break;
-
-                case "MoveToBase":
-                    actions.Add("MoveToBase");
-                    break;
-
-                case "RestOnGround":
-                    actions.Add("RestOnGround");
-                    break;
-
-                case "MoveToTarget":
-                    actions.Add("MoveToTarget");
+                case MessageType.RageKill:
+                    // [8단계] GameManager.OnRageKill()이 이미 RAGE_CONTAGION_RADIUS 이내 주민만
+                    // ReceiveMessage()로 전달했으므로 거리 재확인 없이 카운터만 증가시킨다.
+                    if (Brain != null && Brain.IsAlive)
+                        Brain.RecentRageKillWitness = Mathf.Min(1, Brain.RecentRageKillWitness + 1);
                     break;
 
                 default:
-                    success = false;
                     break;
             }
-
-            return new GOAPPlanResult
-            {
-                AgentId            = AgentId,
-                Success            = success && actions.Count > 0,
-                ResultType         = (success && actions.Count > 0)
-                                        ? PlanResultType.Success
-                                        : PlanResultType.NoSolutionFound,
-                TotalEstimatedCost = actions.Count * _brain.GetLoyaltyCostModifier(),
-                SearchDepth        = 1, // 더미: 항상 깊이 1
-                ActionSequence     = success ? actions : null
-            };
         }
+
+        // SimulatePlanResult()는 5B단계에서 GOAPPlannerScheduler + GOAPPlannerJob으로 교체됨.
+        // EnterPlanning()이 Job을 스케줄하고 State_Planning()이 완료를 폴링한다.
 
         /// <summary>
         /// Action 시퀀스의 총 예상 비용을 계산한다.
@@ -2130,7 +2506,7 @@ namespace AIVillage.AI
         /// </summary>
         private string GetGatherActionByRole()
         {
-            switch (_brain.Role)
+            switch (Brain.Role)
             {
                 case AgentRole.Lumberjack: return "ChopWood";
                 case AgentRole.Miner:      return "MineStone";
@@ -2166,16 +2542,237 @@ namespace AIVillage.AI
 
         /// <summary>
         /// Unity가 이 컴포넌트를 Destroy할 때 호출한다.
-        /// [PR Fix]: F-007 — 진행 중인 DeactivateAfterDelay 코루틴을 명시적으로 중지하여
+        ///
+        /// [PR Fix F-007]: 진행 중인 DeactivateAfterDelay 코루틴을 명시적으로 중지하여
         /// 씬 전환이나 오브젝트 파괴 시 고아 코루틴(orphaned coroutine)이 발생하지 않도록 한다.
+        ///
+        /// 5B단계 추가: 진행 중인 GOAPPlannerJob이 있으면 Complete() 후 NativeArray를 해제한다.
+        /// Job을 Complete() 없이 Destroy하면 Unity가 NativeArray 누수 오류를 출력한다.
         /// </summary>
         private void OnDestroy()
         {
+            // ── 5B단계: 진행 중인 Planning Job 안전 종료 ──────────────────────
+            // IsScheduled가 true이면 NativeArray가 살아있으므로 반드시 Complete+Dispose한다.
+            if (_planningContext.IsScheduled)
+            {
+                _planningContext.JobHandle.Complete();
+                _planningContext.Dispose();
+            }
+
+            // ── 고아 코루틴 방지 ──────────────────────────────────────────────
             if (_deactivateCoroutine != null)
             {
                 StopCoroutine(_deactivateCoroutine);
                 _deactivateCoroutine = null;
             }
+        }
+
+        #endregion
+
+        #region ── [12단계] 경로 이동 헬퍼 ──
+
+        /// <summary>
+        /// 목표 타일까지 JPS 경로를 계산하고 이동을 시작한다.
+        /// 이미 목표에 있거나 경로가 없으면 논리 좌표만 즉시 갱신한다.
+        /// </summary>
+        private void StartPathTo(int targetX, int targetY)
+        {
+            // walkable 그리드 최초 1회 초기화 (전체 true — 장애물 없음)
+            // [13단계] 하드코딩 100 → MapConfig.Active.mapSize 동적 읽기로 교체
+            if (_walkableGrid == null)
+            {
+                int mapSize = (MapConfig.Active != null) ? MapConfig.Active.mapSize : 100;
+                _walkableGrid = new bool[mapSize, mapSize];
+                for (int x = 0; x < mapSize; x++)
+                    for (int y = 0; y < mapSize; y++)
+                        _walkableGrid[x, y] = true;
+            }
+
+            // 이전 경로 초기화
+            _currentPath.Clear();
+            _pathIndex = 0;
+            _isMoving  = false;
+
+            // 이미 목표에 있으면 이동 불필요
+            if (Brain.TileX == targetX && Brain.TileY == targetY) return;
+
+            List<Vector2Int> path = JPSPathfinder.FindPath(
+                Brain.TileX, Brain.TileY,
+                targetX, targetY,
+                _walkableGrid);
+
+            if (path == null || path.Count == 0)
+            {
+                // 경로 없음 또는 이미 목표 — 논리 좌표만 즉시 설정
+                Brain.TileX = targetX;
+                Brain.TileY = targetY;
+                return;
+            }
+
+            _currentPath    = path;
+            _pathIndex      = 0;
+            _isMoving       = true;
+            _waypointTarget = new Vector3(_currentPath[0].x, _currentPath[0].y, 0f);
+        }
+
+        /// <summary>
+        /// 현재 이동 경로를 즉시 중단하고 transform을 Brain 논리 위치로 스냅한다.
+        /// 전투 진입/사망/재플래닝 시 호출하여 이동을 강제 종료한다.
+        /// </summary>
+        private void AbortCurrentPath()
+        {
+            if (!_isMoving) return;
+            _isMoving = false;
+            _currentPath.Clear();
+            _pathIndex = 0;
+            transform.position = new Vector3(Brain.TileX, Brain.TileY, 0f);
+        }
+
+        #endregion
+
+        #region ── 7단계: 타일-Transform 동기화 헬퍼 ──
+
+        /// <summary>
+        /// Action ID에 따라 JPS 경로 이동을 시작한다.
+        /// 자원 수집 Action → 가장 가까운 발견된 ResourceNode 타일.
+        /// 기타 Action → 기지 타일.
+        /// </summary>
+        private void MoveTileForAction(string actionId)
+        {
+            if (actionId == null) return;
+
+            // 이전 액션의 노드 점유 해제 (액션 전환 시 이중 점유 방지)
+            ReleaseGatherNode();
+
+            // ── Explore: 미탐험 방향의 새 영역으로 이동 ──────────────────────────
+            // GOAP 플래너가 [Explore → ChopWood] 체인을 생성하면 이 분기에서
+            // 실제로 주민이 이동한다. 이동 중 웨이포인트마다 SensorSystem.DiscoverArea()가
+            // 호출되어 새 자원 노드가 발견되고 NearDiscoveredResource=true가 된다.
+            if (actionId == "Explore")
+            {
+                Vector2Int exploreTile = FindExplorationTarget();
+                StartPathTo(exploreTile.x, exploreTile.y);
+                return;
+            }
+
+            ResourceType? targetType = GetResourceTypeForAction(actionId);
+            if (targetType.HasValue && SensorSystem.Instance != null)
+            {
+                ResourceNode nearest = FindNearestDiscoveredNode(targetType.Value);
+                if (nearest != null && nearest.TryOccupy(AgentId))
+                {
+                    _currentGatherNode = nearest;
+                    StartPathTo(nearest.TileX, nearest.TileY);
+                    return;
+                }
+            }
+
+            // 기지 관련 Action 또는 해당 자원 노드 미발견 → 기지 타일
+            StartPathTo(_baseTileX, _baseTileY);
+        }
+
+        /// <summary>
+        /// 탐험 목적지 타일을 선택한다.
+        /// 미발견 자원 노드가 있으면 그중 가장 가까운 노드 방향으로 이동한다.
+        /// 없으면 현재 위치에서 랜덤 방향으로 약 15타일 이동한다.
+        /// </summary>
+        private Vector2Int FindExplorationTarget()
+        {
+            // 1순위: 등록된 자원 노드 중 아직 미발견(IsDiscovered=false)인 것의 방향으로 이동
+            if (SensorSystem.Instance != null)
+            {
+                IReadOnlyList<ResourceNode> allNodes = SensorSystem.Instance.GetAllNodes();
+                ResourceNode bestUndiscovered = null;
+                int bestDist = int.MaxValue;
+                for (int idx = 0; idx < allNodes.Count; idx++)
+                {
+                    ResourceNode n = allNodes[idx];
+                    if (n.IsDiscovered || n.CurrentAmount <= 0f) continue;
+                    int d = Mathf.Abs(n.TileX - Brain.TileX) + Mathf.Abs(n.TileY - Brain.TileY);
+                    if (d < bestDist)
+                    {
+                        bestDist = d;
+                        bestUndiscovered = n;
+                    }
+                }
+                if (bestUndiscovered != null)
+                    return new Vector2Int(bestUndiscovered.TileX, bestUndiscovered.TileY);
+            }
+
+            // 2순위: 미발견 노드 정보 없음 → 현재 위치에서 임의 방향으로 15타일
+            int mapOffset = MapConfig.Active != null ? MapConfig.Active.mapOffset : 50;
+            int mapSize   = MapConfig.Active != null ? MapConfig.Active.mapSize   : 100;
+            int mapMin    = -mapOffset;
+            int mapMax    =  mapSize - mapOffset - 1;
+
+            float angle = UnityEngine.Random.Range(0f, 360f) * Mathf.Deg2Rad;
+            int tx = Mathf.Clamp(Brain.TileX + Mathf.RoundToInt(Mathf.Cos(angle) * 15f), mapMin, mapMax);
+            int ty = Mathf.Clamp(Brain.TileY + Mathf.RoundToInt(Mathf.Sin(angle) * 15f), mapMin, mapMax);
+            return new Vector2Int(tx, ty);
+        }
+
+        /// <summary>Action ID → 대상 ResourceType 매핑. null이면 기지 관련 Action.</summary>
+        private static ResourceType? GetResourceTypeForAction(string actionId)
+        {
+            switch (actionId)
+            {
+                case "ChopWood":   return ResourceType.Wood;
+                case "MineStone":  return ResourceType.Stone;
+                case "MineIron":   return ResourceType.Iron;
+                case "MineCopper": return ResourceType.Copper;
+                default:           return null;
+            }
+        }
+
+        /// <summary>
+        /// 옵션 A(포화도) + 옵션 B(ID 기반 선호) 조합으로 채집 노드를 선택한다.
+        /// A: CurrentGatherers < MaxGatherers인 노드만 후보로 수집.
+        /// B: AgentId 해시로 선호 인덱스를 결정하고 선호 노드에 거리 보너스(-3)를 부여하여
+        ///    주민마다 다른 노드를 자연스럽게 선택하도록 유도한다.
+        /// </summary>
+        private ResourceNode FindNearestDiscoveredNode(ResourceType type)
+        {
+            IReadOnlyList<ResourceNode> nodes = SensorSystem.Instance.GetAllNodes();
+
+            // 옵션 A: 포화도 조건 포함한 후보 수집
+            var candidates = new System.Collections.Generic.List<ResourceNode>();
+            for (int i = 0; i < nodes.Count; i++)
+            {
+                ResourceNode node = nodes[i];
+                if (node.ResourceType == type && node.IsDiscovered
+                    && node.CurrentAmount > 0f && node.CurrentGatherers < node.MaxGatherers)
+                {
+                    candidates.Add(node);
+                }
+            }
+            if (candidates.Count == 0) return null;
+
+            // 옵션 B: VillagerId 해시 기반 선호 인덱스 (주민마다 다른 노드 선호)
+            int preferredIdx = Mathf.Abs(AgentId.GetHashCode()) % candidates.Count;
+            const int PREFERENCE_BONUS = 3; // 선호 노드에 부여할 가상 거리 단축값
+
+            ResourceNode best = null;
+            int bestScore = int.MaxValue;
+            for (int i = 0; i < candidates.Count; i++)
+            {
+                ResourceNode node = candidates[i];
+                int dist = Mathf.Abs(node.TileX - Brain.TileX) + Mathf.Abs(node.TileY - Brain.TileY);
+                int score = (i == preferredIdx) ? Mathf.Max(0, dist - PREFERENCE_BONUS) : dist;
+                if (score < bestScore)
+                {
+                    bestScore = score;
+                    best = node;
+                }
+            }
+            return best;
+        }
+
+        /// <summary>현재 점유 중인 채집 노드를 해제한다. 점유 중이 아니면 아무것도 하지 않는다.</summary>
+        private void ReleaseGatherNode()
+        {
+            if (_currentGatherNode == null) return;
+            _currentGatherNode.Release();
+            _currentGatherNode = null;
         }
 
         #endregion
@@ -2188,18 +2785,18 @@ namespace AIVillage.AI
         /// </summary>
         private void OnDrawGizmosSelected()
         {
-            if (_brain == null) return;
+            if (Brain == null) return;
 
-            // LOD 경계 원 (보라색)
+            // LOD 경계 원 (보라색) — 2D XY 평면: 법선은 Z축(forward)
             UnityEditor.Handles.color = new Color(0.5f, 0f, 1f, 0.3f);
-            UnityEditor.Handles.DrawWireDisc(transform.position, Vector3.up, LOD_DISTANCE_THRESHOLD);
+            UnityEditor.Handles.DrawWireDisc(transform.position, Vector3.forward, LOD_DISTANCE_THRESHOLD);
 
             // 현재 상태 레이블
             UnityEditor.Handles.color = Color.white;
             UnityEditor.Handles.Label(
                 transform.position + Vector3.up * 2f,
-                $"[{_brain.FSMState}]\nGoal: {_brain.CurrentGoalId ?? "none"}\n" +
-                $"HP:{_brain.HealthLevel:F0} HG:{_brain.HungerLevel:F0} FT:{_brain.FatigueLevel:F0} LY:{_brain.LoyaltyLevel:F0}"
+                $"[{Brain.FSMState}]\nGoal: {Brain.CurrentGoalId ?? "none"}\n" +
+                $"HP:{Brain.HealthLevel:F0} HG:{Brain.HungerLevel:F0} FT:{Brain.FatigueLevel:F0} LY:{Brain.LoyaltyLevel:F0}"
             );
         }
 #endif

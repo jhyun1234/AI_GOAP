@@ -146,7 +146,7 @@ namespace AIVillage.AI
         // 훨씬 자주 참조하므로 가독성과 성능을 위해 분리한다.
 
         /// <summary>도구(도끼/곡괭이) 소지 여부. 채집 Action의 Precondition.</summary>
-        public bool HasTool            { get; set; } = false;
+        public bool HasTool            { get; set; } = true;
 
         /// <summary>제련 무기 소지 여부. Attack Action의 강한 Precondition.</summary>
         public bool HasWeapon          { get; set; } = false;
@@ -261,7 +261,59 @@ namespace AIVillage.AI
 
         #endregion
 
+        #region ── 전투 정신 상태 (8단계) ──
+
+        /// <summary>현재 전투 심리 상태. EvaluateCombatMentalState()가 매 전투 틱마다 갱신한다.</summary>
+        public CombatMentalState CombatMentalState { get; set; } = CombatMentalState.Normal;
+
+        /// <summary>공격 배율. Normal=1.0f, Rage=1.5f. 전투 피해 공식에 곱한다.</summary>
+        public float AttackModifier { get; set; } = 1.0f;
+
+        /// <summary>Rage 지속 타이머(초). 8초 후 Normal로 자동 복귀.</summary>
+        public float RageTimer { get; set; } = 0f;
+
+        /// <summary>SensorSystem이 매 틱 갱신하는 인식 범위 내 적 수.</summary>
+        public int NearbyEnemyCount { get; set; } = 0;
+
+        /// <summary>이번 틱 5타일 이내 아군 사망 목격 횟수. EvaluateCombatMentalState 호출 후 0 초기화.</summary>
+        public int RecentAllyDeathWitness { get; set; } = 0;
+
+        /// <summary>이번 틱 6타일 이내 Rage 처치 목격 횟수. EvaluateCombatMentalState 호출 후 0 초기화.</summary>
+        public int RecentRageKillWitness { get; set; } = 0;
+
+        #endregion
+
         #region ── 공개 헬퍼 메서드 ──
+
+        /// <summary>
+        /// 모집 데이터에서 초기 스탯을 설정한다. Random.Range로 min~max 범위 내 값을 선택한다.
+        /// RecruitmentSystem.TryRecruit()에서 Instantiate 직후 호출된다.
+        /// Awake에서 기본값으로 채워진 Brain을 모집 데이터 수치로 덮어쓴다.
+        /// </summary>
+        /// <param name="data">적용할 모집 항목 ScriptableObject.</param>
+        public void InitFromRecruitData(AIVillage.Core.VillagerRecruitData data)
+        {
+            if (data == null)
+            {
+                UnityEngine.Debug.LogWarning("[VillagerBrain] InitFromRecruitData: data가 null입니다. 기본값을 유지합니다.");
+                return;
+            }
+
+            // 역할 및 전투 수치 설정
+            Role           = data.role;
+            AttackModifier = data.attackModifier;
+
+            // 인벤토리 플래그 설정
+            HasTool   = data.startWithTool;
+            HasWeapon = data.startWithWeapon;
+
+            // Random.Range(min, max)로 스탯 범위 내 무작위 초기값 선택
+            HealthLevel  = UnityEngine.Random.Range(data.healthMin,  data.healthMax);
+            HungerLevel  = UnityEngine.Random.Range(data.hungerMin,  data.hungerMax);
+            FatigueLevel = UnityEngine.Random.Range(data.fatigueMin, data.fatigueMax);
+            MoodLevel    = UnityEngine.Random.Range(data.moodMin,    data.moodMax);
+            LoyaltyLevel = UnityEngine.Random.Range(data.loyaltyMin, data.loyaltyMax);
+        }
 
         /// <summary>
         /// 충성도에 따른 GOAP Action 비용 배율을 반환한다.

@@ -1,0 +1,96 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4e6aaa46947f7484492693ee8a1ca36f, type: 3}
+  m_Name: ResourceNodeSpawnConfig
+  m_EditorClassIdentifier: Assembly-CSharp::AIVillage.Core.ResourceNodeSpawnConfig
+  randomSeed: 0
+  nodeMinSpacing: 2
+  maxPlacementAttempts: 50
+  resourceTypes:
+  - resourceType: 2
+    nodeCount: 40
+    maxAmount: 50
+    minDistanceFromBase: 10
+    maxDistanceFromBase: 0
+    clusterCount: 9
+    minNodesPerCluster: 3
+    maxNodesPerCluster: 5
+    clusterSpreadRadius: 3
+    minClusterSpacing: 15
+    nodeColor: {r: 0.23529412, g: 0.6901961, b: 0.2627451, a: 1}
+    depletedColor: {r: 0.33333334, g: 0.33333334, b: 0.33333334, a: 1}
+    nodeSize: 0.6
+  - resourceType: 3
+    nodeCount: 25
+    maxAmount: 40
+    minDistanceFromBase: 15
+    maxDistanceFromBase: 0
+    clusterCount: 7
+    minNodesPerCluster: 3
+    maxNodesPerCluster: 4
+    clusterSpreadRadius: 3
+    minClusterSpacing: 15
+    nodeColor: {r: 0.5019608, g: 0.5019608, b: 0.5019608, a: 1}
+    depletedColor: {r: 0.2, g: 0.2, b: 0.2, a: 1}
+    nodeSize: 0.55
+  - resourceType: 4
+    nodeCount: 15
+    maxAmount: 30
+    minDistanceFromBase: 25
+    maxDistanceFromBase: 0
+    clusterCount: 6
+    minNodesPerCluster: 2
+    maxNodesPerCluster: 3
+    clusterSpreadRadius: 2
+    minClusterSpacing: 20
+    nodeColor: {r: 0.72156864, g: 0.4509804, b: 0.2, a: 1}
+    depletedColor: {r: 0.2, g: 0.2, b: 0.2, a: 1}
+    nodeSize: 0.55
+  - resourceType: 6
+    nodeCount: 4
+    maxAmount: 15
+    minDistanceFromBase: 40
+    maxDistanceFromBase: 0
+    clusterCount: 4
+    minNodesPerCluster: 1
+    maxNodesPerCluster: 1
+    clusterSpreadRadius: 0
+    minClusterSpacing: 30
+    nodeColor: {r: 0.7075472, g: 0.7075472, b: 0.7075472, a: 1}
+    depletedColor: {r: 0.2, g: 0.2, b: 0.2, a: 1}
+    nodeSize: 0.5
+  - resourceType: 0
+    nodeCount: 12
+    maxAmount: 25
+    minDistanceFromBase: 5
+    maxDistanceFromBase: 0
+    clusterCount: 12
+    minNodesPerCluster: 1
+    maxNodesPerCluster: 1
+    clusterSpreadRadius: 3
+    minClusterSpacing: 8
+    nodeColor: {r: 1, g: 0.84313726, b: 0, a: 1}
+    depletedColor: {r: 0.33333334, g: 0.33333334, b: 0.33333334, a: 1}
+    nodeSize: 0.5
+  - resourceType: 0
+    nodeCount: 0
+    maxAmount: 0
+    minDistanceFromBase: 0
+    maxDistanceFromBase: 0
+    clusterCount: 0
+    minNodesPerCluster: 0
+    maxNodesPerCluster: 0
+    clusterSpreadRadius: 0
+    minClusterSpacing: 0
+    nodeColor: {r: 1, g: 0.18396229, b: 0.18396229, a: 1}
+    depletedColor: {r: 0.509434, g: 0.509434, b: 0.509434, a: 1}
+    nodeSize: 0

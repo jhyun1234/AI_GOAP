@@ -106,6 +106,55 @@ namespace AIVillage.Core
         public bool ForgeBuilt      { get; set; } = false;
         public bool StorehouseBuilt { get; set; } = false;
 
+        // ── 건물 완성 플래그 ──────────────────────────────────────────────────
+
+        /// <summary>
+        /// 모닥불(Campfire) 건설 완료 여부.
+        /// VillageAdvisor 우선순위 규칙 1번 조건 판단에 사용한다.
+        /// </summary>
+        public bool CampfireBuilt { get; set; } = false;
+
+        /// <summary>
+        /// 주택(House) 건설 완료 여부.
+        /// VillageAdvisor 우선순위 규칙 2번 조건 판단에 사용한다.
+        /// </summary>
+        public bool HouseBuilt { get; set; } = false;
+
+        // ── 6B단계 추가: 건물 완성 플래그 (FactionAI playerStrength 계산용) ──
+        // FactionAI.CalculatePlayerStrength() 공식:
+        //   (주민 수 × 10) + (전사 수 × 15) + (무기 보유 수 × 8)
+        //   + (Watchtower 완성 × 20) + (Forge 완성 × 15)
+        // ForgeBuilt는 위에 이미 있으므로 WatchtowerBuilt만 추가한다.
+
+        /// <summary>
+        /// 망루(Watchtower) 건설 완료 여부.
+        /// FactionAI의 playerStrength 계산에서 +20 보너스를 적용한다.
+        /// BuildingQueue가 Watchtower 완성 시 true로 설정해야 한다.
+        /// </summary>
+        public bool WatchtowerBuilt { get; set; } = false;
+
+        /// <summary>
+        /// Silver Citadel 건설 완료 여부. 최종 승리(번영) 조건.
+        /// BuildingQueue가 "SilverCitadel" 완성 시 true로 설정한다.
+        /// GameManager.CheckWinLoseConditions()에서 Win3_Prosperity 판정에 사용한다.
+        /// </summary>
+        public bool SilverCitadelBuilt { get; set; } = false;
+
+        /// <summary>
+        /// Town Hall이 이번 게임에서 한 번이라도 완성된 적 있는지 여부.
+        /// Town Hall 파괴 패배 조건 판단에 사용한다 (게임 시작 직후 오탐 방지).
+        /// TownHallBuilt가 false더라도 이 값이 true이면 Town Hall이 '파괴된' 것으로 간주한다.
+        /// BuildingQueue가 TownHall 완성 시 true로 설정하며, 한번 true가 되면 false로 돌아가지 않는다.
+        /// </summary>
+        public bool TownHallEverBuilt { get; set; } = false;
+
+        /// <summary>
+        /// 적 팩션의 실제 침략(RaidDecision) 발생 횟수.
+        /// GameManager.OnRaidDecision()에서 TradeProposal을 제외한 침략마다 증가한다.
+        /// VillageAdvisor가 Watchtower 건설 조건 판단에 사용한다.
+        /// </summary>
+        public int RaidCount { get; set; } = 0;
+
         /// <summary>
         /// 주민 사망 시 생성된 드롭 아이템 목록.
         /// PickUpDroppedItem GOAP Action과 GameManager가 이 목록을 읽고 수정한다.

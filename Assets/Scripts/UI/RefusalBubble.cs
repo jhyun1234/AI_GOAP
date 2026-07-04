@@ -104,6 +104,7 @@ namespace AIVillage.UI
         private bool _isShowingToast = false;
         private Coroutine _toastCoroutine;
         private WaitForSeconds _waitForSeconds;
+        private CanvasGroup _toastCanvasGroup;
 
         #endregion
 
@@ -119,7 +120,13 @@ namespace AIVillage.UI
 
             if (_toastPanel != null)
             {
-                _toastPanel.SetActive(false);
+                // SetActive(false) 대신 CanvasGroup으로 숨김 처리.
+                // SetActive는 RefusalBubble 자신의 GameObject가 ToastPanel일 때
+                // 자기 자신을 비활성화해 이후 StartCoroutine을 막는 버그가 발생한다.
+                _toastCanvasGroup = _toastPanel.GetComponent<CanvasGroup>();
+                if (_toastCanvasGroup == null)
+                    _toastCanvasGroup = _toastPanel.AddComponent<CanvasGroup>();
+                HideToastPanel();
             }
         }
 
@@ -196,6 +203,26 @@ namespace AIVillage.UI
         // 코루틴
         // ══════════════════════════════════════════════════════════════════════
 
+        #region ── 내부 헬퍼 ──
+
+        private void ShowToastPanel()
+        {
+            if (_toastCanvasGroup == null) return;
+            _toastCanvasGroup.alpha          = 1f;
+            _toastCanvasGroup.interactable   = true;
+            _toastCanvasGroup.blocksRaycasts = true;
+        }
+
+        private void HideToastPanel()
+        {
+            if (_toastCanvasGroup == null) return;
+            _toastCanvasGroup.alpha          = 0f;
+            _toastCanvasGroup.interactable   = false;
+            _toastCanvasGroup.blocksRaycasts = false;
+        }
+
+        #endregion
+
         #region ── 코루틴 ──
 
         /// <summary>
@@ -210,22 +237,14 @@ namespace AIVillage.UI
                 string message = _toastQueue.Dequeue();
 
                 if (_toastText != null)
-                {
                     _toastText.SetText(message);
-                }
 
-                if (_toastPanel != null)
-                {
-                    _toastPanel.SetActive(true);
-                }
+                ShowToastPanel();
 
                 yield return _waitForSeconds;
             }
 
-            if (_toastPanel != null)
-            {
-                _toastPanel.SetActive(false);
-            }
+            HideToastPanel();
 
             _isShowingToast = false;
             _toastCoroutine = null;

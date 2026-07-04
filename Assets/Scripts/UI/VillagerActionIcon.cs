@@ -28,8 +28,11 @@ namespace AIVillage.UI
         // 상수
         // ══════════════════════════════════════════════════════════════════════
 
-        private const float UPDATE_INTERVAL = 0.25f;  // 갱신 주기(초)
-        private const float ICON_FONT_SIZE  = 3.5f;   // WorldSpace TMP 폰트 크기
+        private const float UPDATE_INTERVAL = 0.25f;
+
+        [SerializeField] private float _iconFontSize = 5.0f;
+        [SerializeField] private float _iconWidth    = 3.0f;
+        [SerializeField] private float _iconHeight   = 1.2f;
 
         // ══════════════════════════════════════════════════════════════════════
         // Private Fields
@@ -38,23 +41,38 @@ namespace AIVillage.UI
         private TextMeshPro _tmp;
         private VillagerFSM _fsm;
         private float       _nextUpdate;
+        private string      _thoughtOverride;
+        private float       _thoughtTimer;
 
         // ══════════════════════════════════════════════════════════════════════
         // 초기화
         // ══════════════════════════════════════════════════════════════════════
 
-        /// <summary>GameManager가 자동 생성 후 VillagerFSM을 주입한다.</summary>
-        public void Initialize(VillagerFSM fsm)
+        /// <summary>GameManager가 자동 생성 후 VillagerFSM과 폰트를 주입한다.</summary>
+        public void Initialize(VillagerFSM fsm, TMP_FontAsset font = null)
         {
             _fsm = fsm;
 
             if (_tmp == null)
             {
-                _tmp              = gameObject.AddComponent<TextMeshPro>();
-                _tmp.alignment    = TextAlignmentOptions.Center;
-                _tmp.fontSize     = ICON_FONT_SIZE;
-                _tmp.sortingOrder = 10;
+                _tmp                        = gameObject.AddComponent<TextMeshPro>();
+                _tmp.alignment              = TextAlignmentOptions.Center;
+                _tmp.fontSize                = _iconFontSize;
+                _tmp.sortingOrder            = 10;
+                _tmp.enableWordWrapping      = false;
+                _tmp.overflowMode            = TextOverflowModes.Overflow;
+                _tmp.rectTransform.sizeDelta = new Vector2(_iconWidth, _iconHeight);
             }
+
+            if (font != null)
+                _tmp.font = font;
+        }
+
+        /// <summary>일정 시간 동안 행동 아이콘 대신 사고 텍스트를 WorldSpace로 표시한다.</summary>
+        public void ShowThought(string text, float duration)
+        {
+            _thoughtOverride = $"<color=#FFEE88>\"{text}\"</color>";
+            _thoughtTimer    = duration;
         }
 
         // ══════════════════════════════════════════════════════════════════════
@@ -63,6 +81,25 @@ namespace AIVillage.UI
 
         private void Update()
         {
+            // 매 프레임 카메라를 향해 회전 (빌보드)
+            if (Camera.main != null)
+                transform.LookAt(
+                    transform.position + Camera.main.transform.rotation * Vector3.forward,
+                    Camera.main.transform.rotation * Vector3.up);
+
+            // Inspector에서 폰트 크기를 바꿨을 때 즉시 반영
+            if (_tmp != null && !Mathf.Approximately(_tmp.fontSize, _iconFontSize))
+                _tmp.fontSize = _iconFontSize;
+
+            // 사고 말풍선 타이머
+            if (_thoughtTimer > 0f)
+            {
+                _thoughtTimer -= Time.deltaTime;
+                if (_tmp != null && _thoughtOverride != null)
+                    _tmp.SetText(_thoughtOverride);
+                return;
+            }
+
             if (Time.time < _nextUpdate) return;
             _nextUpdate = Time.time + UPDATE_INTERVAL;
 
@@ -90,11 +127,11 @@ namespace AIVillage.UI
 
             switch (b.FSMState)
             {
-                case VillagerState.Fighting:   return "<color=#FF3333>戦</color>";
-                case VillagerState.Fleeing:    return "<color=#FF8800>逃</color>";
+                case VillagerState.Fighting:   return "<color=#FF3333>전투</color>";
+                case VillagerState.Fleeing:    return "<color=#FF8800>도주</color>";
                 case VillagerState.Planning:
                 case VillagerState.Replanning: return "<color=#AAAAAA>...</color>";
-                case VillagerState.Idle:       return "<color=#666666>•</color>";
+                case VillagerState.Idle:       return "<color=#666666>대기</color>";
                 case VillagerState.Executing:  return GetActionIcon(b.CurrentActionId);
                 default:                       return "";
             }
@@ -105,23 +142,23 @@ namespace AIVillage.UI
             if (actionId == null) return "";
             switch (actionId)
             {
-                case "ChopWood":           return "<color=#88FF44>木</color>";
-                case "MineStone":          return "<color=#CCCCCC>石</color>";
-                case "MineIron":           return "<color=#88AAFF>Fe</color>";
-                case "MineCopper":         return "<color=#FF9944>Cu</color>";
-                case "HarvestWildBerries": return "<color=#88FF88>草</color>";
+                case "ChopWood":           return "<color=#88FF44>벌목</color>";
+                case "MineStone":          return "<color=#CCCCCC>채석</color>";
+                case "MineIron":           return "<color=#88AAFF>철광</color>";
+                case "MineCopper":         return "<color=#FF9944>동광</color>";
+                case "HarvestWildBerries": return "<color=#88FF88>채집</color>";
                 case "EatCookedFood":
-                case "EatRawFood":         return "<color=#FFCC44>食</color>";
-                case "CookMeal":           return "<color=#FF8844>煮</color>";
-                case "Sleep":              return "<color=#8888FF>眠</color>";
-                case "RestOnGround":       return "<color=#AAAAFF>休</color>";
-                case "Explore":            return "<color=#44AAFF>探</color>";
-                case "MoveToBase":         return "<color=#FFCC44>⇒</color>";
-                case "AttackEnemy":        return "<color=#FF4444>攻</color>";
-                case "SeekMedicalAid":     return "<color=#FF6666>治</color>";
+                case "EatRawFood":         return "<color=#FFCC44>식사</color>";
+                case "CookMeal":           return "<color=#FF8844>요리</color>";
+                case "Sleep":              return "<color=#8888FF>수면</color>";
+                case "RestOnGround":       return "<color=#AAAAFF>휴식</color>";
+                case "Explore":            return "<color=#44AAFF>탐색</color>";
+                case "MoveToBase":         return "<color=#FFCC44>귀환</color>";
+                case "AttackEnemy":        return "<color=#FF4444>공격</color>";
+                case "SeekMedicalAid":     return "<color=#FF6666>치료</color>";
                 default:
                     if (actionId.StartsWith("Build", System.StringComparison.Ordinal))
-                        return "<color=#FF8844>建</color>";
+                        return "<color=#FF8844>건설</color>";
                     return "<color=#AAAAAA>?</color>";
             }
         }

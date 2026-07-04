@@ -147,7 +147,7 @@ namespace AIVillage.UI
         {
             if (b.FSMState == VillagerState.Planning || b.FSMState == VillagerState.Replanning)
             {
-                _sb.Append("<color=#FFCC44>💭 계획 수립 중...</color>\n");
+                _sb.Append("<color=#FFCC44>▷ 계획 수립 중...</color>\n");
                 return;
             }
 
@@ -160,7 +160,7 @@ namespace AIVillage.UI
             bool hasCurrentAction = b.CurrentActionId != null && b.FSMState == VillagerState.Executing;
             int completedCount = total - remaining - (hasCurrentAction ? 1 : 0);
 
-            _sb.Append("💭 <color=#888888>");
+            _sb.Append("▷ <color=#888888>");
             _sb.Append(GoalToKorean(b.CurrentGoalId));
             _sb.Append("</color> → ");
 

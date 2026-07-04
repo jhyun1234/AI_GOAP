@@ -29,6 +29,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using TMPro;
 using AIVillage.Core;
 using AIVillage.AI;
 using AIVillage.UI;
@@ -85,6 +86,10 @@ namespace AIVillage.Core
         [Tooltip("마일스톤 이벤트(Forge 완성, Day7)에서 동적으로 생성할 주민 Prefab. " +
                  "씬의 Villager GameObject를 Assets/Prefab/Villager.prefab으로 저장 후 연결한다.")]
         [SerializeField] private GameObject _villagerPrefab;
+
+        [Tooltip("주민 머리 위 행동 아이콘에 사용할 한국어 폰트. " +
+                 "Assets/TextMesh Pro/Fonts/NeoDunggeunmoPro-Regular SDF 에셋을 드래그해 연결한다.")]
+        [SerializeField] private TMP_FontAsset _koreanFont;
 
         // ── 초기 자원 재고 (GDD v0.4 기획서 수치) ────────────────────────────
 
@@ -845,7 +850,7 @@ namespace AIVillage.Core
         /// 주민 GameObject에 VillagerActionIcon 자식을 자동 생성·부착한다.
         /// 이미 자식에 아이콘이 있으면 중복 생성하지 않는다.
         /// </summary>
-        private static void AttachActionIcon(VillagerFSM fsm)
+        private void AttachActionIcon(VillagerFSM fsm)
         {
             if (fsm == null) return;
             if (fsm.GetComponentInChildren<VillagerActionIcon>() != null) return;
@@ -855,7 +860,7 @@ namespace AIVillage.Core
             iconGo.transform.localPosition = new Vector3(0f, 1.3f, 0f);
 
             var icon = iconGo.AddComponent<VillagerActionIcon>();
-            icon.Initialize(fsm);
+            icon.Initialize(fsm, _koreanFont);
         }
 
         /// <summary>

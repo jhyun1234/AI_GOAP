@@ -1402,10 +1402,12 @@ namespace AIVillage.AI
             }
         }
 
-        /// <summary>HUDManager를 통해 사고 말풍선 토스트를 표시한다.</summary>
+        /// <summary>주민 머리 위 WorldSpace 아이콘에 사고 텍스트를 2.5초 표시한다.</summary>
         private void ShowThoughtBubble(string thought)
         {
-            AIVillage.UI.HUDManager.Instance?.ShowAIThought(gameObject.name, thought);
+            var icon = GetComponentInChildren<AIVillage.UI.VillagerActionIcon>();
+            if (icon != null)
+                icon.ShowThought(thought, 2.5f);
         }
 
         private string BuildRefusalMessage(RefusalReasonCode code)

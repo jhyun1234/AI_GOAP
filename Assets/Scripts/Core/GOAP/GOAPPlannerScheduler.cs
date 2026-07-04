@@ -48,6 +48,9 @@ namespace AIVillage.Core.GOAP
         private const float DANGER_ATTACK_MULT  = 0.7f;  // 위험 근접 시 공격 액션 비용 감소
         private const float FATIGUE_THRESHOLD   = 70f;   // 피로 페널티 발동 임계값
         private const float FATIGUE_MAX_EXTRA   = 0.5f;  // 피로 최대 추가 배율 (100일 때 +0.5)
+        private const float INJURY_THRESHOLD    = 50f;   // 부상 페널티 발동 임계값 (체력 이 값 미만)
+        private const float INJURY_COMBAT_MAX   = 3f;    // 체력 0 근접 시 전투 비용 최대 배율
+        private const float EXPLORE_UNDISCOVERED_MULT = 0.6f; // 미발견 자원 타입 존재 시 탐험 비용 감소
         // ────────────────────────────────────────────────────────────────────
         // PlanningContext: VillagerFSM이 Planning 상태 동안 보관하는 구조체
         // ────────────────────────────────────────────────────────────────────
@@ -436,7 +439,7 @@ namespace AIVillage.Core.GOAP
             float agentY = brain.TileY;
 
             // 자원 타입별 거리 + 포화 배율 — 노드 리스트를 1회 패스로 전체 처리 (C6 개선)
-            ComputeAllGatherMults(agentX, agentY, nodes, ref mult);
+            ComputeAllGatherMults(agentX, agentY, nodes, ref mult, out bool anyUndiscovered);
 
             // 위험 근접: 수집·탐험 비용 상승, 공격 비용 하락
             if (brain.NearEnemy)
@@ -464,17 +467,30 @@ namespace AIVillage.Core.GOAP
                 mult.RestOnGround   = UnityEngine.Mathf.Max(0.4f, 1f / laborPenalty);
             }
 
+            // F5: 부상 상태 — 전투 비용 선형 상승 (체력 50 미만부터, 0 근접 시 최대 ×3)
+            if (brain.HealthLevel < INJURY_THRESHOLD)
+            {
+                float ratio = (INJURY_THRESHOLD - brain.HealthLevel) / INJURY_THRESHOLD;
+                mult.AttackEnemy *= 1f + ratio * (INJURY_COMBAT_MAX - 1f);
+            }
+
+            // F7: 미발견 자원 타입이 하나라도 있으면 탐험 선호 (FoW 개척 유도)
+            if (anyUndiscovered && !brain.NearEnemy)
+                mult.Explore *= EXPLORE_UNDISCOVERED_MULT;
+
             return mult;
         }
 
         /// <summary>
         /// 노드 리스트를 단일 패스로 순회하여 5개 자원 타입 전체의 거리·포화 배율을 계산한다.
         /// 기존 5회 패스(ComputeGatherMult × 5)를 1회 패스로 대체. (C6 최적화)
+        /// anyUndiscovered: 발견되지 않은 자원 타입이 하나라도 있으면 true — F7 탐험 유도에 사용.
         /// </summary>
         private static void ComputeAllGatherMults(
             float agentX, float agentY,
             System.Collections.Generic.IReadOnlyList<ResourceNode> nodes,
-            ref ContextCostMultipliers mult)
+            ref ContextCostMultipliers mult,
+            out bool anyUndiscovered)
         {
             // per-type: bestAvailDist, anyDiscovered, anyAvailable
             float woodDist = float.MaxValue, stoneDist = float.MaxValue,
@@ -518,11 +534,15 @@ namespace AIVillage.Core.GOAP
             mult.MineIron       = GatherMultFromResult(ironFound,   ironAvail,   ironDist);
             mult.MineCopper     = GatherMultFromResult(copperFound, copperAvail, copperDist);
             mult.HarvestBerries = GatherMultFromResult(foodFound,   foodAvail,   foodDist);
+
+            // F7: 발견되지 않은 자원 타입이 하나라도 있으면 탐험을 우선한다
+            anyUndiscovered = !woodFound || !stoneFound || !ironFound || !copperFound || !foodFound;
         }
 
         private static float GatherMultFromResult(bool anyDiscovered, bool anyAvailable, float bestDist)
         {
-            if (!anyDiscovered) return 1f;
+            // F7: 미발견 자원은 포화 페널티의 2배 — 플래너가 실패할 플랜을 정상 비용으로 선택하는 것을 방지
+            if (!anyDiscovered) return FULL_NODE_PENALTY * 2f;
             if (!anyAvailable)  return FULL_NODE_PENALTY;
             return 1f + UnityEngine.Mathf.Min(bestDist / DISTANCE_SCALE, 1f) * DISTANCE_WEIGHT;
         }

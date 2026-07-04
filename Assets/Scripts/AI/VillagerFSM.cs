@@ -70,6 +70,10 @@ namespace AIVillage.AI
         // 사망 후 GameObject 비활성화까지 대기 시간 (연출용)
         private const float DEATH_DEACTIVATE_DELAY = 5.0f;
 
+        // ── [Phase 1 F1] 사고 말풍선 스로틀 상수 ────────────────────────────
+        // 주민당 최소 발화 간격. 리플래닝 루프에 빠진 주민이 토스트 채널을 마비시키는 것을 방지한다.
+        private const float THOUGHT_MIN_INTERVAL_SEC = 5.0f;
+
         // [PR Fix]: F-005 — RestOnGround와 Sleep의 피로 회복량을 명명된 상수로 분리.
         // 두 Action의 회복량이 달라 switch case를 분리하여 관리한다.
         private const float REST_ON_GROUND_FATIGUE_RECOVERY = 20f; // 땅에서 쉬기: 회복량 낮음
@@ -195,6 +199,10 @@ namespace AIVillage.AI
 
         /// <summary>현재 이동 중인 웨이포인트의 월드 좌표. Vector3.MoveTowards의 목표값.</summary>
         private Vector3 _waypointTarget = Vector3.zero;
+
+        // ── [Phase 1 F1] 사고 말풍선 마지막 발화 시간 ───────────────────────────
+        // -999f로 초기화하여 첫 발화는 시간 게이트를 통과한다.
+        private float _lastThoughtTime = -999f;
 
         // ── [12단계] 공유 walkable 그리드 (static — 모든 주민 공유) ─────────────
         // 현재 맵은 100×100 전체 통행 가능. 장애물 추가 시 이 배열을 수정한다.
@@ -341,6 +349,9 @@ namespace AIVillage.AI
                 if (Brain.CurrentGoalId != p0GoalId)
                 {
                     Debug.Log($"[VillagerFSM] AnyState → Planning (P0 Goal: {p0GoalId}). AgentId={AgentId}");
+                    // F4: P0 전환 발화 — Goal이 바뀌는 순간에만 1회 표시
+                    if (p0GoalId == "SurviveHunger")  ShowThoughtBubble(Pick(THOUGHT_P0_HUNGER));
+                    else if (p0GoalId == "SurviveFatigue") ShowThoughtBubble(Pick(THOUGHT_P0_FATIGUE));
                     Brain.CurrentGoalId = p0GoalId;
                     TransitionTo(VillagerState.Planning);
                     return;
@@ -630,7 +641,9 @@ namespace AIVillage.AI
                         ? _actionDatabase.CanBuildNextBuilding(_registry, _worldState)
                         : HasResourcesForBuilding()))
                 {
+                    bool goalChanged = Brain.CurrentGoalId != "BuildStructure";
                     Brain.CurrentGoalId = "BuildStructure";
+                    if (goalChanged) ShowThoughtBubble(Pick(THOUGHT_GOAL_BUILD));
                     TransitionTo(VillagerState.Planning);
                     return;
                 }
@@ -638,7 +651,9 @@ namespace AIVillage.AI
                 // 우선순위 P2b: 자원 부족 (어떤 자원이든 30 미만)
                 if (_worldState != null && IsAnyStockLow())
                 {
+                    bool goalChanged = Brain.CurrentGoalId != "GatherResources";
                     Brain.CurrentGoalId = "GatherResources";
+                    if (goalChanged) ShowThoughtBubble(Pick(THOUGHT_GOAL_GATHER));
                     TransitionTo(VillagerState.Planning);
                     return;
                 }
@@ -648,7 +663,9 @@ namespace AIVillage.AI
                 // 현재는 WorldState 자원이 모두 50 이상이면 Explore Goal로 전환 (더미)
                 if (_worldState != null && AreAllStocksAboveThreshold(GATHER_STOCK_HIGH_THRESHOLD))
                 {
+                    bool goalChanged = Brain.CurrentGoalId != "Explore";
                     Brain.CurrentGoalId = "Explore";
+                    if (goalChanged) ShowThoughtBubble(Pick(THOUGHT_GOAL_EXPLORE));
                     TransitionTo(VillagerState.Planning);
                     return;
                 }
@@ -1382,29 +1399,69 @@ namespace AIVillage.AI
         /// UI 시스템이 OrderRefusedPayload.RefusalMessage를 화면에 직접 표시한다.
         /// TODO: 기획팀 — 로컬라이제이션 키 체계 도입 시 이 메서드를 LocalizationManager로 교체
         /// </summary>
-        // ── [Phase 1] 사고 말풍선 (7장 Level 3) ─────────────────────────────
+        // ── [Phase 1 F3/F4] 사고 말풍선 대사 풀 (7장 Level 3) ────────────────
+        // static readonly: 힙 할당 없이 재사용. GC 부담 0.
+        // 리플래닝 대사 (F3)
+        private static readonly string[] THOUGHT_HUNGRY_REPLAN  = { "배가 고픈데 계획이 안 잡히네...", "먹을 걸 먼저 찾아야 하나...", "허기져서 집중이 안 돼." };
+        private static readonly string[] THOUGHT_TIRED_REPLAN   = { "너무 지쳤어, 다시 생각해야겠어.", "몸이 말을 안 듣는군...", "잠깐 쉬어야 할 것 같아." };
+        private static readonly string[] THOUGHT_DANGER_REPLAN  = { "위험해! 다른 방법을 찾아야겠어.", "여기선 안 되겠어. 피해야 해.", "적이 너무 가까워. 계획 변경!" };
+        private static readonly string[] THOUGHT_NO_WOOD        = { "나무가 없네... 다른 곳을 찾아볼게.", "여긴 다 베었군. 이동해야겠어.", "벌목할 게 없어. 어디 다른 데 없나?" };
+        private static readonly string[] THOUGHT_NO_STONE       = { "돌이 다 떨어졌어. 다시 계획.", "이 채석장은 고갈됐군.", "돌이 없어. 다른 곳을 봐야겠어." };
+        private static readonly string[] THOUGHT_NO_FOOD        = { "열매가 없어... 다른 걸 해야겠어.", "여긴 채집할 게 없네.", "식량이 없어. 다른 방법을 찾자." };
+        private static readonly string[] THOUGHT_NO_EAT        = { "먹을 게 없다... 어떡하지?", "식사를 못 하겠어. 다른 방법은?", "밥을 구할 수가 없네." };
+        private static readonly string[] THOUGHT_REPLAN_DEFAULT = { "계획을 다시 세워야겠어.", "이 방법은 안 되겠어. 다시 생각해보자.", "뭔가 잘못됐어. 처음부터 다시." };
 
-        /// <summary>리플래닝 상황에 맞는 대사를 반환한다.</summary>
+        // Goal 전환 대사 (F4)
+        private static readonly string[] THOUGHT_GOAL_GATHER  = { "창고가 비어가네. 일하러 가자.", "자원이 부족해. 채집에 나서야겠어.", "이대로면 큰일나. 일단 자원부터." };
+        private static readonly string[] THOUGHT_GOAL_BUILD   = { "재료가 모였으니 짓기 시작하자.", "이제 건설을 시작할 때야.", "준비가 됐어. 짓자!" };
+        private static readonly string[] THOUGHT_GOAL_EXPLORE = { "여유가 생겼으니 주변을 둘러볼까.", "미지의 지역이 있어. 탐험해보자.", "지도에 빈 곳이 많아. 가봐야겠어." };
+        private static readonly string[] THOUGHT_P0_HUNGER    = { "안 되겠다, 뭐라도 먹어야 해.", "배가 너무 고파. 쓰러지기 전에!", "먹는 게 최우선이야. 지금 당장!" };
+        private static readonly string[] THOUGHT_P0_FATIGUE   = { "잠깐... 좀 쉬어야겠어.", "탈진하기 전에 쉬어야 해.", "몸이 한계야. 지금 쉬지 않으면 안 돼." };
+
+        /// <summary>풀에서 무작위로 대사 하나를 선택한다. 연속 중복을 방지하기 위해 마지막 인덱스를 추적한다.</summary>
+        private int _lastPickIndex = -1;
+        private string Pick(string[] pool)
+        {
+            if (pool.Length == 1) return pool[0];
+            int idx;
+            do { idx = UnityEngine.Random.Range(0, pool.Length); }
+            while (idx == _lastPickIndex && pool.Length > 1);
+            _lastPickIndex = idx;
+            return pool[idx];
+        }
+
+        /// <summary>리플래닝 상황에 맞는 대사를 랜덤 풀에서 반환한다.</summary>
         private string GetReplanThought()
         {
-            if (Brain.HungerLevel > 75f) return "배가 고픈데 계획이 안 잡히네...";
-            if (Brain.FatigueLevel > 80f) return "너무 지쳤어, 다시 생각해야겠어.";
-            if (Brain.NearEnemy) return "위험해! 다른 방법을 찾아야겠어.";
+            if (Brain.HungerLevel > 75f) return Pick(THOUGHT_HUNGRY_REPLAN);
+            if (Brain.FatigueLevel > 80f) return Pick(THOUGHT_TIRED_REPLAN);
+            if (Brain.NearEnemy) return Pick(THOUGHT_DANGER_REPLAN);
 
             switch (Brain.CurrentActionId)
             {
-                case "ChopWood":           return "나무가 없네... 다른 곳을 찾아볼게.";
-                case "MineStone":          return "돌이 다 떨어졌어. 다시 계획.";
-                case "HarvestWildBerries": return "열매가 없어... 다른 걸 해야겠어.";
+                case "ChopWood":           return Pick(THOUGHT_NO_WOOD);
+                case "MineStone":          return Pick(THOUGHT_NO_STONE);
+                case "HarvestWildBerries": return Pick(THOUGHT_NO_FOOD);
                 case "EatCookedFood":
-                case "EatRawFood":         return "먹을 게 없다... 어떡하지?";
-                default:                   return "계획을 다시 세워야겠어.";
+                case "EatRawFood":         return Pick(THOUGHT_NO_EAT);
+                default:                   return Pick(THOUGHT_REPLAN_DEFAULT);
             }
         }
 
-        /// <summary>주민 머리 위 WorldSpace 아이콘에 사고 텍스트를 2.5초 표시한다.</summary>
+        /// <summary>주민 머리 위 WorldSpace 아이콘에 사고 텍스트를 2.5초 표시한다.
+        /// 3중 게이트(시간 스로틀·LOD 생략·FallbackCounter 억제)로 스팸을 방지한다.</summary>
         private void ShowThoughtBubble(string thought)
         {
+            // 게이트 1: 주민당 시간 스로틀 (5초 미만 재발화 차단)
+            if (Time.time - _lastThoughtTime < THOUGHT_MIN_INTERVAL_SEC) return;
+
+            // 게이트 2: LOD 주민은 발화 생략 (화면 밖 원거리 — 정보 가치 없음)
+            if (Brain.FSMState == VillagerState.LOD_FSM) return;
+
+            // 게이트 3: 연속 실패 억제 — FallbackCounter 2 이상이면 Deadlock 핸들러에 위임
+            if (Brain.FallbackCounter >= 2) return;
+
+            _lastThoughtTime = Time.time;
             var icon = GetComponentInChildren<AIVillage.UI.VillagerActionIcon>();
             if (icon != null)
                 icon.ShowThought(thought, 2.5f);

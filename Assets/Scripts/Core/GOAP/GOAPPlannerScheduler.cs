@@ -40,6 +40,14 @@ namespace AIVillage.Core.GOAP
     /// </summary>
     public static class GOAPPlannerScheduler
     {
+        // ── 컨텍스트 비용 배율 상수 ──────────────────────────────────────────────
+        private const float DISTANCE_SCALE      = 50f;   // 50타일 거리에서 최대 배율 도달
+        private const float DISTANCE_WEIGHT     = 1.5f;  // 거리 최대 추가 배율
+        private const float FULL_NODE_PENALTY   = 5f;    // 해당 자원 노드 전부 포화 시 페널티
+        private const float DANGER_GATHER_MULT  = 2.5f;  // 위험 근접 시 수집 액션 비용 증가
+        private const float DANGER_ATTACK_MULT  = 0.7f;  // 위험 근접 시 공격 액션 비용 감소
+        private const float FATIGUE_THRESHOLD   = 70f;   // 피로 페널티 발동 임계값
+        private const float FATIGUE_MAX_EXTRA   = 0.5f;  // 피로 최대 추가 배율 (100일 때 +0.5)
         // ────────────────────────────────────────────────────────────────────
         // PlanningContext: VillagerFSM이 Planning 상태 동안 보관하는 구조체
         // ────────────────────────────────────────────────────────────────────
@@ -297,7 +305,9 @@ namespace AIVillage.Core.GOAP
                 float seasonGatherMod = SeasonManager.Instance != null
                     ? SeasonManager.Instance.GetCurrentGatherCostModifier()
                     : 1.0f;
-                actions = GOAPActionRegistry.BuildActionDefs(role, alloc, seasonGatherMod);
+                // [Phase 1 확장] 컨텍스트 비용: 거리·포화·위험·피로 배율 계산 (메인 스레드에서만)
+                ContextCostMultipliers contextMult = ComputeContextMultipliers(brain);
+                actions = GOAPActionRegistry.BuildActionDefs(role, alloc, seasonGatherMod, contextMult);
 
                 // [PR Fix]: Major-2 — goalMask all-zero 체크: 알 수 없는 goalId 방어
                 // goalMask가 모두 0이면 GoalState를 설정한 case가 없다는 뜻이다.
@@ -404,6 +414,117 @@ namespace AIVillage.Core.GOAP
                 OpenQueue     = openQueue,
                 QueueSize     = queueSize
             };
+        }
+
+        // ────────────────────────────────────────────────────────────────────
+        // 컨텍스트 비용 계산 (메인 스레드 전용)
+        // ────────────────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// 에이전트의 현재 위치·상태·주변 환경을 분석하여 액션별 비용 배율을 계산한다.
+        /// Job 스케줄 직전 메인 스레드에서 호출된다. Job 내부는 무수정.
+        /// </summary>
+        private static ContextCostMultipliers ComputeContextMultipliers(VillagerBrain brain)
+        {
+            var mult = ContextCostMultipliers.Identity;
+
+            System.Collections.Generic.IReadOnlyList<ResourceNode> nodes =
+                SensorSystem.Instance?.GetAllNodes();
+            if (nodes == null || nodes.Count == 0) return mult;
+
+            float agentX = brain.TileX;
+            float agentY = brain.TileY;
+
+            // 자원 타입별 거리 + 포화 배율 — 노드 리스트를 1회 패스로 전체 처리 (C6 개선)
+            ComputeAllGatherMults(agentX, agentY, nodes, ref mult);
+
+            // 위험 근접: 수집·탐험 비용 상승, 공격 비용 하락
+            if (brain.NearEnemy)
+            {
+                mult.ChopWood       *= DANGER_GATHER_MULT;
+                mult.MineStone      *= DANGER_GATHER_MULT;
+                mult.MineIron       *= DANGER_GATHER_MULT;
+                mult.MineCopper     *= DANGER_GATHER_MULT;
+                mult.HarvestBerries *= DANGER_GATHER_MULT;
+                mult.Explore        *= DANGER_GATHER_MULT;
+                mult.AttackEnemy    *= DANGER_ATTACK_MULT;
+            }
+
+            // 피로 상태: 노동 비용 상승, 휴식 비용 하락
+            if (brain.FatigueLevel > FATIGUE_THRESHOLD)
+            {
+                float ratio        = (brain.FatigueLevel - FATIGUE_THRESHOLD) / (100f - FATIGUE_THRESHOLD);
+                float laborPenalty = 1f + ratio * FATIGUE_MAX_EXTRA;
+                mult.ChopWood       *= laborPenalty;
+                mult.MineStone      *= laborPenalty;
+                mult.MineIron       *= laborPenalty;
+                mult.MineCopper     *= laborPenalty;
+                mult.HarvestBerries *= laborPenalty;
+                // 휴식은 피로할수록 선호 (비용 감소)
+                mult.RestOnGround   = UnityEngine.Mathf.Max(0.4f, 1f / laborPenalty);
+            }
+
+            return mult;
+        }
+
+        /// <summary>
+        /// 노드 리스트를 단일 패스로 순회하여 5개 자원 타입 전체의 거리·포화 배율을 계산한다.
+        /// 기존 5회 패스(ComputeGatherMult × 5)를 1회 패스로 대체. (C6 최적화)
+        /// </summary>
+        private static void ComputeAllGatherMults(
+            float agentX, float agentY,
+            System.Collections.Generic.IReadOnlyList<ResourceNode> nodes,
+            ref ContextCostMultipliers mult)
+        {
+            // per-type: bestAvailDist, anyDiscovered, anyAvailable
+            float woodDist = float.MaxValue, stoneDist = float.MaxValue,
+                  ironDist = float.MaxValue, copperDist = float.MaxValue, foodDist = float.MaxValue;
+            bool woodFound = false, stoneFound = false, ironFound = false,
+                 copperFound = false, foodFound = false;
+            bool woodAvail = false, stoneAvail = false, ironAvail = false,
+                 copperAvail = false, foodAvail = false;
+
+            for (int i = 0; i < nodes.Count; i++)
+            {
+                ResourceNode node = nodes[i];
+                if (!node.IsDiscovered || node.CurrentAmount <= 0f) continue;
+
+                float dist = UnityEngine.Mathf.Abs(node.TileX - agentX)
+                           + UnityEngine.Mathf.Abs(node.TileY - agentY);
+                bool avail = node.IsAvailableForHarvest();
+
+                switch (node.ResourceType)
+                {
+                    case ResourceType.Wood:
+                        woodFound = true;
+                        if (avail && dist < woodDist) { woodDist = dist; woodAvail = true; } break;
+                    case ResourceType.Stone:
+                        stoneFound = true;
+                        if (avail && dist < stoneDist) { stoneDist = dist; stoneAvail = true; } break;
+                    case ResourceType.Iron:
+                        ironFound = true;
+                        if (avail && dist < ironDist) { ironDist = dist; ironAvail = true; } break;
+                    case ResourceType.Copper:
+                        copperFound = true;
+                        if (avail && dist < copperDist) { copperDist = dist; copperAvail = true; } break;
+                    case ResourceType.RawFood:
+                        foodFound = true;
+                        if (avail && dist < foodDist) { foodDist = dist; foodAvail = true; } break;
+                }
+            }
+
+            mult.ChopWood       = GatherMultFromResult(woodFound,   woodAvail,   woodDist);
+            mult.MineStone      = GatherMultFromResult(stoneFound,  stoneAvail,  stoneDist);
+            mult.MineIron       = GatherMultFromResult(ironFound,   ironAvail,   ironDist);
+            mult.MineCopper     = GatherMultFromResult(copperFound, copperAvail, copperDist);
+            mult.HarvestBerries = GatherMultFromResult(foodFound,   foodAvail,   foodDist);
+        }
+
+        private static float GatherMultFromResult(bool anyDiscovered, bool anyAvailable, float bestDist)
+        {
+            if (!anyDiscovered) return 1f;
+            if (!anyAvailable)  return FULL_NODE_PENALTY;
+            return 1f + UnityEngine.Mathf.Min(bestDist / DISTANCE_SCALE, 1f) * DISTANCE_WEIGHT;
         }
     }
 }

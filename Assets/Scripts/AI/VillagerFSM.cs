@@ -743,9 +743,11 @@ namespace AIVillage.AI
             {
                 // 플랜 성공 → Brain.CurrentPlan 큐에 적재
                 Brain.CurrentPlan.Clear();
+                Brain.CurrentPlanFull.Clear();
                 foreach (string actionId in actionSequence)
                 {
                     Brain.CurrentPlan.Enqueue(actionId);
+                    Brain.CurrentPlanFull.Add(actionId);
                 }
 
                 Brain.FallbackCounter = 0;
@@ -1293,8 +1295,9 @@ namespace AIVillage.AI
             ReleaseCurrentReservation();
             ReleaseGatherNode();
 
-            // 현재 플랜 초기화
+            // 현재 플랜 초기화 (CurrentPlanFull도 함께 클리어 — UI 사고 체인 잔류 방지)
             Brain.CurrentPlan.Clear();
+            Brain.CurrentPlanFull.Clear();
             Brain.IsExecutingPlan = false;
 
             // 쿨다운 설정 (P0 Goal은 이 쿨다운을 무시하고 Update()에서 강제 전이)
@@ -1311,6 +1314,9 @@ namespace AIVillage.AI
             }
 
             Debug.Log($"[VillagerFSM] Replanning 진입. FallbackCounter={Brain.FallbackCounter}, Cooldown={Brain.ReplanCooldown:F2}초. AgentId={AgentId}");
+
+            // 사고 말풍선: 리플래닝 원인에 맞는 대사 (7장 Level 3)
+            ShowThoughtBubble(GetReplanThought());
         }
 
         /// <summary>RefusingOrder 상태 진입 초기화. 거부 이유 결정 및 MessageBus를 통해 메시지 발행.</summary>
@@ -1376,6 +1382,32 @@ namespace AIVillage.AI
         /// UI 시스템이 OrderRefusedPayload.RefusalMessage를 화면에 직접 표시한다.
         /// TODO: 기획팀 — 로컬라이제이션 키 체계 도입 시 이 메서드를 LocalizationManager로 교체
         /// </summary>
+        // ── [Phase 1] 사고 말풍선 (7장 Level 3) ─────────────────────────────
+
+        /// <summary>리플래닝 상황에 맞는 대사를 반환한다.</summary>
+        private string GetReplanThought()
+        {
+            if (Brain.HungerLevel > 75f) return "배가 고픈데 계획이 안 잡히네...";
+            if (Brain.FatigueLevel > 80f) return "너무 지쳤어, 다시 생각해야겠어.";
+            if (Brain.NearEnemy) return "위험해! 다른 방법을 찾아야겠어.";
+
+            switch (Brain.CurrentActionId)
+            {
+                case "ChopWood":           return "나무가 없네... 다른 곳을 찾아볼게.";
+                case "MineStone":          return "돌이 다 떨어졌어. 다시 계획.";
+                case "HarvestWildBerries": return "열매가 없어... 다른 걸 해야겠어.";
+                case "EatCookedFood":
+                case "EatRawFood":         return "먹을 게 없다... 어떡하지?";
+                default:                   return "계획을 다시 세워야겠어.";
+            }
+        }
+
+        /// <summary>HUDManager를 통해 사고 말풍선 토스트를 표시한다.</summary>
+        private void ShowThoughtBubble(string thought)
+        {
+            AIVillage.UI.HUDManager.Instance?.ShowAIThought(gameObject.name, thought);
+        }
+
         private string BuildRefusalMessage(RefusalReasonCode code)
         {
             switch (code)

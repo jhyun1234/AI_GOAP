@@ -20,6 +20,35 @@ using AIVillage.AI;
 namespace AIVillage.Core.GOAP
 {
     /// <summary>
+    /// BuildActionDefs() 호출 시 전달하는 컨텍스트 기반 액션 비용 배율.
+    /// GOAPPlannerScheduler.ComputeContextMultipliers()가 메인 스레드에서 계산한다.
+    /// 모든 필드 기본값 0 → Identity(1f)로 자동 치환된다.
+    /// </summary>
+    public struct ContextCostMultipliers
+    {
+        public float ChopWood;
+        public float MineStone;
+        public float MineIron;
+        public float MineCopper;
+        public float HarvestBerries;
+        public float Explore;
+        public float AttackEnemy;
+        public float RestOnGround;
+
+        public static ContextCostMultipliers Identity => new ContextCostMultipliers
+        {
+            ChopWood      = 1f,
+            MineStone     = 1f,
+            MineIron      = 1f,
+            MineCopper    = 1f,
+            HarvestBerries = 1f,
+            Explore        = 1f,
+            AttackEnemy    = 1f,
+            RestOnGround   = 1f
+        };
+    }
+
+    /// <summary>
     /// Burst Compiler 호환 GOAP Action 정의 구조체.
     ///
     /// Burst 제약 사항:
@@ -342,8 +371,19 @@ namespace AIVillage.Core.GOAP
         public static NativeArray<GOAPActionDef> BuildActionDefs(
             AgentRole role,
             Allocator allocator = Allocator.Persistent,
-            float seasonGatherModifier = 1.0f)
+            float seasonGatherModifier = 1.0f,
+            ContextCostMultipliers contextMult = default)
         {
+            // 각 필드가 0이면(default 미설정) 1f로 치환 — 부분 설정 struct도 안전하게 처리
+            if (contextMult.ChopWood       <= 0f) contextMult.ChopWood       = 1f;
+            if (contextMult.MineStone      <= 0f) contextMult.MineStone      = 1f;
+            if (contextMult.MineIron       <= 0f) contextMult.MineIron       = 1f;
+            if (contextMult.MineCopper     <= 0f) contextMult.MineCopper     = 1f;
+            if (contextMult.HarvestBerries <= 0f) contextMult.HarvestBerries = 1f;
+            if (contextMult.Explore        <= 0f) contextMult.Explore        = 1f;
+            if (contextMult.AttackEnemy    <= 0f) contextMult.AttackEnemy    = 1f;
+            if (contextMult.RestOnGround   <= 0f) contextMult.RestOnGround   = 1f;
+
             // 기획서 수치 — 20개 Action 기본 비용 (GDD v0.4 기준)
             var defs = new NativeArray<GOAPActionDef>(20, allocator);
             int i = 0;
@@ -363,6 +403,7 @@ namespace AIVillage.Core.GOAP
             if (role == AgentRole.Lumberjack)      chopCost *= LUMBERJACK_CHOP_MODIFIER;
             else if (role == AgentRole.Miner)      chopCost *= MINER_CHOP_MODIFIER;
             chopCost *= seasonGatherModifier;
+            chopCost *= contextMult.ChopWood;
             defs[i++] = new GOAPActionDef
             {
                 ActionStringHash = Animator.StringToHash("ChopWood"),
@@ -379,6 +420,7 @@ namespace AIVillage.Core.GOAP
             if (role == AgentRole.Miner)           mineStoneCost *= MINER_MINE_MODIFIER;
             else if (role == AgentRole.Lumberjack) mineStoneCost *= LUMBERJACK_MINE_MODIFIER;
             mineStoneCost *= seasonGatherModifier;
+            mineStoneCost *= contextMult.MineStone;
             defs[i++] = new GOAPActionDef
             {
                 ActionStringHash = Animator.StringToHash("MineStone"),
@@ -394,6 +436,7 @@ namespace AIVillage.Core.GOAP
             float mineIronCost = 15f;
             if (role == AgentRole.Miner) mineIronCost *= MINER_MINE_MODIFIER;
             mineIronCost *= seasonGatherModifier;
+            mineIronCost *= contextMult.MineIron;
             defs[i++] = new GOAPActionDef
             {
                 ActionStringHash = Animator.StringToHash("MineIron"),
@@ -409,6 +452,7 @@ namespace AIVillage.Core.GOAP
             float mineCopperCost = 16f;
             if (role == AgentRole.Miner) mineCopperCost *= MINER_MINE_MODIFIER;
             mineCopperCost *= seasonGatherModifier;
+            mineCopperCost *= contextMult.MineCopper;
             defs[i++] = new GOAPActionDef
             {
                 ActionStringHash = Animator.StringToHash("MineCopper"),
@@ -474,7 +518,7 @@ namespace AIVillage.Core.GOAP
             defs[i++] = new GOAPActionDef
             {
                 ActionStringHash = Animator.StringToHash("RestOnGround"),
-                BaseCost = 12f,
+                BaseCost = 12f * contextMult.RestOnGround,
                 PrecCount = 0,
                 EffectCount = 2, Eff0S = S.FatigueSolved, Eff0V = 1, Eff1S = S.FatigueCritical, Eff1V = 0
             };
@@ -527,6 +571,7 @@ namespace AIVillage.Core.GOAP
             float attackCost = 10f;
             if (role == AgentRole.Warrior)      attackCost *= WARRIOR_ATTACK_MODIFIER;
             else if (role == AgentRole.Cook)    attackCost *= COOK_ATTACK_MODIFIER;
+            attackCost *= contextMult.AttackEnemy;
             defs[i++] = new GOAPActionDef
             {
                 ActionStringHash = Animator.StringToHash("AttackEnemy"),
@@ -622,7 +667,7 @@ namespace AIVillage.Core.GOAP
             defs[i++] = new GOAPActionDef
             {
                 ActionStringHash = Animator.StringToHash("Explore"),
-                BaseCost = 15f,
+                BaseCost = 15f * contextMult.Explore,
                 PrecCount = 0,
                 EffectCount = 2, Eff0S = S.AreaExplored, Eff0V = 1, Eff1S = S.NearDiscoveredResource, Eff1V = 1
             };
@@ -634,7 +679,7 @@ namespace AIVillage.Core.GOAP
             defs[i++] = new GOAPActionDef
             {
                 ActionStringHash = Animator.StringToHash("HarvestWildBerries"),
-                BaseCost = 10f,
+                BaseCost = 10f * contextMult.HarvestBerries,
                 PrecCount = 1, Prec0S = S.NearDiscoveredResource, Prec0V = 1,
                 EffectCount = 3,
                 Eff0S = S.ResourcesGathered,          Eff0V = 1,

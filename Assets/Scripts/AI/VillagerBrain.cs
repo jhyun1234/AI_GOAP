@@ -190,6 +190,13 @@ namespace AIVillage.AI
         /// </summary>
         public Queue<string> CurrentPlan { get; set; } = new Queue<string>();
 
+        /// <summary>
+        /// 가장 최근 플랜의 전체 액션 시퀀스 스냅샷 (UI 사고 체인 표시용).
+        /// Planning 성공 직후 VillagerFSM이 갱신한다. 큐에서 꺼낸 완료 액션도 여기에 남는다.
+        /// </summary>
+        public System.Collections.Generic.List<string> CurrentPlanFull { get; set; }
+            = new System.Collections.Generic.List<string>();
+
         #endregion
 
         #region ── 재플래닝 제어 ──

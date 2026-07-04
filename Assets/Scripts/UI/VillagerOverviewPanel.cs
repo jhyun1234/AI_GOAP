@@ -136,7 +136,61 @@ namespace AIVillage.UI
             _sb.Append(b.LoyaltyLevel.ToString("F0"));
             _sb.Append('\n');
 
+            // 사고 체인 시각화 (7장 Level 2)
+            AppendPlanChain(b);
+
             _sb.Append("<color=#555555>────────────────</color>");
+        }
+
+        /// <summary>선택 주민의 GOAP 플랜 체인을 사고 흐름으로 출력한다 (7장 Level 2).</summary>
+        private void AppendPlanChain(VillagerBrain b)
+        {
+            if (b.FSMState == VillagerState.Planning || b.FSMState == VillagerState.Replanning)
+            {
+                _sb.Append("<color=#FFCC44>💭 계획 수립 중...</color>\n");
+                return;
+            }
+
+            var fullPlan = b.CurrentPlanFull;
+            if (fullPlan == null || fullPlan.Count == 0) return;
+
+            // 완료된 스텝 수 계산: 큐에 남은 수 + (현재 실행 중이면 1)
+            int remaining     = b.CurrentPlan.Count;
+            int total         = fullPlan.Count;
+            bool hasCurrentAction = b.CurrentActionId != null && b.FSMState == VillagerState.Executing;
+            int completedCount = total - remaining - (hasCurrentAction ? 1 : 0);
+
+            _sb.Append("💭 <color=#888888>");
+            _sb.Append(GoalToKorean(b.CurrentGoalId));
+            _sb.Append("</color> → ");
+
+            for (int idx = 0; idx < total; idx++)
+            {
+                if (idx > 0) _sb.Append(" ▸ ");
+                string act = fullPlan[idx];
+                bool isDone    = idx < completedCount;
+                bool isCurrent = hasCurrentAction && idx == completedCount;
+
+                if (isDone)
+                {
+                    _sb.Append("<color=#444444><s>");
+                    _sb.Append(ActionToKorean(act));
+                    _sb.Append("</s></color>");
+                }
+                else if (isCurrent)
+                {
+                    _sb.Append("<color=#FFFF44><b>▶");
+                    _sb.Append(ActionToKorean(act));
+                    _sb.Append("</b></color>");
+                }
+                else
+                {
+                    _sb.Append("<color=#AAAAAA>");
+                    _sb.Append(ActionToKorean(act));
+                    _sb.Append("</color>");
+                }
+            }
+            _sb.Append('\n');
         }
 
         #endregion

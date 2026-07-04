@@ -267,6 +267,15 @@ namespace AIVillage.UI
             }
         }
 
+        /// <summary>
+        /// AI 주민의 사고 말풍선을 토스트로 표시한다 (7장 Level 3 플랜 가시화).
+        /// 거부 메시지와 동일한 토스트 채널을 공유하며, 주민 이름 접두사로 구분한다.
+        /// </summary>
+        public void ShowAIThought(string villagerName, string thought)
+        {
+            ShowToast($"[{villagerName}] {thought}");
+        }
+
         #endregion
 
         // ══════════════════════════════════════════════════════════════════════

@@ -31,6 +31,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using AIVillage.Core;
 using AIVillage.AI;
+using AIVillage.UI;
 using System.Linq; // FactionAI 수집 시 Where 사용
 
 namespace AIVillage.Core
@@ -831,10 +832,30 @@ namespace AIVillage.Core
                 // _actionDatabase가 null이면 VillagerFSM이 내부 더미 로직으로 폴백한다
                 fsm.InjectDependencies(_registry, _actionDatabase, BuildingQueue.Instance);
 
+                // [Phase 1] 주민 머리 위 행동 아이콘 자동 부착 (7장 Level 1)
+                AttachActionIcon(fsm);
+
                 _villagerFSMs.Add(fsm);
             }
 
             Debug.Log($"[GameManager] 주민 {_villagerFSMs.Count}명 수집 및 의존성 주입 완료.");
+        }
+
+        /// <summary>
+        /// 주민 GameObject에 VillagerActionIcon 자식을 자동 생성·부착한다.
+        /// 이미 자식에 아이콘이 있으면 중복 생성하지 않는다.
+        /// </summary>
+        private static void AttachActionIcon(VillagerFSM fsm)
+        {
+            if (fsm == null) return;
+            if (fsm.GetComponentInChildren<VillagerActionIcon>() != null) return;
+
+            var iconGo = new GameObject("_ActionIcon");
+            iconGo.transform.SetParent(fsm.transform, false);
+            iconGo.transform.localPosition = new Vector3(0f, 1.3f, 0f);
+
+            var icon = iconGo.AddComponent<VillagerActionIcon>();
+            icon.Initialize(fsm);
         }
 
         /// <summary>
@@ -1260,6 +1281,7 @@ namespace AIVillage.Core
 
             SensorSystem.Instance?.RegisterVillager(fsm);
             fsm.InjectDependencies(_registry, _actionDatabase, BuildingQueue.Instance);
+            AttachActionIcon(fsm); // 런타임 모집 주민도 아이콘 부착 (C2 버그 수정)
             _villagerFSMs.Add(fsm);
 
             Debug.Log($"[GameManager] 신규 주민 등록 완료. VillagerId={fsm.Brain?.VillagerId}, " +

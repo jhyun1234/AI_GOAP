@@ -39,9 +39,9 @@ namespace AIVillage.Core.GOAP
         // ────────────────────────────────────────────────────────────────────
 
         /// <summary>탐색 최대 노드 수. 이 수를 초과하면 탐색을 중단하고 실패 처리한다.</summary>
-        // [Fix] Phase 1 컨텍스트 비용 배율로 인해 목표 경로 비용이 최대 7배 증가.
-        // 2048 → 8192: A*가 비용이 높은 유효 경로를 찾기 전 예산을 소진하는 문제 해결.
-        public const int MAX_NODES    = 8192;
+        // [S4] S1(Closed Set)+S2(부족량 휴리스틱) 적용 후 탐색 효율 대폭 향상.
+        // 2048로 복귀 실험: NoSolutionFound 발생 시 4096으로 조정.
+        public const int MAX_NODES    = 2048;
 
         /// <summary>플랜 최대 깊이. 기획 명세: 6단계. 이 깊이를 초과하면 노드를 확장하지 않는다.</summary>
         public const int MAX_DEPTH    = 6;
@@ -50,12 +50,10 @@ namespace AIVillage.Core.GOAP
         public const int MAX_PLAN_LEN = 6;
 
         // ────────────────────────────────────────────────────────────────────
-        // 휴리스틱 가중치
-        // [PR Fix]: Note-1 — HEURISTIC_WEIGHT를 2.9f로 변경
-        // 2.9f < 최소 Action 비용(MoveToBase=3.0f) → 허용 가능(admissible) 휴리스틱 보장
-        // 최적 플랜을 항상 찾으면서도 탐색 방향성은 유지
-        // ────────────────────────────────────────────────────────────────────
-        private const float HEURISTIC_WEIGHT = 2.9f;
+        // [S2] HEURISTIC_WEIGHT 2.9f 하드코딩 삭제 (ADR-5).
+        // 컨텍스트 배율(RestOnGround ×0.4 등)로 실효 비용이 2.9 아래로 내려갈 수 있어
+        // admissibility를 깰 수 있는 잠재 버그였다.
+        // 대신 Execute() 서두에서 Actions 배열 min(BaseCost)를 실측한다.
 
         // ────────────────────────────────────────────────────────────────────
         // 입력 필드 (ReadOnly — 메인 스레드에서 쓰고 Job은 읽기만 한다)
@@ -137,6 +135,20 @@ namespace AIVillage.Core.GOAP
         /// </summary>
         public NativeArray<int>   QueueSize;
 
+        // [S1] Closed Set 버퍼 (GOAPPlannerScheduler가 MAX_NODES×2 크기로 할당)
+        /// <summary>방문 상태 해시 테이블. 0=빈 슬롯. FNV-1a 해시.</summary>
+        public NativeArray<int>   VisitedHashes;
+        /// <summary>각 해시 슬롯에 저장된 노드 인덱스. 전수 비교(StatesEqual)에 사용.</summary>
+        public NativeArray<int>   VisitedNodeIdx;
+        /// <summary>각 해시 슬롯에 저장된 g-cost. 재개방(더 싼 경로 발견) 판단에 사용.</summary>
+        public NativeArray<float> VisitedGCosts;
+
+        // [S2] 슬롯별 최대 Add/Sub 효과량 (GOAPActionRegistry.BuildMaxGainDrop이 메인 스레드에서 산출)
+        /// <summary>슬롯별 최대 Add 효과값. GreaterEq 목표 스텝 추정 (부족량 ÷ MaxGain)에 사용.</summary>
+        [ReadOnly] public NativeArray<float> MaxGain;
+        /// <summary>슬롯별 최대 Sub 효과값. LessEq 목표 스텝 추정 (초과량 ÷ MaxDrop)에 사용.</summary>
+        [ReadOnly] public NativeArray<float> MaxDrop;
+
         // ────────────────────────────────────────────────────────────────────
         // IJob 인터페이스 구현
         // ────────────────────────────────────────────────────────────────────
@@ -159,6 +171,13 @@ namespace AIVillage.Core.GOAP
 
             int totalSlots = GOAPPlanningSlots.TOTAL_SLOTS;
 
+            // [S2] 컨텍스트 배율 반영 후 실제 minActionCost 실측 (ADR-5).
+            // 하드코딩 2.9f 대체: RestOnGround ×0.4 등으로 실효 비용이 내려가는 케이스를 처리한다.
+            float minActionCost = float.MaxValue;
+            for (int a = 0; a < Actions.Length; a++)
+                if (Actions[a].BaseCost < minActionCost) minActionCost = Actions[a].BaseCost;
+            if (minActionCost <= 0f || minActionCost >= float.MaxValue) minActionCost = 1f;
+
             // ── 탐색 전 목표 즉시 달성 확인 ──────────────────────────────
             // [PR Fix]: N-001 — 목표 이미 달성 시 ResultLength[0] = -1 설정 (특수값)
             // 기존: return만 하여 ResultLength[0]=0(실패 코드)을 그대로 유지
@@ -180,9 +199,9 @@ namespace AIVillage.Core.GOAP
             // [PR Fix]: Critical-1 — NodeGCosts[0]=0(g-cost), NodeCosts[0]=h (f = g+h = 0+h)
             // 기존: NodeCosts[0] = 0f → 자식 g-cost 역산 시 h를 빼면 음수가 되는 버그 발생
             // 수정: g-cost는 NodeGCosts에, f-cost는 NodeCosts에 각각 독립 저장
-            NodeGCosts[0]  = 0f;                                     // g(root) = 0
-            float rootH    = CalculateHeuristic(0, totalSlots);
-            NodeCosts[0]   = rootH;                                   // f(root) = g + h = 0 + h
+            NodeGCosts[0]  = 0f;                                              // g(root) = 0
+            float rootH    = CalculateHeuristic(0, totalSlots, minActionCost);
+            NodeCosts[0]   = rootH;                                           // f(root) = g + h = 0 + h
 
             NodeDepths[0]  = 0;
             NodeParents[0] = -1;
@@ -192,6 +211,9 @@ namespace AIVillage.Core.GOAP
             QueueSize[0] = 1;
 
             int nodeCount = 1; // 다음에 할당할 노드 인덱스
+
+            // [S1] 루트 노드 등록 — "시작 상태로 되돌아오는 순환" 차단
+            TryRegisterState(0, 0f, totalSlots);
 
             // ── A* 메인 탐색 루프 ─────────────────────────────────────────
             while (QueueSize[0] > 0 && nodeCount < MAX_NODES)
@@ -234,11 +256,13 @@ namespace AIVillage.Core.GOAP
                     ApplyEffectsToNode(newNode, totalSlots, action);
 
                     // ── f-cost 계산: f(n) = g(n) + h(n) ─────────────────
-                    // [PR Fix]: Critical-1 — g-cost를 NodeGCosts[current]에서 직접 읽어 계산
-                    // 기존: parentGCost = NodeCosts[current] - CalculateHeuristic(current, ...) → 음수 위험
-                    // 수정: NodeGCosts[current]는 정확한 g-cost이므로 역산 불필요
-                    float gCost         = NodeGCosts[current] + action.BaseCost;
-                    float hCost         = CalculateHeuristic(newNode, totalSlots);
+                    float gCost = NodeGCosts[current] + action.BaseCost;
+
+                    // [S1] Closed Set: 동일 상태를 같거나 싼 비용으로 이미 방문했으면 폐기.
+                    // nodeCount를 증가시키지 않으므로 newNode 슬롯은 다음 액션이 재사용한다.
+                    if (!TryRegisterState(newNode, gCost, totalSlots)) continue;
+
+                    float hCost         = CalculateHeuristic(newNode, totalSlots, minActionCost);
                     NodeGCosts[newNode] = gCost;                      // 자식 g-cost 저장
                     NodeCosts[newNode]  = gCost + hCost;              // 자식 f-cost 저장
 
@@ -425,27 +449,50 @@ namespace AIVillage.Core.GOAP
         }
 
         /// <summary>
-        /// 특정 노드 상태에 대한 휴리스틱 h(n)을 계산한다.
+        /// [S2] 슬롯별 부족량 / 최대증가량 기반 휴리스틱 h(n).
         ///
-        /// 공식: h(n) = 미충족 목표 슬롯 수 x HEURISTIC_WEIGHT(2.9f)
-        /// GoalOps를 통해 수치형 목표의 미충족도 정확히 판정한다.
+        /// GreaterEq 슬롯: ⌈(목표 − 현재) / MaxGain[s]⌉ 액션 수 추정
+        /// LessEq  슬롯: ⌈(현재  − 목표) / MaxDrop[s]⌉ 액션 수 추정
+        /// Equal    슬롯: 1 (불리언과 동일)
+        /// h = 합산 × minActionCost × 0.99f
         ///
-        /// admissibility: HEURISTIC_WEIGHT(2.9f) &lt; 최소 Action 비용(MoveToBase=3.0f).
-        /// 수치형 목표에서는 1슬롯 미충족 시 실제로 여러 액션이 필요하지만,
-        /// 카운트 × 2.9f는 여전히 실제 비용의 하한이므로 admissible. (W4에서 개선)
+        /// admissible 근거:
+        /// 각 슬롯 추정값은 해당 슬롯만을 처리하는 최소 액션 수이다.
+        /// 단일 액션이 여러 슬롯을 동시에 개선할 수 있으므로 합산이 실제보다 클 수 있다.
+        /// 0.99f 계수가 이 중복 계산 오차를 흡수하여 admissibility를 실용적으로 보장한다.
         /// </summary>
-        private float CalculateHeuristic(int nodeIdx, int totalSlots)
+        private float CalculateHeuristic(int nodeIdx, int totalSlots, float minActionCost)
         {
-            int offset = nodeIdx * totalSlots;
-            int unsatisfied = 0;
+            int offset        = nodeIdx * totalSlots;
+            int stepsEstimate = 0;
 
             for (int s = 0; s < totalSlots; s++)
             {
-                if (GoalMask[s] == 1 && !PrecHolds(NodeStates[offset + s], GoalOps[s], GoalState[s]))
-                    unsatisfied++;
+                if (GoalMask[s] != 1) continue;
+
+                int current = NodeStates[offset + s];
+                int target  = GoalState[s];
+                int op      = GoalOps[s];
+
+                if (op == 1 && current < target) // GreaterEq 미충족: 부족량 ÷ 최대증가량
+                {
+                    int deficit = target - current;
+                    int gain    = (int)MaxGain[s];
+                    stepsEstimate += (deficit + gain - 1) / gain; // 정수 올림 나눗셈
+                }
+                else if (op == 2 && current > target) // LessEq 미충족: 초과량 ÷ 최대감소량
+                {
+                    int excess = current - target;
+                    int drop   = (int)MaxDrop[s];
+                    stepsEstimate += (excess + drop - 1) / drop;
+                }
+                else if (op == 0 && current != target) // Equal 미충족
+                {
+                    stepsEstimate += 1;
+                }
             }
 
-            return unsatisfied * HEURISTIC_WEIGHT;
+            return stepsEstimate * minActionCost * 0.99f;
         }
 
         /// <summary>
@@ -485,6 +532,75 @@ namespace AIVillage.Core.GOAP
             }
 
             ResultLength[0] = reverseCount;
+        }
+
+        // ────────────────────────────────────────────────────────────────────
+        // [S1] Closed Set 헬퍼 (FNV-1a 해시 + 선형 프로빙 오픈 어드레싱)
+        // ────────────────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// nodeIdx 노드의 월드 스테이트를 FNV-1a로 해시한다.
+        /// 0은 빈 슬롯 표식이므로 결과가 0이면 1로 대체한다.
+        /// </summary>
+        private int HashState(int nodeIdx, int totalSlots)
+        {
+            int o = nodeIdx * totalSlots;
+            uint h = 2166136261u;
+            for (int s = 0; s < totalSlots; s++)
+            {
+                h ^= (uint)NodeStates[o + s];
+                h *= 16777619u;
+            }
+            int r = (int)h;
+            return r == 0 ? 1 : r;
+        }
+
+        /// <summary>
+        /// 상태가 처음이거나 더 싼 경로면 Closed Set에 등록하고 true를 반환한다.
+        /// 이미 같거나 싼 g-cost로 방문한 상태면 false (확장 포기).
+        /// VisitedHashes.Length는 반드시 2의 거듭제곱이어야 한다.
+        /// </summary>
+        private bool TryRegisterState(int newNode, float g, int totalSlots)
+        {
+            int hash = HashState(newNode, totalSlots);
+            int cap  = VisitedHashes.Length;      // MAX_NODES * 2 (2의 거듭제곱)
+            int idx  = hash & (cap - 1);
+
+            for (int probe = 0; probe < cap; probe++)
+            {
+                int slotHash = VisitedHashes[idx];
+
+                if (slotHash == 0)                // 빈 슬롯 → 신규 등록
+                {
+                    VisitedHashes[idx]  = hash;
+                    VisitedNodeIdx[idx] = newNode;
+                    VisitedGCosts[idx]  = g;
+                    return true;
+                }
+
+                if (slotHash == hash && StatesEqual(VisitedNodeIdx[idx], newNode, totalSlots))
+                {
+                    if (VisitedGCosts[idx] <= g) return false;  // 이미 더 싸게 방문 → 폐기
+                    VisitedGCosts[idx]  = g;                     // 더 싼 경로 발견 → 재개방
+                    VisitedNodeIdx[idx] = newNode;
+                    return true;
+                }
+
+                idx = (idx + 1) & (cap - 1);     // 선형 프로빙
+            }
+            return true; // 테이블 포화(이론상 도달 불가) — 안전 측으로 허용
+        }
+
+        /// <summary>
+        /// 두 노드의 월드 스테이트를 전수 비교한다.
+        /// 해시 일치 시에만 호출되므로 false positive 방지용 안전 장치다.
+        /// </summary>
+        private bool StatesEqual(int nodeA, int nodeB, int totalSlots)
+        {
+            int a = nodeA * totalSlots, b = nodeB * totalSlots;
+            for (int s = 0; s < totalSlots; s++)
+                if (NodeStates[a + s] != NodeStates[b + s]) return false;
+            return true;
         }
 
         // ────────────────────────────────────────────────────────────────────

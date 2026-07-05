@@ -1778,11 +1778,15 @@ namespace AIVillage.AI
                 if (ratio < worstRatio) { worstRatio = ratio; best = goalId; }
             }
 
-            Consider(_registry.GetAvailable(ResourceType.Wood),    T_COMMON, "GatherWood");
-            Consider(_registry.GetAvailable(ResourceType.Stone),   T_COMMON, "GatherStone");
-            Consider(_registry.GetAvailable(ResourceType.Iron),    T_RARE,   "GatherIron");
-            Consider(_registry.GetAvailable(ResourceType.Copper),  T_RARE,   "GatherCopper");
-            Consider(_registry.GetAvailable(ResourceType.RawFood), T_FOOD,   "GatherFood");
+            // [S3] 도구가 없으면 벌목/채굴 Goal은 수학적으로 해가 없다 (도구 획득 액션 부재 — Phase 3 과제).
+            // 열매 채집(도구 불필요)만 후보로 남겨 Deadlock을 방지한다.
+            bool hasTool = Brain != null && Brain.HasTool;
+
+            if (hasTool) Consider(_registry.GetAvailable(ResourceType.Wood),   T_COMMON, "GatherWood");
+            if (hasTool) Consider(_registry.GetAvailable(ResourceType.Stone),  T_COMMON, "GatherStone");
+            if (hasTool) Consider(_registry.GetAvailable(ResourceType.Iron),   T_RARE,   "GatherIron");
+            if (hasTool) Consider(_registry.GetAvailable(ResourceType.Copper), T_RARE,   "GatherCopper");
+            Consider(_registry.GetAvailable(ResourceType.RawFood), T_FOOD, "GatherFood");
             return best;
         }
 

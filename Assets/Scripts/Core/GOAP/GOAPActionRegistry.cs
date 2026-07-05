@@ -820,6 +820,61 @@ namespace AIVillage.Core.GOAP
         }
 
         /// <summary>
+        /// [S2] BuildActionDefs() 결과 배열을 1회 스캔해 슬롯별 최대 Add/Sub 효과량을 산출한다.
+        ///
+        /// MaxGain[s]: 슬롯 s를 가장 크게 올리는 Add(op=1) 효과 절대값. 없으면 1.
+        /// MaxDrop[s]: 슬롯 s를 가장 크게 내리는 Sub(op=2) 효과 절대값. 없으면 1.
+        /// Set(op=0) 효과는 불리언 슬롯(Equal Goal)에만 쓰이며, Equal은 h=1로 고정이므로 제외한다.
+        ///
+        /// 반환 배열은 호출자(GOAPPlannerScheduler)가 Dispose해야 한다.
+        /// </summary>
+        public static void BuildMaxGainDrop(
+            NativeArray<GOAPActionDef> defs,
+            int totalSlots,
+            Allocator alloc,
+            out NativeArray<float> maxGain,
+            out NativeArray<float> maxDrop)
+        {
+            maxGain = new NativeArray<float>(totalSlots, alloc);
+            maxDrop = new NativeArray<float>(totalSlots, alloc);
+
+            for (int a = 0; a < defs.Length; a++)
+            {
+                GOAPActionDef def = defs[a];
+                for (int e = 0; e < def.EffectCount; e++)
+                {
+                    GetEffect(def, e, out int slot, out int op, out int val);
+                    if (op == 1 && (float)val > maxGain[slot]) maxGain[slot] = (float)val; // Add
+                    if (op == 2 && (float)val > maxDrop[slot]) maxDrop[slot] = (float)val; // Sub
+                }
+            }
+
+            // 0 나눗셈 방지: 어떤 액션도 해당 슬롯을 올리거나 내리지 못하면 1 (하한)로 대체
+            for (int s = 0; s < totalSlots; s++)
+            {
+                if (maxGain[s] < 1f) maxGain[s] = 1f;
+                if (maxDrop[s] < 1f) maxDrop[s] = 1f;
+            }
+        }
+
+        /// <summary>index 번째 Effect의 (slot, op, val)을 반환한다. BuildMaxGainDrop 전용 헬퍼.</summary>
+        private static void GetEffect(GOAPActionDef def, int index, out int slot, out int op, out int val)
+        {
+            switch (index)
+            {
+                case 0: slot = def.Eff0S; op = def.Eff0Op; val = def.Eff0V; return;
+                case 1: slot = def.Eff1S; op = def.Eff1Op; val = def.Eff1V; return;
+                case 2: slot = def.Eff2S; op = def.Eff2Op; val = def.Eff2V; return;
+                case 3: slot = def.Eff3S; op = def.Eff3Op; val = def.Eff3V; return;
+                case 4: slot = def.Eff4S; op = def.Eff4Op; val = def.Eff4V; return;
+                case 5: slot = def.Eff5S; op = def.Eff5Op; val = def.Eff5V; return;
+                case 6: slot = def.Eff6S; op = def.Eff6Op; val = def.Eff6V; return;
+                case 7: slot = def.Eff7S; op = def.Eff7Op; val = def.Eff7V; return;
+                default: slot = 0; op = 0; val = 0; return;
+            }
+        }
+
+        /// <summary>
         /// Action 해시 값 → Action ID 문자열 역매핑.
         /// [PR Fix]: Major-1 — 정적 Dictionary _hashToId를 사용한 O(1) 조회로 교체
         /// 기존: if-체인으로 Animator.StringToHash()를 최대 19번 반복 호출 (성능 낭비)

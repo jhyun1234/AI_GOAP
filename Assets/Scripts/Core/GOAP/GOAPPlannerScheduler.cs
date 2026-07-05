@@ -46,7 +46,7 @@ namespace AIVillage.Core.GOAP
         /// false: 기존 불리언 HungerSolved==1 방식. 문제 발생 시 즉시 false로 롤백 가능.
         /// Phase 2 안정화 후 제거 예정.
         /// </summary>
-        public static bool UseNumericGoals = true;
+        public static bool UseNumericGoals = true; // [S4] S1(Closed Set)+S2(부족량 휴리스틱)+S3(도구 가드) 완료. 수치형 Goal 재점화.
 
         // ── 컨텍스트 비용 배율 상수 ──────────────────────────────────────────────
         private const float DISTANCE_SCALE      = 50f;   // 50타일 거리에서 최대 배율 도달
@@ -137,6 +137,20 @@ namespace AIVillage.Core.GOAP
             /// <summary>힙 현재 크기 버퍼 (크기 1). QueueSize[0]에 실제 힙 크기 저장.</summary>
             public NativeArray<int>   QueueSize;
 
+            // [S1] Closed Set 버퍼 (MAX_NODES × 2, 2의 거듭제곱 → & (cap-1) 인덱싱 가능)
+            /// <summary>방문 상태 해시 테이블 (FNV-1a). 0=빈 슬롯.</summary>
+            public NativeArray<int>   VisitedHashes;
+            /// <summary>각 해시 슬롯에 해당하는 노드 인덱스. 전수 비교용.</summary>
+            public NativeArray<int>   VisitedNodeIdx;
+            /// <summary>각 해시 슬롯에 기록된 g-cost. 재개방 판단용.</summary>
+            public NativeArray<float> VisitedGCosts;
+
+            // [S2] 슬롯별 최대 Add/Sub 효과량 (CalculateHeuristic 부족량/최대증가량 계산용)
+            /// <summary>슬롯별 최대 Add 효과 절대값. GreaterEq 목표 스텝 추정에 사용.</summary>
+            public NativeArray<float> MaxGain;
+            /// <summary>슬롯별 최대 Sub 효과 절대값. LessEq 목표 스텝 추정에 사용.</summary>
+            public NativeArray<float> MaxDrop;
+
             // ────────────────────────────────────────────────────────────────
             // 공개 메서드
             // ────────────────────────────────────────────────────────────────
@@ -226,6 +240,13 @@ namespace AIVillage.Core.GOAP
                 if (NodeActions.IsCreated)   NodeActions.Dispose();
                 if (OpenQueue.IsCreated)     OpenQueue.Dispose();
                 if (QueueSize.IsCreated)     QueueSize.Dispose();
+                // [S1] Closed Set 버퍼 해제
+                if (VisitedHashes.IsCreated)   VisitedHashes.Dispose();
+                if (VisitedNodeIdx.IsCreated)  VisitedNodeIdx.Dispose();
+                if (VisitedGCosts.IsCreated)   VisitedGCosts.Dispose();
+                // [S2] 슬롯별 최대 효과량 버퍼 해제
+                if (MaxGain.IsCreated)         MaxGain.Dispose();
+                if (MaxDrop.IsCreated)         MaxDrop.Dispose();
 
                 IsScheduled = false;
             }
@@ -311,6 +332,13 @@ namespace AIVillage.Core.GOAP
             NativeArray<int>           nodeActions   = default;
             NativeArray<int>           openQueue     = default;
             NativeArray<int>           queueSize     = default;
+            // [S1] Closed Set 버퍼
+            NativeArray<int>           visitedHashes  = default;
+            NativeArray<int>           visitedNodeIdx = default;
+            NativeArray<float>         visitedGCosts  = default;
+            // [S2] 슬롯별 최대 효과량 버퍼
+            NativeArray<float>         maxGain        = default;
+            NativeArray<float>         maxDrop        = default;
 
             try
             {
@@ -363,6 +391,12 @@ namespace AIVillage.Core.GOAP
                 nodeActions = new NativeArray<int>  (maxNodes, alloc);
                 openQueue   = new NativeArray<int>  (maxNodes, alloc);
                 queueSize   = new NativeArray<int>  (1, alloc);
+                // [S1] Closed Set 버퍼 (maxNodes * 2 = 2의 거듭제곱, & (cap-1) 인덱싱 가능)
+                visitedHashes  = new NativeArray<int>  (maxNodes * 2, alloc);
+                visitedNodeIdx = new NativeArray<int>  (maxNodes * 2, alloc);
+                visitedGCosts  = new NativeArray<float>(maxNodes * 2, alloc);
+                // [S2] 액션 배열 1회 스캔 → 슬롯별 MaxGain/MaxDrop 산출
+                GOAPActionRegistry.BuildMaxGainDrop(actions, totalSlots, alloc, out maxGain, out maxDrop);
             }
             catch (System.Exception e)
             {
@@ -383,6 +417,13 @@ namespace AIVillage.Core.GOAP
                 if (nodeActions.IsCreated)   nodeActions.Dispose();
                 if (openQueue.IsCreated)     openQueue.Dispose();
                 if (queueSize.IsCreated)     queueSize.Dispose();
+                // [S1]
+                if (visitedHashes.IsCreated)   visitedHashes.Dispose();
+                if (visitedNodeIdx.IsCreated)  visitedNodeIdx.Dispose();
+                if (visitedGCosts.IsCreated)   visitedGCosts.Dispose();
+                // [S2]
+                if (maxGain.IsCreated)         maxGain.Dispose();
+                if (maxDrop.IsCreated)         maxDrop.Dispose();
                 return default;
             }
 
@@ -404,7 +445,14 @@ namespace AIVillage.Core.GOAP
                 NodeParents   = nodeParents,
                 NodeActions   = nodeActions,
                 OpenQueue     = openQueue,
-                QueueSize     = queueSize
+                QueueSize     = queueSize,
+                // [S1] Closed Set 버퍼
+                VisitedHashes  = visitedHashes,
+                VisitedNodeIdx = visitedNodeIdx,
+                VisitedGCosts  = visitedGCosts,
+                // [S2] 슬롯별 최대 효과량
+                MaxGain        = maxGain,
+                MaxDrop        = maxDrop
             };
 
             // ── Job 스케줄링 ─────────────────────────────────────────────────
@@ -432,7 +480,14 @@ namespace AIVillage.Core.GOAP
                 NodeParents   = nodeParents,
                 NodeActions   = nodeActions,
                 OpenQueue     = openQueue,
-                QueueSize     = queueSize
+                QueueSize     = queueSize,
+                // [S1] Closed Set 버퍼
+                VisitedHashes  = visitedHashes,
+                VisitedNodeIdx = visitedNodeIdx,
+                VisitedGCosts  = visitedGCosts,
+                // [S2] 슬롯별 최대 효과량
+                MaxGain        = maxGain,
+                MaxDrop        = maxDrop
             };
         }
 

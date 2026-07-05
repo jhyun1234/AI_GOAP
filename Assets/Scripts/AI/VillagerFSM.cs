@@ -671,14 +671,20 @@ namespace AIVillage.AI
                     return;
                 }
 
-                // 우선순위 P2b: 자원 부족 (어떤 자원이든 30 미만)
-                if (_worldState != null && IsAnyStockLow())
+                // 우선순위 P2b: 자원 부족 — 가장 부족한 자원의 구체 Goal 선택 [P1 무한루프 수정]
+                // 범용 "GatherResources"를 직접 사용하면 수치형 플래너가 WoodStock만 확인해 -1 루프 발생.
+                // SelectGatherGoalId()가 실제 부족 자원을 확인하여 GatherWood/Stone/Iron/Copper/Food 중 하나를 반환한다.
+                if (_worldState != null)
                 {
-                    bool goalChanged = Brain.CurrentGoalId != "GatherResources";
-                    Brain.CurrentGoalId = "GatherResources";
-                    if (goalChanged) ShowThoughtBubble(Pick(THOUGHT_GOAL_GATHER));
-                    TransitionTo(VillagerState.Planning);
-                    return;
+                    string gatherGoal = SelectGatherGoalId();
+                    if (gatherGoal != null)
+                    {
+                        bool goalChanged = Brain.CurrentGoalId != gatherGoal;
+                        Brain.CurrentGoalId = gatherGoal;
+                        if (goalChanged) ShowThoughtBubble(Pick(THOUGHT_GOAL_GATHER));
+                        TransitionTo(VillagerState.Planning);
+                        return;
+                    }
                 }
 
                 // 우선순위 P3: 탐험 (모든 자원이 50 이상이고 미탐험 타일이 있을 때)
@@ -1746,6 +1752,41 @@ namespace AIVillage.AI
         }
 
         /// <summary>
+        /// [P1] 임계값 미만 자원 중 가장 부족한 것의 구체 Goal ID를 반환한다.
+        /// 전부 충분하면 null. W8 GoalArbiter 도입 시 이 함수가 Arbiter 호출로 교체된다.
+        /// </summary>
+        private string SelectGatherGoalId()
+        {
+            if (_registry == null) return null;
+
+            // 각 임계값은 BuildGoalState의 수치형 Goal 목표치와 일치해야 한다.
+            // 목표치 < 임계값이면 alreadySatisfied 루프 발생: goal 발동 → 즉시 달성 → Idle → 재발동 무한반복.
+            // T_COMMON=25: Explore(1)+ChopWood×5(5)=6액션으로 0에서 25(=5×5) 달성 — MAX_DEPTH(6) 이내
+            // T_FOOD=15:   Explore(1)+Harvest×5(5)=6액션으로 0에서 15(=5×3) 달성 — MAX_DEPTH(6) 이내
+            // T_RARE=15:   Iron/Copper 목표치와 동일 (이미 정합)
+            const float T_COMMON = 25f;
+            const float T_RARE   = 15f;
+            const float T_FOOD   = 15f;
+
+            string best = null;
+            float worstRatio = 1f;
+
+            void Consider(float stock, float threshold, string goalId)
+            {
+                if (stock >= threshold) return;
+                float ratio = stock / threshold;   // 0에 가까울수록 급함
+                if (ratio < worstRatio) { worstRatio = ratio; best = goalId; }
+            }
+
+            Consider(_registry.GetAvailable(ResourceType.Wood),    T_COMMON, "GatherWood");
+            Consider(_registry.GetAvailable(ResourceType.Stone),   T_COMMON, "GatherStone");
+            Consider(_registry.GetAvailable(ResourceType.Iron),    T_RARE,   "GatherIron");
+            Consider(_registry.GetAvailable(ResourceType.Copper),  T_RARE,   "GatherCopper");
+            Consider(_registry.GetAvailable(ResourceType.RawFood), T_FOOD,   "GatherFood");
+            return best;
+        }
+
+        /// <summary>
         /// 건물 건설에 필요한 자원이 충족되어 있는지 확인한다.
         /// 2단계: 더미 체크 (Wood >= 10, Stone >= 5).
         /// TODO: 3단계 — BuildingTypeId별 실제 자원 요구량 테이블로 교체
@@ -2410,18 +2451,11 @@ namespace AIVillage.AI
             // 오히려 Goal을 잃고 표류할 위험이 크다.
             // 기본 폴백을 MoveToBase로 설정하고, P0 Goal이 활성 상태이면 해당 Goal을 우선 사용한다.
             // P0 Goal이 이미 실패하여 Deadlock에 빠진 경우에도 기지 복귀가 가장 안전한 행동이다.
-            string fallbackGoal;
-
-            if (IsP0GoalActive())
-            {
-                // P0 Goal이 활성이면 해당 Goal ID를 우선 사용 (SurviveInjury/SurviveHunger/SurviveFatigue)
-                fallbackGoal = GetP0GoalId() ?? "MoveToBase";
-            }
-            else
-            {
-                // P0 Goal이 없는 일반 Deadlock: 기지 복귀를 기본 폴백으로 설정
-                fallbackGoal = "MoveToBase";
-            }
+            // Deadlock = 동일 Goal이 DEADLOCK_THRESHOLD(3)회 연속 실패한 상태.
+            // P0 Goal이 활성이어도 이미 3번 실패했으므로 재시도하면 동일 루프 반복.
+            // MoveToBase는 전제조건이 AtBase=0→1 단 하나 (또는 alreadySatisfied)로
+            // 어떤 상황에서도 풀이가 존재하는 가장 안전한 폴백이다.
+            string fallbackGoal = "MoveToBase";
 
             Debug.LogWarning($"[VillagerFSM] Deadlock 감지! FallbackCounter={Brain.FallbackCounter}. " +
                              $"NeedsHelp=true. FallbackGoal={fallbackGoal}. AgentId={AgentId}");

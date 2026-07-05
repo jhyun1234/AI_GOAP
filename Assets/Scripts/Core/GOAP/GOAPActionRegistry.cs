@@ -282,11 +282,11 @@ namespace AIVillage.Core.GOAP
         public const int YIELD_HARVEST_BERRIES = 3;   // HarvestWildBerries 1회 수확량
         public const int COOK_RAW_CONSUME      = 2;   // CookMeal 소비 생 식량
         public const int COOK_YIELD            = 1;   // CookMeal 산출 조리 식량
-        public const int EAT_HUNGER_RELIEF     = 60;  // EatCookedFood 배고픔 감소량
-        public const int EAT_RAW_RELIEF        = 35;  // EatRawFood 배고픔 감소량 (비효율 — 요리 체인 유도)
-        public const int SLEEP_FATIGUE_RELIEF  = 70;  // Sleep 피로 회복량
+        public const int EAT_HUNGER_RELIEF     = 50;  // EatCookedFood 배고픔 감소량 (ActionDatabase ReduceHunger 50f와 일치)
+        public const int EAT_RAW_RELIEF        = 15;  // EatRawFood 배고픔 감소량 (ActionDatabase ReduceHunger 15f와 일치)
+        public const int SLEEP_FATIGUE_RELIEF  = 90;  // Sleep 피로 회복량 (VillagerFSM.SLEEP_FATIGUE_RECOVERY 90f와 일치)
         public const int REST_FATIGUE_RELIEF   = 20;  // RestOnGround 피로 회복량 (FSM REST_ON_GROUND_FATIGUE_RECOVERY와 일치)
-        public const int MEDICAL_HEALTH_GAIN   = 50;  // SeekMedicalAid 체력 회복량
+        public const int MEDICAL_HEALTH_GAIN   = 40;  // SeekMedicalAid 체력 회복량 (ActionDatabase GainHealth 40f와 일치)
 
         // ── 건물 건설 비용 (BuildingCosts.cs 수치와 동기화 — 단일 출처 ADR-7) ─
         public const int BUILD_CAMPFIRE_WOOD   = 5;
@@ -741,8 +741,9 @@ namespace AIVillage.Core.GOAP
             };
 
             // ── BuildStorehouse (Storehouse 건설) ─────────────────────────────
-            // Preconditions: BuildingQueued=1, HasWoodForBuilding=1, HasStoneForBuilding=1 (기존 Bool),
-            //                [P2] WoodStock GreaterEq 15, StoneStock GreaterEq 5
+            // Preconditions: BuildingQueued=1, [P2] WoodStock GreaterEq 15, StoneStock GreaterEq 5
+            // [P4] HasWoodForBuilding(임계값 35)·HasStoneForBuilding(30) 불리언 게이트 제거 —
+            //      수치 Prec(15/5)이 정확한 게이트이므로 과도한 불리언 게이트가 불필요하게 차단했음.
             // Effects: StructureBuilt=1, StorehouseBuilt=1, BuildingQueued=0,
             //          [P2] WoodStock Sub 15, StoneStock Sub 5
             float buildStoreCost = 35f;
@@ -751,12 +752,10 @@ namespace AIVillage.Core.GOAP
             {
                 ActionStringHash = Animator.StringToHash("BuildStorehouse"),
                 BaseCost = buildStoreCost,
-                PrecCount = 5,
-                Prec0S = S.BuildingQueued,      Prec0V = 1,
-                Prec1S = S.HasWoodForBuilding,  Prec1V = 1,
-                Prec2S = S.HasStoneForBuilding, Prec2V = 1,
-                Prec3S = S.WoodStock,  Prec3V = BUILD_STOREHOUSE_WOOD,  Prec3Op = 1, // GreaterEq
-                Prec4S = S.StoneStock, Prec4V = BUILD_STOREHOUSE_STONE, Prec4Op = 1, // GreaterEq
+                PrecCount = 3,
+                Prec0S = S.BuildingQueued, Prec0V = 1,
+                Prec1S = S.WoodStock,  Prec1V = BUILD_STOREHOUSE_WOOD,  Prec1Op = 1, // GreaterEq
+                Prec2S = S.StoneStock, Prec2V = BUILD_STOREHOUSE_STONE, Prec2Op = 1, // GreaterEq
                 EffectCount = 5,
                 Eff0S = S.StructureBuilt,                  Eff0V = 1,
                 Eff1S = GOAPPlanningSlots.StorehouseBuilt, Eff1V = 1,
@@ -793,7 +792,8 @@ namespace AIVillage.Core.GOAP
             };
 
             // ── BuildCampfire (모닥불 건설) ───────────────────────────────────
-            // Preconditions: BuildingQueued=1, HasWoodForBuilding=1, [P2] WoodStock GreaterEq 5
+            // Preconditions: BuildingQueued=1, [P2] WoodStock GreaterEq 5
+            // [P4] HasWoodForBuilding(임계값 35) 불리언 게이트 제거 — 수치 Prec(5)이 정확한 게이트.
             // Effects: StructureBuilt=1, BuildingQueued=0, [P2] WoodStock Sub 5
             float buildCampfireCost = 20f;
             if (role == AgentRole.Builder) buildCampfireCost *= BUILDER_BUILD_MODIFIER;
@@ -801,10 +801,9 @@ namespace AIVillage.Core.GOAP
             {
                 ActionStringHash = Animator.StringToHash("BuildCampfire"),
                 BaseCost = buildCampfireCost,
-                PrecCount = 3,
-                Prec0S = S.BuildingQueued,     Prec0V = 1,
-                Prec1S = S.HasWoodForBuilding, Prec1V = 1,
-                Prec2S = S.WoodStock, Prec2V = BUILD_CAMPFIRE_WOOD, Prec2Op = 1, // GreaterEq
+                PrecCount = 2,
+                Prec0S = S.BuildingQueued, Prec0V = 1,
+                Prec1S = S.WoodStock, Prec1V = BUILD_CAMPFIRE_WOOD, Prec1Op = 1, // GreaterEq
                 EffectCount = 3,
                 Eff0S = S.StructureBuilt, Eff0V = 1,
                 Eff1S = S.BuildingQueued, Eff1V = 0,

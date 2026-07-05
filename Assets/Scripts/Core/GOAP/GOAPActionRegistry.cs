@@ -19,6 +19,15 @@ using AIVillage.AI;
 
 namespace AIVillage.Core.GOAP
 {
+    // ── [Phase 2] Precondition / Effect / Goal 판정 연산자 ─────────────────────
+    // int로 선언하여 Burst 구조체 정렬을 단순화한다. 기본값 0 = 기존 Equal/Set 동작.
+
+    /// <summary>Precondition 및 Goal 판정 연산자. 기본값 0=Equal → 기존 불리언 동작과 동일.</summary>
+    public enum PrecOp : int { Equal = 0, GreaterEq = 1, LessEq = 2 }
+
+    /// <summary>Effect 적용 연산자. 기본값 0=Set → 기존 대입 동작과 동일.</summary>
+    public enum EffOp  : int { Set = 0, Add = 1, Sub = 2 }
+
     /// <summary>
     /// BuildActionDefs() 호출 시 전달하는 컨텍스트 기반 액션 비용 배율.
     /// GOAPPlannerScheduler.ComputeContextMultipliers()가 메인 스레드에서 계산한다.
@@ -81,84 +90,100 @@ namespace AIVillage.Core.GOAP
         /// <summary>유효한 Precondition 항목 수. 0~8.</summary>
         public int PrecCount;
 
-        // 각 필드: S = Slot 인덱스, V = 요구 값 (0 또는 1)
-        public int Prec0S; public int Prec0V;
-        public int Prec1S; public int Prec1V;
-        public int Prec2S; public int Prec2V;
-        public int Prec3S; public int Prec3V;
-        public int Prec4S; public int Prec4V;
-        public int Prec5S; public int Prec5V;
-        public int Prec6S; public int Prec6V;
-        public int Prec7S; public int Prec7V;
+        // 각 필드: S = Slot 인덱스, V = 요구 값, Op = 판정 연산자(0=Equal, 1=GreaterEq, 2=LessEq)
+        // Op 기본값 0 → 기존 불리언 Prec와 동일하게 동작하므로 기존 액션 정의는 무수정.
+        public int Prec0S; public int Prec0V; public int Prec0Op;
+        public int Prec1S; public int Prec1V; public int Prec1Op;
+        public int Prec2S; public int Prec2V; public int Prec2Op;
+        public int Prec3S; public int Prec3V; public int Prec3Op;
+        public int Prec4S; public int Prec4V; public int Prec4Op;
+        public int Prec5S; public int Prec5V; public int Prec5Op;
+        public int Prec6S; public int Prec6V; public int Prec6Op;
+        public int Prec7S; public int Prec7V; public int Prec7Op;
 
         // ── Effect 목록 ──────────────────────────────────────────────────────
-        // 최대 8개 (슬롯 인덱스, 설정 값) 쌍.
+        // 최대 8개 (슬롯 인덱스, 값, 연산자) 3튜플.
         // EffectCount = 0이면 Effect 없음 (순수 이동 액션 등).
+        // Op 기본값 0=Set → 기존 대입 동작과 동일.
 
         /// <summary>유효한 Effect 항목 수. 0~8.</summary>
         public int EffectCount;
 
-        public int Eff0S; public int Eff0V;
-        public int Eff1S; public int Eff1V;
-        public int Eff2S; public int Eff2V;
-        public int Eff3S; public int Eff3V;
-        public int Eff4S; public int Eff4V;
-        public int Eff5S; public int Eff5V;
-        public int Eff6S; public int Eff6V;
-        public int Eff7S; public int Eff7V;
+        public int Eff0S; public int Eff0V; public int Eff0Op;
+        public int Eff1S; public int Eff1V; public int Eff1Op;
+        public int Eff2S; public int Eff2V; public int Eff2Op;
+        public int Eff3S; public int Eff3V; public int Eff3Op;
+        public int Eff4S; public int Eff4V; public int Eff4Op;
+        public int Eff5S; public int Eff5V; public int Eff5Op;
+        public int Eff6S; public int Eff6V; public int Eff6Op;
+        public int Eff7S; public int Eff7V; public int Eff7Op;
 
         // ────────────────────────────────────────────────────────────────────
-        // 헬퍼 메서드: Burst에서 호출 가능한 인스턴스 메서드
+        // 헬퍼 메서드: Burst에서 호출 가능한 인스턴스 메서드 + 정적 연산 헬퍼
         // ────────────────────────────────────────────────────────────────────
+
+        /// <summary>Precondition/Goal 판정 헬퍼. op=0:Equal, 1:GreaterEq, 2:LessEq.</summary>
+        public static bool PrecHolds(int stateVal, int op, int reqVal)
+        {
+            if (op == 1) return stateVal >= reqVal; // GreaterEq
+            if (op == 2) return stateVal <= reqVal; // LessEq
+            return stateVal == reqVal;               // Equal (기본)
+        }
+
+        /// <summary>Effect 적용 헬퍼. op=0:Set, 1:Add, 2:Sub(음수 클램프 ADR-6).</summary>
+        public static int ApplyEff(int stateVal, int op, int v)
+        {
+            if (op == 1) return stateVal + v;
+            if (op == 2) { int r = stateVal - v; return r < 0 ? 0 : r; } // Sub + 클램프
+            return v; // Set
+        }
 
         /// <summary>
         /// 현재 월드 스테이트가 이 Action의 모든 Precondition을 충족하는지 확인한다.
         /// PrecCount가 0이면 항상 true를 반환한다.
-        /// switch-case unroll로 루프 오버헤드를 제거하여 Burst 최적화에 유리하다.
+        /// Op=0(기본)이면 기존 Equal 비교와 동일하게 동작한다 (레거시 호환).
         /// </summary>
-        /// <param name="state">현재 GOAP 월드 스테이트 (43 슬롯).</param>
-        /// <returns>모든 Precondition 충족 시 true, 하나라도 불충족 시 false.</returns>
         public bool CheckPreconditions(NativeArray<int> state)
         {
             switch (PrecCount)
             {
                 case 0: return true;
-                case 1: return state[Prec0S] == Prec0V;
-                case 2: return state[Prec0S] == Prec0V
-                            && state[Prec1S] == Prec1V;
-                case 3: return state[Prec0S] == Prec0V
-                            && state[Prec1S] == Prec1V
-                            && state[Prec2S] == Prec2V;
-                case 4: return state[Prec0S] == Prec0V
-                            && state[Prec1S] == Prec1V
-                            && state[Prec2S] == Prec2V
-                            && state[Prec3S] == Prec3V;
-                case 5: return state[Prec0S] == Prec0V
-                            && state[Prec1S] == Prec1V
-                            && state[Prec2S] == Prec2V
-                            && state[Prec3S] == Prec3V
-                            && state[Prec4S] == Prec4V;
-                case 6: return state[Prec0S] == Prec0V
-                            && state[Prec1S] == Prec1V
-                            && state[Prec2S] == Prec2V
-                            && state[Prec3S] == Prec3V
-                            && state[Prec4S] == Prec4V
-                            && state[Prec5S] == Prec5V;
-                case 7: return state[Prec0S] == Prec0V
-                            && state[Prec1S] == Prec1V
-                            && state[Prec2S] == Prec2V
-                            && state[Prec3S] == Prec3V
-                            && state[Prec4S] == Prec4V
-                            && state[Prec5S] == Prec5V
-                            && state[Prec6S] == Prec6V;
-                case 8: return state[Prec0S] == Prec0V
-                            && state[Prec1S] == Prec1V
-                            && state[Prec2S] == Prec2V
-                            && state[Prec3S] == Prec3V
-                            && state[Prec4S] == Prec4V
-                            && state[Prec5S] == Prec5V
-                            && state[Prec6S] == Prec6V
-                            && state[Prec7S] == Prec7V;
+                case 1: return PrecHolds(state[Prec0S], Prec0Op, Prec0V);
+                case 2: return PrecHolds(state[Prec0S], Prec0Op, Prec0V)
+                            && PrecHolds(state[Prec1S], Prec1Op, Prec1V);
+                case 3: return PrecHolds(state[Prec0S], Prec0Op, Prec0V)
+                            && PrecHolds(state[Prec1S], Prec1Op, Prec1V)
+                            && PrecHolds(state[Prec2S], Prec2Op, Prec2V);
+                case 4: return PrecHolds(state[Prec0S], Prec0Op, Prec0V)
+                            && PrecHolds(state[Prec1S], Prec1Op, Prec1V)
+                            && PrecHolds(state[Prec2S], Prec2Op, Prec2V)
+                            && PrecHolds(state[Prec3S], Prec3Op, Prec3V);
+                case 5: return PrecHolds(state[Prec0S], Prec0Op, Prec0V)
+                            && PrecHolds(state[Prec1S], Prec1Op, Prec1V)
+                            && PrecHolds(state[Prec2S], Prec2Op, Prec2V)
+                            && PrecHolds(state[Prec3S], Prec3Op, Prec3V)
+                            && PrecHolds(state[Prec4S], Prec4Op, Prec4V);
+                case 6: return PrecHolds(state[Prec0S], Prec0Op, Prec0V)
+                            && PrecHolds(state[Prec1S], Prec1Op, Prec1V)
+                            && PrecHolds(state[Prec2S], Prec2Op, Prec2V)
+                            && PrecHolds(state[Prec3S], Prec3Op, Prec3V)
+                            && PrecHolds(state[Prec4S], Prec4Op, Prec4V)
+                            && PrecHolds(state[Prec5S], Prec5Op, Prec5V);
+                case 7: return PrecHolds(state[Prec0S], Prec0Op, Prec0V)
+                            && PrecHolds(state[Prec1S], Prec1Op, Prec1V)
+                            && PrecHolds(state[Prec2S], Prec2Op, Prec2V)
+                            && PrecHolds(state[Prec3S], Prec3Op, Prec3V)
+                            && PrecHolds(state[Prec4S], Prec4Op, Prec4V)
+                            && PrecHolds(state[Prec5S], Prec5Op, Prec5V)
+                            && PrecHolds(state[Prec6S], Prec6Op, Prec6V);
+                case 8: return PrecHolds(state[Prec0S], Prec0Op, Prec0V)
+                            && PrecHolds(state[Prec1S], Prec1Op, Prec1V)
+                            && PrecHolds(state[Prec2S], Prec2Op, Prec2V)
+                            && PrecHolds(state[Prec3S], Prec3Op, Prec3V)
+                            && PrecHolds(state[Prec4S], Prec4Op, Prec4V)
+                            && PrecHolds(state[Prec5S], Prec5Op, Prec5V)
+                            && PrecHolds(state[Prec6S], Prec6Op, Prec6V)
+                            && PrecHolds(state[Prec7S], Prec7Op, Prec7V);
                 default:
                     return false;
             }
@@ -166,66 +191,64 @@ namespace AIVillage.Core.GOAP
 
         /// <summary>
         /// 이 Action의 Effect를 월드 스테이트에 적용한다.
-        /// 주의: 전달된 NativeArray를 직접 수정한다.
-        ///       원본 상태 보존이 필요하면 사전에 복사해야 한다.
+        /// Op=0(Set, 기본)이면 기존 대입 동작과 동일. Op=1(Add), Op=2(Sub, 음수 클램프).
         /// </summary>
-        /// <param name="state">Effect를 적용할 GOAP 월드 스테이트 (수정됨).</param>
         public void ApplyEffects(NativeArray<int> state)
         {
             switch (EffectCount)
             {
                 case 0: return;
                 case 1:
-                    state[Eff0S] = Eff0V;
+                    state[Eff0S] = ApplyEff(state[Eff0S], Eff0Op, Eff0V);
                     return;
                 case 2:
-                    state[Eff0S] = Eff0V;
-                    state[Eff1S] = Eff1V;
+                    state[Eff0S] = ApplyEff(state[Eff0S], Eff0Op, Eff0V);
+                    state[Eff1S] = ApplyEff(state[Eff1S], Eff1Op, Eff1V);
                     return;
                 case 3:
-                    state[Eff0S] = Eff0V;
-                    state[Eff1S] = Eff1V;
-                    state[Eff2S] = Eff2V;
+                    state[Eff0S] = ApplyEff(state[Eff0S], Eff0Op, Eff0V);
+                    state[Eff1S] = ApplyEff(state[Eff1S], Eff1Op, Eff1V);
+                    state[Eff2S] = ApplyEff(state[Eff2S], Eff2Op, Eff2V);
                     return;
                 case 4:
-                    state[Eff0S] = Eff0V;
-                    state[Eff1S] = Eff1V;
-                    state[Eff2S] = Eff2V;
-                    state[Eff3S] = Eff3V;
+                    state[Eff0S] = ApplyEff(state[Eff0S], Eff0Op, Eff0V);
+                    state[Eff1S] = ApplyEff(state[Eff1S], Eff1Op, Eff1V);
+                    state[Eff2S] = ApplyEff(state[Eff2S], Eff2Op, Eff2V);
+                    state[Eff3S] = ApplyEff(state[Eff3S], Eff3Op, Eff3V);
                     return;
                 case 5:
-                    state[Eff0S] = Eff0V;
-                    state[Eff1S] = Eff1V;
-                    state[Eff2S] = Eff2V;
-                    state[Eff3S] = Eff3V;
-                    state[Eff4S] = Eff4V;
+                    state[Eff0S] = ApplyEff(state[Eff0S], Eff0Op, Eff0V);
+                    state[Eff1S] = ApplyEff(state[Eff1S], Eff1Op, Eff1V);
+                    state[Eff2S] = ApplyEff(state[Eff2S], Eff2Op, Eff2V);
+                    state[Eff3S] = ApplyEff(state[Eff3S], Eff3Op, Eff3V);
+                    state[Eff4S] = ApplyEff(state[Eff4S], Eff4Op, Eff4V);
                     return;
                 case 6:
-                    state[Eff0S] = Eff0V;
-                    state[Eff1S] = Eff1V;
-                    state[Eff2S] = Eff2V;
-                    state[Eff3S] = Eff3V;
-                    state[Eff4S] = Eff4V;
-                    state[Eff5S] = Eff5V;
+                    state[Eff0S] = ApplyEff(state[Eff0S], Eff0Op, Eff0V);
+                    state[Eff1S] = ApplyEff(state[Eff1S], Eff1Op, Eff1V);
+                    state[Eff2S] = ApplyEff(state[Eff2S], Eff2Op, Eff2V);
+                    state[Eff3S] = ApplyEff(state[Eff3S], Eff3Op, Eff3V);
+                    state[Eff4S] = ApplyEff(state[Eff4S], Eff4Op, Eff4V);
+                    state[Eff5S] = ApplyEff(state[Eff5S], Eff5Op, Eff5V);
                     return;
                 case 7:
-                    state[Eff0S] = Eff0V;
-                    state[Eff1S] = Eff1V;
-                    state[Eff2S] = Eff2V;
-                    state[Eff3S] = Eff3V;
-                    state[Eff4S] = Eff4V;
-                    state[Eff5S] = Eff5V;
-                    state[Eff6S] = Eff6V;
+                    state[Eff0S] = ApplyEff(state[Eff0S], Eff0Op, Eff0V);
+                    state[Eff1S] = ApplyEff(state[Eff1S], Eff1Op, Eff1V);
+                    state[Eff2S] = ApplyEff(state[Eff2S], Eff2Op, Eff2V);
+                    state[Eff3S] = ApplyEff(state[Eff3S], Eff3Op, Eff3V);
+                    state[Eff4S] = ApplyEff(state[Eff4S], Eff4Op, Eff4V);
+                    state[Eff5S] = ApplyEff(state[Eff5S], Eff5Op, Eff5V);
+                    state[Eff6S] = ApplyEff(state[Eff6S], Eff6Op, Eff6V);
                     return;
                 case 8:
-                    state[Eff0S] = Eff0V;
-                    state[Eff1S] = Eff1V;
-                    state[Eff2S] = Eff2V;
-                    state[Eff3S] = Eff3V;
-                    state[Eff4S] = Eff4V;
-                    state[Eff5S] = Eff5V;
-                    state[Eff6S] = Eff6V;
-                    state[Eff7S] = Eff7V;
+                    state[Eff0S] = ApplyEff(state[Eff0S], Eff0Op, Eff0V);
+                    state[Eff1S] = ApplyEff(state[Eff1S], Eff1Op, Eff1V);
+                    state[Eff2S] = ApplyEff(state[Eff2S], Eff2Op, Eff2V);
+                    state[Eff3S] = ApplyEff(state[Eff3S], Eff3Op, Eff3V);
+                    state[Eff4S] = ApplyEff(state[Eff4S], Eff4Op, Eff4V);
+                    state[Eff5S] = ApplyEff(state[Eff5S], Eff5Op, Eff5V);
+                    state[Eff6S] = ApplyEff(state[Eff6S], Eff6Op, Eff6V);
+                    state[Eff7S] = ApplyEff(state[Eff7S], Eff7Op, Eff7V);
                     return;
             }
         }
@@ -248,6 +271,35 @@ namespace AIVillage.Core.GOAP
     /// </summary>
     public static class GOAPActionRegistry
     {
+        // ── [Phase 2] 플래너-런타임 공유 단일 출처 상수 (ADR-7) ──────────────
+        // 플래너 Effect와 런타임 Commit이 동일 수치를 참조한다.
+        // 런타임 적용부(VillagerFSM.OnActionCompleted)가 이 상수를 import하여 정합성을 보장한다.
+
+        public const int YIELD_CHOP_WOOD       = 5;   // ChopWood 1회 수확량
+        public const int YIELD_MINE_STONE      = 5;   // MineStone 1회 수확량
+        public const int YIELD_MINE_IRON       = 3;   // MineIron 1회 수확량
+        public const int YIELD_MINE_COPPER     = 3;   // MineCopper 1회 수확량
+        public const int YIELD_HARVEST_BERRIES = 3;   // HarvestWildBerries 1회 수확량
+        public const int COOK_RAW_CONSUME      = 2;   // CookMeal 소비 생 식량
+        public const int COOK_YIELD            = 1;   // CookMeal 산출 조리 식량
+        public const int EAT_HUNGER_RELIEF     = 60;  // EatCookedFood 배고픔 감소량
+        public const int EAT_RAW_RELIEF        = 35;  // EatRawFood 배고픔 감소량 (비효율 — 요리 체인 유도)
+        public const int SLEEP_FATIGUE_RELIEF  = 70;  // Sleep 피로 회복량
+        public const int REST_FATIGUE_RELIEF   = 20;  // RestOnGround 피로 회복량 (FSM REST_ON_GROUND_FATIGUE_RECOVERY와 일치)
+        public const int MEDICAL_HEALTH_GAIN   = 50;  // SeekMedicalAid 체력 회복량
+
+        // ── 건물 건설 비용 (BuildingCosts.cs 수치와 동기화 — 단일 출처 ADR-7) ─
+        public const int BUILD_CAMPFIRE_WOOD   = 5;
+        public const int BUILD_STOREHOUSE_WOOD = 15;
+        public const int BUILD_STOREHOUSE_STONE= 5;
+        public const int BUILD_TOWNHALL_WOOD   = 35;
+        public const int BUILD_TOWNHALL_STONE  = 30;
+        public const int BUILD_TOWNHALL_IRON   = 6;
+        public const int BUILD_FORGE_WOOD      = 20;
+        public const int BUILD_FORGE_STONE     = 20;
+        public const int BUILD_FORGE_IRON      = 15;
+        public const int CRAFT_WEAPON_IRON     = 6;   // CraftWeapon 철 소비량 (HasIronForBuilding 임계값과 일치)
+
         // ── 비용 보정 배율 상수 (기획서 수치) ─────────────────────────────────
         private const float LUMBERJACK_CHOP_MODIFIER = 0.5f;
         private const float LUMBERJACK_MINE_MODIFIER = 1.3f;
@@ -303,6 +355,17 @@ namespace AIVillage.Core.GOAP
             public const int EnemyDefeated     = GOAPPlanningSlots.EnemyDefeated;
             public const int AreaExplored      = GOAPPlanningSlots.AreaExplored;
             public const int MealCooked        = GOAPPlanningSlots.MealCooked;
+
+            // [Phase 2] 수치 슬롯 alias
+            public const int WoodStock       = GOAPPlanningSlots.WoodStock;
+            public const int StoneStock      = GOAPPlanningSlots.StoneStock;
+            public const int IronStock       = GOAPPlanningSlots.IronStock;
+            public const int CopperStock     = GOAPPlanningSlots.CopperStock;
+            public const int RawFoodStock    = GOAPPlanningSlots.RawFoodStock;
+            public const int CookedFoodStock = GOAPPlanningSlots.CookedFoodStock;
+            public const int MyHunger        = GOAPPlanningSlots.MyHunger;
+            public const int MyFatigue       = GOAPPlanningSlots.MyFatigue;
+            public const int MyHealth        = GOAPPlanningSlots.MyHealth;
         }
 
         // ────────────────────────────────────────────────────────────────────────────
@@ -409,7 +472,8 @@ namespace AIVillage.Core.GOAP
                 ActionStringHash = Animator.StringToHash("ChopWood"),
                 BaseCost = chopCost,
                 PrecCount = 2, Prec0S = S.NearDiscoveredResource, Prec0V = 1, Prec1S = S.HasTool, Prec1V = 1,
-                EffectCount = 2, Eff0S = S.ResourcesGathered, Eff0V = 1, Eff1S = S.WoodLow, Eff1V = 0
+                EffectCount = 3, Eff0S = S.ResourcesGathered, Eff0V = 1, Eff1S = S.WoodLow, Eff1V = 0,
+                Eff2S = S.WoodStock, Eff2Op = 1, Eff2V = YIELD_CHOP_WOOD // Add
             };
 
             // ── MineStone (돌 채광) ───────────────────────────────────────────
@@ -426,7 +490,8 @@ namespace AIVillage.Core.GOAP
                 ActionStringHash = Animator.StringToHash("MineStone"),
                 BaseCost = mineStoneCost,
                 PrecCount = 2, Prec0S = S.NearDiscoveredResource, Prec0V = 1, Prec1S = S.HasTool, Prec1V = 1,
-                EffectCount = 2, Eff0S = S.ResourcesGathered, Eff0V = 1, Eff1S = S.StoneLow, Eff1V = 0
+                EffectCount = 3, Eff0S = S.ResourcesGathered, Eff0V = 1, Eff1S = S.StoneLow, Eff1V = 0,
+                Eff2S = S.StoneStock, Eff2Op = 1, Eff2V = YIELD_MINE_STONE // Add
             };
 
             // ── MineIron (철 채광) ────────────────────────────────────────────
@@ -442,7 +507,8 @@ namespace AIVillage.Core.GOAP
                 ActionStringHash = Animator.StringToHash("MineIron"),
                 BaseCost = mineIronCost,
                 PrecCount = 2, Prec0S = S.NearDiscoveredResource, Prec0V = 1, Prec1S = S.HasTool, Prec1V = 1,
-                EffectCount = 2, Eff0S = S.ResourcesGathered, Eff0V = 1, Eff1S = S.IronLow, Eff1V = 0
+                EffectCount = 3, Eff0S = S.ResourcesGathered, Eff0V = 1, Eff1S = S.IronLow, Eff1V = 0,
+                Eff2S = S.IronStock, Eff2Op = 1, Eff2V = YIELD_MINE_IRON // Add
             };
 
             // ── MineCopper (구리 채광) ────────────────────────────────────────
@@ -458,75 +524,95 @@ namespace AIVillage.Core.GOAP
                 ActionStringHash = Animator.StringToHash("MineCopper"),
                 BaseCost = mineCopperCost,
                 PrecCount = 2, Prec0S = S.NearDiscoveredResource, Prec0V = 1, Prec1S = S.HasTool, Prec1V = 1,
-                EffectCount = 2, Eff0S = S.ResourcesGathered, Eff0V = 1, Eff1S = S.CopperLow, Eff1V = 0
+                EffectCount = 3, Eff0S = S.ResourcesGathered, Eff0V = 1, Eff1S = S.CopperLow, Eff1V = 0,
+                Eff2S = S.CopperStock, Eff2Op = 1, Eff2V = YIELD_MINE_COPPER // Add
             };
 
             // ── EatCookedFood (조리된 음식 섭취) ─────────────────────────────
-            // 기획서 수치: BaseCost=5, 역할 보정 없음
-            // Preconditions: HasCookedFood=1
-            // Effects: HungerSolved=1, HungerCritical=0
+            // Preconditions: HasCookedFood=1, [P2] CookedFoodStock GreaterEq 1
+            // Effects: HungerSolved=1, HungerCritical=0, [P2] CookedFoodStock Sub 1, MyHunger Sub EAT_HUNGER_RELIEF
             defs[i++] = new GOAPActionDef
             {
                 ActionStringHash = Animator.StringToHash("EatCookedFood"),
                 BaseCost = 5f,
-                PrecCount = 1, Prec0S = S.HasCookedFood, Prec0V = 1,
-                EffectCount = 2, Eff0S = S.HungerSolved, Eff0V = 1, Eff1S = S.HungerCritical, Eff1V = 0
+                PrecCount = 2,
+                Prec0S = S.HasCookedFood, Prec0V = 1,
+                Prec1S = S.CookedFoodStock, Prec1V = 1, Prec1Op = 1, // GreaterEq
+                EffectCount = 4,
+                Eff0S = S.HungerSolved, Eff0V = 1,
+                Eff1S = S.HungerCritical, Eff1V = 0,
+                Eff2S = S.CookedFoodStock, Eff2Op = 2, Eff2V = 1, // Sub 1
+                Eff3S = S.MyHunger, Eff3Op = 2, Eff3V = EAT_HUNGER_RELIEF // Sub
             };
 
             // ── EatRawFood (생 음식 섭취) ─────────────────────────────────────
-            // 기획서 수치: BaseCost=8, 역할 보정 없음
-            // Preconditions: HasRawFood=1
-            // Effects: HungerSolved=1, HungerCritical=0
+            // Preconditions: HasRawFood=1, [P2] RawFoodStock GreaterEq 1
+            // Effects: HungerSolved=1, HungerCritical=0, [P2] RawFoodStock Sub 1, MyHunger Sub EAT_RAW_RELIEF
             defs[i++] = new GOAPActionDef
             {
                 ActionStringHash = Animator.StringToHash("EatRawFood"),
                 BaseCost = 8f,
-                PrecCount = 1, Prec0S = S.HasRawFood, Prec0V = 1,
-                EffectCount = 2, Eff0S = S.HungerSolved, Eff0V = 1, Eff1S = S.HungerCritical, Eff1V = 0
+                PrecCount = 2,
+                Prec0S = S.HasRawFood, Prec0V = 1,
+                Prec1S = S.RawFoodStock, Prec1V = 1, Prec1Op = 1, // GreaterEq
+                EffectCount = 4,
+                Eff0S = S.HungerSolved, Eff0V = 1,
+                Eff1S = S.HungerCritical, Eff1V = 0,
+                Eff2S = S.RawFoodStock, Eff2Op = 2, Eff2V = 1, // Sub 1
+                Eff3S = S.MyHunger, Eff3Op = 2, Eff3V = EAT_RAW_RELIEF // Sub
             };
 
             // ── CookMeal (음식 조리) ──────────────────────────────────────────
-            // 기획서 수치: BaseCost=6, Cook x0.4
-            // Preconditions: HasRawFood=1, NearFireplace=1
-            // Effects: HasCookedFood=1, MealCooked=1
+            // Preconditions: HasRawFood=1, NearFireplace=1, [P2] RawFoodStock GreaterEq COOK_RAW_CONSUME
+            // Effects: HasCookedFood=1, MealCooked=1, [P2] RawFoodStock Sub COOK_RAW_CONSUME, CookedFoodStock Add COOK_YIELD
             float cookCost = 6f;
             if (role == AgentRole.Cook) cookCost *= COOK_COOK_MODIFIER;
             defs[i++] = new GOAPActionDef
             {
                 ActionStringHash = Animator.StringToHash("CookMeal"),
                 BaseCost = cookCost,
-                PrecCount = 2, Prec0S = S.HasRawFood, Prec0V = 1, Prec1S = S.NearFireplace, Prec1V = 1,
-                EffectCount = 2, Eff0S = S.HasCookedFood, Eff0V = 1, Eff1S = S.MealCooked, Eff1V = 1
+                PrecCount = 3,
+                Prec0S = S.HasRawFood, Prec0V = 1,
+                Prec1S = S.NearFireplace, Prec1V = 1,
+                Prec2S = S.RawFoodStock, Prec2V = COOK_RAW_CONSUME, Prec2Op = 1, // GreaterEq
+                EffectCount = 4,
+                Eff0S = S.HasCookedFood, Eff0V = 1,
+                Eff1S = S.MealCooked, Eff1V = 1,
+                Eff2S = S.RawFoodStock, Eff2Op = 2, Eff2V = COOK_RAW_CONSUME, // Sub
+                Eff3S = S.CookedFoodStock, Eff3Op = 1, Eff3V = COOK_YIELD // Add
             };
 
             // ── Sleep (수면 회복) ─────────────────────────────────────────────
-            // 기획서 수치: BaseCost=5, 역할 보정 없음
             // Preconditions: NearBed=1
-            // Effects: FatigueSolved=1, FatigueCritical=0
+            // Effects: FatigueSolved=1, FatigueCritical=0, [P2] MyFatigue Sub SLEEP_FATIGUE_RELIEF
             defs[i++] = new GOAPActionDef
             {
                 ActionStringHash = Animator.StringToHash("Sleep"),
                 BaseCost = 5f,
                 PrecCount = 1, Prec0S = S.NearBed, Prec0V = 1,
-                EffectCount = 2, Eff0S = S.FatigueSolved, Eff0V = 1, Eff1S = S.FatigueCritical, Eff1V = 0
+                EffectCount = 3,
+                Eff0S = S.FatigueSolved, Eff0V = 1,
+                Eff1S = S.FatigueCritical, Eff1V = 0,
+                Eff2S = S.MyFatigue, Eff2Op = 2, Eff2V = SLEEP_FATIGUE_RELIEF // Sub
             };
 
             // ── RestOnGround (땅에서 쉬기) ────────────────────────────────────
-            // 기획서 수치: BaseCost=12, 역할 보정 없음 (Precondition 없는 폴백 액션)
-            // Preconditions: 없음
-            // Effects: FatigueSolved=1, FatigueCritical=0
+            // Preconditions: 없음 (폴백 액션)
+            // Effects: FatigueSolved=1, FatigueCritical=0, [P2] MyFatigue Sub REST_FATIGUE_RELIEF
             defs[i++] = new GOAPActionDef
             {
                 ActionStringHash = Animator.StringToHash("RestOnGround"),
                 BaseCost = 12f * contextMult.RestOnGround,
                 PrecCount = 0,
-                EffectCount = 2, Eff0S = S.FatigueSolved, Eff0V = 1, Eff1S = S.FatigueCritical, Eff1V = 0
+                EffectCount = 3,
+                Eff0S = S.FatigueSolved, Eff0V = 1,
+                Eff1S = S.FatigueCritical, Eff1V = 0,
+                Eff2S = S.MyFatigue, Eff2Op = 2, Eff2V = REST_FATIGUE_RELIEF // Sub
             };
 
             // ── SeekMedicalAid (의료 치료) ────────────────────────────────────
-            // 기획서 수치: BaseCost=4, Medic x0.5
             // Preconditions: NearHealer=1
-            // Effects: InjurySolved=1, InjuryCritical=0
+            // Effects: InjurySolved=1, InjuryCritical=0, [P2] MyHealth Add MEDICAL_HEALTH_GAIN
             float healCost = 4f;
             if (role == AgentRole.Medic) healCost *= MEDIC_HEAL_MODIFIER;
             defs[i++] = new GOAPActionDef
@@ -534,33 +620,35 @@ namespace AIVillage.Core.GOAP
                 ActionStringHash = Animator.StringToHash("SeekMedicalAid"),
                 BaseCost = healCost,
                 PrecCount = 1, Prec0S = S.NearHealer, Prec0V = 1,
-                EffectCount = 2,
-                Eff0S = S.InjurySolved,  Eff0V = 1,
-                // [PR Fix]: N-003 — GOAPPlanningSlots.InjuryCritical → S.InjuryCritical로 변경
-                Eff1S = S.InjuryCritical, Eff1V = 0
+                EffectCount = 3,
+                Eff0S = S.InjurySolved, Eff0V = 1,
+                Eff1S = S.InjuryCritical, Eff1V = 0,
+                Eff2S = S.MyHealth, Eff2Op = 1, Eff2V = MEDICAL_HEALTH_GAIN // Add (상한 100 클램프는 런타임 몫)
             };
 
             // ── MoveToBase (기지 귀환) ────────────────────────────────────────
             // 기획서 수치: BaseCost=3, 역할 보정 없음
-            // Preconditions: 없음
+            // Preconditions: AtBase=0 — 이미 기지에 있으면 적용 불가 (A* 무한 체인 방지)
             // Effects: AtBase=1, NearStorage=1
+            // [Fix] Phase 1 컨텍스트 비용 배율로 목표 경로 비용이 올라간 상태에서
+            //       MoveToBase가 전제조건 없이 반복 확장되어 MAX_NODES를 소진하는 버그 수정.
             defs[i++] = new GOAPActionDef
             {
                 ActionStringHash = Animator.StringToHash("MoveToBase"),
                 BaseCost = 3f,
-                PrecCount = 0,
+                PrecCount = 1, Prec0S = S.AtBase, Prec0V = 0,
                 EffectCount = 2, Eff0S = S.AtBase, Eff0V = 1, Eff1S = S.NearStorage, Eff1V = 1
             };
 
             // ── CraftPrimitiveWeapon (원시 무기 제작) ─────────────────────────
             // 기획서 수치: BaseCost=6, 역할 보정 없음
-            // Preconditions: 없음
+            // Preconditions: HasPrimitiveWeapon=0 — 이미 제작됐으면 불필요 (A* 무한 체인 방지)
             // Effects: HasPrimitiveWeapon=1
             defs[i++] = new GOAPActionDef
             {
                 ActionStringHash = Animator.StringToHash("CraftPrimitiveWeapon"),
                 BaseCost = 6f,
-                PrecCount = 0,
+                PrecCount = 1, Prec0S = S.HasPrimitiveWeapon, Prec0V = 0,
                 EffectCount = 1, Eff0S = S.HasPrimitiveWeapon, Eff0V = 1
             };
 
@@ -581,83 +669,100 @@ namespace AIVillage.Core.GOAP
             };
 
             // ── CraftWeapon (제련 무기 제작) ──────────────────────────────────
-            // 기획서 수치: BaseCost=15, Warrior x0.7
-            // Preconditions: ForgeBuilt=1, HasIronForBuilding=1
-            // Effects: HasWeapon=1
+            // Preconditions: ForgeBuilt=1, HasIronForBuilding=1, [P2] IronStock GreaterEq CRAFT_WEAPON_IRON
+            // Effects: HasWeapon=1, [P2] IronStock Sub CRAFT_WEAPON_IRON
             float craftWeaponCost = 15f;
             if (role == AgentRole.Warrior) craftWeaponCost *= WARRIOR_CRAFT_MODIFIER;
             defs[i++] = new GOAPActionDef
             {
                 ActionStringHash = Animator.StringToHash("CraftWeapon"),
                 BaseCost = craftWeaponCost,
-                PrecCount = 2, Prec0S = S.ForgeBuilt, Prec0V = 1, Prec1S = S.HasIronForBuilding, Prec1V = 1,
-                EffectCount = 1, Eff0S = S.HasWeapon, Eff0V = 1
+                PrecCount = 3,
+                Prec0S = S.ForgeBuilt, Prec0V = 1,
+                Prec1S = S.HasIronForBuilding, Prec1V = 1,
+                Prec2S = S.IronStock, Prec2V = CRAFT_WEAPON_IRON, Prec2Op = 1, // GreaterEq
+                EffectCount = 2,
+                Eff0S = S.HasWeapon, Eff0V = 1,
+                Eff1S = S.IronStock, Eff1Op = 2, Eff1V = CRAFT_WEAPON_IRON // Sub
             };
 
             // ── BuildTownHall (Town Hall 건설) ────────────────────────────────
-            // 기획서 수치: BaseCost=50, Builder x0.6
-            // Preconditions: BuildingQueued=1, HasWoodForBuilding=1, HasStoneForBuilding=1
-            // Effects: StructureBuilt=1, TownHallBuilt=1, BuildingQueued=0
+            // Preconditions: BuildingQueued=1, HasWoodForBuilding=1, HasStoneForBuilding=1,
+            //                [P2] WoodStock GreaterEq 35, StoneStock GreaterEq 30, IronStock GreaterEq 6
+            // Effects: StructureBuilt=1, TownHallBuilt=1, BuildingQueued=0,
+            //          [P2] WoodStock Sub 35, StoneStock Sub 30, IronStock Sub 6
             float buildTHCost = 50f;
             if (role == AgentRole.Builder) buildTHCost *= BUILDER_BUILD_MODIFIER;
             defs[i++] = new GOAPActionDef
             {
                 ActionStringHash = Animator.StringToHash("BuildTownHall"),
                 BaseCost = buildTHCost,
-                PrecCount = 3,
+                PrecCount = 6,
                 Prec0S = S.BuildingQueued,      Prec0V = 1,
                 Prec1S = S.HasWoodForBuilding,  Prec1V = 1,
                 Prec2S = S.HasStoneForBuilding, Prec2V = 1,
-                EffectCount = 3,
+                Prec3S = S.WoodStock,  Prec3V = BUILD_TOWNHALL_WOOD,  Prec3Op = 1, // GreaterEq
+                Prec4S = S.StoneStock, Prec4V = BUILD_TOWNHALL_STONE, Prec4Op = 1, // GreaterEq
+                Prec5S = S.IronStock,  Prec5V = BUILD_TOWNHALL_IRON,  Prec5Op = 1, // GreaterEq
+                EffectCount = 6,
                 Eff0S = S.StructureBuilt,                Eff0V = 1,
                 Eff1S = GOAPPlanningSlots.TownHallBuilt, Eff1V = 1,
-                Eff2S = S.BuildingQueued,                Eff2V = 0
+                Eff2S = S.BuildingQueued,                Eff2V = 0,
+                Eff3S = S.WoodStock,  Eff3Op = 2, Eff3V = BUILD_TOWNHALL_WOOD,  // Sub
+                Eff4S = S.StoneStock, Eff4Op = 2, Eff4V = BUILD_TOWNHALL_STONE, // Sub
+                Eff5S = S.IronStock,  Eff5Op = 2, Eff5V = BUILD_TOWNHALL_IRON   // Sub
             };
 
             // ── BuildForge (Forge 건설) ───────────────────────────────────────
-            // 기획서 수치: BaseCost=40, Builder x0.6
-            // [PR Fix]: Major-3 — BuildForge Precondition을 1→3으로 확장
-            // 기존: BuildingQueued=1 만 요구 → 자원 없이도 건설 시도 → Replanning 루프 발생
-            // 수정: HasWoodForBuilding=1, HasStoneForBuilding=1 조건 추가하여 자원 가용 시에만 건설 가능
-            // Preconditions: BuildingQueued=1, HasWoodForBuilding=1, HasStoneForBuilding=1
-            // Effects: StructureBuilt=1, ForgeBuilt=1, BuildingQueued=0
+            // Preconditions: BuildingQueued=1, HasWoodForBuilding=1, HasStoneForBuilding=1,
+            //                [P2] WoodStock GreaterEq 20, StoneStock GreaterEq 20, IronStock GreaterEq 15
+            // Effects: StructureBuilt=1, ForgeBuilt=1, BuildingQueued=0,
+            //          [P2] WoodStock Sub 20, StoneStock Sub 20, IronStock Sub 15
             float buildForgeCost = 40f;
             if (role == AgentRole.Builder) buildForgeCost *= BUILDER_BUILD_MODIFIER;
             defs[i++] = new GOAPActionDef
             {
                 ActionStringHash = Animator.StringToHash("BuildForge"),
                 BaseCost = buildForgeCost,
-                PrecCount = 3,
+                PrecCount = 6,
                 Prec0S = S.BuildingQueued,      Prec0V = 1,
                 Prec1S = S.HasWoodForBuilding,  Prec1V = 1,
                 Prec2S = S.HasStoneForBuilding, Prec2V = 1,
-                EffectCount = 3,
+                Prec3S = S.WoodStock,  Prec3V = BUILD_FORGE_WOOD,  Prec3Op = 1, // GreaterEq
+                Prec4S = S.StoneStock, Prec4V = BUILD_FORGE_STONE, Prec4Op = 1, // GreaterEq
+                Prec5S = S.IronStock,  Prec5V = BUILD_FORGE_IRON,  Prec5Op = 1, // GreaterEq
+                EffectCount = 6,
                 Eff0S = S.StructureBuilt, Eff0V = 1,
                 Eff1S = S.ForgeBuilt,     Eff1V = 1,
-                Eff2S = S.BuildingQueued, Eff2V = 0
+                Eff2S = S.BuildingQueued, Eff2V = 0,
+                Eff3S = S.WoodStock,  Eff3Op = 2, Eff3V = BUILD_FORGE_WOOD,  // Sub
+                Eff4S = S.StoneStock, Eff4Op = 2, Eff4V = BUILD_FORGE_STONE, // Sub
+                Eff5S = S.IronStock,  Eff5Op = 2, Eff5V = BUILD_FORGE_IRON   // Sub
             };
 
             // ── BuildStorehouse (Storehouse 건설) ─────────────────────────────
-            // 기획서 수치: BaseCost=35, Builder x0.6
-            // [PR Fix]: Major-3 — BuildStorehouse Precondition을 1→3으로 확장
-            // 기존: BuildingQueued=1 만 요구 → 자원 없이도 건설 시도 → Replanning 루프 발생
-            // 수정: HasWoodForBuilding=1, HasStoneForBuilding=1 조건 추가하여 자원 가용 시에만 건설 가능
-            // Preconditions: BuildingQueued=1, HasWoodForBuilding=1, HasStoneForBuilding=1
-            // Effects: StructureBuilt=1, StorehouseBuilt=1, BuildingQueued=0
+            // Preconditions: BuildingQueued=1, HasWoodForBuilding=1, HasStoneForBuilding=1 (기존 Bool),
+            //                [P2] WoodStock GreaterEq 15, StoneStock GreaterEq 5
+            // Effects: StructureBuilt=1, StorehouseBuilt=1, BuildingQueued=0,
+            //          [P2] WoodStock Sub 15, StoneStock Sub 5
             float buildStoreCost = 35f;
             if (role == AgentRole.Builder) buildStoreCost *= BUILDER_BUILD_MODIFIER;
             defs[i++] = new GOAPActionDef
             {
                 ActionStringHash = Animator.StringToHash("BuildStorehouse"),
                 BaseCost = buildStoreCost,
-                PrecCount = 3,
+                PrecCount = 5,
                 Prec0S = S.BuildingQueued,      Prec0V = 1,
                 Prec1S = S.HasWoodForBuilding,  Prec1V = 1,
                 Prec2S = S.HasStoneForBuilding, Prec2V = 1,
-                EffectCount = 3,
+                Prec3S = S.WoodStock,  Prec3V = BUILD_STOREHOUSE_WOOD,  Prec3Op = 1, // GreaterEq
+                Prec4S = S.StoneStock, Prec4V = BUILD_STOREHOUSE_STONE, Prec4Op = 1, // GreaterEq
+                EffectCount = 5,
                 Eff0S = S.StructureBuilt,                  Eff0V = 1,
                 Eff1S = GOAPPlanningSlots.StorehouseBuilt, Eff1V = 1,
-                Eff2S = S.BuildingQueued,                  Eff2V = 0
+                Eff2S = S.BuildingQueued,                  Eff2V = 0,
+                Eff3S = S.WoodStock,  Eff3Op = 2, Eff3V = BUILD_STOREHOUSE_WOOD,  // Sub
+                Eff4S = S.StoneStock, Eff4Op = 2, Eff4V = BUILD_STOREHOUSE_STONE  // Sub
             };
 
             // ── Explore (탐험) ────────────────────────────────────────────────
@@ -673,36 +778,37 @@ namespace AIVillage.Core.GOAP
             };
 
             // ── HarvestWildBerries (야생 열매 채집) ───────────────────────────
-            // 기획서 수치: BaseCost=10, 역할 보정 없음 (도구 불필요)
             // Preconditions: NearDiscoveredResource=1
-            // Effects: ResourcesGathered=1, HasRawFood=1, RawFoodLow=0
+            // Effects: ResourcesGathered=1, HasRawFood=1, RawFoodLow=0, [P2] RawFoodStock Add YIELD_HARVEST_BERRIES
             defs[i++] = new GOAPActionDef
             {
                 ActionStringHash = Animator.StringToHash("HarvestWildBerries"),
                 BaseCost = 10f * contextMult.HarvestBerries,
                 PrecCount = 1, Prec0S = S.NearDiscoveredResource, Prec0V = 1,
-                EffectCount = 3,
+                EffectCount = 4,
                 Eff0S = S.ResourcesGathered,          Eff0V = 1,
                 Eff1S = S.HasRawFood,                 Eff1V = 1,
-                Eff2S = GOAPPlanningSlots.RawFoodLow, Eff2V = 0
+                Eff2S = GOAPPlanningSlots.RawFoodLow, Eff2V = 0,
+                Eff3S = S.RawFoodStock, Eff3Op = 1, Eff3V = YIELD_HARVEST_BERRIES // Add
             };
 
             // ── BuildCampfire (모닥불 건설) ───────────────────────────────────
-            // 기획서 수치: BaseCost=20, Builder x0.6
-            // Preconditions: BuildingQueued=1, HasWoodForBuilding=1  (Stone 불필요)
-            // Effects: StructureBuilt=1, BuildingQueued=0
+            // Preconditions: BuildingQueued=1, HasWoodForBuilding=1, [P2] WoodStock GreaterEq 5
+            // Effects: StructureBuilt=1, BuildingQueued=0, [P2] WoodStock Sub 5
             float buildCampfireCost = 20f;
             if (role == AgentRole.Builder) buildCampfireCost *= BUILDER_BUILD_MODIFIER;
             defs[i++] = new GOAPActionDef
             {
                 ActionStringHash = Animator.StringToHash("BuildCampfire"),
                 BaseCost = buildCampfireCost,
-                PrecCount = 2,
+                PrecCount = 3,
                 Prec0S = S.BuildingQueued,     Prec0V = 1,
                 Prec1S = S.HasWoodForBuilding, Prec1V = 1,
-                EffectCount = 2,
-                Eff0S = S.StructureBuilt,  Eff0V = 1,
-                Eff1S = S.BuildingQueued,  Eff1V = 0
+                Prec2S = S.WoodStock, Prec2V = BUILD_CAMPFIRE_WOOD, Prec2Op = 1, // GreaterEq
+                EffectCount = 3,
+                Eff0S = S.StructureBuilt, Eff0V = 1,
+                Eff1S = S.BuildingQueued, Eff1V = 0,
+                Eff2S = S.WoodStock, Eff2Op = 2, Eff2V = BUILD_CAMPFIRE_WOOD // Sub
             };
 
             // 배열 크기와 실제 정의 수 검증 (개발 중 Action 추가/삭제 감지용)

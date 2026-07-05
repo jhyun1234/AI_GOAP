@@ -40,6 +40,14 @@ namespace AIVillage.Core.GOAP
     /// </summary>
     public static class GOAPPlannerScheduler
     {
+        /// <summary>
+        /// [Phase 2 ADR-8] 수치형 Goal 사용 여부 토글.
+        /// true: BuildGoalState가 수치 슬롯(MyHunger ≤ 30 등)으로 목표를 정의한다.
+        /// false: 기존 불리언 HungerSolved==1 방식. 문제 발생 시 즉시 false로 롤백 가능.
+        /// Phase 2 안정화 후 제거 예정.
+        /// </summary>
+        public static bool UseNumericGoals = true;
+
         // ── 컨텍스트 비용 배율 상수 ──────────────────────────────────────────────
         private const float DISTANCE_SCALE      = 50f;   // 50타일 거리에서 최대 배율 도달
         private const float DISTANCE_WEIGHT     = 1.5f;  // 거리 최대 추가 배율
@@ -85,10 +93,13 @@ namespace AIVillage.Core.GOAP
             /// <summary>달성해야 하는 목표 슬롯 값 (43 슬롯).</summary>
             public NativeArray<int> GoalState;
 
-            /// <summary>목표 판정 마스크 (43 슬롯). 1=포함, 0=무시.</summary>
+            /// <summary>목표 판정 마스크 (52 슬롯). 1=포함, 0=무시.</summary>
             public NativeArray<int> GoalMask;
 
-            /// <summary>역할 보정이 반영된 Action 정의 목록 (19개).</summary>
+            /// <summary>슬롯별 목표 판정 연산자 (52 슬롯). 0=Equal, 1=GreaterEq, 2=LessEq.</summary>
+            public NativeArray<int> GoalOps;
+
+            /// <summary>역할 보정이 반영된 Action 정의 목록 (20개).</summary>
             public NativeArray<GOAPActionDef> Actions;
 
             // ── Job 출력 NativeArray ─────────────────────────────────────────
@@ -202,6 +213,7 @@ namespace AIVillage.Core.GOAP
                 if (CurrentState.IsCreated)  CurrentState.Dispose();
                 if (GoalState.IsCreated)     GoalState.Dispose();
                 if (GoalMask.IsCreated)      GoalMask.Dispose();
+                if (GoalOps.IsCreated)       GoalOps.Dispose();
                 if (Actions.IsCreated)       Actions.Dispose();
                 if (ResultActions.IsCreated) ResultActions.Dispose();
                 if (ResultLength.IsCreated)  ResultLength.Dispose();
@@ -287,6 +299,7 @@ namespace AIVillage.Core.GOAP
             NativeArray<int>           currentState  = default;
             NativeArray<int>           goalState     = default;
             NativeArray<int>           goalMask      = default;
+            NativeArray<int>           goalOps       = default;
             NativeArray<GOAPActionDef> actions       = default;
             NativeArray<int>           resultActions = default;
             NativeArray<int>           resultLength  = default;
@@ -303,7 +316,7 @@ namespace AIVillage.Core.GOAP
             {
                 // ── 입력 배열 생성 ───────────────────────────────────────────
                 currentState = GOAPStateUtil.BuildCurrentState(worldState, registry, brain, alloc);
-                GOAPStateUtil.BuildGoalState(goalId, out goalState, out goalMask, alloc);
+                GOAPStateUtil.BuildGoalState(goalId, out goalState, out goalMask, out goalOps, UseNumericGoals, alloc);
                 // [14단계] Autumn 계절 배율: SeasonManager에서 메인 스레드 읽기 후 Burst Job 외부에서 주입
                 float seasonGatherMod = SeasonManager.Instance != null
                     ? SeasonManager.Instance.GetCurrentGatherCostModifier()
@@ -327,6 +340,7 @@ namespace AIVillage.Core.GOAP
                     if (currentState.IsCreated) currentState.Dispose();
                     if (goalState.IsCreated)    goalState.Dispose();
                     if (goalMask.IsCreated)     goalMask.Dispose();
+                    if (goalOps.IsCreated)      goalOps.Dispose();
                     if (actions.IsCreated)      actions.Dispose();
                     Debug.LogWarning(
                         $"[GOAPPlannerScheduler] 알 수 없는 goalId '{goalId}'. " +
@@ -357,6 +371,7 @@ namespace AIVillage.Core.GOAP
                 if (currentState.IsCreated)  currentState.Dispose();
                 if (goalState.IsCreated)     goalState.Dispose();
                 if (goalMask.IsCreated)      goalMask.Dispose();
+                if (goalOps.IsCreated)       goalOps.Dispose();
                 if (actions.IsCreated)       actions.Dispose();
                 if (resultActions.IsCreated) resultActions.Dispose();
                 if (resultLength.IsCreated)  resultLength.Dispose();
@@ -377,6 +392,7 @@ namespace AIVillage.Core.GOAP
                 CurrentState  = currentState,
                 GoalState     = goalState,
                 GoalMask      = goalMask,
+                GoalOps       = goalOps,
                 Actions       = actions,
                 ResultActions = resultActions,
                 ResultLength  = resultLength,
@@ -404,6 +420,7 @@ namespace AIVillage.Core.GOAP
                 CurrentState  = currentState,
                 GoalState     = goalState,
                 GoalMask      = goalMask,
+                GoalOps       = goalOps,
                 Actions       = actions,
                 ResultActions = resultActions,
                 ResultLength  = resultLength,

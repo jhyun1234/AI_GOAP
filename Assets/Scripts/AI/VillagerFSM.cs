@@ -204,6 +204,10 @@ namespace AIVillage.AI
         // -999f로 초기화하여 첫 발화는 시간 게이트를 통과한다.
         private float _lastThoughtTime = -999f;
 
+        // ── [Phase 1 검증용] 사고 말풍선 발화 횟수 카운터 ──────────────────────
+        // GameManager ContextMenu "Phase1 F1 — 말풍선 발화 카운터 출력"에서 분당 발화율 계산에 사용.
+        private int _thoughtBubbleCount = 0;
+
         // ── [12단계] 공유 walkable 그리드 (static — 모든 주민 공유) ─────────────
         // 현재 맵은 100×100 전체 통행 가능. 장애물 추가 시 이 배열을 수정한다.
         // null이면 첫 번째 StartPathTo() 호출 시 초기화된다.
@@ -251,6 +255,25 @@ namespace AIVillage.AI
 
         /// <summary>현재 목표 타일로 이동 중이면 true. 채취/건설 전 이동과 실제 작업을 구분하는 데 사용.</summary>
         public bool IsMoving => _isMoving;
+
+        /// <summary>[Phase 1 F1 검증] 말풍선 발화 총 횟수 (게임 시작부터 누적). GameManager ContextMenu에서 분당 발화율 계산에 사용.</summary>
+        public int ThoughtBubbleCount => _thoughtBubbleCount;
+
+        #endregion
+
+        #region ── 디버그 전용 메서드 ──
+
+        /// <summary>
+        /// [Phase 1 디버그] 현재 플랜을 즉시 무효화하고 Idle 상태로 전이하여 리플래닝을 유도한다.
+        /// GameManager ContextMenu에서 F5(부상 전투 비용) / F7(탐험 유도) 테스트 시 사용한다.
+        /// </summary>
+        public void ForceReplan()
+        {
+            if (Brain == null || !Brain.IsAlive) return;
+            Brain.ReplanCooldown = 0f;
+            Brain.CurrentGoalId  = string.Empty;
+            TransitionTo(VillagerState.Idle);
+        }
 
         #endregion
 
@@ -1462,6 +1485,7 @@ namespace AIVillage.AI
             if (Brain.FallbackCounter >= 2) return;
 
             _lastThoughtTime = Time.time;
+            _thoughtBubbleCount++;
             var icon = GetComponentInChildren<AIVillage.UI.VillagerActionIcon>();
             if (icon != null)
                 icon.ShowThought(thought, 2.5f);

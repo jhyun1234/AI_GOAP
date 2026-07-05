@@ -1480,6 +1480,77 @@ namespace AIVillage.Core
                       $"조리식량={_worldState.CookedFoodStock:F0}, 철={_worldState.IronStock:F0}, " +
                       $"구리={_worldState.CopperStock:F0}, 은={_worldState.SilverStock:F0}");
         }
+
+        // ── Phase 1 검증용 ContextMenu ────────────────────────────────────────
+
+        /// <summary>[Phase 1 F1] 주민당 말풍선 발화 횟수를 출력한다. 분당 2회 이하가 목표.</summary>
+        [ContextMenu("DEBUG: Phase1 F1 — 말풍선 발화 카운터 출력")]
+        private void DebugPhase1PrintThoughtCounts()
+        {
+            float elapsed = Mathf.Max(Time.time, 1f);
+            foreach (var fsm in _villagerFSMs)
+            {
+                if (fsm == null || fsm.Brain == null) continue;
+                float perMin = fsm.ThoughtBubbleCount / (elapsed / 60f);
+                string id    = fsm.AgentId.Length >= 8 ? fsm.AgentId.Substring(0, 8) : fsm.AgentId;
+                string judge = perMin <= 2f ? "✅" : "⚠ 초과";
+                Debug.Log($"[Phase1-F1] {id}..: 총 {fsm.ThoughtBubbleCount}회 | {perMin:F1}/분 {judge} (기준 ≤2/분)");
+            }
+        }
+
+        /// <summary>[Phase 1 F5] 주민 1번 체력을 25로 설정하고 리플래닝을 유도한다.
+        /// 다음 플래닝에서 AttackEnemy 비용이 ×2 이상이 되어야 한다 (VillagerOverviewPanel 플랜 체인 확인).</summary>
+        [ContextMenu("DEBUG: Phase1 F5 — 주민 1번 체력 25 설정 (부상 전투 비용 테스트)")]
+        private void DebugPhase1SetVillagerHealth25()
+        {
+            if (_villagerFSMs == null || _villagerFSMs.Count == 0)
+            {
+                Debug.LogWarning("[Phase1-F5] 등록된 주민이 없습니다. Play Mode에서 실행하세요.");
+                return;
+            }
+            var fsm = _villagerFSMs[0];
+            if (fsm == null || fsm.Brain == null) return;
+            fsm.Brain.HealthLevel = 25f;
+            fsm.ForceReplan();
+            // 기대값: ratio=(50-25)/50=0.5, mult=1+0.5*(3-1)=2.0 → AttackEnemy 비용 ×2.0
+            string id = fsm.AgentId.Length >= 8 ? fsm.AgentId.Substring(0, 8) : fsm.AgentId;
+            Debug.Log($"[Phase1-F5] {id}..: HealthLevel=25 설정 + 리플래닝 유도. " +
+                      $"AttackEnemy 비용 ×2.0 예상. VillagerOverviewPanel 플랜 체인에서 확인하세요.");
+        }
+
+        /// <summary>[Phase 1 F7] 모든 자원 노드를 미발견 상태로 초기화하고 전체 주민 리플래닝을 유도한다.
+        /// 미발견 자원이 있으면 탐험 비용이 ×0.6, 수집 비용은 ×10이 되어 Explore 플랜이 선택되어야 한다.</summary>
+        [ContextMenu("DEBUG: Phase1 F7 — 자원 노드 전체 미발견 초기화 (탐험 유도 테스트)")]
+        private void DebugPhase1ResetNodesToUndiscovered()
+        {
+            var nodes = SensorSystem.Instance?.GetAllNodes();
+            if (nodes == null || nodes.Count == 0)
+            {
+                Debug.LogWarning("[Phase1-F7] SensorSystem 또는 자원 노드가 없습니다.");
+                return;
+            }
+            foreach (var node in nodes)
+                node.IsDiscovered = false;
+            foreach (var fsm in _villagerFSMs)
+                fsm?.ForceReplan();
+            Debug.Log($"[Phase1-F7] {nodes.Count}개 노드 미발견 초기화 + {_villagerFSMs.Count}명 리플래닝 유도. " +
+                      $"주민들이 Explore 플랜을 선택하는지 'Phase1 F7 — 전체 주민 플랜 출력'으로 확인하세요.");
+        }
+
+        /// <summary>[Phase 1 F7] 전체 주민의 현재 Goal과 플랜 체인을 출력한다.</summary>
+        [ContextMenu("DEBUG: Phase1 F7 — 전체 주민 플랜 현황 출력")]
+        private void DebugPhase1PrintAllPlans()
+        {
+            foreach (var fsm in _villagerFSMs)
+            {
+                if (fsm?.Brain == null) continue;
+                string plan = (fsm.Brain.CurrentPlanFull != null && fsm.Brain.CurrentPlanFull.Count > 0)
+                    ? string.Join("→", fsm.Brain.CurrentPlanFull)
+                    : "(없음)";
+                string id = fsm.AgentId.Length >= 8 ? fsm.AgentId.Substring(0, 8) : fsm.AgentId;
+                Debug.Log($"[Phase1-F7] {id}..: Goal={fsm.Brain.CurrentGoalId ?? "-"} | {plan}");
+            }
+        }
 #endif
 
         #endregion

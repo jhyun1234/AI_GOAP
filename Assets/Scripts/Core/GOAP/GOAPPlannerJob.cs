@@ -39,7 +39,9 @@ namespace AIVillage.Core.GOAP
         // ────────────────────────────────────────────────────────────────────
 
         /// <summary>탐색 최대 노드 수. 이 수를 초과하면 탐색을 중단하고 실패 처리한다.</summary>
-        public const int MAX_NODES    = 2048;
+        // [Fix] Phase 1 컨텍스트 비용 배율로 인해 목표 경로 비용이 최대 7배 증가.
+        // 2048 → 8192: A*가 비용이 높은 유효 경로를 찾기 전 예산을 소진하는 문제 해결.
+        public const int MAX_NODES    = 8192;
 
         /// <summary>플랜 최대 깊이. 기획 명세: 6단계. 이 깊이를 초과하면 노드를 확장하지 않는다.</summary>
         public const int MAX_DEPTH    = 6;
@@ -65,10 +67,13 @@ namespace AIVillage.Core.GOAP
         /// <summary>달성해야 하는 목표 슬롯 값 (43 슬롯).</summary>
         [ReadOnly] public NativeArray<int> GoalState;
 
-        /// <summary>목표 판정에 포함되는 슬롯 마스크 (43 슬롯). 1=포함, 0=무시.</summary>
+        /// <summary>목표 판정에 포함되는 슬롯 마스크 (52 슬롯). 1=포함, 0=무시.</summary>
         [ReadOnly] public NativeArray<int> GoalMask;
 
-        /// <summary>역할 보정이 반영된 GOAP Action 정의 목록 (19개).</summary>
+        /// <summary>슬롯별 목표 판정 연산자 (52 슬롯). 0=Equal, 1=GreaterEq, 2=LessEq (ADR-3).</summary>
+        [ReadOnly] public NativeArray<int> GoalOps;
+
+        /// <summary>역할 보정이 반영된 GOAP Action 정의 목록 (20개).</summary>
         [ReadOnly] public NativeArray<GOAPActionDef> Actions;
 
         // ────────────────────────────────────────────────────────────────────
@@ -258,30 +263,44 @@ namespace AIVillage.Core.GOAP
         // 내부 헬퍼 메서드 (Burst 호환)
         // ────────────────────────────────────────────────────────────────────
 
+        /// <summary>Precondition/Goal 판정 헬퍼 (Burst 인라인 가능 정적 메서드).</summary>
+        private static bool PrecHolds(int stateVal, int op, int reqVal)
+        {
+            if (op == 1) return stateVal >= reqVal; // GreaterEq
+            if (op == 2) return stateVal <= reqVal; // LessEq
+            return stateVal == reqVal;               // Equal (기본, 레거시 호환)
+        }
+
+        /// <summary>Effect 적용 헬퍼. op=0:Set, 1:Add, 2:Sub(음수 클램프 ADR-6).</summary>
+        private static int ApplyEff(int stateVal, int op, int v)
+        {
+            if (op == 1) return stateVal + v;
+            if (op == 2) { int r = stateVal - v; return r < 0 ? 0 : r; }
+            return v; // Set
+        }
+
         /// <summary>
         /// 주어진 NativeArray 상태가 목표를 달성했는지 확인한다.
-        /// GoalMask[i]=1인 모든 슬롯에서 state[i] == GoalState[i]이면 true.
+        /// GoalMask[i]=1인 슬롯에서 PrecHolds(state[i], GoalOps[i], GoalState[i])이면 true.
+        /// GoalOps[i]=0(Equal, 기본)이면 기존 불리언 동작과 동일.
         /// </summary>
         private bool IsGoalSatisfied(NativeArray<int> state, int totalSlots)
         {
             for (int s = 0; s < totalSlots; s++)
             {
-                if (GoalMask[s] == 1 && state[s] != GoalState[s])
+                if (GoalMask[s] == 1 && !PrecHolds(state[s], GoalOps[s], GoalState[s]))
                     return false;
             }
             return true;
         }
 
-        /// <summary>
-        /// 특정 노드의 상태가 목표를 달성했는지 확인한다.
-        /// NodeStates 버퍼에서 해당 노드의 오프셋을 직접 읽는다.
-        /// </summary>
+        /// <summary>특정 노드의 상태가 목표를 달성했는지 확인한다.</summary>
         private bool IsGoalSatisfiedAtNode(int nodeIdx, int totalSlots)
         {
             int offset = nodeIdx * totalSlots;
             for (int s = 0; s < totalSlots; s++)
             {
-                if (GoalMask[s] == 1 && NodeStates[offset + s] != GoalState[s])
+                if (GoalMask[s] == 1 && !PrecHolds(NodeStates[offset + s], GoalOps[s], GoalState[s]))
                     return false;
             }
             return true;
@@ -289,58 +308,59 @@ namespace AIVillage.Core.GOAP
 
         /// <summary>
         /// 특정 노드의 상태에서 Action의 모든 Precondition이 충족되는지 확인한다.
-        /// NativeSlice 없이 NodeStates 버퍼의 오프셋을 직접 참조하는 Burst 호환 구현.
+        /// PrecHolds로 Equal/GreaterEq/LessEq 판정을 통일. Op=0(기본)이면 기존 동작과 동일.
         /// </summary>
         private bool CheckPreconditionsAtNode(int nodeIdx, int totalSlots, GOAPActionDef action)
         {
-            int o = nodeIdx * totalSlots; // offset 단축 변수
+            int o = nodeIdx * totalSlots;
 
             switch (action.PrecCount)
             {
                 case 0: return true;
-                case 1: return NodeStates[o + action.Prec0S] == action.Prec0V;
-                case 2: return NodeStates[o + action.Prec0S] == action.Prec0V
-                            && NodeStates[o + action.Prec1S] == action.Prec1V;
-                case 3: return NodeStates[o + action.Prec0S] == action.Prec0V
-                            && NodeStates[o + action.Prec1S] == action.Prec1V
-                            && NodeStates[o + action.Prec2S] == action.Prec2V;
-                case 4: return NodeStates[o + action.Prec0S] == action.Prec0V
-                            && NodeStates[o + action.Prec1S] == action.Prec1V
-                            && NodeStates[o + action.Prec2S] == action.Prec2V
-                            && NodeStates[o + action.Prec3S] == action.Prec3V;
-                case 5: return NodeStates[o + action.Prec0S] == action.Prec0V
-                            && NodeStates[o + action.Prec1S] == action.Prec1V
-                            && NodeStates[o + action.Prec2S] == action.Prec2V
-                            && NodeStates[o + action.Prec3S] == action.Prec3V
-                            && NodeStates[o + action.Prec4S] == action.Prec4V;
-                case 6: return NodeStates[o + action.Prec0S] == action.Prec0V
-                            && NodeStates[o + action.Prec1S] == action.Prec1V
-                            && NodeStates[o + action.Prec2S] == action.Prec2V
-                            && NodeStates[o + action.Prec3S] == action.Prec3V
-                            && NodeStates[o + action.Prec4S] == action.Prec4V
-                            && NodeStates[o + action.Prec5S] == action.Prec5V;
-                case 7: return NodeStates[o + action.Prec0S] == action.Prec0V
-                            && NodeStates[o + action.Prec1S] == action.Prec1V
-                            && NodeStates[o + action.Prec2S] == action.Prec2V
-                            && NodeStates[o + action.Prec3S] == action.Prec3V
-                            && NodeStates[o + action.Prec4S] == action.Prec4V
-                            && NodeStates[o + action.Prec5S] == action.Prec5V
-                            && NodeStates[o + action.Prec6S] == action.Prec6V;
-                case 8: return NodeStates[o + action.Prec0S] == action.Prec0V
-                            && NodeStates[o + action.Prec1S] == action.Prec1V
-                            && NodeStates[o + action.Prec2S] == action.Prec2V
-                            && NodeStates[o + action.Prec3S] == action.Prec3V
-                            && NodeStates[o + action.Prec4S] == action.Prec4V
-                            && NodeStates[o + action.Prec5S] == action.Prec5V
-                            && NodeStates[o + action.Prec6S] == action.Prec6V
-                            && NodeStates[o + action.Prec7S] == action.Prec7V;
+                case 1: return PrecHolds(NodeStates[o + action.Prec0S], action.Prec0Op, action.Prec0V);
+                case 2: return PrecHolds(NodeStates[o + action.Prec0S], action.Prec0Op, action.Prec0V)
+                            && PrecHolds(NodeStates[o + action.Prec1S], action.Prec1Op, action.Prec1V);
+                case 3: return PrecHolds(NodeStates[o + action.Prec0S], action.Prec0Op, action.Prec0V)
+                            && PrecHolds(NodeStates[o + action.Prec1S], action.Prec1Op, action.Prec1V)
+                            && PrecHolds(NodeStates[o + action.Prec2S], action.Prec2Op, action.Prec2V);
+                case 4: return PrecHolds(NodeStates[o + action.Prec0S], action.Prec0Op, action.Prec0V)
+                            && PrecHolds(NodeStates[o + action.Prec1S], action.Prec1Op, action.Prec1V)
+                            && PrecHolds(NodeStates[o + action.Prec2S], action.Prec2Op, action.Prec2V)
+                            && PrecHolds(NodeStates[o + action.Prec3S], action.Prec3Op, action.Prec3V);
+                case 5: return PrecHolds(NodeStates[o + action.Prec0S], action.Prec0Op, action.Prec0V)
+                            && PrecHolds(NodeStates[o + action.Prec1S], action.Prec1Op, action.Prec1V)
+                            && PrecHolds(NodeStates[o + action.Prec2S], action.Prec2Op, action.Prec2V)
+                            && PrecHolds(NodeStates[o + action.Prec3S], action.Prec3Op, action.Prec3V)
+                            && PrecHolds(NodeStates[o + action.Prec4S], action.Prec4Op, action.Prec4V);
+                case 6: return PrecHolds(NodeStates[o + action.Prec0S], action.Prec0Op, action.Prec0V)
+                            && PrecHolds(NodeStates[o + action.Prec1S], action.Prec1Op, action.Prec1V)
+                            && PrecHolds(NodeStates[o + action.Prec2S], action.Prec2Op, action.Prec2V)
+                            && PrecHolds(NodeStates[o + action.Prec3S], action.Prec3Op, action.Prec3V)
+                            && PrecHolds(NodeStates[o + action.Prec4S], action.Prec4Op, action.Prec4V)
+                            && PrecHolds(NodeStates[o + action.Prec5S], action.Prec5Op, action.Prec5V);
+                case 7: return PrecHolds(NodeStates[o + action.Prec0S], action.Prec0Op, action.Prec0V)
+                            && PrecHolds(NodeStates[o + action.Prec1S], action.Prec1Op, action.Prec1V)
+                            && PrecHolds(NodeStates[o + action.Prec2S], action.Prec2Op, action.Prec2V)
+                            && PrecHolds(NodeStates[o + action.Prec3S], action.Prec3Op, action.Prec3V)
+                            && PrecHolds(NodeStates[o + action.Prec4S], action.Prec4Op, action.Prec4V)
+                            && PrecHolds(NodeStates[o + action.Prec5S], action.Prec5Op, action.Prec5V)
+                            && PrecHolds(NodeStates[o + action.Prec6S], action.Prec6Op, action.Prec6V);
+                case 8: return PrecHolds(NodeStates[o + action.Prec0S], action.Prec0Op, action.Prec0V)
+                            && PrecHolds(NodeStates[o + action.Prec1S], action.Prec1Op, action.Prec1V)
+                            && PrecHolds(NodeStates[o + action.Prec2S], action.Prec2Op, action.Prec2V)
+                            && PrecHolds(NodeStates[o + action.Prec3S], action.Prec3Op, action.Prec3V)
+                            && PrecHolds(NodeStates[o + action.Prec4S], action.Prec4Op, action.Prec4V)
+                            && PrecHolds(NodeStates[o + action.Prec5S], action.Prec5Op, action.Prec5V)
+                            && PrecHolds(NodeStates[o + action.Prec6S], action.Prec6Op, action.Prec6V)
+                            && PrecHolds(NodeStates[o + action.Prec7S], action.Prec7Op, action.Prec7V);
                 default: return false;
             }
         }
 
         /// <summary>
         /// Action의 Effect를 특정 노드의 상태에 직접 적용한다.
-        /// NodeStates 버퍼의 해당 노드 오프셋 슬롯을 직접 수정한다.
+        /// ApplyEff로 Set/Add/Sub 연산을 통일. Op=0(Set, 기본)이면 기존 대입 동작과 동일.
+        /// Sub 연산은 음수 클램프(ADR-6)가 적용된다.
         /// </summary>
         private void ApplyEffectsToNode(int nodeIdx, int totalSlots, GOAPActionDef action)
         {
@@ -350,56 +370,56 @@ namespace AIVillage.Core.GOAP
             {
                 case 0: return;
                 case 1:
-                    NodeStates[o + action.Eff0S] = action.Eff0V;
+                    NodeStates[o + action.Eff0S] = ApplyEff(NodeStates[o + action.Eff0S], action.Eff0Op, action.Eff0V);
                     return;
                 case 2:
-                    NodeStates[o + action.Eff0S] = action.Eff0V;
-                    NodeStates[o + action.Eff1S] = action.Eff1V;
+                    NodeStates[o + action.Eff0S] = ApplyEff(NodeStates[o + action.Eff0S], action.Eff0Op, action.Eff0V);
+                    NodeStates[o + action.Eff1S] = ApplyEff(NodeStates[o + action.Eff1S], action.Eff1Op, action.Eff1V);
                     return;
                 case 3:
-                    NodeStates[o + action.Eff0S] = action.Eff0V;
-                    NodeStates[o + action.Eff1S] = action.Eff1V;
-                    NodeStates[o + action.Eff2S] = action.Eff2V;
+                    NodeStates[o + action.Eff0S] = ApplyEff(NodeStates[o + action.Eff0S], action.Eff0Op, action.Eff0V);
+                    NodeStates[o + action.Eff1S] = ApplyEff(NodeStates[o + action.Eff1S], action.Eff1Op, action.Eff1V);
+                    NodeStates[o + action.Eff2S] = ApplyEff(NodeStates[o + action.Eff2S], action.Eff2Op, action.Eff2V);
                     return;
                 case 4:
-                    NodeStates[o + action.Eff0S] = action.Eff0V;
-                    NodeStates[o + action.Eff1S] = action.Eff1V;
-                    NodeStates[o + action.Eff2S] = action.Eff2V;
-                    NodeStates[o + action.Eff3S] = action.Eff3V;
+                    NodeStates[o + action.Eff0S] = ApplyEff(NodeStates[o + action.Eff0S], action.Eff0Op, action.Eff0V);
+                    NodeStates[o + action.Eff1S] = ApplyEff(NodeStates[o + action.Eff1S], action.Eff1Op, action.Eff1V);
+                    NodeStates[o + action.Eff2S] = ApplyEff(NodeStates[o + action.Eff2S], action.Eff2Op, action.Eff2V);
+                    NodeStates[o + action.Eff3S] = ApplyEff(NodeStates[o + action.Eff3S], action.Eff3Op, action.Eff3V);
                     return;
                 case 5:
-                    NodeStates[o + action.Eff0S] = action.Eff0V;
-                    NodeStates[o + action.Eff1S] = action.Eff1V;
-                    NodeStates[o + action.Eff2S] = action.Eff2V;
-                    NodeStates[o + action.Eff3S] = action.Eff3V;
-                    NodeStates[o + action.Eff4S] = action.Eff4V;
+                    NodeStates[o + action.Eff0S] = ApplyEff(NodeStates[o + action.Eff0S], action.Eff0Op, action.Eff0V);
+                    NodeStates[o + action.Eff1S] = ApplyEff(NodeStates[o + action.Eff1S], action.Eff1Op, action.Eff1V);
+                    NodeStates[o + action.Eff2S] = ApplyEff(NodeStates[o + action.Eff2S], action.Eff2Op, action.Eff2V);
+                    NodeStates[o + action.Eff3S] = ApplyEff(NodeStates[o + action.Eff3S], action.Eff3Op, action.Eff3V);
+                    NodeStates[o + action.Eff4S] = ApplyEff(NodeStates[o + action.Eff4S], action.Eff4Op, action.Eff4V);
                     return;
                 case 6:
-                    NodeStates[o + action.Eff0S] = action.Eff0V;
-                    NodeStates[o + action.Eff1S] = action.Eff1V;
-                    NodeStates[o + action.Eff2S] = action.Eff2V;
-                    NodeStates[o + action.Eff3S] = action.Eff3V;
-                    NodeStates[o + action.Eff4S] = action.Eff4V;
-                    NodeStates[o + action.Eff5S] = action.Eff5V;
+                    NodeStates[o + action.Eff0S] = ApplyEff(NodeStates[o + action.Eff0S], action.Eff0Op, action.Eff0V);
+                    NodeStates[o + action.Eff1S] = ApplyEff(NodeStates[o + action.Eff1S], action.Eff1Op, action.Eff1V);
+                    NodeStates[o + action.Eff2S] = ApplyEff(NodeStates[o + action.Eff2S], action.Eff2Op, action.Eff2V);
+                    NodeStates[o + action.Eff3S] = ApplyEff(NodeStates[o + action.Eff3S], action.Eff3Op, action.Eff3V);
+                    NodeStates[o + action.Eff4S] = ApplyEff(NodeStates[o + action.Eff4S], action.Eff4Op, action.Eff4V);
+                    NodeStates[o + action.Eff5S] = ApplyEff(NodeStates[o + action.Eff5S], action.Eff5Op, action.Eff5V);
                     return;
                 case 7:
-                    NodeStates[o + action.Eff0S] = action.Eff0V;
-                    NodeStates[o + action.Eff1S] = action.Eff1V;
-                    NodeStates[o + action.Eff2S] = action.Eff2V;
-                    NodeStates[o + action.Eff3S] = action.Eff3V;
-                    NodeStates[o + action.Eff4S] = action.Eff4V;
-                    NodeStates[o + action.Eff5S] = action.Eff5V;
-                    NodeStates[o + action.Eff6S] = action.Eff6V;
+                    NodeStates[o + action.Eff0S] = ApplyEff(NodeStates[o + action.Eff0S], action.Eff0Op, action.Eff0V);
+                    NodeStates[o + action.Eff1S] = ApplyEff(NodeStates[o + action.Eff1S], action.Eff1Op, action.Eff1V);
+                    NodeStates[o + action.Eff2S] = ApplyEff(NodeStates[o + action.Eff2S], action.Eff2Op, action.Eff2V);
+                    NodeStates[o + action.Eff3S] = ApplyEff(NodeStates[o + action.Eff3S], action.Eff3Op, action.Eff3V);
+                    NodeStates[o + action.Eff4S] = ApplyEff(NodeStates[o + action.Eff4S], action.Eff4Op, action.Eff4V);
+                    NodeStates[o + action.Eff5S] = ApplyEff(NodeStates[o + action.Eff5S], action.Eff5Op, action.Eff5V);
+                    NodeStates[o + action.Eff6S] = ApplyEff(NodeStates[o + action.Eff6S], action.Eff6Op, action.Eff6V);
                     return;
                 case 8:
-                    NodeStates[o + action.Eff0S] = action.Eff0V;
-                    NodeStates[o + action.Eff1S] = action.Eff1V;
-                    NodeStates[o + action.Eff2S] = action.Eff2V;
-                    NodeStates[o + action.Eff3S] = action.Eff3V;
-                    NodeStates[o + action.Eff4S] = action.Eff4V;
-                    NodeStates[o + action.Eff5S] = action.Eff5V;
-                    NodeStates[o + action.Eff6S] = action.Eff6V;
-                    NodeStates[o + action.Eff7S] = action.Eff7V;
+                    NodeStates[o + action.Eff0S] = ApplyEff(NodeStates[o + action.Eff0S], action.Eff0Op, action.Eff0V);
+                    NodeStates[o + action.Eff1S] = ApplyEff(NodeStates[o + action.Eff1S], action.Eff1Op, action.Eff1V);
+                    NodeStates[o + action.Eff2S] = ApplyEff(NodeStates[o + action.Eff2S], action.Eff2Op, action.Eff2V);
+                    NodeStates[o + action.Eff3S] = ApplyEff(NodeStates[o + action.Eff3S], action.Eff3Op, action.Eff3V);
+                    NodeStates[o + action.Eff4S] = ApplyEff(NodeStates[o + action.Eff4S], action.Eff4Op, action.Eff4V);
+                    NodeStates[o + action.Eff5S] = ApplyEff(NodeStates[o + action.Eff5S], action.Eff5Op, action.Eff5V);
+                    NodeStates[o + action.Eff6S] = ApplyEff(NodeStates[o + action.Eff6S], action.Eff6Op, action.Eff6V);
+                    NodeStates[o + action.Eff7S] = ApplyEff(NodeStates[o + action.Eff7S], action.Eff7Op, action.Eff7V);
                     return;
             }
         }
@@ -408,11 +428,11 @@ namespace AIVillage.Core.GOAP
         /// 특정 노드 상태에 대한 휴리스틱 h(n)을 계산한다.
         ///
         /// 공식: h(n) = 미충족 목표 슬롯 수 x HEURISTIC_WEIGHT(2.9f)
+        /// GoalOps를 통해 수치형 목표의 미충족도 정확히 판정한다.
         ///
-        /// 허용 가능성(admissibility):
-        ///   HEURISTIC_WEIGHT(2.9f) &lt; 최소 Action 비용(MoveToBase=3.0f) 이므로
-        ///   이 휴리스틱은 실제 비용을 과대평가하지 않는다 (admissible).
-        ///   A*가 항상 최적 플랜을 보장하면서도 탐색 방향성을 제공한다.
+        /// admissibility: HEURISTIC_WEIGHT(2.9f) &lt; 최소 Action 비용(MoveToBase=3.0f).
+        /// 수치형 목표에서는 1슬롯 미충족 시 실제로 여러 액션이 필요하지만,
+        /// 카운트 × 2.9f는 여전히 실제 비용의 하한이므로 admissible. (W4에서 개선)
         /// </summary>
         private float CalculateHeuristic(int nodeIdx, int totalSlots)
         {
@@ -421,7 +441,7 @@ namespace AIVillage.Core.GOAP
 
             for (int s = 0; s < totalSlots; s++)
             {
-                if (GoalMask[s] == 1 && NodeStates[offset + s] != GoalState[s])
+                if (GoalMask[s] == 1 && !PrecHolds(NodeStates[offset + s], GoalOps[s], GoalState[s]))
                     unsatisfied++;
             }
 

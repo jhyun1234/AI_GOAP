@@ -174,8 +174,38 @@ namespace AIVillage.Core.GOAP
         /// <summary>식사 조리 완료 플래그.</summary>
         public const int MealCooked        = 42;
 
+        // ── [Phase 2] 수치 슬롯 (43~51) ── 값은 0/1이 아니라 원시 단위 정수다. ──
+        // AuthoritativeWorldState 가용량(총량-예약량)과 VillagerBrain 스탯을 그대로 미러링한다.
+
+        /// <summary>마을 목재 가용량 (정수). registry.GetAvailable(Wood) 미러.</summary>
+        public const int WoodStock       = 43;
+
+        /// <summary>마을 석재 가용량 (정수).</summary>
+        public const int StoneStock      = 44;
+
+        /// <summary>마을 철 가용량 (정수).</summary>
+        public const int IronStock       = 45;
+
+        /// <summary>마을 구리 가용량 (정수).</summary>
+        public const int CopperStock     = 46;
+
+        /// <summary>마을 생 식량 가용량 (정수).</summary>
+        public const int RawFoodStock    = 47;
+
+        /// <summary>마을 조리 식량 가용량 (정수).</summary>
+        public const int CookedFoodStock = 48;
+
+        /// <summary>이 주민의 배고픔 0~100 (VillagerBrain.HungerLevel 미러).</summary>
+        public const int MyHunger        = 49;
+
+        /// <summary>이 주민의 피로도 0~100 (VillagerBrain.FatigueLevel 미러).</summary>
+        public const int MyFatigue       = 50;
+
+        /// <summary>이 주민의 체력 0~100 (VillagerBrain.HealthLevel 미러).</summary>
+        public const int MyHealth        = 51;
+
         /// <summary>NativeArray 총 슬롯 수. 할당 시 반드시 이 값을 사용한다.</summary>
-        public const int TOTAL_SLOTS = 43;
+        public const int TOTAL_SLOTS = 52;
     }
 
     // ────────────────────────────────────────────────────────────────────────────
@@ -310,31 +340,49 @@ namespace AIVillage.Core.GOAP
             // ── 목표 달성 플래그: 플래닝 시작 시 항상 0 ──────────────────────
             // 슬롯 35~42는 NativeArray 생성 시 이미 0으로 초기화되므로 명시적 설정 불필요.
 
+            // ── [Phase 2] 수치 슬롯 (43~51) — 가용량과 스탯을 그대로 미러링 ──
+            // 플래너가 예약된 자원 위에 계획을 세우지 않도록 가용량(총량-예약량)을 사용한다.
+            state[GOAPPlanningSlots.WoodStock]       = (int)availWood;
+            state[GOAPPlanningSlots.StoneStock]      = (int)availStone;
+            state[GOAPPlanningSlots.IronStock]       = (int)availIron;
+            state[GOAPPlanningSlots.CopperStock]     = (int)availCopper;
+            state[GOAPPlanningSlots.RawFoodStock]    = (int)availRawFood;
+            state[GOAPPlanningSlots.CookedFoodStock] = (int)availCooked;
+            state[GOAPPlanningSlots.MyHunger]        = (int)brain.HungerLevel;
+            state[GOAPPlanningSlots.MyFatigue]       = (int)brain.FatigueLevel;
+            state[GOAPPlanningSlots.MyHealth]        = (int)brain.HealthLevel;
+
             return state;
         }
 
         /// <summary>
-        /// goalId를 받아 GOAP 탐색이 달성해야 하는 목표 상태(goalState)와
-        /// 어떤 슬롯이 목표에 포함되는지를 나타내는 마스크(goalMask)를 생성한다.
+        /// goalId를 받아 GOAP 탐색이 달성해야 하는 목표 상태(goalState), 마스크(goalMask),
+        /// 슬롯별 판정 연산자(goalOps)를 생성한다.
         ///
-        /// goalMask[i] = 1인 슬롯에 대해 state[i] == goalState[i]이면 목표 달성이다.
-        /// goalMask[i] = 0인 슬롯은 목표 달성 판정에서 무시한다.
+        /// goalMask[i]=1인 슬롯에 대해 PrecHolds(state[i], goalOps[i], goalState[i])이면 목표 달성.
+        /// goalOps[i]: 0=Equal(기존 불리언), 1=GreaterEq, 2=LessEq
+        /// useNumericGoals=false(기본)이면 goalOps 전부 0 → 기존 불리언 동작과 동일.
         ///
-        /// 호출자는 반환된 두 배열을 모두 Dispose해야 한다.
+        /// 호출자는 반환된 세 배열을 모두 Dispose해야 한다.
         /// </summary>
         /// <param name="goalId">목표 식별자 문자열 (예: "SurviveHunger", "GatherResources").</param>
         /// <param name="goalState">목표 달성 시 각 슬롯의 목표 값 (out).</param>
         /// <param name="goalMask">목표 판정에 포함되는 슬롯 마스크 (out). 1=포함, 0=무시.</param>
+        /// <param name="goalOps">슬롯별 판정 연산자 (out). 0=Equal, 1=GreaterEq, 2=LessEq.</param>
+        /// <param name="useNumericGoals">true이면 수치형 슬롯으로 목표를 정의한다 (ADR-8).</param>
         /// <param name="allocator">NativeArray 할당자.</param>
         public static void BuildGoalState(
             string               goalId,
             out NativeArray<int> goalState,
             out NativeArray<int> goalMask,
+            out NativeArray<int> goalOps,
+            bool                 useNumericGoals = false,
             Allocator            allocator = Allocator.Persistent)
         {
             goalState = new NativeArray<int>(GOAPPlanningSlots.TOTAL_SLOTS, allocator);
             goalMask  = new NativeArray<int>(GOAPPlanningSlots.TOTAL_SLOTS, allocator);
-            // 두 배열 모두 생성 시 자동으로 0으로 초기화된다.
+            goalOps   = new NativeArray<int>(GOAPPlanningSlots.TOTAL_SLOTS, allocator);
+            // 세 배열 모두 생성 시 자동으로 0으로 초기화된다 (0 = Equal / 레거시 동작).
 
             if (string.IsNullOrEmpty(goalId))
             {
@@ -350,28 +398,120 @@ namespace AIVillage.Core.GOAP
             {
                 // P0: 생존 위기 해결
                 case "SurviveHunger":
-                    goalMask[GOAPPlanningSlots.HungerSolved]  = 1;
-                    goalState[GOAPPlanningSlots.HungerSolved] = 1;
+                    if (useNumericGoals)
+                    {
+                        // MyHunger LessEq 30 (배고픔을 30 이하로 낮추면 달성)
+                        goalMask[GOAPPlanningSlots.MyHunger]  = 1;
+                        goalState[GOAPPlanningSlots.MyHunger] = 30;
+                        goalOps[GOAPPlanningSlots.MyHunger]   = 2; // LessEq
+                    }
+                    else
+                    {
+                        goalMask[GOAPPlanningSlots.HungerSolved]  = 1;
+                        goalState[GOAPPlanningSlots.HungerSolved] = 1;
+                    }
                     break;
 
                 case "SurviveInjury":
-                    goalMask[GOAPPlanningSlots.InjurySolved]  = 1;
-                    goalState[GOAPPlanningSlots.InjurySolved] = 1;
+                    if (useNumericGoals)
+                    {
+                        // MyHealth GreaterEq 60
+                        goalMask[GOAPPlanningSlots.MyHealth]  = 1;
+                        goalState[GOAPPlanningSlots.MyHealth] = 60;
+                        goalOps[GOAPPlanningSlots.MyHealth]   = 1; // GreaterEq
+                    }
+                    else
+                    {
+                        goalMask[GOAPPlanningSlots.InjurySolved]  = 1;
+                        goalState[GOAPPlanningSlots.InjurySolved] = 1;
+                    }
                     break;
 
                 case "SurviveFatigue":
-                    goalMask[GOAPPlanningSlots.FatigueSolved]  = 1;
-                    goalState[GOAPPlanningSlots.FatigueSolved] = 1;
+                    if (useNumericGoals)
+                    {
+                        // MyFatigue LessEq 30
+                        goalMask[GOAPPlanningSlots.MyFatigue]  = 1;
+                        goalState[GOAPPlanningSlots.MyFatigue] = 30;
+                        goalOps[GOAPPlanningSlots.MyFatigue]   = 2; // LessEq
+                    }
+                    else
+                    {
+                        goalMask[GOAPPlanningSlots.FatigueSolved]  = 1;
+                        goalState[GOAPPlanningSlots.FatigueSolved] = 1;
+                    }
                     break;
 
-                // P2: 자원 수집
+                // P2: 자원 수집 (수치형: 각 자원 30 이상 보유)
                 case "GatherResources":
+                    if (useNumericGoals)
+                    {
+                        // 기본: 목재 30 이상 확보 (GoalArbiter(W8)가 자원별 분기 결정)
+                        goalMask[GOAPPlanningSlots.WoodStock]  = 1;
+                        goalState[GOAPPlanningSlots.WoodStock] = 30;
+                        goalOps[GOAPPlanningSlots.WoodStock]   = 1; // GreaterEq
+                    }
+                    else
+                    {
+                        goalMask[GOAPPlanningSlots.ResourcesGathered]  = 1;
+                        goalState[GOAPPlanningSlots.ResourcesGathered] = 1;
+                    }
+                    break;
+
                 case "GatherWood":
+                    if (useNumericGoals)
+                    {
+                        goalMask[GOAPPlanningSlots.WoodStock]  = 1;
+                        goalState[GOAPPlanningSlots.WoodStock] = 30;
+                        goalOps[GOAPPlanningSlots.WoodStock]   = 1; // GreaterEq
+                    }
+                    else
+                    {
+                        goalMask[GOAPPlanningSlots.ResourcesGathered]  = 1;
+                        goalState[GOAPPlanningSlots.ResourcesGathered] = 1;
+                    }
+                    break;
+
                 case "GatherStone":
+                    if (useNumericGoals)
+                    {
+                        goalMask[GOAPPlanningSlots.StoneStock]  = 1;
+                        goalState[GOAPPlanningSlots.StoneStock] = 30;
+                        goalOps[GOAPPlanningSlots.StoneStock]   = 1; // GreaterEq
+                    }
+                    else
+                    {
+                        goalMask[GOAPPlanningSlots.ResourcesGathered]  = 1;
+                        goalState[GOAPPlanningSlots.ResourcesGathered] = 1;
+                    }
+                    break;
+
                 case "GatherIron":
+                    if (useNumericGoals)
+                    {
+                        goalMask[GOAPPlanningSlots.IronStock]  = 1;
+                        goalState[GOAPPlanningSlots.IronStock] = 15;
+                        goalOps[GOAPPlanningSlots.IronStock]   = 1; // GreaterEq
+                    }
+                    else
+                    {
+                        goalMask[GOAPPlanningSlots.ResourcesGathered]  = 1;
+                        goalState[GOAPPlanningSlots.ResourcesGathered] = 1;
+                    }
+                    break;
+
                 case "GatherCopper":
-                    goalMask[GOAPPlanningSlots.ResourcesGathered]  = 1;
-                    goalState[GOAPPlanningSlots.ResourcesGathered] = 1;
+                    if (useNumericGoals)
+                    {
+                        goalMask[GOAPPlanningSlots.CopperStock]  = 1;
+                        goalState[GOAPPlanningSlots.CopperStock] = 15;
+                        goalOps[GOAPPlanningSlots.CopperStock]   = 1; // GreaterEq
+                    }
+                    else
+                    {
+                        goalMask[GOAPPlanningSlots.ResourcesGathered]  = 1;
+                        goalState[GOAPPlanningSlots.ResourcesGathered] = 1;
+                    }
                     break;
 
                 // P2: 건설
@@ -395,8 +535,18 @@ namespace AIVillage.Core.GOAP
 
                 // 요리
                 case "CookMeal":
-                    goalMask[GOAPPlanningSlots.MealCooked]  = 1;
-                    goalState[GOAPPlanningSlots.MealCooked] = 1;
+                    if (useNumericGoals)
+                    {
+                        // CookedFoodStock GreaterEq 3
+                        goalMask[GOAPPlanningSlots.CookedFoodStock]  = 1;
+                        goalState[GOAPPlanningSlots.CookedFoodStock] = 3;
+                        goalOps[GOAPPlanningSlots.CookedFoodStock]   = 1; // GreaterEq
+                    }
+                    else
+                    {
+                        goalMask[GOAPPlanningSlots.MealCooked]  = 1;
+                        goalState[GOAPPlanningSlots.MealCooked] = 1;
+                    }
                     break;
 
                 // 기지 복귀 (Deadlock 폴백 Goal)
@@ -405,8 +555,6 @@ namespace AIVillage.Core.GOAP
                     goalState[GOAPPlanningSlots.AtBase] = 1;
                     break;
 
-                // [PR Fix]: Major-2 — "MoveToTarget" goalId 처리 추가
-                // 기존 default case에서는 이 goalId가 "알 수 없음"으로 처리되어 goalMask all-zero가 됨.
                 // MoveToTarget은 AtBase 달성을 목표로 하는 이동 Goal로 처리한다.
                 case "MoveToTarget":
                     goalMask[GOAPPlanningSlots.AtBase]  = 1;
@@ -416,7 +564,6 @@ namespace AIVillage.Core.GOAP
                 default:
                     // 인식되지 않은 goalId: 마스크를 모두 0으로 유지
                     // GOAPPlannerScheduler.Schedule()이 goalMask all-zero 방어 코드로 처리한다.
-                    // (Major-2 수정: Scheduler가 즉시 return default로 Schedule 중단)
                     UnityEngine.Debug.LogWarning(
                         $"[GOAPStateUtil] BuildGoalState: 알 수 없는 goalId '{goalId}'. " +
                         $"빈 마스크를 반환합니다. GOAPPlannerScheduler가 Schedule을 중단합니다."

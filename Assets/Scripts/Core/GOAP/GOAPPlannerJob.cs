@@ -9,7 +9,7 @@
 ///   - 노드: (월드 스테이트, 현재 비용 g, 휴리스틱 h, 부모, 액션)
 ///   - 열린 목록: NativeArray 기반 최소 이진 힙 (최소 f-cost 우선)
 ///   - 목표 판정: GoalMask가 1인 슬롯이 모두 GoalState와 일치하면 성공
-///   - 깊이 제한: MAX_DEPTH=6 (기획 명세)
+///   - 깊이 제한: MAX_DEPTH=12 (N1: Explore+×6 멀티스텝 플랜 허용)
 ///   - 노드 수 제한: MAX_NODES=2048
 ///   - 휴리스틱: 미충족 목표 슬롯 수 x 2.9f (admissible)
 ///
@@ -43,11 +43,11 @@ namespace AIVillage.Core.GOAP
         // 2048로 복귀 실험: NoSolutionFound 발생 시 4096으로 조정.
         public const int MAX_NODES    = 2048;
 
-        /// <summary>플랜 최대 깊이. 기획 명세: 6단계. 이 깊이를 초과하면 노드를 확장하지 않는다.</summary>
-        public const int MAX_DEPTH    = 6;
+        /// <summary>플랜 최대 깊이. [N1] 12단계: Explore+ChopWood×6(7스텝) 등 멀티스텝 플랜 허용.</summary>
+        public const int MAX_DEPTH    = 12;
 
         /// <summary>결과 플랜 최대 길이 (= MAX_DEPTH).</summary>
-        public const int MAX_PLAN_LEN = 6;
+        public const int MAX_PLAN_LEN = 12;
 
         // ────────────────────────────────────────────────────────────────────
         // [S2] HEURISTIC_WEIGHT 2.9f 하드코딩 삭제 (ADR-5).

@@ -164,7 +164,11 @@ namespace AIVillage.UI
             _sb.Append(GoalToKorean(b.CurrentGoalId));
             _sb.Append("</color> → ");
 
-            for (int idx = 0; idx < total; idx++)
+            // [N1] 12스텝 플랜 대응: 패널 가로 넘침 방지를 위해 최대 8스텝까지 표시
+            const int MAX_DISPLAY = 8;
+            int displayCount = total <= MAX_DISPLAY ? total : MAX_DISPLAY;
+
+            for (int idx = 0; idx < displayCount; idx++)
             {
                 if (idx > 0) _sb.Append(" ▸ ");
                 string act = fullPlan[idx];
@@ -190,6 +194,12 @@ namespace AIVillage.UI
                     _sb.Append("</color>");
                 }
             }
+
+            if (total > MAX_DISPLAY)
+            {
+                _sb.Append($" <color=#666666>▸ …(+{total - MAX_DISPLAY})</color>");
+            }
+
             _sb.Append('\n');
         }
 

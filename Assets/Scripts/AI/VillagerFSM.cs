@@ -1759,12 +1759,12 @@ namespace AIVillage.AI
         {
             if (_registry == null) return null;
 
-            // 각 임계값은 BuildGoalState의 수치형 Goal 목표치와 일치해야 한다.
+            // 각 임계값은 BuildGoalState의 수치형 Goal 목표치와 반드시 일치해야 한다.
             // 목표치 < 임계값이면 alreadySatisfied 루프 발생: goal 발동 → 즉시 달성 → Idle → 재발동 무한반복.
-            // T_COMMON=25: Explore(1)+ChopWood×5(5)=6액션으로 0에서 25(=5×5) 달성 — MAX_DEPTH(6) 이내
-            // T_FOOD=15:   Explore(1)+Harvest×5(5)=6액션으로 0에서 15(=5×3) 달성 — MAX_DEPTH(6) 이내
+            // [N1] T_COMMON=30: Explore(1)+ChopWood×6(6)=7액션으로 0에서 30(=6×5) 달성 — MAX_DEPTH(12) 이내
+            // T_FOOD=15:   Explore(1)+Harvest×5(5)=6액션으로 0에서 15(=5×3) 달성 — MAX_DEPTH(12) 이내
             // T_RARE=15:   Iron/Copper 목표치와 동일 (이미 정합)
-            const float T_COMMON = 25f;
+            const float T_COMMON = 30f;
             const float T_RARE   = 15f;
             const float T_FOOD   = 15f;
 

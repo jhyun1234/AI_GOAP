@@ -403,11 +403,10 @@ namespace AIVillage.Core.GOAP
                 case "SurviveHunger":
                     if (useNumericGoals)
                     {
-                        // MyHunger LessEq 55: EatRawFood(15) × 3 = 45 감소
-                        // P0 최대 허기(100)에서 3회 섭취: 100→85→70→55 ≤ 55 (Explore+Harvest+Eat×3 = 5액션)
-                        // 목표 30이면 4회 섭취 필요 + 2회 수확 → MAX_DEPTH(6) 초과로 플래닝 실패
+                        // [N1] MyHunger LessEq 30: MAX_DEPTH(12)로 복원된 원래 설계 목표치.
+                        // 최악 경우(허기 100, 식량 0): Explore+Harvest×2+Eat×5 = 8액션 ≤ 12
                         goalMask[GOAPPlanningSlots.MyHunger]  = 1;
-                        goalState[GOAPPlanningSlots.MyHunger] = 55;
+                        goalState[GOAPPlanningSlots.MyHunger] = 30;
                         goalOps[GOAPPlanningSlots.MyHunger]   = 2; // LessEq
                     }
                     else
@@ -451,10 +450,9 @@ namespace AIVillage.Core.GOAP
                 case "GatherResources":
                     if (useNumericGoals)
                     {
-                        // 기본: 목재 25 이상 확보 (GoalArbiter(W8)가 자원별 분기 결정)
-                        // 25 = MAX_DEPTH(6)-1(Explore) = 5 chops × YIELD(5) → Explore 포함 6액션 이내 달성 가능
+                        // [N1] 목재 30 이상: GoalArbiter(W8)가 자원별 분기. Explore+ChopWood×6=7액션 ≤ 12
                         goalMask[GOAPPlanningSlots.WoodStock]  = 1;
-                        goalState[GOAPPlanningSlots.WoodStock] = 25;
+                        goalState[GOAPPlanningSlots.WoodStock] = 30;
                         goalOps[GOAPPlanningSlots.WoodStock]   = 1; // GreaterEq
                     }
                     else
@@ -467,9 +465,9 @@ namespace AIVillage.Core.GOAP
                 case "GatherWood":
                     if (useNumericGoals)
                     {
-                        // 25 = 5 chops × YIELD(5). Explore 포함 MAX_DEPTH(6) 이내 달성 가능
+                        // [N1] 30 = 6 chops × YIELD(5). Explore 포함 7액션 ≤ MAX_DEPTH(12)
                         goalMask[GOAPPlanningSlots.WoodStock]  = 1;
-                        goalState[GOAPPlanningSlots.WoodStock] = 25;
+                        goalState[GOAPPlanningSlots.WoodStock] = 30;
                         goalOps[GOAPPlanningSlots.WoodStock]   = 1; // GreaterEq
                     }
                     else
@@ -482,9 +480,9 @@ namespace AIVillage.Core.GOAP
                 case "GatherStone":
                     if (useNumericGoals)
                     {
-                        // 25 = 5 mines × YIELD(5). Explore 포함 MAX_DEPTH(6) 이내 달성 가능
+                        // [N1] 30 = 6 mines × YIELD(5). Explore 포함 7액션 ≤ MAX_DEPTH(12)
                         goalMask[GOAPPlanningSlots.StoneStock]  = 1;
-                        goalState[GOAPPlanningSlots.StoneStock] = 25;
+                        goalState[GOAPPlanningSlots.StoneStock] = 30;
                         goalOps[GOAPPlanningSlots.StoneStock]   = 1; // GreaterEq
                     }
                     else
@@ -527,7 +525,7 @@ namespace AIVillage.Core.GOAP
                 case "GatherFood":
                     if (useNumericGoals)
                     {
-                        // 15 = 5 harvests × YIELD(3). Explore 포함 MAX_DEPTH(6) 이내 달성 가능
+                        // 15 = 5 harvests × YIELD(3). Explore 포함 MAX_DEPTH(12) 이내 달성 가능
                         goalMask[GOAPPlanningSlots.RawFoodStock]  = 1;
                         goalState[GOAPPlanningSlots.RawFoodStock] = 15;
                         goalOps[GOAPPlanningSlots.RawFoodStock]   = 1; // GreaterEq

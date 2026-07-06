@@ -76,8 +76,8 @@ namespace AIVillage.AI
 
         // [PR Fix]: F-005 — RestOnGround와 Sleep의 피로 회복량을 명명된 상수로 분리.
         // 두 Action의 회복량이 달라 switch case를 분리하여 관리한다.
-        private const float REST_ON_GROUND_FATIGUE_RECOVERY = 20f; // 땅에서 쉬기: 회복량 낮음
-        private const float SLEEP_FATIGUE_RECOVERY          = 90f; // 수면: 회복량 높음
+        private const float REST_ON_GROUND_FATIGUE_RECOVERY = GOAPActionRegistry.REST_FATIGUE_RELIEF;  // ADR-7: 단일 출처
+        private const float SLEEP_FATIGUE_RECOVERY          = GOAPActionRegistry.SLEEP_FATIGUE_RELIEF; // ADR-7: 단일 출처
 
         // ── [8단계] 전투 / 정신 상태 수치 ────────────────────────────────────────
         private const float BASE_VILLAGER_DAMAGE     = 8f;   // 틱당 주민이 적에게 입히는 기본 피해
@@ -2126,11 +2126,11 @@ namespace AIVillage.AI
             switch (actionId)
             {
                 case "EatCookedFood":
-                    Brain.HungerLevel = Mathf.Max(0f, Brain.HungerLevel  - 50f); // 기획서 수치
+                    Brain.HungerLevel = Mathf.Max(0f, Brain.HungerLevel  - GOAPActionRegistry.EAT_HUNGER_RELIEF); // ADR-7
                     Brain.MoodLevel   = Mathf.Min(100f, Brain.MoodLevel   + 5f);
                     break;
                 case "EatRawFood":
-                    Brain.HungerLevel = Mathf.Max(0f, Brain.HungerLevel   - 15f); // 기획서 수치
+                    Brain.HungerLevel = Mathf.Max(0f, Brain.HungerLevel   - GOAPActionRegistry.EAT_RAW_RELIEF); // ADR-7
                     break;
                 case "Sleep":
                     Brain.FatigueLevel = Mathf.Max(0f, Brain.FatigueLevel - SLEEP_FATIGUE_RECOVERY);
@@ -2139,7 +2139,7 @@ namespace AIVillage.AI
                     Brain.FatigueLevel = Mathf.Max(0f, Brain.FatigueLevel - REST_ON_GROUND_FATIGUE_RECOVERY);
                     break;
                 case "SeekMedicalAid":
-                    Brain.HealthLevel  = Mathf.Min(100f, Brain.HealthLevel + 40f);
+                    Brain.HealthLevel  = Mathf.Min(100f, Brain.HealthLevel + GOAPActionRegistry.MEDICAL_HEALTH_GAIN); // ADR-7
                     break;
                 case "ChopWood":
                     if (_worldState != null) _worldState.WoodStock  += 10f; // 기획서 수치: wood += 10

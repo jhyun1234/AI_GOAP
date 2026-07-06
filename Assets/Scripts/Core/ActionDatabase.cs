@@ -21,6 +21,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using AIVillage.AI;
+using AIVillage.Core.GOAP;
 
 namespace AIVillage.Core
 {
@@ -811,7 +812,7 @@ namespace AIVillage.Core
                 Effects = new[]
                 {
                     MakeEffect(ActionEffectType.ConsumeResource, 1f, ResourceType.CookedFood),
-                    MakeEffect(ActionEffectType.ReduceHunger,   50f), // 기획서 수치: hungerLevel -= 50
+                    MakeEffect(ActionEffectType.ReduceHunger,   GOAPActionRegistry.EAT_HUNGER_RELIEF), // ADR-7: GOAPActionRegistry 단일 출처
                     MakeEffect(ActionEffectType.GainMood,        5f)  // 기획서 수치: mood += 5
                 }
             };
@@ -825,7 +826,7 @@ namespace AIVillage.Core
                 Effects = new[]
                 {
                     MakeEffect(ActionEffectType.ConsumeResource, 1f, ResourceType.RawFood),
-                    MakeEffect(ActionEffectType.ReduceHunger, 15f) // 기획서 수치: hungerLevel -= 15
+                    MakeEffect(ActionEffectType.ReduceHunger, GOAPActionRegistry.EAT_RAW_RELIEF) // ADR-7: GOAPActionRegistry 단일 출처
                 }
             };
 
@@ -867,7 +868,7 @@ namespace AIVillage.Core
                 ResourceCosts          = System.Array.Empty<ResourceCostEntry>(),
                 Effects = new[]
                 {
-                    MakeEffect(ActionEffectType.RestoreFatigue, 90f) // 기획서 수치: fatigueLevel -= 90
+                    MakeEffect(ActionEffectType.RestoreFatigue, GOAPActionRegistry.SLEEP_FATIGUE_RELIEF) // ADR-7: GOAPActionRegistry 단일 출처
                 }
             };
 
@@ -879,7 +880,7 @@ namespace AIVillage.Core
                 ResourceCosts = System.Array.Empty<ResourceCostEntry>(),
                 Effects = new[]
                 {
-                    MakeEffect(ActionEffectType.ReduceFatigue, 20f) // 기획서 수치: fatigueLevel -= 20
+                    MakeEffect(ActionEffectType.ReduceFatigue, GOAPActionRegistry.REST_FATIGUE_RELIEF) // ADR-7: GOAPActionRegistry 단일 출처
                 }
             };
 
@@ -892,7 +893,7 @@ namespace AIVillage.Core
                 ResourceCosts      = System.Array.Empty<ResourceCostEntry>(),
                 Effects = new[]
                 {
-                    MakeEffect(ActionEffectType.GainHealth, 40f) // 기획서 수치: healthLevel += 40
+                    MakeEffect(ActionEffectType.GainHealth, GOAPActionRegistry.MEDICAL_HEALTH_GAIN) // ADR-7: GOAPActionRegistry 단일 출처
                 }
             };
 

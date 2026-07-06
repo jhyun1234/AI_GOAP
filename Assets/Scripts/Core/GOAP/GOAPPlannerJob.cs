@@ -89,6 +89,9 @@ namespace AIVillage.Core.GOAP
         /// </summary>
         public NativeArray<int> ResultLength;
 
+        /// <summary>[N0 계측] 이번 탐색에서 생성(할당)한 노드 수. 힙에 삽입된 수이며 루트(1) 포함. NodesExpanded[0]에 기록.</summary>
+        public NativeArray<int> NodesExpanded;
+
         // ────────────────────────────────────────────────────────────────────
         // 내부 작업 버퍼 (Persistent 할당 — GOAPPlannerScheduler가 생성/Dispose 담당)
         // ────────────────────────────────────────────────────────────────────
@@ -167,7 +170,8 @@ namespace AIVillage.Core.GOAP
         public void Execute()
         {
             // ── 출력 초기화: 실패 기본값 ──────────────────────────────────
-            ResultLength[0] = 0;
+            ResultLength[0]  = 0;
+            NodesExpanded[0] = 0;
 
             int totalSlots = GOAPPlanningSlots.TOTAL_SLOTS;
 
@@ -225,6 +229,7 @@ namespace AIVillage.Core.GOAP
                 // ── 목표 달성 확인 ────────────────────────────────────────
                 if (IsGoalSatisfiedAtNode(current, totalSlots))
                 {
+                    NodesExpanded[0] = nodeCount;
                     Backtrack(current);
                     return; // 탐색 성공
                 }
@@ -281,6 +286,7 @@ namespace AIVillage.Core.GOAP
             // 성능(1.8ms 예산) 우선. 더 정밀한 처리가 필요하면 MAX_NODES를 늘리거나
             // 최적성이 필요한 Goal만 별도 처리한다.
             // ResultLength[0] = 0 유지 (VillagerFSM이 Replanning으로 전이)
+            NodesExpanded[0] = nodeCount;
         }
 
         // ────────────────────────────────────────────────────────────────────

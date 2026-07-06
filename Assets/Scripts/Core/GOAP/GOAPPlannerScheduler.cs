@@ -110,6 +110,15 @@ namespace AIVillage.Core.GOAP
             /// <summary>ResultActions의 실제 유효 길이. [0] = 0이면 플래닝 실패.</summary>
             public NativeArray<int> ResultLength;
 
+            /// <summary>[N0 계측] 이번 탐색에서 생성(할당)한 노드 수. 힙 삽입 수이며 루트(1) 포함. [0]에 기록.</summary>
+            public NativeArray<int> NodesExpanded;
+
+            /// <summary>[N0 계측] 퍼프 로그 식별용 Goal ID.</summary>
+            public string GoalId;
+
+            /// <summary>[N0 계측] 퍼프 로그 식별용 에이전트 이름.</summary>
+            public string AgentName;
+
             // ── 내부 작업 버퍼 (Job 실행 중에만 유효) ───────────────────────
 
             /// <summary>노드별 월드 스테이트 버퍼 (MAX_NODES x TOTAL_SLOTS).</summary>
@@ -185,6 +194,16 @@ namespace AIVillage.Core.GOAP
 
                 int planLength = ResultLength[0];
 
+#if GOAP_PERF_LOG
+                if (NodesExpanded.IsCreated)
+                {
+                    string result = planLength == -1 ? "AlreadySatisfied"
+                                  : planLength == 0  ? "NoSolution"
+                                  : $"Plan({planLength})";
+                    Debug.Log($"[GOAP Perf] Agent={AgentName} Goal={GoalId} Nodes={NodesExpanded[0]} Result={result}");
+                }
+#endif
+
                 // [PR Fix]: N-001 — planLength == -1: 이미 목표 달성 특수값 처리
                 // GOAPPlannerJob.Execute()에서 현재 상태가 이미 목표를 만족할 때 -1을 설정한다.
                 // 이 경우 빈 플랜(액션 없이 Executing으로 전이)을 의미한다.
@@ -229,9 +248,10 @@ namespace AIVillage.Core.GOAP
                 if (GoalMask.IsCreated)      GoalMask.Dispose();
                 if (GoalOps.IsCreated)       GoalOps.Dispose();
                 if (Actions.IsCreated)       Actions.Dispose();
-                if (ResultActions.IsCreated) ResultActions.Dispose();
-                if (ResultLength.IsCreated)  ResultLength.Dispose();
-                if (NodeStates.IsCreated)    NodeStates.Dispose();
+                if (ResultActions.IsCreated)  ResultActions.Dispose();
+                if (ResultLength.IsCreated)   ResultLength.Dispose();
+                if (NodesExpanded.IsCreated)  NodesExpanded.Dispose();
+                if (NodeStates.IsCreated)     NodeStates.Dispose();
                 if (NodeCosts.IsCreated)     NodeCosts.Dispose();
                 // [PR Fix]: Critical-1 — NodeGCosts Dispose 추가
                 if (NodeGCosts.IsCreated)    NodeGCosts.Dispose();
@@ -339,6 +359,8 @@ namespace AIVillage.Core.GOAP
             // [S2] 슬롯별 최대 효과량 버퍼
             NativeArray<float>         maxGain        = default;
             NativeArray<float>         maxDrop        = default;
+            // [N0] 노드 확장 수 계측 버퍼
+            NativeArray<int>           nodesExpanded  = default;
 
             try
             {
@@ -397,6 +419,8 @@ namespace AIVillage.Core.GOAP
                 visitedGCosts  = new NativeArray<float>(maxNodes * 2, alloc);
                 // [S2] 액션 배열 1회 스캔 → 슬롯별 MaxGain/MaxDrop 산출
                 GOAPActionRegistry.BuildMaxGainDrop(actions, totalSlots, alloc, out maxGain, out maxDrop);
+                // [N0] 노드 확장 수 계측
+                nodesExpanded = new NativeArray<int>(1, alloc);
             }
             catch (System.Exception e)
             {
@@ -424,6 +448,8 @@ namespace AIVillage.Core.GOAP
                 // [S2]
                 if (maxGain.IsCreated)         maxGain.Dispose();
                 if (maxDrop.IsCreated)         maxDrop.Dispose();
+                // [N0]
+                if (nodesExpanded.IsCreated)   nodesExpanded.Dispose();
                 return default;
             }
 
@@ -452,7 +478,9 @@ namespace AIVillage.Core.GOAP
                 VisitedGCosts  = visitedGCosts,
                 // [S2] 슬롯별 최대 효과량
                 MaxGain        = maxGain,
-                MaxDrop        = maxDrop
+                MaxDrop        = maxDrop,
+                // [N0] 노드 확장 수 계측
+                NodesExpanded  = nodesExpanded
             };
 
             // ── Job 스케줄링 ─────────────────────────────────────────────────
@@ -487,7 +515,11 @@ namespace AIVillage.Core.GOAP
                 VisitedGCosts  = visitedGCosts,
                 // [S2] 슬롯별 최대 효과량
                 MaxGain        = maxGain,
-                MaxDrop        = maxDrop
+                MaxDrop        = maxDrop,
+                // [N0] 노드 확장 수 계측 + 식별 정보
+                NodesExpanded  = nodesExpanded,
+                GoalId         = goalId,
+                AgentName      = brain.name
             };
         }
 

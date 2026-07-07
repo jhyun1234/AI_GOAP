@@ -67,6 +67,16 @@ namespace AIVillage.AI
         private const float GATHER_STOCK_LOW_THRESHOLD  = 30f;  // 이 미만이면 수집 Goal
         private const float GATHER_STOCK_HIGH_THRESHOLD = 50f;  // 이 이상이면 수집 불필요
 
+        // ── [C2 T14] P0 생존 Goal 발동 임계값 (기획서 원본, ADR-T5로 승격) ────
+        // IsP0GoalActive/GetP0GoalId의 리터럴이었던 값을 클래스 상수로 승격한다.
+        // T14 정합성 테스트가 이 상수와 BuildGoalState 목표치의 방향성을 검증한다.
+        // - Injury: 발동 HealthLevel < 20, 목표 MyHealth GreaterEq 60 (역방향, 20 < 60 정상)
+        // - Hunger: 발동 HungerLevel > 80, 목표 MyHunger LessEq 30 (역방향, 81 > 30 정상)
+        // - Fatigue: 발동 FatigueLevel > 90, 목표 MyFatigue LessEq 30 (역방향, 91 > 30 정상)
+        internal const float P0_INJURY_TRIGGER_HEALTH  = 20f;
+        internal const float P0_HUNGER_TRIGGER_HUNGER  = 80f;
+        internal const float P0_FATIGUE_TRIGGER_FATIGUE = 90f;
+
         // 사망 후 GameObject 비활성화까지 대기 시간 (연출용)
         private const float DEATH_DEACTIVATE_DELAY = 5.0f;
 
@@ -160,6 +170,13 @@ namespace AIVillage.AI
         // Planning 상태 진입 시 Schedule()로 생성, 완료 또는 타임아웃 시 Dispose()된다.
         // IsScheduled 플래그로 유효성을 확인한다.
         private GOAPPlannerScheduler.PlanningContext _planningContext;
+
+        // ── [N3b] 플랜 수선 카운터 (FallbackCounter와 별도 — 의미가 다르다) ──
+        // 수선: 실행 중 세계 변화로 Prec 불충족 → Goal 유지 채 재플래닝
+        // FallbackCounter: 플랜 자체 실패 횟수 (NoSolutionFound)
+        private int    _planRepairCount;
+        private bool   _replanTriggeredByRepair;
+        private string _lastPlanningGoalId;
 
         // ── 수신 메시지 내부 큐 (우선순위 정렬 SortedList — 3단계) ──────────────
         // MessageBus가 이 에이전트에게 전달한 메시지를 우선순위 순으로 처리한다.
@@ -796,7 +813,9 @@ namespace AIVillage.AI
                     Brain.CurrentPlanFull.Add(actionId);
                 }
 
-                Brain.FallbackCounter = 0;
+                Brain.FallbackCounter      = 0;
+                _planRepairCount           = 0; // [N3b] 수선 성공 → 카운터 리셋
+                _replanTriggeredByRepair   = false;
 
                 Debug.Log(
                     $"[VillagerFSM] Planning 성공 (GOAPPlannerJob). " +
@@ -807,6 +826,23 @@ namespace AIVillage.AI
             }
             else
             {
+                // [N3b] 수선 트리거 재플래닝이 실패한 경우 수선 카운터를 증가시킨다.
+                if (_replanTriggeredByRepair)
+                {
+                    _replanTriggeredByRepair = false;
+                    _planRepairCount++;
+                    if (_planRepairCount >= 2)
+                    {
+                        // 2연속 수선 실패 → Goal 재선택 (Idle 복귀)
+                        Debug.LogWarning(
+                            $"[VillagerFSM] 플랜 수선 2연속 실패. Goal 재선택. AgentId={AgentId}");
+                        _planRepairCount    = 0;
+                        Brain.CurrentGoalId = string.Empty;
+                        TransitionTo(VillagerState.Idle);
+                        return;
+                    }
+                }
+
                 // 해결책 없음 → Replanning
                 Debug.LogWarning(
                     $"[VillagerFSM] Planning 실패 (NoSolutionFound). " +
@@ -862,12 +898,26 @@ namespace AIVillage.AI
             // 큐에 남은 Action이 있으면 다음 Action 시작
             if (Brain.CurrentPlan.Count > 0)
             {
+                // [N3b] 사전 검증: 다음 액션 Prec을 최신 스냅샷으로 재검사한다.
+                // Prec 불충족 시 Goal을 유지한 채 Replanning (완료 진척 보존).
+                string nextAction = Brain.CurrentPlan.Peek();
+                if (!CheckNextActionPrec(nextAction))
+                {
+                    _replanTriggeredByRepair = true;
+                    ShowThoughtBubble(Pick(THOUGHT_PLAN_REPAIR));
+                    Debug.Log(
+                        $"[VillagerFSM] 플랜 수선: '{nextAction}' Prec 불충족 → " +
+                        $"Goal='{Brain.CurrentGoalId}' 유지 채 Replanning. AgentId={AgentId}");
+                    TransitionTo(VillagerState.Replanning);
+                    return;
+                }
                 StartNextAction();
             }
             else
             {
                 // 모든 Action 완료 → Goal 달성, Idle로 복귀
                 Debug.Log($"[VillagerFSM] 플랜 완료. Goal={Brain.CurrentGoalId}. AgentId={AgentId}");
+                _planRepairCount      = 0;
                 Brain.CurrentGoalId   = null;
                 Brain.CurrentActionId = null;
                 TransitionTo(VillagerState.Idle);
@@ -1256,6 +1306,14 @@ namespace AIVillage.AI
         /// </summary>
         private void EnterPlanning()
         {
+            // [N3b] Goal이 바뀌면 수선 카운터 리셋 (다른 Goal의 수선 실패 누적 방지)
+            if (_lastPlanningGoalId != Brain.CurrentGoalId)
+            {
+                _planRepairCount         = 0;
+                _replanTriggeredByRepair = false;
+            }
+            _lastPlanningGoalId = Brain.CurrentGoalId;
+
             // 이전 플랜 큐 초기화
             Brain.CurrentPlan.Clear();
             Brain.IsExecutingPlan   = false;
@@ -1294,6 +1352,34 @@ namespace AIVillage.AI
                     $"AgentId={AgentId}"
                 );
             }
+        }
+
+        /// <summary>
+        /// [N3b] 다음 액션의 Precondition이 현재 월드 스테이트에서 충족되는지 검사한다.
+        /// 충족되면 true, 불충족이면 false (수선 Replanning 트리거용).
+        /// 방어 코드: _worldState/_registry가 null이거나 액션 정의를 못 찾으면 true 반환(통과).
+        /// </summary>
+        private bool CheckNextActionPrec(string nextActionId)
+        {
+            if (_worldState == null || Brain == null) return true;
+
+            int actionHash = Animator.StringToHash(nextActionId);
+            var state   = GOAPStateUtil.BuildCurrentState(_worldState, _registry, Brain, Unity.Collections.Allocator.Temp);
+            var defs    = GOAPActionRegistry.BuildActionDefs(Brain.Role, Unity.Collections.Allocator.Temp, 1.0f);
+
+            bool precHolds = true;
+            for (int i = 0; i < defs.Length; i++)
+            {
+                if (defs[i].ActionStringHash == actionHash)
+                {
+                    precHolds = defs[i].CheckPreconditions(state);
+                    break;
+                }
+            }
+
+            state.Dispose();
+            defs.Dispose();
+            return precHolds;
         }
 
         /// <summary>Executing 상태 진입 초기화. 첫 Action을 큐에서 꺼내 실행 시작.</summary>
@@ -1347,9 +1433,11 @@ namespace AIVillage.AI
             Brain.IsExecutingPlan = false;
 
             // 쿨다운 설정 (P0 Goal은 이 쿨다운을 무시하고 Update()에서 강제 전이)
-            Brain.ReplanCooldown       = UnityEngine.Random.Range(REPLAN_COOLDOWN_MIN, REPLAN_COOLDOWN_MAX);
-            Brain.LastReplanTimestamp  = Time.time;
-            Brain.FallbackCounter++;
+            Brain.ReplanCooldown      = UnityEngine.Random.Range(REPLAN_COOLDOWN_MIN, REPLAN_COOLDOWN_MAX);
+            Brain.LastReplanTimestamp = Time.time;
+            // [N3b] 수선 트리거 리플래닝은 FallbackCounter에 합산하지 않는다.
+            // 수선은 세계 변화 대응이고, Fallback은 플래닝 자체 실패다 — 의미가 다르다.
+            if (!_replanTriggeredByRepair) Brain.FallbackCounter++;
 
             // ReplanCount 딕셔너리 갱신
             if (Brain.CurrentGoalId != null)
@@ -1439,6 +1527,7 @@ namespace AIVillage.AI
         private static readonly string[] THOUGHT_NO_FOOD        = { "열매가 없어... 다른 걸 해야겠어.", "여긴 채집할 게 없네.", "식량이 없어. 다른 방법을 찾자." };
         private static readonly string[] THOUGHT_NO_EAT        = { "먹을 게 없다... 어떡하지?", "식사를 못 하겠어. 다른 방법은?", "밥을 구할 수가 없네." };
         private static readonly string[] THOUGHT_REPLAN_DEFAULT = { "계획을 다시 세워야겠어.", "이 방법은 안 되겠어. 다시 생각해보자.", "뭔가 잘못됐어. 처음부터 다시." };
+        private static readonly string[] THOUGHT_PLAN_REPAIR    = { "어라, 상황이 바뀌었네. 다시 생각해보자.", "누가 먼저 썼나... 다시 계획해야겠어.", "조건이 달라졌어. 재계획!" };
 
         // Goal 전환 대사 (F4)
         private static readonly string[] THOUGHT_GOAL_GATHER  = { "창고가 비어가네. 일하러 가자.", "자원이 부족해. 채집에 나서야겠어.", "이대로면 큰일나. 일단 자원부터." };
@@ -1705,9 +1794,9 @@ namespace AIVillage.AI
         private bool IsP0GoalActive()
         {
             if (Brain == null) return false;
-            return Brain.HealthLevel  < 20f
-                || Brain.HungerLevel  > 80f
-                || Brain.FatigueLevel > 90f;
+            return Brain.HealthLevel  < P0_INJURY_TRIGGER_HEALTH
+                || Brain.HungerLevel  > P0_HUNGER_TRIGGER_HUNGER
+                || Brain.FatigueLevel > P0_FATIGUE_TRIGGER_FATIGUE;
         }
 
         /// <summary>
@@ -1716,9 +1805,9 @@ namespace AIVillage.AI
         /// </summary>
         private string GetP0GoalId()
         {
-            if (Brain.HealthLevel  < 20f) return "SurviveInjury";
-            if (Brain.HungerLevel  > 80f) return "SurviveHunger";
-            if (Brain.FatigueLevel > 90f) return "SurviveFatigue";
+            if (Brain.HealthLevel  < P0_INJURY_TRIGGER_HEALTH)  return "SurviveInjury";
+            if (Brain.HungerLevel  > P0_HUNGER_TRIGGER_HUNGER)  return "SurviveHunger";
+            if (Brain.FatigueLevel > P0_FATIGUE_TRIGGER_FATIGUE) return "SurviveFatigue";
             return null;
         }
 
@@ -1758,36 +1847,13 @@ namespace AIVillage.AI
         private string SelectGatherGoalId()
         {
             if (_registry == null) return null;
-
-            // 각 임계값은 BuildGoalState의 수치형 Goal 목표치와 반드시 일치해야 한다.
-            // 목표치 < 임계값이면 alreadySatisfied 루프 발생: goal 발동 → 즉시 달성 → Idle → 재발동 무한반복.
-            // [N1] T_COMMON=30: Explore(1)+ChopWood×6(6)=7액션으로 0에서 30(=6×5) 달성 — MAX_DEPTH(12) 이내
-            // T_FOOD=15:   Explore(1)+Harvest×5(5)=6액션으로 0에서 15(=5×3) 달성 — MAX_DEPTH(12) 이내
-            // T_RARE=15:   Iron/Copper 목표치와 동일 (이미 정합)
-            const float T_COMMON = 30f;
-            const float T_RARE   = 15f;
-            const float T_FOOD   = 15f;
-
-            string best = null;
-            float worstRatio = 1f;
-
-            void Consider(float stock, float threshold, string goalId)
-            {
-                if (stock >= threshold) return;
-                float ratio = stock / threshold;   // 0에 가까울수록 급함
-                if (ratio < worstRatio) { worstRatio = ratio; best = goalId; }
-            }
-
-            // [S3] 도구가 없으면 벌목/채굴 Goal은 수학적으로 해가 없다 (도구 획득 액션 부재 — Phase 3 과제).
-            // 열매 채집(도구 불필요)만 후보로 남겨 Deadlock을 방지한다.
-            bool hasTool = Brain != null && Brain.HasTool;
-
-            if (hasTool) Consider(_registry.GetAvailable(ResourceType.Wood),   T_COMMON, "GatherWood");
-            if (hasTool) Consider(_registry.GetAvailable(ResourceType.Stone),  T_COMMON, "GatherStone");
-            if (hasTool) Consider(_registry.GetAvailable(ResourceType.Iron),   T_RARE,   "GatherIron");
-            if (hasTool) Consider(_registry.GetAvailable(ResourceType.Copper), T_RARE,   "GatherCopper");
-            Consider(_registry.GetAvailable(ResourceType.RawFood), T_FOOD, "GatherFood");
-            return best;
+            return GatherGoalSelector.Select(
+                _registry.GetAvailable(ResourceType.Wood),
+                _registry.GetAvailable(ResourceType.Stone),
+                _registry.GetAvailable(ResourceType.Iron),
+                _registry.GetAvailable(ResourceType.Copper),
+                _registry.GetAvailable(ResourceType.RawFood),
+                Brain != null && Brain.HasTool);
         }
 
         /// <summary>
@@ -2142,19 +2208,19 @@ namespace AIVillage.AI
                     Brain.HealthLevel  = Mathf.Min(100f, Brain.HealthLevel + GOAPActionRegistry.MEDICAL_HEALTH_GAIN); // ADR-7
                     break;
                 case "ChopWood":
-                    if (_worldState != null) _worldState.WoodStock  += 10f; // 기획서 수치: wood += 10
+                    if (_worldState != null) _worldState.WoodStock  += GOAPActionRegistry.YIELD_CHOP_WOOD; // ADR-7
                     Brain.FatigueLevel = Mathf.Min(100f, Brain.FatigueLevel + 10f);
                     break;
                 case "MineStone":
-                    if (_worldState != null) _worldState.StoneStock += 8f;  // 기획서 수치: stone += 8
+                    if (_worldState != null) _worldState.StoneStock += GOAPActionRegistry.YIELD_MINE_STONE; // ADR-7
                     Brain.FatigueLevel = Mathf.Min(100f, Brain.FatigueLevel + 15f);
                     break;
                 case "MineIron":
-                    if (_worldState != null) _worldState.IronStock  += 5f;  // 기획서 수치: iron += 5
+                    if (_worldState != null) _worldState.IronStock  += GOAPActionRegistry.YIELD_MINE_IRON; // ADR-7
                     Brain.FatigueLevel = Mathf.Min(100f, Brain.FatigueLevel + 15f);
                     break;
                 case "CookMeal":
-                    if (_worldState != null) _worldState.CookedFoodStock += 2f; // 기획서 수치: cookedFood += 2
+                    if (_worldState != null) _worldState.CookedFoodStock += GOAPActionRegistry.COOK_YIELD; // ADR-7
                     break;
                 case "AttackEnemy":
                     Brain.FatigueLevel = Mathf.Min(100f, Brain.FatigueLevel + 20f);
@@ -2175,6 +2241,12 @@ namespace AIVillage.AI
                     break;
                 case "BuildStorehouse":
                     if (_worldState != null) _worldState.StorehouseBuilt = true;
+                    break;
+                case "BuildHouse":
+                    if (_worldState != null) _worldState.HouseBuilt = true;
+                    break;
+                case "BuildWatchtower":
+                    if (_worldState != null) _worldState.WatchtowerBuilt = true;
                     break;
                 // MoveToBase, MoveToTarget, FleeFromEnemy, AlertVillage 등: 더미에서 효과 없음
             }

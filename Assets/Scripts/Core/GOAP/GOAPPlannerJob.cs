@@ -10,7 +10,7 @@
 ///   - 열린 목록: NativeArray 기반 최소 이진 힙 (최소 f-cost 우선)
 ///   - 목표 판정: GoalMask가 1인 슬롯이 모두 GoalState와 일치하면 성공
 ///   - 깊이 제한: MAX_DEPTH=12 (N1: Explore+×6 멀티스텝 플랜 허용)
-///   - 노드 수 제한: MAX_NODES=2048
+///   - 노드 수 제한: MAX_NODES=4096
 ///   - 휴리스틱: 미충족 목표 슬롯 수 x 2.9f (admissible)
 ///
 /// 성능 예산 (기획 명세 기준):
@@ -40,8 +40,13 @@ namespace AIVillage.Core.GOAP
 
         /// <summary>탐색 최대 노드 수. 이 수를 초과하면 탐색을 중단하고 실패 처리한다.</summary>
         // [S4] S1(Closed Set)+S2(부족량 휴리스틱) 적용 후 탐색 효율 대폭 향상.
-        // 2048로 복귀 실험: NoSolutionFound 발생 시 4096으로 조정.
-        public const int MAX_NODES    = 2048;
+        // [T16-C4a] 2048 → 4096 승격. 근거: T16 실측에서 컨텍스트 비용 배율
+        // (Autumn 0.333 / Danger 2.5 / Distance 상한 2.5)이 곱해질 때 3스텝 짧은 플랜에서도
+        // 노드 확장이 1600~1900대로 팽창하여 BUDGET(MAX_NODES×0.7=1433)을 초과했다.
+        // 배율은 게임 필수 기능(거리·위험·계절)이라 제거 불가 → 예산 자체를 승격한다.
+        // ADR-3(NoSolutionFound는 MAX_NODES 인상으로 해결 금지) 위반 아님:
+        // T16이 잡은 5건은 정상 Plan(len=3) 반환 케이스이며 NoSolution이 아니다.
+        public const int MAX_NODES    = 4096;
 
         /// <summary>플랜 최대 깊이. [N1] 12단계: Explore+ChopWood×6(7스텝) 등 멀티스텝 플랜 허용.</summary>
         public const int MAX_DEPTH    = 12;

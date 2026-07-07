@@ -275,13 +275,13 @@ namespace AIVillage.Core.GOAP
         // 플래너 Effect와 런타임 Commit이 동일 수치를 참조한다.
         // 런타임 적용부(VillagerFSM.OnActionCompleted)가 이 상수를 import하여 정합성을 보장한다.
 
-        public const int YIELD_CHOP_WOOD       = 5;   // ChopWood 1회 수확량
-        public const int YIELD_MINE_STONE      = 5;   // MineStone 1회 수확량
-        public const int YIELD_MINE_IRON       = 3;   // MineIron 1회 수확량
+        public const int YIELD_CHOP_WOOD       = 10;  // ChopWood 1회 수확량 (기획서 수치 — VillagerFSM WoodStock += 10f)
+        public const int YIELD_MINE_STONE      = 8;   // MineStone 1회 수확량 (기획서 수치 — VillagerFSM StoneStock += 8f)
+        public const int YIELD_MINE_IRON       = 5;   // MineIron 1회 수확량 (기획서 수치 — VillagerFSM IronStock += 5f)
         public const int YIELD_MINE_COPPER     = 3;   // MineCopper 1회 수확량
-        public const int YIELD_HARVEST_BERRIES = 3;   // HarvestWildBerries 1회 수확량
+        public const int YIELD_HARVEST_BERRIES = 5;   // HarvestWildBerries 1회 수확량 (기획서 수치 — ActionDatabase rawFood += 5)
         public const int COOK_RAW_CONSUME      = 2;   // CookMeal 소비 생 식량
-        public const int COOK_YIELD            = 1;   // CookMeal 산출 조리 식량
+        public const int COOK_YIELD            = 2;   // CookMeal 산출 조리 식량 (기획서 수치 — VillagerFSM cookedFood += 2f)
         public const int EAT_HUNGER_RELIEF     = 50;  // EatCookedFood 배고픔 감소량 (ActionDatabase ReduceHunger 50f와 일치)
         public const int EAT_RAW_RELIEF        = 15;  // EatRawFood 배고픔 감소량 (ActionDatabase ReduceHunger 15f와 일치)
         public const int SLEEP_FATIGUE_RELIEF  = 90;  // Sleep 피로 회복량 (VillagerFSM.SLEEP_FATIGUE_RECOVERY 90f와 일치)
@@ -289,9 +289,14 @@ namespace AIVillage.Core.GOAP
         public const int MEDICAL_HEALTH_GAIN   = 40;  // SeekMedicalAid 체력 회복량 (ActionDatabase GainHealth 40f와 일치)
 
         // ── 건물 건설 비용 (BuildingCosts.cs 수치와 동기화 — 단일 출처 ADR-7) ─
-        public const int BUILD_CAMPFIRE_WOOD   = 5;
-        public const int BUILD_STOREHOUSE_WOOD = 15;
-        public const int BUILD_STOREHOUSE_STONE= 5;
+        public const int BUILD_CAMPFIRE_WOOD    = 5;
+        public const int BUILD_HOUSE_WOOD       = 20;  // BuildingCosts.HOUSE_WOOD
+        public const int BUILD_HOUSE_STONE      = 10;  // BuildingCosts.HOUSE_STONE
+        public const int BUILD_WATCHTOWER_WOOD  = 10;  // BuildingCosts.WATCHTOWER_WOOD
+        public const int BUILD_WATCHTOWER_STONE = 30;  // BuildingCosts.WATCHTOWER_STONE
+        public const int BUILD_WATCHTOWER_IRON  = 5;   // BuildingCosts.WATCHTOWER_IRON
+        public const int BUILD_STOREHOUSE_WOOD  = 15;
+        public const int BUILD_STOREHOUSE_STONE = 5;
         public const int BUILD_TOWNHALL_WOOD   = 35;
         public const int BUILD_TOWNHALL_STONE  = 30;
         public const int BUILD_TOWNHALL_IRON   = 6;
@@ -383,25 +388,40 @@ namespace AIVillage.Core.GOAP
         private static readonly Dictionary<int, string> _hashToId;
 
         /// <summary>
+        /// 22개 Action 이름 배열. BuildActionDefs의 액션 목록과 반드시 동기화된다.
+        /// [C3 T15] 액션 추가 3종 세트(ADR-8) 정합성 검증의 단일 출처.
+        /// </summary>
+        private static readonly string[] _actionNames = new string[]
+        {
+            "ChopWood", "MineStone", "MineIron", "MineCopper",
+            "EatCookedFood", "EatRawFood", "CookMeal", "Sleep",
+            "RestOnGround", "SeekMedicalAid", "MoveToBase",
+            "CraftPrimitiveWeapon", "AttackEnemy", "CraftWeapon",
+            "BuildTownHall", "BuildForge", "BuildStorehouse",
+            "Explore", "HarvestWildBerries", "BuildCampfire",
+            "BuildHouse", "BuildWatchtower"
+        };
+
+        /// <summary>
+        /// [C3 T15] EditMode 테스트 전용: _actionNames 배열의 읽기 전용 접근자.
+        /// 배열 원본은 캡슐화 유지를 위해 사본을 반환한다.
+        /// </summary>
+        internal static string[] GetActionNamesForTest()
+        {
+            var copy = new string[_actionNames.Length];
+            System.Array.Copy(_actionNames, copy, _actionNames.Length);
+            return copy;
+        }
+
+        /// <summary>
         /// 정적 생성자: 클래스가 처음 참조될 때 한 번만 실행된다.
-        /// 20개 Action 이름을 해시로 변환하여 딕셔너리에 등록한다.
+        /// 22개 Action 이름을 해시로 변환하여 딕셔너리에 등록한다.
         /// 해시 충돌이 감지되면 즉시 LogError로 보고한다.
         /// </summary>
         static GOAPActionRegistry()
         {
-            // 20개 Action 이름 배열 (BuildActionDefs의 Action 목록과 동기화 유지)
-            var names = new string[]
-            {
-                "ChopWood", "MineStone", "MineIron", "MineCopper",
-                "EatCookedFood", "EatRawFood", "CookMeal", "Sleep",
-                "RestOnGround", "SeekMedicalAid", "MoveToBase",
-                "CraftPrimitiveWeapon", "AttackEnemy", "CraftWeapon",
-                "BuildTownHall", "BuildForge", "BuildStorehouse",
-                "Explore", "HarvestWildBerries", "BuildCampfire"
-            };
-
-            _hashToId = new Dictionary<int, string>(names.Length);
-            foreach (var name in names)
+            _hashToId = new Dictionary<int, string>(_actionNames.Length);
+            foreach (var name in _actionNames)
             {
                 int h = Animator.StringToHash(name);
                 if (_hashToId.ContainsKey(h))
@@ -447,8 +467,8 @@ namespace AIVillage.Core.GOAP
             if (contextMult.AttackEnemy    <= 0f) contextMult.AttackEnemy    = 1f;
             if (contextMult.RestOnGround   <= 0f) contextMult.RestOnGround   = 1f;
 
-            // 기획서 수치 — 20개 Action 기본 비용 (GDD v0.4 기준)
-            var defs = new NativeArray<GOAPActionDef>(20, allocator);
+            // 기획서 수치 — 22개 Action 기본 비용 (GDD v0.4 기준 + BuildHouse/BuildWatchtower)
+            var defs = new NativeArray<GOAPActionDef>(22, allocator);
             int i = 0;
 
             // ── ChopWood (나무 채집) ──────────────────────────────────────────
@@ -810,10 +830,54 @@ namespace AIVillage.Core.GOAP
                 Eff2S = S.WoodStock, Eff2Op = 2, Eff2V = BUILD_CAMPFIRE_WOOD // Sub
             };
 
+            // ── BuildHouse (집 건설) ──────────────────────────────────────────
+            // Preconditions: BuildingQueued=1, WoodStock GreaterEq 20, StoneStock GreaterEq 10
+            // [P4] 불리언 게이트(HasWoodForBuilding 임계값 35) 미사용 — 수치 Prec이 정확한 게이트.
+            // Effects: StructureBuilt=1, BuildingQueued=0, WoodStock Sub 20, StoneStock Sub 10
+            float buildHouseCost = 30f;
+            if (role == AgentRole.Builder) buildHouseCost *= BUILDER_BUILD_MODIFIER;
+            defs[i++] = new GOAPActionDef
+            {
+                ActionStringHash = Animator.StringToHash("BuildHouse"),
+                BaseCost = buildHouseCost,
+                PrecCount = 3,
+                Prec0S = S.BuildingQueued, Prec0V = 1,
+                Prec1S = S.WoodStock,  Prec1V = BUILD_HOUSE_WOOD,  Prec1Op = 1, // GreaterEq
+                Prec2S = S.StoneStock, Prec2V = BUILD_HOUSE_STONE, Prec2Op = 1,
+                EffectCount = 4,
+                Eff0S = S.StructureBuilt, Eff0V = 1,
+                Eff1S = S.BuildingQueued, Eff1V = 0,
+                Eff2S = S.WoodStock,  Eff2Op = 2, Eff2V = BUILD_HOUSE_WOOD,  // Sub
+                Eff3S = S.StoneStock, Eff3Op = 2, Eff3V = BUILD_HOUSE_STONE  // Sub
+            };
+
+            // ── BuildWatchtower (망루 건설) ───────────────────────────────────
+            // Preconditions: BuildingQueued=1, WoodStock GreaterEq 10, StoneStock GreaterEq 30, IronStock GreaterEq 5
+            // [철 Prec 필수] BuildingCosts: 목재 10 / 석재 30 / 철 5
+            // Effects: StructureBuilt=1, BuildingQueued=0, WoodStock Sub 10, StoneStock Sub 30, IronStock Sub 5
+            float buildWatchtowerCost = 35f;
+            if (role == AgentRole.Builder) buildWatchtowerCost *= BUILDER_BUILD_MODIFIER;
+            defs[i++] = new GOAPActionDef
+            {
+                ActionStringHash = Animator.StringToHash("BuildWatchtower"),
+                BaseCost = buildWatchtowerCost,
+                PrecCount = 4,
+                Prec0S = S.BuildingQueued, Prec0V = 1,
+                Prec1S = S.WoodStock,  Prec1V = BUILD_WATCHTOWER_WOOD,  Prec1Op = 1, // GreaterEq
+                Prec2S = S.StoneStock, Prec2V = BUILD_WATCHTOWER_STONE, Prec2Op = 1,
+                Prec3S = S.IronStock,  Prec3V = BUILD_WATCHTOWER_IRON,  Prec3Op = 1,
+                EffectCount = 5,
+                Eff0S = S.StructureBuilt, Eff0V = 1,
+                Eff1S = S.BuildingQueued, Eff1V = 0,
+                Eff2S = S.WoodStock,  Eff2Op = 2, Eff2V = BUILD_WATCHTOWER_WOOD,  // Sub
+                Eff3S = S.StoneStock, Eff3Op = 2, Eff3V = BUILD_WATCHTOWER_STONE, // Sub
+                Eff4S = S.IronStock,  Eff4Op = 2, Eff4V = BUILD_WATCHTOWER_IRON   // Sub
+            };
+
             // 배열 크기와 실제 정의 수 검증 (개발 중 Action 추가/삭제 감지용)
             Debug.Assert(
-                i == 20,
-                $"[GOAPActionRegistry] Action 정의 수 불일치: 예상 20, 실제 {i}."
+                i == 22,
+                $"[GOAPActionRegistry] Action 정의 수 불일치: 예상 22, 실제 {i}."
             );
 
             return defs;

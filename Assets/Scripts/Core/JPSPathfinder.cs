@@ -5,7 +5,7 @@
 ///             8방향 이동을 지원하며 직선/대각선 점프 규칙을 적용한다.
 ///             VillagerFSM이 StartPathTo()에서 호출하여 웨이포인트 목록을 받는다.
 ///
-/// 사용법(Usage) — 방향 ② M1 이후:
+/// 사용법(Usage) — 방향 ② M2 이후:
 ///   PathResult r = JPSPathfinder.FindPathResult(startX, startY, goalX, goalY, walkable);
 ///   switch (r.Kind)
 ///   {
@@ -14,7 +14,7 @@
 ///       case PathResultKind.PathFound:     // r.Waypoints에 시작 제외, 목표 포함 웨이포인트
 ///   }
 ///   ADR-M2: Kind로 분기하기 전 Waypoints 접근 금지 (Unreachable/AlreadyThere는 null).
-///   기존 List<Vector2Int> FindPath()는 방향 ② M2에서 삭제 예정 — [Obsolete] 상태.
+///   기존 List<Vector2Int> FindPath() 오버로드는 방향 ② M2에서 삭제됨 (호출부 마이그레이션 완료).
 ///
 /// 의존성(Dependencies): 없음 (UnityEngine.Vector2Int / Mathf만 사용)
 ///
@@ -23,7 +23,7 @@
 ///   - 내부적으로 arrayIdx = tileCoord + OFFSET(50) 으로 변환하여 배열에 접근한다.
 ///
 /// Author: Senior Unity Programmer
-/// Last Updated: 2026-07-08 (방향 ② M1: PathResult struct 도입)
+/// Last Updated: 2026-07-08 (방향 ② M2: FindPath obsolete 오버로드 삭제, FindPathResult 단일화)
 /// </summary>
 
 using System.Collections.Generic;
@@ -95,27 +95,6 @@ namespace AIVillage.Core
         #endregion
 
         #region ── 공개 메서드 ──
-
-        /// <summary>
-        /// [Obsolete — 방향 ② M2에서 삭제 예정]
-        /// 기존 시그니처 호환 wrapper. 내부적으로 FindPathResult()에 위임한다.
-        /// M2에서 호출부(VillagerFSM.StartPathTo 등)를 FindPathResult로 마이그레이션한 뒤
-        /// 이 메서드는 삭제한다.
-        /// </summary>
-        [System.Obsolete("FindPathResult(...)를 사용하세요 (방향 ② M1). 이 오버로드는 M2 커밋에서 삭제됩니다.")]
-        public static List<Vector2Int> FindPath(
-            int startX, int startY,
-            int goalX,  int goalY,
-            bool[,] walkable)
-        {
-            PathResult r = FindPathResult(startX, startY, goalX, goalY, walkable);
-            switch (r.Kind)
-            {
-                case PathResultKind.PathFound:    return r.Waypoints;
-                case PathResultKind.AlreadyThere: return new List<Vector2Int>();
-                default:                          return null; // Unreachable
-            }
-        }
 
         /// <summary>
         /// JPS 알고리즘으로 시작 타일에서 목표 타일까지의 경로를 탐색한다.

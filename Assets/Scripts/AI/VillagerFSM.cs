@@ -1631,7 +1631,14 @@ namespace AIVillage.AI
             Brain.CurrentGoalId   = null;
             Brain.CurrentPlan.Clear();
             Brain.IsExecutingPlan = false;
-            StartPathTo(_baseTileX, _baseTileY);
+            // 방향 ② M2: 기지 unreachable 시 좌표 스냅 없이 로그만 남긴다.
+            // 기지가 도달 불가하면 도망 자체가 불가 — 별도 분기 처리는 스코프 밖.
+            if (StartPathTo(_baseTileX, _baseTileY) == StartPathOutcome.Unreachable)
+            {
+                Debug.LogWarning(
+                    $"[VillagerFSM] Fleeing 진입 실패: 기지 unreachable. " +
+                    $"AgentId={AgentId}, base=({_baseTileX},{_baseTileY})");
+            }
             Debug.Log($"[VillagerFSM] → Fleeing (HP={Brain.HealthLevel:F0}). AgentId={AgentId}");
         }
 
@@ -2796,11 +2803,24 @@ namespace AIVillage.AI
 
         #region ── [12단계] 경로 이동 헬퍼 ──
 
+        // ── [방향 ② M2] 이동 실패 first-class 승격 ──────────────────────────
+        // StartPathTo의 반환값. 호출자는 세 케이스를 명시 분기해야 한다.
+        // - Started       : Waypoint 이동 개시
+        // - AlreadyThere  : 시작 == 목표. 조용히 성공 취급 (ADR-M3)
+        // - Unreachable   : 경로 없음. 호출자가 Replanning으로 위임 (좌표 스냅 금지, ADR-M4)
+        private enum StartPathOutcome
+        {
+            Started      = 0,
+            AlreadyThere = 1,
+            Unreachable  = 2
+        }
+
         /// <summary>
         /// 목표 타일까지 JPS 경로를 계산하고 이동을 시작한다.
-        /// 이미 목표에 있거나 경로가 없으면 논리 좌표만 즉시 갱신한다.
+        /// 방향 ② M2: PathResult 3분기(Unreachable/AlreadyThere/PathFound)를 명시 처리한다.
+        /// Unreachable 시 좌표를 강제 스냅하지 않고 호출자에게 실패를 위임한다 (결함 C 해소).
         /// </summary>
-        private void StartPathTo(int targetX, int targetY)
+        private StartPathOutcome StartPathTo(int targetX, int targetY)
         {
             // walkable 그리드 최초 1회 초기화 (전체 true — 장애물 없음)
             // [13단계] 하드코딩 100 → MapConfig.Active.mapSize 동적 읽기로 교체
@@ -2818,26 +2838,55 @@ namespace AIVillage.AI
             _pathIndex = 0;
             _isMoving  = false;
 
-            // 이미 목표에 있으면 이동 불필요
-            if (Brain.TileX == targetX && Brain.TileY == targetY) return;
+            // 이미 목표에 있으면 이동 불필요 — 조용히 성공 반환 (ADR-M3)
+            if (Brain.TileX == targetX && Brain.TileY == targetY)
+                return StartPathOutcome.AlreadyThere;
 
-            List<Vector2Int> path = JPSPathfinder.FindPath(
+            PathResult result = JPSPathfinder.FindPathResult(
                 Brain.TileX, Brain.TileY,
                 targetX, targetY,
                 _walkableGrid);
 
-            if (path == null || path.Count == 0)
+            switch (result.Kind)
             {
-                // 경로 없음 또는 이미 목표 — 논리 좌표만 즉시 설정
-                Brain.TileX = targetX;
-                Brain.TileY = targetY;
-                return;
-            }
+                case PathResultKind.AlreadyThere:
+                    return StartPathOutcome.AlreadyThere;
 
-            _currentPath    = path;
-            _pathIndex      = 0;
-            _isMoving       = true;
-            _waypointTarget = new Vector3(_currentPath[0].x, _currentPath[0].y, 0f);
+                case PathResultKind.Unreachable:
+                    // ⚠️ 결함 C 해소: 좌표 강제 스냅 금지 (ADR-M4).
+                    // 기존에는 논리 좌표를 목표로 즉시 설정해 GOAP에 성공으로 위장 전달했다.
+                    // 새 코드 : 호출자에게 이동 실패를 전달하고 GOAP가 재계획하도록 한다.
+                    Debug.LogWarning(
+                        $"[VillagerFSM] Unreachable 수신, Replanning 요청. " +
+                        $"AgentId={AgentId}, from=({Brain.TileX},{Brain.TileY}), to=({targetX},{targetY})");
+                    return StartPathOutcome.Unreachable;
+
+                case PathResultKind.PathFound:
+                    _currentPath    = result.Waypoints;
+                    _pathIndex      = 0;
+                    _isMoving       = true;
+                    _waypointTarget = new Vector3(_currentPath[0].x, _currentPath[0].y, 0f);
+                    return StartPathOutcome.Started;
+
+                default:
+                    // ADR-M2에 따르면 도달 불가. 방어 로그 후 Unreachable 취급.
+                    Debug.LogError($"[VillagerFSM] PathResult.Kind 미지원 값: {result.Kind}. AgentId={AgentId}");
+                    return StartPathOutcome.Unreachable;
+            }
+        }
+
+        /// <summary>
+        /// 이동 불가 발생 시 결함 C 해소 조치:
+        /// 1) NearDiscoveredResource=false 강제 → GOAP가 자원 근접 전제조건을 재검사하도록 (ADR-M4)
+        /// 2) Replanning 요청
+        /// TODO(방향 ② M3): Brain.FallbackCounter++ + EnterReplanning() 직접 호출을
+        ///                RequestReplanning(AbortReason.PathUnreachable, detail)로 교체.
+        /// </summary>
+        private void OnMoveUnreachable(string actionId)
+        {
+            Brain.NearDiscoveredResource = false;
+            Brain.FallbackCounter++;
+            EnterReplanning();
         }
 
         /// <summary>
@@ -2876,7 +2925,8 @@ namespace AIVillage.AI
             if (actionId == "Explore")
             {
                 Vector2Int exploreTile = FindExplorationTarget();
-                StartPathTo(exploreTile.x, exploreTile.y);
+                if (StartPathTo(exploreTile.x, exploreTile.y) == StartPathOutcome.Unreachable)
+                    OnMoveUnreachable(actionId);
                 return;
             }
 
@@ -2887,13 +2937,18 @@ namespace AIVillage.AI
                 if (nearest != null && nearest.TryOccupy(AgentId))
                 {
                     _currentGatherNode = nearest;
-                    StartPathTo(nearest.TileX, nearest.TileY);
+                    if (StartPathTo(nearest.TileX, nearest.TileY) == StartPathOutcome.Unreachable)
+                    {
+                        ReleaseGatherNode();
+                        OnMoveUnreachable(actionId);
+                    }
                     return;
                 }
             }
 
             // 기지 관련 Action 또는 해당 자원 노드 미발견 → 기지 타일
-            StartPathTo(_baseTileX, _baseTileY);
+            if (StartPathTo(_baseTileX, _baseTileY) == StartPathOutcome.Unreachable)
+                OnMoveUnreachable(actionId);
         }
 
         /// <summary>

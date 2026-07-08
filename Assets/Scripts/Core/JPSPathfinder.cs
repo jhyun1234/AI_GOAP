@@ -5,11 +5,16 @@
 ///             8방향 이동을 지원하며 직선/대각선 점프 규칙을 적용한다.
 ///             VillagerFSM이 StartPathTo()에서 호출하여 웨이포인트 목록을 받는다.
 ///
-/// 사용법(Usage):
-///   List<Vector2Int> path = JPSPathfinder.FindPath(startX, startY, goalX, goalY, walkable);
-///   - path == null  : 경로 없음 (목표에 도달 불가)
-///   - path.Count==0 : 이미 목표에 있음 (시작 == 목표)
-///   - path[0]       : 첫 번째 이동 웨이포인트 (시작 타일 미포함, 목표 타일 포함)
+/// 사용법(Usage) — 방향 ② M1 이후:
+///   PathResult r = JPSPathfinder.FindPathResult(startX, startY, goalX, goalY, walkable);
+///   switch (r.Kind)
+///   {
+///       case PathResultKind.Unreachable:   // 경로 없음. r.Waypoints == null. 호출자가 Replanning
+///       case PathResultKind.AlreadyThere:  // 시작 == 목표. r.Waypoints == null. 조용히 성공
+///       case PathResultKind.PathFound:     // r.Waypoints에 시작 제외, 목표 포함 웨이포인트
+///   }
+///   ADR-M2: Kind로 분기하기 전 Waypoints 접근 금지 (Unreachable/AlreadyThere는 null).
+///   기존 List<Vector2Int> FindPath()는 방향 ② M2에서 삭제 예정 — [Obsolete] 상태.
 ///
 /// 의존성(Dependencies): 없음 (UnityEngine.Vector2Int / Mathf만 사용)
 ///
@@ -18,7 +23,7 @@
 ///   - 내부적으로 arrayIdx = tileCoord + OFFSET(50) 으로 변환하여 배열에 접근한다.
 ///
 /// Author: Senior Unity Programmer
-/// Last Updated: 2026-06-29
+/// Last Updated: 2026-07-08 (방향 ② M1: PathResult struct 도입)
 /// </summary>
 
 using System.Collections.Generic;
@@ -26,6 +31,44 @@ using UnityEngine;
 
 namespace AIVillage.Core
 {
+    // ── [방향 ② M1] 이동 실패 first-class 승격 ──────────────────────────────
+    // JPSPathfinder.FindPathResult()의 반환 계약. 결함 C(null 반환 흡수) 해소를 위해
+    // "경로 없음"과 "이미 목표"를 명시 분기로 노출한다. 호출자는 Kind로 3분기 후에만
+    // Waypoints를 참조한다 (ADR-M2).
+
+    /// <summary>
+    /// 경로 탐색 결과 종류. Kind == PathFound일 때만 Waypoints가 non-null.
+    /// </summary>
+    public enum PathResultKind
+    {
+        Unreachable  = 0, // 경로 없음 · 목표 unwalkable · 범위 밖 · walkable null
+        AlreadyThere = 1, // 시작 == 목표. 이동 불필요, 성공 취급 (ADR-M3)
+        PathFound    = 2  // Waypoints에 최소 1개 이상 (시작 제외, 목표 포함)
+    }
+
+    /// <summary>
+    /// JPSPathfinder.FindPathResult()의 반환 계약 (ADR-M1/M2).
+    /// - readonly struct: heap 미할당(리스트 자체는 heap이지만 wrapper는 stack)
+    /// - Kind로 분기하기 전 Waypoints 접근 금지. Unreachable/AlreadyThere는 null.
+    /// - 3개 팩토리 메서드로만 인스턴스화 (외부에서 임의 조합 방지).
+    /// </summary>
+    public readonly struct PathResult
+    {
+        public readonly PathResultKind Kind;
+        public readonly List<Vector2Int> Waypoints;
+
+        private PathResult(PathResultKind kind, List<Vector2Int> waypoints)
+        {
+            Kind = kind;
+            Waypoints = waypoints;
+        }
+
+        public static PathResult Unreachable()  => new PathResult(PathResultKind.Unreachable, null);
+        public static PathResult AlreadyThere() => new PathResult(PathResultKind.AlreadyThere, null);
+        public static PathResult Found(List<Vector2Int> waypoints)
+            => new PathResult(PathResultKind.PathFound, waypoints);
+    }
+
     /// <summary>
     /// JPS(Jump Point Search) 정적 유틸리티 클래스.
     /// MonoBehaviour가 아니므로 씬에 배치할 필요 없다.
@@ -54,19 +97,41 @@ namespace AIVillage.Core
         #region ── 공개 메서드 ──
 
         /// <summary>
+        /// [Obsolete — 방향 ② M2에서 삭제 예정]
+        /// 기존 시그니처 호환 wrapper. 내부적으로 FindPathResult()에 위임한다.
+        /// M2에서 호출부(VillagerFSM.StartPathTo 등)를 FindPathResult로 마이그레이션한 뒤
+        /// 이 메서드는 삭제한다.
+        /// </summary>
+        [System.Obsolete("FindPathResult(...)를 사용하세요 (방향 ② M1). 이 오버로드는 M2 커밋에서 삭제됩니다.")]
+        public static List<Vector2Int> FindPath(
+            int startX, int startY,
+            int goalX,  int goalY,
+            bool[,] walkable)
+        {
+            PathResult r = FindPathResult(startX, startY, goalX, goalY, walkable);
+            switch (r.Kind)
+            {
+                case PathResultKind.PathFound:    return r.Waypoints;
+                case PathResultKind.AlreadyThere: return new List<Vector2Int>();
+                default:                          return null; // Unreachable
+            }
+        }
+
+        /// <summary>
         /// JPS 알고리즘으로 시작 타일에서 목표 타일까지의 경로를 탐색한다.
+        /// 방향 ② M1: null 반환 대신 PathResult struct로 3분기 명시 반환.
         ///
         /// 반환값:
-        ///   null        - 경로 없음 (목표에 도달 불가)
-        ///   Count == 0  - 이미 목표에 있음 (시작 == 목표)
-        ///   Count >  0  - 웨이포인트 목록 (시작 제외, 목표 포함, 중간 타일 보간 포함)
+        ///   Kind == Unreachable  - 경로 없음 · walkable null · 범위 밖 · 목표 unwalkable
+        ///   Kind == AlreadyThere - 시작 == 목표 (이동 불필요, 성공 취급)
+        ///   Kind == PathFound    - Waypoints에 최소 1개 (시작 제외, 목표 포함, 중간 타일 보간)
         /// </summary>
         /// <param name="startX">시작 타일 X (타일 좌표, -50~+49)</param>
         /// <param name="startY">시작 타일 Y (타일 좌표, -50~+49)</param>
         /// <param name="goalX">목표 타일 X (타일 좌표, -50~+49)</param>
         /// <param name="goalY">목표 타일 Y (타일 좌표, -50~+49)</param>
         /// <param name="walkable">100×100 통행 가능 여부 배열 (배열 인덱스 기준)</param>
-        public static List<Vector2Int> FindPath(
+        public static PathResult FindPathResult(
             int startX, int startY,
             int goalX,  int goalY,
             bool[,] walkable)
@@ -85,12 +150,12 @@ namespace AIVillage.Core
             if (walkable == null)
             {
                 Debug.LogWarning("[JPSPathfinder] walkable 배열이 null입니다.");
-                return null;
+                return PathResult.Unreachable();
             }
 
-            // 이미 목표에 있는 경우 — 이동 불필요
+            // 이미 목표에 있는 경우 — 이동 불필요 (ADR-M3: 성공 취급)
             if (startX == goalX && startY == goalY)
-                return new List<Vector2Int>(); // Count == 0
+                return PathResult.AlreadyThere();
 
             // 타일 좌표 → 배열 인덱스 변환
             int sax = startX + offset;
@@ -101,17 +166,17 @@ namespace AIVillage.Core
             if (!IsInBounds(sax, say, mapSize))
             {
                 Debug.LogWarning($"[JPSPathfinder] 시작 위치 맵 범위 초과: tile({startX},{startY})");
-                return null;
+                return PathResult.Unreachable();
             }
             if (!IsInBounds(gax, gay, mapSize))
             {
                 Debug.LogWarning($"[JPSPathfinder] 목표 위치 맵 범위 초과: tile({goalX},{goalY})");
-                return null;
+                return PathResult.Unreachable();
             }
             if (!walkable[gax, gay])
             {
                 Debug.LogWarning($"[JPSPathfinder] 목표 타일이 이동 불가: tile({goalX},{goalY})");
-                return null;
+                return PathResult.Unreachable();
             }
 
             // ── 자료구조 초기화 ────────────────────────────────────────────────
@@ -147,7 +212,8 @@ namespace AIVillage.Core
 
                 // 목표 도달
                 if (current == goalNode)
-                    return ReconstructAndExpand(parent, startNode, goalNode, offset, maxPathNodes);
+                    return PathResult.Found(
+                        ReconstructAndExpand(parent, startNode, goalNode, offset, maxPathNodes));
 
                 if (closed.Contains(current)) continue;
                 closed.Add(current);
@@ -183,8 +249,8 @@ namespace AIVillage.Core
 
             // 목표에 도달한 경우 경로 역추적 (maxPathNodes도 전달)
             // 이 return은 while 루프 안 "if (current == goalNode)" 분기에서 이미 처리됨
-            // 경로 없음
-            return null;
+            // 경로 없음 (탐색 소진)
+            return PathResult.Unreachable();
         }
 
         #endregion

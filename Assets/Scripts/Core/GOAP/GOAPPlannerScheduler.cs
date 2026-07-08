@@ -197,10 +197,10 @@ namespace AIVillage.Core.GOAP
 #if GOAP_PERF_LOG
                 if (NodesExpanded.IsCreated)
                 {
-                    string result = planLength == -1 ? "AlreadySatisfied"
-                                  : planLength == 0  ? "NoSolution"
-                                  : $"Plan({planLength})";
-                    Debug.Log($"[GOAP Perf] Agent={AgentName} Goal={GoalId} Nodes={NodesExpanded[0]} Result={result}");
+                    string resultLabel = planLength == -1 ? "AlreadySatisfied"
+                                       : planLength == 0  ? "NoSolution"
+                                       : $"Plan({planLength})";
+                    Debug.Log($"[GOAP Perf] Agent={AgentName} Goal={GoalId} Nodes={NodesExpanded[0]} Result={resultLabel}");
                 }
 #endif
 
@@ -519,7 +519,7 @@ namespace AIVillage.Core.GOAP
                 // [N0] 노드 확장 수 계측 + 식별 정보
                 NodesExpanded  = nodesExpanded,
                 GoalId         = goalId,
-                AgentName      = brain.name
+                AgentName      = brain.VillagerId
             };
         }
 

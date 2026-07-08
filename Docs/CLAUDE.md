@@ -26,6 +26,10 @@ Unity 탑다운 마을 생존 시뮬레이션. GOAP(Burst Job A*) 기반 주민 
    alreadySatisfied(-1) 무한 루프. 둘은 항상 함께 수정한다.
 8. **액션 추가 3종 세트**: ActionDef + names[] 배열(해시 역매핑) + Debug.Assert 개수.
    하나라도 빠지면 미완성 커밋이다.
+9. **이동 실패 first-class**: `JPSPathfinder.FindPathResult()`가 `Unreachable`을 반환하면
+   호출자는 **좌표 스냅 금지**. 반드시 `Brain.NearDiscoveredResource = false` 강제 후
+   `RequestReplanning(AbortReason.PathUnreachable, ...)` 호출. GOAP에 이동 실패를
+   "성공"으로 위장 전달하지 않는다 (방향 ② M2 명세, EditMode 게이트 M17/M18).
 
 ## 작업 프로토콜
 - 명세서의 작업 항목(W/F/P/N 번호) 1개 = 커밋 1개. 합쳐 커밋 금지.
@@ -38,6 +42,7 @@ Unity 탑다운 마을 생존 시뮬레이션. GOAP(Burst Job A*) 기반 주민 
   ④ Editor 종료 시 NativeArray leak 경고 0건
   ⑤ Registry 상수·발동 임계값·액션 추가 커밋이면 T13/T14/T15가 초록불인지 명시 확인
   ⑥ 컨텍스트 비용 배율·MAX_NODES·액션 배율 변경 커밋이면 T16을 실행하고 결과를 커밋 메시지에 인용
+  ⑦ 이동/경로 관련 커밋이면 `grep -n "Brain\.TileX\s*=\s*targetX" Assets/Scripts` 결과 0건 확인 (ADR-9, 결함 C 부활 감시)
 
 ## 검증 명령 (커밋 전 실행)
 ```

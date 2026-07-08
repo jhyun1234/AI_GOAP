@@ -753,7 +753,8 @@ namespace AIVillage.AI
                     _planningContext.Dispose();
                 }
 
-                TransitionTo(VillagerState.Replanning);
+                RequestReplanning(AbortReason.PlanFailed,
+                    $"Planning 타임아웃 {PLANNING_TIMEOUT_SEC}s 초과, Goal={Brain.CurrentGoalId}");
                 return;
             }
 
@@ -765,7 +766,7 @@ namespace AIVillage.AI
                     $"[VillagerFSM] Planning: _planningContext가 스케줄되지 않았습니다. " +
                     $"Replanning으로 전이. AgentId={AgentId}"
                 );
-                TransitionTo(VillagerState.Replanning);
+                RequestReplanning(AbortReason.PlanFailed, "Job 스케줄 실패");
                 return;
             }
 
@@ -813,7 +814,7 @@ namespace AIVillage.AI
                     Brain.CurrentPlanFull.Add(actionId);
                 }
 
-                Brain.FallbackCounter      = 0;
+                Brain.ResetFallback();
                 _planRepairCount           = 0; // [N3b] 수선 성공 → 카운터 리셋
                 _replanTriggeredByRepair   = false;
 
@@ -848,7 +849,8 @@ namespace AIVillage.AI
                     $"[VillagerFSM] Planning 실패 (NoSolutionFound). " +
                     $"Goal={Brain.CurrentGoalId}. AgentId={AgentId}"
                 );
-                TransitionTo(VillagerState.Replanning);
+                RequestReplanning(AbortReason.PlanFailed,
+                    $"NoSolutionFound, Goal={Brain.CurrentGoalId}");
             }
         }
 
@@ -1412,11 +1414,32 @@ namespace AIVillage.AI
             {
                 // 자원 예약 실패 → Replanning
                 Debug.LogWarning($"[VillagerFSM] Action '{Brain.CurrentActionId}' 자원 예약 실패. Replanning으로 전이. AgentId={AgentId}");
-                TransitionTo(VillagerState.Replanning);
+                RequestReplanning(AbortReason.ResourceReservationFailed,
+                    $"Action={Brain.CurrentActionId} 자원 예약 실패");
                 return;
             }
 
             Debug.Log($"[VillagerFSM] Action 시작: '{Brain.CurrentActionId}'. 완료까지 {ACTION_SIMULATE_SEC}초. AgentId={AgentId}");
+        }
+
+        /// <summary>
+        /// 방향 ② M3: Fallback 원인을 분류하여 Replanning 상태 전이를 요청한다.
+        /// 모든 Fallback 성격의 재계획(수선 제외)은 이 헬퍼를 통해서만 진입한다.
+        /// FallbackCounter 직접 증분은 금지 (Brain.FallbackByReason과 sum 불일치 방지).
+        /// </summary>
+        /// <param name="reason">Fallback 원인 분류. HandleDeadlock 관측 로그에 사용된다.</param>
+        /// <param name="detail">디버그 로그용 부가 설명 (null 허용).</param>
+        private void RequestReplanning(AbortReason reason, string detail = null)
+        {
+            Brain.IncrementFallback(reason);
+            Debug.Log(
+                $"[VillagerFSM] Replanning 요청. reason={reason}, detail={detail ?? "-"}, " +
+                $"FallbackCounter={Brain.FallbackCounter}, ByReason=" +
+                $"[Plan={Brain.FallbackByReason[0]}," +
+                $"Res={Brain.FallbackByReason[1]}," +
+                $"Path={Brain.FallbackByReason[2]}," +
+                $"Pre={Brain.FallbackByReason[3]}]. AgentId={AgentId}");
+            TransitionTo(VillagerState.Replanning);
         }
 
         /// <summary>Replanning 상태 진입 초기화. 자원 해제 및 쿨다운 설정.</summary>
@@ -1435,9 +1458,9 @@ namespace AIVillage.AI
             // 쿨다운 설정 (P0 Goal은 이 쿨다운을 무시하고 Update()에서 강제 전이)
             Brain.ReplanCooldown      = UnityEngine.Random.Range(REPLAN_COOLDOWN_MIN, REPLAN_COOLDOWN_MAX);
             Brain.LastReplanTimestamp = Time.time;
-            // [N3b] 수선 트리거 리플래닝은 FallbackCounter에 합산하지 않는다.
-            // 수선은 세계 변화 대응이고, Fallback은 플래닝 자체 실패다 — 의미가 다르다.
-            if (!_replanTriggeredByRepair) Brain.FallbackCounter++;
+            // 방향 ② M3: FallbackCounter 증분은 RequestReplanning으로 이관되었다.
+            // [N3b] 수선 트리거 리플래닝(_replanTriggeredByRepair)은 어차피 RequestReplanning을 거치지 않으므로
+            // 여기서 별도 예외 처리도 불필요.
 
             // ReplanCount 딕셔너리 갱신
             if (Brain.CurrentGoalId != null)
@@ -2540,11 +2563,15 @@ namespace AIVillage.AI
             // 어떤 상황에서도 풀이가 존재하는 가장 안전한 폴백이다.
             string fallbackGoal = "MoveToBase";
 
-            Debug.LogWarning($"[VillagerFSM] Deadlock 감지! FallbackCounter={Brain.FallbackCounter}. " +
+            Debug.LogWarning($"[VillagerFSM] Deadlock 감지! FallbackCounter={Brain.FallbackCounter}, " +
+                             $"ByReason=[Plan={Brain.FallbackByReason[0]}," +
+                             $"Res={Brain.FallbackByReason[1]}," +
+                             $"Path={Brain.FallbackByReason[2]}," +
+                             $"Pre={Brain.FallbackByReason[3]}]. " +
                              $"NeedsHelp=true. FallbackGoal={fallbackGoal}. AgentId={AgentId}");
 
-            // FallbackCounter 초기화 (무한 루프 방지)
-            Brain.FallbackCounter  = 0;
+            // FallbackCounter + FallbackByReason 함께 초기화 (무한 루프 방지)
+            Brain.ResetFallback();
             Brain.CurrentGoalId    = fallbackGoal;
             Brain.ReplanCooldown   = 0f;
 
@@ -2681,7 +2708,8 @@ namespace AIVillage.AI
                             $"[VillagerFSM] 자원 고갈 메시지 수신 → Replanning. " +
                             $"Action={Brain.CurrentActionId}, AgentId={AgentId}"
                         );
-                        TransitionTo(VillagerState.Replanning);
+                        RequestReplanning(AbortReason.ActionPreconditionInvalidated,
+                            $"자원 고갈, Action={Brain.CurrentActionId}");
                     }
                     break;
 
@@ -2876,17 +2904,14 @@ namespace AIVillage.AI
         }
 
         /// <summary>
-        /// 이동 불가 발생 시 결함 C 해소 조치:
+        /// 이동 불가 발생 시 결함 C 해소 조치 (방향 ② M2/M3):
         /// 1) NearDiscoveredResource=false 강제 → GOAP가 자원 근접 전제조건을 재검사하도록 (ADR-M4)
-        /// 2) Replanning 요청
-        /// TODO(방향 ② M3): Brain.FallbackCounter++ + EnterReplanning() 직접 호출을
-        ///                RequestReplanning(AbortReason.PathUnreachable, detail)로 교체.
+        /// 2) RequestReplanning(AbortReason.PathUnreachable)로 원인 분류 저장 후 재계획 요청
         /// </summary>
         private void OnMoveUnreachable(string actionId)
         {
             Brain.NearDiscoveredResource = false;
-            Brain.FallbackCounter++;
-            EnterReplanning();
+            RequestReplanning(AbortReason.PathUnreachable, $"actionId={actionId}");
         }
 
         /// <summary>

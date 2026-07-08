@@ -17,6 +17,25 @@ using System.Collections.Generic;
 namespace AIVillage.AI
 {
     /// <summary>
+    /// 방향 ② M3: Replanning 요청 원인 분류.
+    /// FallbackByReason 배열 인덱스로 그대로 사용되므로 값 순서 고정 (재정렬 금지).
+    /// </summary>
+    public enum AbortReason
+    {
+        /// <summary>GOAPPlannerJob 실패 — NoSolutionFound / 타임아웃 / Job 스케줄 실패.</summary>
+        PlanFailed = 0,
+
+        /// <summary>Action 시작 시점의 자원 예약 실패 (TryReserveForAction false).</summary>
+        ResourceReservationFailed = 1,
+
+        /// <summary>JPS FindPathResult가 Unreachable 반환 (방향 ② 결함 C 해소 경로).</summary>
+        PathUnreachable = 2,
+
+        /// <summary>Perform 중 액션 전제 무효화 — 자원 고갈 등.</summary>
+        ActionPreconditionInvalidated = 3
+    }
+
+    /// <summary>
     /// 주민 AI의 모든 런타임 상태를 보관하는 순수 C# 데이터 클래스.
     /// 로직은 VillagerFSM과 ConflictScoreCalculator에 있다.
     /// 이 클래스는 데이터만 갖는다.
@@ -216,8 +235,17 @@ namespace AIVillage.AI
         /// <summary>
         /// 연속 Fallback 실패 횟수. 3회 이상이면 Deadlock 판정.
         /// NeedsHelp = true를 설정하고 강제 Fallback Goal로 진입한다.
+        /// 방향 ② M3: FallbackByReason 배열의 합과 항상 일치한다. 직접 증분 금지 —
+        /// IncrementFallback(reason) / ResetFallback() 헬퍼로만 조작한다.
         /// </summary>
         public int   FallbackCounter     { get; set; } = 0;
+
+        /// <summary>
+        /// 방향 ② M3: Fallback 원인별 카운터. 인덱스는 AbortReason enum 값.
+        /// [0]=PlanFailed, [1]=ResourceReservationFailed, [2]=PathUnreachable, [3]=ActionPreconditionInvalidated.
+        /// int[4] 고정 (Dictionary GC 회피 — ADR-M3 오해 위험 반영).
+        /// </summary>
+        public int[] FallbackByReason    { get; set; } = new int[4];
 
         /// <summary>도움 요청 플래그. Deadlock 발생 시 true. GameManager가 이 플래그를 감지한다.</summary>
         public bool  NeedsHelp           { get; set; } = false;
@@ -320,6 +348,26 @@ namespace AIVillage.AI
             FatigueLevel = UnityEngine.Random.Range(data.fatigueMin, data.fatigueMax);
             MoodLevel    = UnityEngine.Random.Range(data.moodMin,    data.moodMax);
             LoyaltyLevel = UnityEngine.Random.Range(data.loyaltyMin, data.loyaltyMax);
+        }
+
+        /// <summary>
+        /// 방향 ② M3: 원인별 Fallback 카운터를 증분하고 총 FallbackCounter도 함께 갱신한다.
+        /// 두 값은 항상 동기화되며 sum(FallbackByReason) == FallbackCounter 관계를 유지한다.
+        /// </summary>
+        public void IncrementFallback(AbortReason reason)
+        {
+            FallbackByReason[(int)reason]++;
+            FallbackCounter++;
+        }
+
+        /// <summary>
+        /// 방향 ② M3: FallbackCounter와 FallbackByReason을 함께 0으로 리셋한다.
+        /// HandleDeadlock 종결 시, Planning 성공 시 호출한다.
+        /// </summary>
+        public void ResetFallback()
+        {
+            for (int i = 0; i < FallbackByReason.Length; i++) FallbackByReason[i] = 0;
+            FallbackCounter = 0;
         }
 
         /// <summary>

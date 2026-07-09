@@ -36,6 +36,13 @@ Unity 탑다운 마을 생존 시뮬레이션. GOAP(Burst Job A*) 기반 주민 
     휴리스틱이 A*를 안내하지 못하고 MAX_NODES 4096을 소진하며 NoSolutionFound가
     발생한다 (방향 ③ 명세, P1-A 진단 `Docs/이슈_GatherIron_초반_무해.md`).
     검증: EditMode 게이트 T17.
+11. **성격 배율 폭발 방지 (ADR-P1)**: `PersonalityCostMultipliers.From()`이 반환하는
+    모든 float 값은 `[PersonalityData.MULT_MIN, MULT_MAX] = [0.5, 2.0]`으로 클램프한다.
+    성격 배율은 컨텍스트 배율(`FULL_NODE_PENALTY × 2 = 10`)과 곱해지므로 상한 초과 시
+    admissible 휴리스틱이 A*를 안내하지 못하고 MAX_NODES 4096을 소진 → NoSolutionFound.
+    Glutton은 배율 축이 아니라 `HasActiveP0Condition` 배고픔 임계값 축(-10)으로 표현하며
+    ADR-7 정합(goal target 30 < 임계값 70)을 유지한다 (F-A 명세, ADR-P4).
+    검증: EditMode 게이트 T18.
 
 ## 작업 프로토콜
 - 명세서의 작업 항목(W/F/P/N 번호) 1개 = 커밋 1개. 합쳐 커밋 금지.
@@ -50,6 +57,9 @@ Unity 탑다운 마을 생존 시뮬레이션. GOAP(Burst Job A*) 기반 주민 
   ⑥ 컨텍스트 비용 배율·MAX_NODES·액션 배율 변경 커밋이면 T16을 실행하고 결과를 커밋 메시지에 인용
   ⑦ 이동/경로 관련 커밋이면 `grep -n "Brain\.TileX\s*=\s*targetX" Assets/Scripts` 결과 0건 확인 (ADR-9, 결함 C 부활 감시)
   ⑧ Gather Goal 후보 확장 커밋이면 T17이 초록인지 명시 확인, 그리고 `grep -n "GatherGoalSelector\.Select(" Assets/Scripts` 결과가 1건이고 인자 11개인지 확인 (ADR-10)
+  ⑨ 성격 배율·`PersonalityData` 상수·`PersonalityCostMultipliers.From()` 변경 커밋이면 T17·T18이 초록인지 명시 확인,
+     그리고 `grep -n "GOAPActionRegistry\.BuildActionDefs(" Assets` 결과 호출부가 성격 배율 축(5인자 이상)을
+     인지한 형태인지 확인. 3인자 이하 호출부는 default 폴백(Identity) 의도 명시 (ADR-11/ADR-P1)
 
 ## 검증 명령 (커밋 전 실행)
 ```

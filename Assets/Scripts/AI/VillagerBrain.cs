@@ -401,26 +401,36 @@ namespace AIVillage.AI
         /// <summary>
         /// P0(생존) Goal이 현재 활성화되어야 하는지 여부를 반환한다.
         /// Idle, Replanning 등의 상태에서 Tick마다 호출하여 긴급 전이를 감지한다.
+        /// F-A ADR-P4: Glutton 성격이면 배고픔 임계값을 GLUTTON_HUNGER_THRESHOLD_OFFSET(10)만큼 낮춘다.
+        /// ADR-7 정합: SurviveHunger goal target(30) &lt; Glutton 임계값(70) → 무한 루프 없음.
         /// </summary>
         public bool HasActiveP0Condition()
         {
+            float hungerThreshold = 80f
+                - (Personality == Personality.Glutton
+                    ? PersonalityData.GLUTTON_HUNGER_THRESHOLD_OFFSET : 0f);
             return !IsAlive
                 || HealthLevel < 20f
-                || HungerLevel > 80f
+                || HungerLevel > hungerThreshold
                 || FatigueLevel > 90f;
         }
 
         /// <summary>
         /// 현재 활성화 조건을 기반으로 가장 높은 우선순위 Goal ID를 반환한다.
         /// P0 → 생존, P1 → 전투, P2 → 건설/채집, P3 → 탐험 순으로 평가한다.
+        /// F-A ADR-P4: Glutton은 배고픔 임계값 -10.
         /// </summary>
         public string GetHighestPriorityGoalId()
         {
+            float hungerThreshold = 80f
+                - (Personality == Personality.Glutton
+                    ? PersonalityData.GLUTTON_HUNGER_THRESHOLD_OFFSET : 0f);
+
             // P0: 생존 긴급 목표
-            if (!IsAlive)          return "Dead";
-            if (HealthLevel  < 20f) return "SurviveInjury";
-            if (HungerLevel  > 80f) return "SurviveHunger";
-            if (FatigueLevel > 90f) return "SurviveFatigue";
+            if (!IsAlive)                        return "Dead";
+            if (HealthLevel  < 20f)              return "SurviveInjury";
+            if (HungerLevel  > hungerThreshold)  return "SurviveHunger";
+            if (FatigueLevel > 90f)              return "SurviveFatigue";
 
             // P1: 전투
             if (NearEnemy) return "DefendVillage";

@@ -106,10 +106,14 @@ namespace AIVillage.UI
         {
             VillagerBrain b = fsm.Brain;
 
-            // 헤더
+            // 헤더 (이름 옆에 F-A 성격 라벨 인라인)
             _sb.Append("<color=#FFFF88>▶ ");
             _sb.Append(fsm.gameObject.name);
-            _sb.Append("</color>\n");
+            _sb.Append("</color>  <color=");
+            _sb.Append(PersonalityData.HexColor(b.Personality));
+            _sb.Append(">[");
+            _sb.Append(PersonalityData.KoreanLabel(b.Personality));
+            _sb.Append("]</color>\n");
 
             // 역할 · 목표 · 행동
             _sb.Append("역할: <color=#AADDFF>");

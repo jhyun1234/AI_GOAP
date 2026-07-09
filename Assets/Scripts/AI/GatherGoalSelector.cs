@@ -16,8 +16,11 @@ namespace AIVillage.AI
         public const float T_FOOD   = 15f; // RawFood: GatherFood 목표치 15와 일치
 
         /// <summary>
-        /// 가용 자원량과 도구 보유 여부를 평가해 가장 부족한 자원의 Goal ID를 반환한다.
-        /// 모든 자원이 임계값 이상이면 null.
+        /// [방향 ③ F1] 발견되지 않은 자원 타입은 후보에서 제외한다.
+        /// 미발견 자원의 컨텍스트 배율(FULL_NODE_PENALTY×2=10)이 액션 비용을 폭발시켜
+        /// admissible 휴리스틱이 A*를 안내하지 못하고 MAX_NODES 4096을 소진하며
+        /// NoSolutionFound가 발생한다. 근거: Docs/이슈_GatherIron_초반_무해.md P1-A 진단.
+        /// 모든 자원이 임계값 이상이거나 전부 미발견이면 null.
         /// </summary>
         public static string Select(
             float woodStock,
@@ -25,7 +28,12 @@ namespace AIVillage.AI
             float ironStock,
             float copperStock,
             float rawFoodStock,
-            bool  hasTool)
+            bool  hasTool,
+            bool  woodDiscovered,
+            bool  stoneDiscovered,
+            bool  ironDiscovered,
+            bool  copperDiscovered,
+            bool  foodDiscovered)
         {
             string best       = null;
             float  worstRatio = 1f;
@@ -38,11 +46,12 @@ namespace AIVillage.AI
             }
 
             // [S3] 도구가 없으면 벌목·채굴 Goal은 수학적으로 해가 없다 (CraftTool은 Phase 3 과제).
-            if (hasTool) Consider(woodStock,    T_COMMON, "GatherWood");
-            if (hasTool) Consider(stoneStock,   T_COMMON, "GatherStone");
-            if (hasTool) Consider(ironStock,    T_RARE,   "GatherIron");
-            if (hasTool) Consider(copperStock,  T_RARE,   "GatherCopper");
-            Consider(rawFoodStock, T_FOOD, "GatherFood");
+            // [방향 ③ F1] 미발견 자원 타입은 상위 게이팅으로 후보 제외 (ADR-③-1, ADR-10).
+            if (hasTool && woodDiscovered)   Consider(woodStock,   T_COMMON, "GatherWood");
+            if (hasTool && stoneDiscovered)  Consider(stoneStock,  T_COMMON, "GatherStone");
+            if (hasTool && ironDiscovered)   Consider(ironStock,   T_RARE,   "GatherIron");
+            if (hasTool && copperDiscovered) Consider(copperStock, T_RARE,   "GatherCopper");
+            if (foodDiscovered)              Consider(rawFoodStock, T_FOOD,  "GatherFood");
             return best;
         }
     }

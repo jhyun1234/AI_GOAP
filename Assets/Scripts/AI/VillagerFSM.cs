@@ -127,6 +127,10 @@ namespace AIVillage.AI
         [Tooltip("LOD 거리 계산 기준이 되는 기지(Base) 타일 Y 좌표.")]
         [SerializeField] private int _baseTileY = 0;
 
+        [Tooltip("F-A 초기 성격. None이면 Awake에서 6종 중 랜덤 배분 (RecruitmentSystem과 동일 규칙). " +
+                 "특정 성격을 지정하면 그 값을 그대로 사용 — 디버그/시연용.")]
+        [SerializeField] private Personality _initialPersonality = Personality.None;
+
         #endregion
 
         #region ── Private Fields ──
@@ -312,6 +316,13 @@ namespace AIVillage.AI
                 FSMState         = VillagerState.Idle,
                 LODState         = LODState.LOD_Idle,
             };
+
+            // F-A: 씬 배치본 성격 배분. Inspector가 None이면 6종 중 랜덤(모집 로직과 동일 규칙),
+            // 지정값이면 그 값을 그대로 사용한다. RecruitmentSystem 경로는 InitFromRecruitData가
+            // Awake 이후에 재할당하므로 여기 배분값을 덮어써도 무해하다.
+            Brain.Personality = _initialPersonality == Personality.None
+                ? (Personality)UnityEngine.Random.Range(1, 7)
+                : _initialPersonality;
 
             // AuthoritativeWorldState 싱글턴 캐시
             // Update()에서 직접 접근하지 않기 위해 Awake에서 저장

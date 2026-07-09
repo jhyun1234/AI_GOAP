@@ -56,6 +56,13 @@ namespace AIVillage.AI
         /// </summary>
         public int OriginalFactionId { get; set; } = 0;
 
+        /// <summary>
+        /// F-A: 주민 성격. GOAP 배율(PersonalityCostMultipliers)·정보창 라벨·대사 풀의 단일 출처.
+        /// 기본값 None = 배율 Identity로 안전 폴백.
+        /// RecruitmentSystem.TryRecruit()이 None이면 6종 중 랜덤 배분한다.
+        /// </summary>
+        public Personality Personality { get; set; } = Personality.None;
+
         #endregion
 
         #region ── 생존 수치 (0~100) ──
@@ -348,6 +355,9 @@ namespace AIVillage.AI
             FatigueLevel = UnityEngine.Random.Range(data.fatigueMin, data.fatigueMax);
             MoodLevel    = UnityEngine.Random.Range(data.moodMin,    data.moodMax);
             LoyaltyLevel = UnityEngine.Random.Range(data.loyaltyMin, data.loyaltyMax);
+
+            // F-A: 성격 설정. RecruitData가 None이면 RecruitmentSystem이 사후 랜덤 배분한다.
+            Personality  = data.personality;
         }
 
         /// <summary>

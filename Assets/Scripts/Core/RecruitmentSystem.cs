@@ -184,6 +184,14 @@ namespace AIVillage.Core
             fsm.Brain.TileX = GameManager.Instance.BaseTileX;
             fsm.Brain.TileY = GameManager.Instance.BaseTileY;
 
+            // ── F-A: RecruitData가 Personality.None이면 6종 중 랜덤 배분 ────
+            // Personality enum 값: 0=None, 1=Coward, 2=Brave, 3=Diligent, 4=Lazy, 5=Glutton, 6=Curious.
+            // Random.Range(int, int)는 min 포함 / max 제외이므로 (1, 7) → 1~6.
+            if (fsm.Brain.Personality == Personality.None)
+            {
+                fsm.Brain.Personality = (Personality)Random.Range(1, 7);
+            }
+
             // ── GameManager 등록 ──────────────────────────────────────────────
             GameManager.Instance.RegisterNewVillager(fsm);
 

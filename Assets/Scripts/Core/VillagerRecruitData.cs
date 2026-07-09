@@ -127,6 +127,14 @@ namespace AIVillage.Core
 
         #endregion
 
+        #region ── F-A 성격 (재미 로드맵 P0) ──
+
+        [Header("F-A 성격")]
+        [Tooltip("None이면 RecruitmentSystem이 6종(Coward~Curious) 중 랜덤 배분.")]
+        [SerializeField] public Personality personality = Personality.None;
+
+        #endregion
+
         #region ── 공개 헬퍼 메서드 ──
 
         /// <summary>

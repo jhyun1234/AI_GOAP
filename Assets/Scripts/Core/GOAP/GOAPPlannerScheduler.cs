@@ -42,7 +42,7 @@ namespace AIVillage.Core.GOAP
     {
         /// <summary>
         /// [Phase 2 ADR-8] 수치형 Goal 사용 여부 토글.
-        /// true: BuildGoalState가 수치 슬롯(MyHunger ≤ 30 등)으로 목표를 정의한다.
+        /// true: BuildGoalState가 수치 슬롯(MySatiety ≥ 70 등)으로 목표를 정의한다.
         /// false: 기존 불리언 HungerSolved==1 방식. 문제 발생 시 즉시 false로 롤백 가능.
         /// Phase 2 안정화 후 제거 예정.
         /// </summary>

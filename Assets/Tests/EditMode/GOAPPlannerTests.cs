@@ -235,7 +235,7 @@ public class GOAPPlannerTests
         {
             [GOAPPlanningSlots.HasCookedFood]     = 1,
             [GOAPPlanningSlots.CookedFoodStock]   = 5,
-            [GOAPPlanningSlots.MyHunger]          = 90,
+            [GOAPPlanningSlots.MySatiety]         = 10,
         };
         var (plan, _) = PlanRun(state, "SurviveHunger", useNumericGoals: false);
 
@@ -244,14 +244,14 @@ public class GOAPPlannerTests
         Assert.AreEqual("EatCookedFood", plan[0]);
     }
 
-    /// <summary>T02 — 수치형 SurviveHunger 1스텝: MyHunger=70 → EatCooked 1회 → 20 ≤ 30.</summary>
+    /// <summary>T02 — 수치형 SurviveHunger 1스텝: MySatiety=20 → EatCooked 1회 → 70 ≥ 70.</summary>
     [Test]
     public void T02_NumericSurviveHunger_EatCooked1Step()
     {
-        int relief = GOAPActionRegistry.EAT_HUNGER_RELIEF; // 50
+        int relief = GOAPActionRegistry.EAT_HUNGER_RELIEF; // 50 (포만감 증가량)
         var state = new Dictionary<int, int>
         {
-            [GOAPPlanningSlots.MyHunger]        = 70,
+            [GOAPPlanningSlots.MySatiety]       = 20,
             [GOAPPlanningSlots.HasCookedFood]   = 1,
             [GOAPPlanningSlots.CookedFoodStock] = 2,
         };
@@ -260,7 +260,7 @@ public class GOAPPlannerTests
         Assert.IsNotNull(plan);
         Assert.AreEqual(1, plan.Count);
         Assert.AreEqual("EatCookedFood", plan[0],
-            $"MyHunger=70, Relief={relief} → 결과=20 ≤ 30이므로 1스텝이어야 한다.");
+            $"MySatiety=20, Relief={relief} → 결과=70 ≥ 70이므로 1스텝이어야 한다.");
     }
 
     /// <summary>T03 — CookMeal → EatCooked 멀티스텝: 생 식량만 있을 때 요리 체인.</summary>
@@ -270,7 +270,7 @@ public class GOAPPlannerTests
         int cookConsume = GOAPActionRegistry.COOK_RAW_CONSUME; // 2
         var state = new Dictionary<int, int>
         {
-            [GOAPPlanningSlots.MyHunger]        = 70,
+            [GOAPPlanningSlots.MySatiety]       = 20,
             [GOAPPlanningSlots.HasRawFood]      = 1,
             [GOAPPlanningSlots.RawFoodStock]    = cookConsume + 1, // 최소+여분
             [GOAPPlanningSlots.NearFireplace]   = 1,
@@ -377,7 +377,7 @@ public class GOAPPlannerTests
     {
         var state = new Dictionary<int, int>
         {
-            [GOAPPlanningSlots.MyHunger] = 10, // 10 ≤ 30 → 이미 달성
+            [GOAPPlanningSlots.MySatiety] = 90, // 90 ≥ 70 → 이미 달성
         };
         var (plan, _) = PlanRun(state, "SurviveHunger");
 
@@ -515,8 +515,8 @@ public class GOAPPlannerTests
             AssertEffect("CookMeal", GOAPPlanningSlots.CookedFoodStock, S, GOAPActionRegistry.COOK_YIELD,       "COOK_YIELD");
 
             // ── 식사 / 피로 / 체력 ──────────────────────────────────────
-            AssertEffect("EatCookedFood", GOAPPlanningSlots.MyHunger,  D, GOAPActionRegistry.EAT_HUNGER_RELIEF,    "EAT_HUNGER_RELIEF");
-            AssertEffect("EatRawFood",    GOAPPlanningSlots.MyHunger,  D, GOAPActionRegistry.EAT_RAW_RELIEF,       "EAT_RAW_RELIEF");
+            AssertEffect("EatCookedFood", GOAPPlanningSlots.MySatiety, S, GOAPActionRegistry.EAT_HUNGER_RELIEF,    "EAT_HUNGER_RELIEF");
+            AssertEffect("EatRawFood",    GOAPPlanningSlots.MySatiety, S, GOAPActionRegistry.EAT_RAW_RELIEF,       "EAT_RAW_RELIEF");
             AssertEffect("Sleep",         GOAPPlanningSlots.MyFatigue, D, GOAPActionRegistry.SLEEP_FATIGUE_RELIEF, "SLEEP_FATIGUE_RELIEF");
             AssertEffect("RestOnGround",  GOAPPlanningSlots.MyFatigue, D, GOAPActionRegistry.REST_FATIGUE_RELIEF,  "REST_FATIGUE_RELIEF");
             AssertEffect("SeekMedicalAid",GOAPPlanningSlots.MyHealth,  S, GOAPActionRegistry.MEDICAL_HEALTH_GAIN,  "MEDICAL_HEALTH_GAIN");

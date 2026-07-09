@@ -89,15 +89,15 @@ namespace AIVillage.Tests.EditMode
         [Test]
         public void SurviveHunger_trigger_implies_target_unreached()
         {
-            // 발동: HungerLevel > 80 → 발동 최소 hunger = 81
-            // 목표: MyHunger LessEq 30
-            // 정상 조건: 발동 최소값(81) > 목표치(30) — 발동 시점 항상 미달성.
-            float triggerMin = VillagerFSM.P0_HUNGER_TRIGGER_HUNGER + 1f;
-            int   target     = GOAPPlanningSlots.GoalTarget.SurviveHunger_MyHunger;
-            Assert.Greater(triggerMin, (float)target,
-                $"[T14 SurviveHunger] 발동 최소 hunger({triggerMin}) ≤ 목표치({target}). " +
-                "발동 시점이 이미 목표(LessEq) 달성 상태 → alreadySatisfied 무한 루프. " +
-                "VillagerFSM.P0_HUNGER_TRIGGER_HUNGER 또는 GoalTarget.SurviveHunger_MyHunger를 정정하세요.");
+            // 발동: SatietyLevel < 20 → 발동 최대 satiety = 19
+            // 목표: MySatiety GreaterEq 70
+            // 정상 조건: 발동 최대값(19) < 목표치(70) — 발동 시점 항상 미달성.
+            float triggerMax = VillagerFSM.P0_HUNGER_TRIGGER_SATIETY - 1f;
+            int   target     = GOAPPlanningSlots.GoalTarget.SurviveHunger_MySatiety;
+            Assert.Less(triggerMax, (float)target,
+                $"[T14 SurviveHunger] 발동 최대 satiety({triggerMax}) ≥ 목표치({target}). " +
+                "발동 시점이 이미 목표(GreaterEq) 달성 상태 → alreadySatisfied 무한 루프. " +
+                "VillagerFSM.P0_HUNGER_TRIGGER_SATIETY 또는 GoalTarget.SurviveHunger_MySatiety를 정정하세요.");
         }
 
         [Test]

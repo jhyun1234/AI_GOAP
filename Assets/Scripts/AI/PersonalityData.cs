@@ -28,12 +28,14 @@ namespace AIVillage.AI
         /// <summary>PersonalityCostMultipliers.From() 반환값의 상한.</summary>
         public const float MULT_MAX = 2.0f;
 
-        // ── 대식가 P0 임계값 하향 (ADR-P4) ───────────────────────────────────
-        // VillagerBrain.HasActiveP0Condition()에서 HungerLevel > 80f - 이 오프셋
+        // ── 대식가 P0 임계값 상향 (ADR-P4) ───────────────────────────────────
+        // Satiety 세만틱 반전(높을수록 배부름) 후 오프셋 부호도 반전.
+        // VillagerBrain.HasActiveP0Condition()에서 SatietyLevel &lt; 20f + 이 오프셋.
+        //   → 일반=20, Glutton=30에서 발동 (더 일찍 배고픔).
         // 배율 대신 임계값 조정 축을 쓰는 이유: 배율은 SurviveHunger Goal 목표치와
         // 즉시 충돌(ADR-7). 임계값 축은 이런 리스크 없음.
 
-        /// <summary>Glutton일 때 배고픔 P0 임계값을 이 값만큼 낮춘다.</summary>
+        /// <summary>Glutton일 때 배고픔 P0 임계값을 이 값만큼 올린다 (더 일찍 발동).</summary>
         public const float GLUTTON_HUNGER_THRESHOLD_OFFSET = 10f;
 
         // ── 라벨/색상 조회 ────────────────────────────────────────────────────

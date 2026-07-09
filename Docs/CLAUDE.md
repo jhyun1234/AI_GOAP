@@ -40,8 +40,8 @@ Unity 탑다운 마을 생존 시뮬레이션. GOAP(Burst Job A*) 기반 주민 
     모든 float 값은 `[PersonalityData.MULT_MIN, MULT_MAX] = [0.5, 2.0]`으로 클램프한다.
     성격 배율은 컨텍스트 배율(`FULL_NODE_PENALTY × 2 = 10`)과 곱해지므로 상한 초과 시
     admissible 휴리스틱이 A*를 안내하지 못하고 MAX_NODES 4096을 소진 → NoSolutionFound.
-    Glutton은 배율 축이 아니라 `HasActiveP0Condition` 배고픔 임계값 축(-10)으로 표현하며
-    ADR-7 정합(goal target 30 < 임계값 70)을 유지한다 (F-A 명세, ADR-P4).
+    Glutton은 배율 축이 아니라 `HasActiveP0Condition` 포만감 임계값 축(+10)으로 표현하며
+    ADR-7 정합(goal target 70 > 임계값 30, Satiety 세만틱)을 유지한다 (F-A 명세, ADR-P4).
     검증: EditMode 게이트 T18.
 
 ## 작업 프로토콜
@@ -60,6 +60,33 @@ Unity 탑다운 마을 생존 시뮬레이션. GOAP(Burst Job A*) 기반 주민 
   ⑨ 성격 배율·`PersonalityData` 상수·`PersonalityCostMultipliers.From()` 변경 커밋이면 T17·T18이 초록인지 명시 확인,
      그리고 `grep -n "GOAPActionRegistry\.BuildActionDefs(" Assets` 결과 호출부가 성격 배율 축(5인자 이상)을
      인지한 형태인지 확인. 3인자 이하 호출부는 default 폴백(Identity) 의도 명시 (ADR-11/ADR-P1)
+
+## 자동 커밋 + 개발 일지 (devlog-workflow.md 실행)
+
+**모든 의미 있는 개발 단위 완료 시 즉시 커밋한다.** 대상:
+- 버그 수정 1건 / 새 기능·시스템 1개 / 아키텍처 변경 1건 / 테스트 케이스 1개 추가
+- 명세 항목(W/F/P/N) **진척 단위마다 부분 커밋 허용** (예: W5의 FSM 부분 → 커밋, W5의 테스트 부분 → 별도 커밋, 마지막 "W5 완료" 마무리 커밋 별도).
+  단 각 부분 커밋도 상단 "커밋 전 체크 7종"의 ①②를 통과해야 한다(빌드 깨진 채 커밋 금지).
+
+여러 단위를 한 커밋에 합치지 않는다. 배치 지연 금지.
+
+커밋 메시지: `<type>(<scope>): <요약>` — type ∈ {fix, feat, refactor, test, docs, spec}.
+명세 항목이면 요약에 W/F/P/N 번호 포함(예: `feat(goap): F1 GatherGoalSelector 5인자 확장 중간 스냅`).
+
+**세션 로그는 훅이 자동 처리한다.** `.claude/settings.json`의 `PostToolUse` Bash 훅이
+매 Bash 툴 호출 후 `tools/devlog/append-session-log.sh`를 실행한다. HEAD가 이동했을 때만
+동작하며 `devlog/sessions/YYYY-MM-DD.md`에 append/merge(60분 이내 + 같은 태그 = 병합).
+로컬 상태는 `tools/devlog/.last-processed-commit`, 오류는 `tools/devlog/.hook-errors.log`.
+훅이 무언가로 실패한 경우 `session-log-append` 스킬로 수동 append 가능(폴백).
+
+## 응답 규율 (컨텍스트/토큰 절감)
+- 종료 요약은 1~2문장. 무엇을 바꿨고 다음이 뭔지만. 이미 diff나 파일 링크로 보이는 것을 다시 산문으로 풀어쓰지 않는다.
+- 툴 호출 사이 진행 나레이션 금지. 방향 전환·발견·차단이 실제로 있을 때만 1문장.
+- 단순 질문/짧은 확인에는 헤더·불릿·볼드 쓰지 않는다. 리뷰 판정표·커밋 보고 등 스캔이 필요한 응답에만 구조를 넣는다.
+- 커밋 보고와 spec-review 보고는 정해진 형식이 있다. 서문("이제 커밋하겠습니다")·후기("도움이 되었길") 없이 곧장 형식으로 시작한다.
+- 코드에 주석은 기본적으로 달지 않는다. **왜**가 자명하지 않을 때(숨은 제약, 특정 버그 회피, 놀라울 동작)만 짧게 남긴다. 파일명·라인번호·"현재 태스크"·"이전 호출자" 언급은 커밋 메시지에 남기고 코드엔 남기지 않는다.
+- 명세서에 없는 개선 아이디어가 떠오르면 코드에 넣지 말고 커밋 메시지 하단이나 로드맵에 한 줄로 기록. ADR-금지 규칙과 동일한 이유(스코프 팽창 방지).
+- 파일을 새로 만들기 전에 기존 파일 확장 여부를 먼저 검토. 문서(*.md)는 사용자가 요청했을 때만 생성한다.
 
 ## 검증 명령 (커밋 전 실행)
 ```

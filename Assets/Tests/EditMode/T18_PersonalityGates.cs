@@ -9,8 +9,8 @@ namespace AIVillage.Tests
     /// [T18] F-A 성격 배율 회귀 게이트 (ADR-P1 · ADR-P4 방어).
     /// 근거: Docs/F-A_성격특성_명세서.md §4 FA-7, Docs/CLAUDE.md ADR-11.
     ///
-    /// - Case1 (ADR-P4): Glutton 성격이면 HungerLevel 71에서 SurviveHunger가 활성화.
-    ///                   비-Glutton은 여전히 81+ 이상에서 활성화.
+    /// - Case1 (ADR-P4): Glutton 성격이면 SatietyLevel 29에서 SurviveHunger가 활성화.
+    ///                   비-Glutton은 SatietyLevel 19 이하에서 활성화.
     /// - Case2 (ADR-P1): PersonalityCostMultipliers.From() 반환 값이 항상
     ///                   [PersonalityData.MULT_MIN, MULT_MAX] = [0.5, 2.0] 클램프.
     /// - Case3 (ADR-P1): Coward × 위험 컨텍스트(AttackEnemy 2.5배) × BuildActionDefs
@@ -27,24 +27,24 @@ namespace AIVillage.Tests
         // ─────────────────────────────────────────────────────────────
 
         [Test]
-        public void Case1_Glutton_HungerThreshold_Down10()
+        public void Case1_Glutton_HungerThreshold_Up10()
         {
-            // Glutton, HungerLevel=71 → 임계값 70 초과 → P0 활성.
-            var glutton = new VillagerBrain { Personality = Personality.Glutton, HungerLevel = 71f };
+            // Glutton, SatietyLevel=29 → 임계값 30 미만 → P0 활성.
+            var glutton = new VillagerBrain { Personality = Personality.Glutton, SatietyLevel = 29f };
             Assert.IsTrue(glutton.HasActiveP0Condition(),
-                "Glutton은 HungerLevel 71에서 P0가 활성화되어야 한다 (임계값 80-10=70 초과).");
+                "Glutton은 SatietyLevel 29에서 P0가 활성화되어야 한다 (임계값 20+10=30 미만).");
             Assert.AreEqual("SurviveHunger", glutton.GetHighestPriorityGoalId(),
-                "Glutton HungerLevel 71에서 최우선 goal은 SurviveHunger.");
+                "Glutton SatietyLevel 29에서 최우선 goal은 SurviveHunger.");
 
-            // 비-Glutton, HungerLevel=71 → 임계값 80 이하 → P0 비활성 (다른 조건 모두 정상).
-            var nonGlutton = new VillagerBrain { Personality = Personality.Diligent, HungerLevel = 71f };
+            // 비-Glutton, SatietyLevel=29 → 임계값 20 이상 → P0 비활성 (다른 조건 모두 정상).
+            var nonGlutton = new VillagerBrain { Personality = Personality.Diligent, SatietyLevel = 29f };
             Assert.IsFalse(nonGlutton.HasActiveP0Condition(),
-                "비-Glutton은 HungerLevel 71에서 P0가 비활성이어야 한다 (임계값 80 이하).");
+                "비-Glutton은 SatietyLevel 29에서 P0가 비활성이어야 한다 (임계값 20 이상).");
 
-            // Glutton이라도 HungerLevel=69이면 임계값 70 이하 → 비활성.
-            var gluttonSafe = new VillagerBrain { Personality = Personality.Glutton, HungerLevel = 69f };
+            // Glutton이라도 SatietyLevel=31이면 임계값 30 이상 → 비활성.
+            var gluttonSafe = new VillagerBrain { Personality = Personality.Glutton, SatietyLevel = 31f };
             Assert.IsFalse(gluttonSafe.HasActiveP0Condition(),
-                "Glutton HungerLevel 69는 임계값 70 이하 → 비활성.");
+                "Glutton SatietyLevel 31은 임계값 30 이상 → 비활성.");
         }
 
         // ─────────────────────────────────────────────────────────────

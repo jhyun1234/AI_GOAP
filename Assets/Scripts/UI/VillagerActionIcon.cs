@@ -121,7 +121,7 @@ namespace AIVillage.UI
             if (!b.IsAlive) return "";
 
             // P0 위기 오버라이드
-            if (b.HungerLevel  > 80f) return "<color=#FF4444>[!]허기</color>";
+            if (b.SatietyLevel < 20f) return "<color=#FF4444>[!]허기</color>";
             if (b.HealthLevel  < 20f) return "<color=#FF0000>[!]부상</color>";
             if (b.FatigueLevel > 90f) return "<color=#FF8800>[!]탈진</color>";
 

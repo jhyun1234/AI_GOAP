@@ -358,8 +358,8 @@ namespace AIVillage.Core.GOAP
         public const int YIELD_HARVEST_BERRIES = 5;   // HarvestWildBerries 1회 수확량 (기획서 수치 — ActionDatabase rawFood += 5)
         public const int COOK_RAW_CONSUME      = 2;   // CookMeal 소비 생 식량
         public const int COOK_YIELD            = 2;   // CookMeal 산출 조리 식량 (기획서 수치 — VillagerFSM cookedFood += 2f)
-        public const int EAT_HUNGER_RELIEF     = 50;  // EatCookedFood 배고픔 감소량 (ActionDatabase ReduceHunger 50f와 일치)
-        public const int EAT_RAW_RELIEF        = 15;  // EatRawFood 배고픔 감소량 (ActionDatabase ReduceHunger 15f와 일치)
+        public const int EAT_HUNGER_RELIEF     = 50;  // EatCookedFood 포만감 증가량 (배고픔 해소량 = SatietyLevel gain)
+        public const int EAT_RAW_RELIEF        = 15;  // EatRawFood 포만감 증가량
         public const int SLEEP_FATIGUE_RELIEF  = 90;  // Sleep 피로 회복량 (VillagerFSM.SLEEP_FATIGUE_RECOVERY 90f와 일치)
         public const int REST_FATIGUE_RELIEF   = 20;  // RestOnGround 피로 회복량 (FSM REST_ON_GROUND_FATIGUE_RECOVERY와 일치)
         public const int MEDICAL_HEALTH_GAIN   = 40;  // SeekMedicalAid 체력 회복량 (ActionDatabase GainHealth 40f와 일치)
@@ -444,7 +444,7 @@ namespace AIVillage.Core.GOAP
             public const int CopperStock     = GOAPPlanningSlots.CopperStock;
             public const int RawFoodStock    = GOAPPlanningSlots.RawFoodStock;
             public const int CookedFoodStock = GOAPPlanningSlots.CookedFoodStock;
-            public const int MyHunger        = GOAPPlanningSlots.MyHunger;
+            public const int MySatiety       = GOAPPlanningSlots.MySatiety;
             public const int MyFatigue       = GOAPPlanningSlots.MyFatigue;
             public const int MyHealth        = GOAPPlanningSlots.MyHealth;
         }
@@ -643,7 +643,7 @@ namespace AIVillage.Core.GOAP
 
             // ── EatCookedFood (조리된 음식 섭취) ─────────────────────────────
             // Preconditions: HasCookedFood=1, [P2] CookedFoodStock GreaterEq 1
-            // Effects: HungerSolved=1, HungerCritical=0, [P2] CookedFoodStock Sub 1, MyHunger Sub EAT_HUNGER_RELIEF
+            // Effects: HungerSolved=1, HungerCritical=0, [P2] CookedFoodStock Sub 1, MySatiety Add EAT_HUNGER_RELIEF
             defs[i++] = new GOAPActionDef
             {
                 ActionStringHash = Animator.StringToHash("EatCookedFood"),
@@ -655,12 +655,12 @@ namespace AIVillage.Core.GOAP
                 Eff0S = S.HungerSolved, Eff0V = 1,
                 Eff1S = S.HungerCritical, Eff1V = 0,
                 Eff2S = S.CookedFoodStock, Eff2Op = 2, Eff2V = 1, // Sub 1
-                Eff3S = S.MyHunger, Eff3Op = 2, Eff3V = EAT_HUNGER_RELIEF // Sub
+                Eff3S = S.MySatiety, Eff3Op = 1, Eff3V = EAT_HUNGER_RELIEF // Add
             };
 
             // ── EatRawFood (생 음식 섭취) ─────────────────────────────────────
             // Preconditions: HasRawFood=1, [P2] RawFoodStock GreaterEq 1
-            // Effects: HungerSolved=1, HungerCritical=0, [P2] RawFoodStock Sub 1, MyHunger Sub EAT_RAW_RELIEF
+            // Effects: HungerSolved=1, HungerCritical=0, [P2] RawFoodStock Sub 1, MySatiety Add EAT_RAW_RELIEF
             defs[i++] = new GOAPActionDef
             {
                 ActionStringHash = Animator.StringToHash("EatRawFood"),
@@ -672,7 +672,7 @@ namespace AIVillage.Core.GOAP
                 Eff0S = S.HungerSolved, Eff0V = 1,
                 Eff1S = S.HungerCritical, Eff1V = 0,
                 Eff2S = S.RawFoodStock, Eff2Op = 2, Eff2V = 1, // Sub 1
-                Eff3S = S.MyHunger, Eff3Op = 2, Eff3V = EAT_RAW_RELIEF // Sub
+                Eff3S = S.MySatiety, Eff3Op = 1, Eff3V = EAT_RAW_RELIEF // Add
             };
 
             // ── CookMeal (음식 조리) ──────────────────────────────────────────

@@ -71,10 +71,10 @@ namespace AIVillage.AI
         // IsP0GoalActive/GetP0GoalId의 리터럴이었던 값을 클래스 상수로 승격한다.
         // T14 정합성 테스트가 이 상수와 BuildGoalState 목표치의 방향성을 검증한다.
         // - Injury: 발동 HealthLevel < 20, 목표 MyHealth GreaterEq 60 (역방향, 20 < 60 정상)
-        // - Hunger: 발동 HungerLevel > 80, 목표 MyHunger LessEq 30 (역방향, 81 > 30 정상)
+        // - Hunger: 발동 SatietyLevel < 20, 목표 MySatiety GreaterEq 70 (역방향, 19 < 70 정상)
         // - Fatigue: 발동 FatigueLevel > 90, 목표 MyFatigue LessEq 30 (역방향, 91 > 30 정상)
-        internal const float P0_INJURY_TRIGGER_HEALTH  = 20f;
-        internal const float P0_HUNGER_TRIGGER_HUNGER  = 80f;
+        internal const float P0_INJURY_TRIGGER_HEALTH   = 20f;
+        internal const float P0_HUNGER_TRIGGER_SATIETY  = 20f; // SatietyLevel이 이 값 미만이면 P0 발동
         internal const float P0_FATIGUE_TRIGGER_FATIGUE = 90f;
 
         // 사망 후 GameObject 비활성화까지 대기 시간 (연출용)
@@ -265,8 +265,8 @@ namespace AIVillage.AI
         /// <summary>현재 체력 (0~100).</summary>
         public float HealthLevel => Brain?.HealthLevel ?? 0f;
 
-        /// <summary>현재 배고픔 (0~100).</summary>
-        public float HungerLevel => Brain?.HungerLevel ?? 0f;
+        /// <summary>현재 포만감 (0~100). 높을수록 배부름.</summary>
+        public float SatietyLevel => Brain?.SatietyLevel ?? 0f;
 
         /// <summary>현재 피로도 (0~100).</summary>
         public float FatigueLevel => Brain?.FatigueLevel ?? 0f;
@@ -1646,7 +1646,7 @@ namespace AIVillage.AI
         /// <summary>리플래닝 상황에 맞는 대사를 랜덤 풀에서 반환한다.</summary>
         private string GetReplanThought()
         {
-            if (Brain.HungerLevel > 75f) return Pick(THOUGHT_HUNGRY_REPLAN);
+            if (Brain.SatietyLevel < 25f) return Pick(THOUGHT_HUNGRY_REPLAN);
             if (Brain.FatigueLevel > 80f) return Pick(THOUGHT_TIRED_REPLAN);
             if (Brain.NearEnemy) return Pick(THOUGHT_DANGER_REPLAN);
 
@@ -1897,7 +1897,7 @@ namespace AIVillage.AI
         {
             if (Brain == null) return false;
             return Brain.HealthLevel  < P0_INJURY_TRIGGER_HEALTH
-                || Brain.HungerLevel  > P0_HUNGER_TRIGGER_HUNGER
+                || Brain.SatietyLevel < P0_HUNGER_TRIGGER_SATIETY
                 || Brain.FatigueLevel > P0_FATIGUE_TRIGGER_FATIGUE;
         }
 
@@ -1907,8 +1907,8 @@ namespace AIVillage.AI
         /// </summary>
         private string GetP0GoalId()
         {
-            if (Brain.HealthLevel  < P0_INJURY_TRIGGER_HEALTH)  return "SurviveInjury";
-            if (Brain.HungerLevel  > P0_HUNGER_TRIGGER_HUNGER)  return "SurviveHunger";
+            if (Brain.HealthLevel  < P0_INJURY_TRIGGER_HEALTH)   return "SurviveInjury";
+            if (Brain.SatietyLevel < P0_HUNGER_TRIGGER_SATIETY)  return "SurviveHunger";
             if (Brain.FatigueLevel > P0_FATIGUE_TRIGGER_FATIGUE) return "SurviveFatigue";
             return null;
         }
@@ -2215,9 +2215,10 @@ namespace AIVillage.AI
                             // OnActionCompleted()의 Registry.Commit()이 이미 처리함
                             break;
 
-                        // Brain 수치: 배고픔 감소 (하한 0 클램프)
+                        // Brain 수치: 포만감 증가 (상한 100 클램프)
+                        // ReduceHunger effect의 Amount는 "배고픔 해소량" = "포만감 증가량"으로 재해석한다.
                         case ActionEffectType.ReduceHunger:
-                            Brain.HungerLevel = Mathf.Max(0f, Brain.HungerLevel - effect.Amount);
+                            Brain.SatietyLevel = Mathf.Min(100f, Brain.SatietyLevel + effect.Amount);
                             break;
 
                         // Brain 수치: 피로 감소 — 땅에서 쉬기 (20 감소)
@@ -2318,11 +2319,11 @@ namespace AIVillage.AI
             switch (actionId)
             {
                 case "EatCookedFood":
-                    Brain.HungerLevel = Mathf.Max(0f, Brain.HungerLevel  - GOAPActionRegistry.EAT_HUNGER_RELIEF); // ADR-7
-                    Brain.MoodLevel   = Mathf.Min(100f, Brain.MoodLevel   + 5f);
+                    Brain.SatietyLevel = Mathf.Min(100f, Brain.SatietyLevel + GOAPActionRegistry.EAT_HUNGER_RELIEF); // ADR-7
+                    Brain.MoodLevel    = Mathf.Min(100f, Brain.MoodLevel    + 5f);
                     break;
                 case "EatRawFood":
-                    Brain.HungerLevel = Mathf.Max(0f, Brain.HungerLevel   - GOAPActionRegistry.EAT_RAW_RELIEF); // ADR-7
+                    Brain.SatietyLevel = Mathf.Min(100f, Brain.SatietyLevel + GOAPActionRegistry.EAT_RAW_RELIEF); // ADR-7
                     break;
                 case "Sleep":
                     Brain.FatigueLevel = Mathf.Max(0f, Brain.FatigueLevel - SLEEP_FATIGUE_RECOVERY);
@@ -2648,7 +2649,7 @@ namespace AIVillage.AI
         {
             Brain.NeedsHelp = true;
 
-            // [PR Fix R-007]: 기존 폴백 로직(HungerLevel < 50 → RestOnGround)은 P0 생존 위기가
+            // [PR Fix R-007]: 기존 폴백 로직(SatietyLevel > 50 → RestOnGround)은 P0 생존 위기가
             // 이미 실패한 Deadlock 상황에서 부적절하다. 허기가 낮다고 RestOnGround로 가면
             // 오히려 Goal을 잃고 표류할 위험이 크다.
             // 기본 폴백을 MoveToBase로 설정하고, P0 Goal이 활성 상태이면 해당 Goal을 우선 사용한다.
@@ -3197,7 +3198,7 @@ namespace AIVillage.AI
             UnityEditor.Handles.Label(
                 transform.position + Vector3.up * 2f,
                 $"[{Brain.FSMState}]\nGoal: {Brain.CurrentGoalId ?? "none"}\n" +
-                $"HP:{Brain.HealthLevel:F0} HG:{Brain.HungerLevel:F0} FT:{Brain.FatigueLevel:F0} LY:{Brain.LoyaltyLevel:F0}"
+                $"HP:{Brain.HealthLevel:F0} SA:{Brain.SatietyLevel:F0} FT:{Brain.FatigueLevel:F0} LY:{Brain.LoyaltyLevel:F0}"
             );
         }
 #endif

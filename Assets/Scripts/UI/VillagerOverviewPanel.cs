@@ -1,12 +1,10 @@
 /// <summary>
-/// VillagerOverviewPanel.cs - 주민 전체 현황 + 선택 주민 상세 통합 패널
+/// VillagerOverviewPanel.cs - 선택 주민 상세 패널
 ///
-/// 역할(Role): 항상 화면에 표시되는 주민 목록 패널.
-///             - 전체 주민의 활동 상태(채취/이동/탐색/건설)를 색상으로 구분하여 표시
-///             - 주민 클릭 시 상단에 선택 주민의 역할·목표·행동·수치를 상세 표시
-///             - VillagerStatusPanel 기능을 통합하여 패널 1개로 모든 정보 제공
+/// 역할(Role): 주민을 클릭했을 때만 해당 주민의 상태를 표시한다.
+///             선택된 주민이 없으면 패널은 비어있다.
 ///
-/// 의존성(Dependencies): GameManager.cs, VillagerFSM.cs, VillagerBrain.cs, TextMeshPro
+/// 의존성(Dependencies): VillagerFSM.cs, VillagerBrain.cs, TextMeshPro
 /// </summary>
 
 using System.Collections;
@@ -30,7 +28,7 @@ namespace AIVillage.UI
 
         #region ── Serialized Fields ──
 
-        [Tooltip("전체 주민 현황 + 선택 주민 상세를 출력하는 TMP_Text.")]
+        [Tooltip("선택 주민 상세를 출력하는 TMP_Text. 선택 없으면 비어있음.")]
         [SerializeField] private TMP_Text _overviewText;
 
         #endregion
@@ -71,28 +69,8 @@ namespace AIVillage.UI
 
                 _sb.Clear();
 
-                // ── 선택 주민 상세 블록 ──────────────────────────────────────
                 if (_selectedFsm != null && _selectedFsm.Brain != null)
-                {
                     AppendSelectedDetail(_selectedFsm);
-                    _sb.Append('\n');
-                }
-
-                // ── 전체 주민 목록 ────────────────────────────────────────────
-                var villagers = GameManager.Instance?.Villagers;
-                if (villagers != null)
-                {
-                    int total = villagers.Count;
-                    for (int i = 0; i < total; i++)
-                    {
-                        AppendVillagerLine(villagers[i]);
-                        if (i < total - 1) _sb.Append('\n');
-                    }
-                }
-                else
-                {
-                    _sb.Append("<color=#888888>주민 목록 없음</color>");
-                }
 
                 _overviewText.SetText(_sb.ToString());
             }
@@ -130,8 +108,8 @@ namespace AIVillage.UI
             // 수치 바
             _sb.Append("HP ");
             _sb.Append(b.HealthLevel.ToString("F0"));
-            _sb.Append("  허기 ");
-            _sb.Append(b.HungerLevel.ToString("F0"));
+            _sb.Append("  포만 ");
+            _sb.Append(b.SatietyLevel.ToString("F0"));
             _sb.Append("  피로 ");
             _sb.Append(b.FatigueLevel.ToString("F0"));
             _sb.Append("  기분 ");
@@ -206,138 +184,6 @@ namespace AIVillage.UI
 
             _sb.Append('\n');
         }
-
-        #endregion
-
-        #region ── 주민 목록 한 줄 ──
-
-        private void AppendVillagerLine(VillagerFSM fsm)
-        {
-            if (fsm == null) { _sb.Append("(null)"); return; }
-
-            VillagerBrain b = fsm.Brain;
-            if (b == null) { _sb.Append("(null brain)"); return; }
-
-            bool isSelected = (fsm == _selectedFsm);
-
-            // 선택됨 강조
-            if (isSelected) _sb.Append("<color=#FFFF88>");
-
-            // 생사 아이콘
-            _sb.Append(b.IsAlive ? "●" : "×");
-            _sb.Append(' ');
-
-            // 이름
-            _sb.Append(fsm.gameObject.name);
-            _sb.Append("  [");
-
-            // 활동 라벨 + 색상
-            bool moving = fsm.IsMoving;
-            _sb.Append("<color=");
-            _sb.Append(GetActivityColor(b, moving));
-            _sb.Append('>');
-            _sb.Append(GetActivityLabel(b, moving));
-            _sb.Append("</color>]");
-
-            // 세부 작업
-            _sb.Append("  ");
-            _sb.Append(GetActionDetail(b, moving));
-
-            // HP
-            _sb.Append("  HP:");
-            _sb.Append(b.HealthLevel.ToString("F0"));
-
-            if (isSelected) _sb.Append("</color>");
-        }
-
-        #endregion
-
-        #region ── 활동 분류 헬퍼 ──
-
-        private static string GetActivityLabel(VillagerBrain b, bool isMoving)
-        {
-            switch (b.FSMState)
-            {
-                case VillagerState.Dead:        return "사망";
-                case VillagerState.Fighting:    return "전투중";
-                case VillagerState.Fleeing:     return "도주중";
-                case VillagerState.Idle:        return "대기중";
-                case VillagerState.Planning:
-                case VillagerState.Replanning:  return "계획중";
-                case VillagerState.LOD_FSM:     return "원거리";
-                case VillagerState.Executing:
-                    string a = b.CurrentActionId ?? "";
-                    if (IsGatherAction(a))  return isMoving ? "이동중▶채취" : "채취중";
-                    if (a == "Explore")     return "탐색중";
-                    if (IsBuildAction(a))   return isMoving ? "이동중▶건설" : "건설중";
-                    if (a == "MoveToBase")  return "귀환중";
-                    return isMoving ? "이동중" : "실행중";
-                default:                    return "대기중";
-            }
-        }
-
-        private static string GetActivityColor(VillagerBrain b, bool isMoving)
-        {
-            switch (b.FSMState)
-            {
-                case VillagerState.Dead:        return "#888888";
-                case VillagerState.Fighting:    return "#FF3333";
-                case VillagerState.Fleeing:     return "#FF8800";
-                case VillagerState.Idle:        return "#AAAAAA";
-                case VillagerState.Planning:
-                case VillagerState.Replanning:  return "#AAAAAA";
-                case VillagerState.Executing:
-                    string a = b.CurrentActionId ?? "";
-                    if (IsGatherAction(a)) return isMoving ? "#FFCC00" : "#00CC44";
-                    if (a == "Explore")    return "#44AAFF";
-                    if (IsBuildAction(a))  return isMoving ? "#FFCC00" : "#FF6644";
-                    if (a == "MoveToBase") return "#FFCC00";
-                    return "#FFFFFF";
-                default: return "#AAAAAA";
-            }
-        }
-
-        private static string GetActionDetail(VillagerBrain b, bool isMoving)
-        {
-            if (b.FSMState != VillagerState.Executing)
-                return b.CurrentGoalId != null ? GoalToKorean(b.CurrentGoalId) : "—";
-
-            switch (b.CurrentActionId)
-            {
-                case "ChopWood":           return isMoving ? "▶나무"  : "나무 +10";
-                case "MineStone":          return isMoving ? "▶돌"    : "돌 +8";
-                case "MineIron":           return isMoving ? "▶철"    : "철 +5";
-                case "MineCopper":         return isMoving ? "▶구리"  : "구리 +3";
-                case "HarvestWildBerries": return isMoving ? "▶베리"  : "식량 +5";
-                case "Explore":            return "탐색";
-                case "MoveToBase":         return "기지로";
-                case "EatCookedFood":
-                case "EatRawFood":         return "식사중";
-                case "CookMeal":           return "요리중";
-                case "Sleep":              return "수면중";
-                case "RestOnGround":       return "휴식중";
-                case "SeekMedicalAid":     return "치료중";
-                case null:                 return "—";
-                default:                   return b.CurrentActionId;
-            }
-        }
-
-        private static bool IsGatherAction(string id)
-        {
-            switch (id)
-            {
-                case "ChopWood":
-                case "MineStone":
-                case "MineIron":
-                case "MineCopper":
-                case "HarvestWildBerries":
-                    return true;
-                default: return false;
-            }
-        }
-
-        private static bool IsBuildAction(string id)
-            => id != null && id.StartsWith("Build", System.StringComparison.Ordinal);
 
         #endregion
 

@@ -39,8 +39,8 @@ namespace AIVillage.AI
         /// <summary>체력. 0이 되면 Dead 전이가 즉시 발생한다.</summary>
         float HealthLevel { get; }
 
-        /// <summary>배고픔. 100에 가까울수록 긴급 목표가 발동된다.</summary>
-        float HungerLevel { get; }
+        /// <summary>포만감. 0에 가까울수록 긴급 목표가 발동된다 (높을수록 배부름).</summary>
+        float SatietyLevel { get; }
 
         /// <summary>피로도. 높을수록 행동 비용이 증가하고 거부 확률이 높아진다.</summary>
         float FatigueLevel { get; }

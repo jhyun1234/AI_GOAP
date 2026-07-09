@@ -87,11 +87,11 @@ namespace AIVillage.Core
         [Tooltip("스폰 시 체력 최댓값 (0~100).")]
         [SerializeField] public float healthMax = 90f;
 
-        [Tooltip("스폰 시 배고픔 최솟값. 낮을수록 배부름.")]
-        [SerializeField] public float hungerMin = 10f;
+        [Tooltip("스폰 시 포만감 최솟값. 높을수록 배부름.")]
+        [SerializeField] public float satietyMin = 70f;
 
-        [Tooltip("스폰 시 배고픔 최댓값.")]
-        [SerializeField] public float hungerMax = 30f;
+        [Tooltip("스폰 시 포만감 최댓값.")]
+        [SerializeField] public float satietyMax = 90f;
 
         [Tooltip("스폰 시 피로도 최솟값.")]
         [SerializeField] public float fatigueMin = 5f;

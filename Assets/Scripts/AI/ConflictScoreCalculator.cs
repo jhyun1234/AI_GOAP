@@ -32,7 +32,7 @@ namespace AIVillage.AI
         private const float LOYALTY_PIVOT  = 50f;       // 기준 충성도 (이 값일 때 Threshold = 2.5)
 
         // 긴급도(Urgency) 발동 임계값
-        private const float HUNGER_URGENCY_THRESHOLD  = 80f;  // hungerLevel 이 값 초과 시 긴급도 발동
+        private const float HUNGER_URGENCY_THRESHOLD  = 20f;  // satietyLevel 이 값 미만 시 긴급도 발동 (낮을수록 배고픔)
         private const float HEALTH_URGENCY_THRESHOLD  = 20f;  // healthLevel 이 값 미만 시 긴급도 발동
         private const float FATIGUE_URGENCY_THRESHOLD = 90f;  // fatigueLevel 이 값 초과 시 긴급도 발동
         private const float SAFETY_URGENCY_FIXED      = 0.8f; // nearEnemy 시 고정 긴급도 값
@@ -82,9 +82,9 @@ namespace AIVillage.AI
             // 각 생존 수치가 임계값을 벗어난 정도를 0~1(이상) 범위로 선형 변환한다.
             // 범위 이탈이 없으면 0 (긴급도 없음).
 
-            // 배고픔 긴급도: hungerLevel이 80을 초과한 비율 (최대 1.0f, 100일 때)
-            result.HungerUrgency = brain.HungerLevel > HUNGER_URGENCY_THRESHOLD
-                ? (brain.HungerLevel - HUNGER_URGENCY_THRESHOLD) / (100f - HUNGER_URGENCY_THRESHOLD)
+            // 배고픔 긴급도: satietyLevel이 20 미만으로 떨어진 비율 (최대 1.0f, 0일 때)
+            result.HungerUrgency = brain.SatietyLevel < HUNGER_URGENCY_THRESHOLD
+                ? (HUNGER_URGENCY_THRESHOLD - brain.SatietyLevel) / HUNGER_URGENCY_THRESHOLD
                 : 0f;
 
             // 부상 긴급도: healthLevel이 20 미만으로 떨어진 비율 (최대 1.0f, 0일 때)
@@ -185,7 +185,7 @@ namespace AIVillage.AI
                 return RefusalReasonCode.REFUSE_INJURY;
 
             // 우선순위 2: 배고픔 (행동력 저하)
-            if (brain.HungerLevel > HUNGER_URGENCY_THRESHOLD)
+            if (brain.SatietyLevel < HUNGER_URGENCY_THRESHOLD)
                 return RefusalReasonCode.REFUSE_HUNGER;
 
             // 우선순위 3: 피로 (탈진)
@@ -210,7 +210,7 @@ namespace AIVillage.AI
             // 폴백 값 REFUSE_LOYALTY는 그대로 유지 (기존 플레이어 UX 변화 없음).
             Debug.LogWarning($"[ConflictScoreCalculator] DetermineReason: 어떤 생존 임계값도 위반하지 않았으나 " +
                              $"거부 이유 판정이 호출되었습니다. ConflictScore 계산 로직을 확인하세요. " +
-                             $"HP={brain.HealthLevel:F1}, HG={brain.HungerLevel:F1}, " +
+                             $"HP={brain.HealthLevel:F1}, SA={brain.SatietyLevel:F1}, " +
                              $"FT={brain.FatigueLevel:F1}, LY={brain.LoyaltyLevel:F1}. " +
                              $"폴백으로 REFUSE_LOYALTY를 반환합니다.");
             return RefusalReasonCode.REFUSE_LOYALTY;

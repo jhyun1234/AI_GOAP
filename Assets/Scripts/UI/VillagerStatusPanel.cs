@@ -156,13 +156,13 @@ namespace AIVillage.UI
 
                 // 수치는 정수로 표시 (소수점 불필요)
                 int hp  = Mathf.RoundToInt(brain.HealthLevel);
-                int hg  = Mathf.RoundToInt(brain.HungerLevel);
+                int sa  = Mathf.RoundToInt(brain.SatietyLevel);
                 int ft  = Mathf.RoundToInt(brain.FatigueLevel);
                 int md  = Mathf.RoundToInt(brain.MoodLevel);
                 int ly  = Mathf.RoundToInt(brain.LoyaltyLevel);
 
                 SetTextSafe(_statsText,
-                    $"체력: {hp}    허기: {hg}    피로: {ft}\n" +
+                    $"체력: {hp}    포만: {sa}    피로: {ft}\n" +
                     $"기분: {md}    충성도: {ly}");
             }
         }

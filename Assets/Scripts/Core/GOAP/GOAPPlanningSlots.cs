@@ -83,7 +83,7 @@ namespace AIVillage.Core.GOAP
         // ── 생존 위기 플래그 ─────────────────────────────────────────────────────
         // P0 Goal 발동 기준과 동일한 수치를 사용한다.
 
-        /// <summary>배고픔 위기. hungerLevel &gt; 80f → 1 (기획서 수치)</summary>
+        /// <summary>배고픔 위기. satietyLevel &lt; 20f → 1 (기획서 수치)</summary>
         public const int HungerCritical  = 15;
 
         /// <summary>부상 위기. healthLevel &lt; 20f → 1 (기획서 수치)</summary>
@@ -195,8 +195,8 @@ namespace AIVillage.Core.GOAP
         /// <summary>마을 조리 식량 가용량 (정수).</summary>
         public const int CookedFoodStock = 48;
 
-        /// <summary>이 주민의 배고픔 0~100 (VillagerBrain.HungerLevel 미러).</summary>
-        public const int MyHunger        = 49;
+        /// <summary>이 주민의 포만감 0~100 (VillagerBrain.SatietyLevel 미러). 높을수록 배부름.</summary>
+        public const int MySatiety       = 49;
 
         /// <summary>이 주민의 피로도 0~100 (VillagerBrain.FatigueLevel 미러).</summary>
         public const int MyFatigue       = 50;
@@ -225,8 +225,8 @@ namespace AIVillage.Core.GOAP
             public const int GatherFood_RawFoodStock  = 15; // 5 harvests × YIELD(3)
 
             // ── P0 생존 목표치 ─────────────────────────────────────────────────
-            // MyHunger/MyFatigue: LessEq(허기·피로 감소가 목표), MyHealth: GreaterEq
-            public const int SurviveHunger_MyHunger   = 30; // LessEq
+            // MyFatigue: LessEq(피로 감소가 목표), MySatiety/MyHealth: GreaterEq(포만감·체력 회복)
+            public const int SurviveHunger_MySatiety  = 70; // GreaterEq (포만감 회복)
             public const int SurviveInjury_MyHealth   = 60; // GreaterEq
             public const int SurviveFatigue_MyFatigue = 30; // LessEq
 
@@ -339,7 +339,7 @@ namespace AIVillage.Core.GOAP
             state[GOAPPlanningSlots.HasIronForBuilding]  = availIron    >= IRON_FOR_BUILDING  ? 1 : 0;
 
             // ── 생존 위기 플래그 (기획서 수치: P0 Goal 발동 기준과 동일) ────────
-            state[GOAPPlanningSlots.HungerCritical]  = brain.HungerLevel  > 80f ? 1 : 0;
+            state[GOAPPlanningSlots.HungerCritical]  = brain.SatietyLevel < 20f ? 1 : 0;
             state[GOAPPlanningSlots.InjuryCritical]  = brain.HealthLevel  < 20f ? 1 : 0;
             state[GOAPPlanningSlots.FatigueCritical] = brain.FatigueLevel > 90f ? 1 : 0;
 
@@ -378,7 +378,7 @@ namespace AIVillage.Core.GOAP
             state[GOAPPlanningSlots.CopperStock]     = UnityEngine.Mathf.Max(0, (int)availCopper);
             state[GOAPPlanningSlots.RawFoodStock]    = UnityEngine.Mathf.Max(0, (int)availRawFood);
             state[GOAPPlanningSlots.CookedFoodStock] = UnityEngine.Mathf.Max(0, (int)availCooked);
-            state[GOAPPlanningSlots.MyHunger]        = (int)brain.HungerLevel;
+            state[GOAPPlanningSlots.MySatiety]       = (int)brain.SatietyLevel;
             state[GOAPPlanningSlots.MyFatigue]       = (int)brain.FatigueLevel;
             state[GOAPPlanningSlots.MyHealth]        = (int)brain.HealthLevel;
 
@@ -430,11 +430,11 @@ namespace AIVillage.Core.GOAP
                 case "SurviveHunger":
                     if (useNumericGoals)
                     {
-                        // [N1] MyHunger LessEq 30: MAX_DEPTH(12)로 복원된 원래 설계 목표치.
-                        // 최악 경우(허기 100, 식량 0): Explore+Harvest×2+Eat×5 = 8액션 ≤ 12
-                        goalMask[GOAPPlanningSlots.MyHunger]  = 1;
-                        goalState[GOAPPlanningSlots.MyHunger] = GOAPPlanningSlots.GoalTarget.SurviveHunger_MyHunger;
-                        goalOps[GOAPPlanningSlots.MyHunger]   = 2; // LessEq
+                        // [N1] MySatiety GreaterEq 70: 세만틱 반전 후 목표치.
+                        // 최악 경우(포만 0, 식량 0): Explore+Harvest×2+Eat×5 = 8액션 ≤ 12
+                        goalMask[GOAPPlanningSlots.MySatiety]  = 1;
+                        goalState[GOAPPlanningSlots.MySatiety] = GOAPPlanningSlots.GoalTarget.SurviveHunger_MySatiety;
+                        goalOps[GOAPPlanningSlots.MySatiety]   = 1; // GreaterEq
                     }
                     else
                     {

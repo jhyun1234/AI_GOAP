@@ -45,7 +45,7 @@ namespace AIVillage.Tests.EditMode
         // - NearFireplace=1: CookMeal 활성
         // - NearEnemy=1 + HasPrimitiveWeapon=1: AttackEnemy 1스텝 활성
         // - BuildingQueued=1: 건설 액션 활성
-        // - MyHunger=70: SurviveHunger 미달성(발동 조건)
+        // - MySatiety=30: SurviveHunger 미달성(발동 조건, 목표=70)
         // - MyHealth=100, MyFatigue=0: SurviveInjury/SurviveFatigue 이미 달성(방해 없음)
         // - RawFood/CookedFood/Wood/Stone/Iron Stock=0: 채집 유도
 
@@ -78,7 +78,7 @@ namespace AIVillage.Tests.EditMode
                 [GOAPPlanningSlots.NearEnemy]              = 1,
                 [GOAPPlanningSlots.HasPrimitiveWeapon]     = 1,
                 [GOAPPlanningSlots.BuildingQueued]         = 1,
-                [GOAPPlanningSlots.MyHunger]               = 70,
+                [GOAPPlanningSlots.MySatiety]              = 30,
                 [GOAPPlanningSlots.MyHealth]               = 100,
                 [GOAPPlanningSlots.MyFatigue]              = 0,
             };

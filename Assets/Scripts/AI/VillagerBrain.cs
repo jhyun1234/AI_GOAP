@@ -67,14 +67,18 @@ namespace AIVillage.AI
 
         #region ── 생존 수치 (0~100) ──
 
-        // 기획서 수치: 초기값 Health=80, Hunger=30, Fatigue=20, Mood=70, Loyalty=55
+        // 기획서 수치: 초기값 Health=80, Satiety=70, Fatigue=20, Mood=70, Loyalty=55
         // TODO: 기획팀 초기 수치 확인 필요 — 현재 GDD v0.4 기준 임시값 사용 중
 
         /// <summary>체력 (0~100). 20 미만 → P0 SurviveInjury Goal 발동. 0 → Dead 전이.</summary>
         public float HealthLevel  { get; set; } = 80f;
 
-        /// <summary>배고픔 (0~100). 80 초과 → P0 SurviveHunger Goal 발동.</summary>
-        public float HungerLevel  { get; set; } = 30f;
+        /// <summary>
+        /// 포만감 (0~100). 높을수록 배부름, 낮을수록 배고픔.
+        /// 20 미만 → P0 SurviveHunger Goal 발동 (Glutton은 30 미만).
+        /// EatFood 계열 액션이 값을 증가시킨다.
+        /// </summary>
+        public float SatietyLevel { get; set; } = 70f;
 
         /// <summary>피로도 (0~100). 90 초과 → P0 SurviveFatigue Goal 발동. ConflictScore에도 영향.</summary>
         public float FatigueLevel { get; set; } = 20f;
@@ -351,7 +355,7 @@ namespace AIVillage.AI
 
             // Random.Range(min, max)로 스탯 범위 내 무작위 초기값 선택
             HealthLevel  = UnityEngine.Random.Range(data.healthMin,  data.healthMax);
-            HungerLevel  = UnityEngine.Random.Range(data.hungerMin,  data.hungerMax);
+            SatietyLevel = UnityEngine.Random.Range(data.satietyMin, data.satietyMax);
             FatigueLevel = UnityEngine.Random.Range(data.fatigueMin, data.fatigueMax);
             MoodLevel    = UnityEngine.Random.Range(data.moodMin,    data.moodMax);
             LoyaltyLevel = UnityEngine.Random.Range(data.loyaltyMin, data.loyaltyMax);
@@ -401,36 +405,37 @@ namespace AIVillage.AI
         /// <summary>
         /// P0(생존) Goal이 현재 활성화되어야 하는지 여부를 반환한다.
         /// Idle, Replanning 등의 상태에서 Tick마다 호출하여 긴급 전이를 감지한다.
-        /// F-A ADR-P4: Glutton 성격이면 배고픔 임계값을 GLUTTON_HUNGER_THRESHOLD_OFFSET(10)만큼 낮춘다.
-        /// ADR-7 정합: SurviveHunger goal target(30) &lt; Glutton 임계값(70) → 무한 루프 없음.
+        /// F-A ADR-P4: Glutton 성격이면 배고픔 임계값을 GLUTTON_HUNGER_THRESHOLD_OFFSET(+10)만큼 올린다.
+        ///   → 일반 20, Glutton 30에서 발동 = 더 일찍 배고픔을 느낀다.
+        /// ADR-7 정합: SurviveHunger goal target(70) &gt; Glutton 임계값(30) → 무한 루프 없음.
         /// </summary>
         public bool HasActiveP0Condition()
         {
-            float hungerThreshold = 80f
-                - (Personality == Personality.Glutton
+            float satietyThreshold = 20f
+                + (Personality == Personality.Glutton
                     ? PersonalityData.GLUTTON_HUNGER_THRESHOLD_OFFSET : 0f);
             return !IsAlive
                 || HealthLevel < 20f
-                || HungerLevel > hungerThreshold
+                || SatietyLevel < satietyThreshold
                 || FatigueLevel > 90f;
         }
 
         /// <summary>
         /// 현재 활성화 조건을 기반으로 가장 높은 우선순위 Goal ID를 반환한다.
         /// P0 → 생존, P1 → 전투, P2 → 건설/채집, P3 → 탐험 순으로 평가한다.
-        /// F-A ADR-P4: Glutton은 배고픔 임계값 -10.
+        /// F-A ADR-P4: Glutton은 배고픔 임계값 +10 (더 일찍 발동).
         /// </summary>
         public string GetHighestPriorityGoalId()
         {
-            float hungerThreshold = 80f
-                - (Personality == Personality.Glutton
+            float satietyThreshold = 20f
+                + (Personality == Personality.Glutton
                     ? PersonalityData.GLUTTON_HUNGER_THRESHOLD_OFFSET : 0f);
 
             // P0: 생존 긴급 목표
-            if (!IsAlive)                        return "Dead";
-            if (HealthLevel  < 20f)              return "SurviveInjury";
-            if (HungerLevel  > hungerThreshold)  return "SurviveHunger";
-            if (FatigueLevel > 90f)              return "SurviveFatigue";
+            if (!IsAlive)                          return "Dead";
+            if (HealthLevel  < 20f)                return "SurviveInjury";
+            if (SatietyLevel < satietyThreshold)   return "SurviveHunger";
+            if (FatigueLevel > 90f)                return "SurviveFatigue";
 
             // P1: 전투
             if (NearEnemy) return "DefendVillage";

@@ -34,7 +34,7 @@ namespace AIVillage.Core
         ConsumeResource,        // Commit 후 실제 차감 — 소비 Action 결과 (EatCookedFood 등)
 
         // ── Brain 생존 수치 관련 ──────────────────────────────────────────────
-        ReduceHunger,           // brain.HungerLevel -= amount (EatCookedFood, EatRawFood)
+        ReduceHunger,           // brain.SatietyLevel += amount (EatCookedFood, EatRawFood) — 명칭은 유지, 세만틱 반전
         ReduceFatigue,          // brain.FatigueLevel -= amount (RestOnGround)
         RestoreFatigue,         // brain.FatigueLevel -= amount (Sleep — 수면, 더 큰 회복량)
         GainHealth,             // brain.HealthLevel += amount (SeekMedicalAid)

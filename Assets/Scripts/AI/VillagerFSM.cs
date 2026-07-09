@@ -1871,19 +1871,43 @@ namespace AIVillage.AI
         }
 
         /// <summary>
-        /// [P1] 임계값 미만 자원 중 가장 부족한 것의 구체 Goal ID를 반환한다.
-        /// 전부 충분하면 null. W8 GoalArbiter 도입 시 이 함수가 Arbiter 호출로 교체된다.
+        /// [방향 ③ P1] 임계값 미만 자원 중 가장 부족한 것의 구체 Goal ID를 반환한다.
+        /// 미발견 자원은 후보에서 제외되어 무해 Goal이 플래너로 넘어가지 않는다.
+        /// 발견 판정: IsDiscovered && CurrentAmount>0 (GOAPPlannerScheduler.cs:610과 동일 계약, ADR-③-3).
+        /// SensorSystem 없으면 5개 discovered 전부 false로 안전 폴백.
         /// </summary>
         private string SelectGatherGoalId()
         {
             if (_registry == null) return null;
+
+            bool woodDisc = false, stoneDisc = false, ironDisc = false,
+                 copperDisc = false, foodDisc = false;
+            var nodes = SensorSystem.Instance?.GetAllNodes();
+            if (nodes != null)
+            {
+                for (int i = 0; i < nodes.Count; i++)
+                {
+                    var n = nodes[i];
+                    if (!n.IsDiscovered || n.CurrentAmount <= 0f) continue;
+                    switch (n.ResourceType)
+                    {
+                        case ResourceType.Wood:    woodDisc   = true; break;
+                        case ResourceType.Stone:   stoneDisc  = true; break;
+                        case ResourceType.Iron:    ironDisc   = true; break;
+                        case ResourceType.Copper:  copperDisc = true; break;
+                        case ResourceType.RawFood: foodDisc   = true; break;
+                    }
+                }
+            }
+
             return GatherGoalSelector.Select(
                 _registry.GetAvailable(ResourceType.Wood),
                 _registry.GetAvailable(ResourceType.Stone),
                 _registry.GetAvailable(ResourceType.Iron),
                 _registry.GetAvailable(ResourceType.Copper),
                 _registry.GetAvailable(ResourceType.RawFood),
-                Brain != null && Brain.HasTool);
+                Brain != null && Brain.HasTool,
+                woodDisc, stoneDisc, ironDisc, copperDisc, foodDisc);
         }
 
         /// <summary>

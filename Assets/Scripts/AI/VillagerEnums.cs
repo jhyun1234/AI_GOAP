@@ -243,6 +243,29 @@ namespace AIVillage.AI
     /// </summary>
     public enum CombatMentalState { Normal, Fear, Rage }
 
+    // ══════════════════════════════════════════════════════════════════════════
+    // F-A 성격 특성 (재미 로드맵 P0)
+    // ══════════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// F-A: 주민 성격 특성 6종. VillagerBrain.Personality가 보관하며,
+    /// GOAPActionRegistry.BuildActionDefs에서 액션 비용 배율로,
+    /// VillagerFSM.ShowThoughtBubble에서 대사 풀 선택자로,
+    /// VillagerOverviewPanel에서 라벨/색상으로 사용한다.
+    /// None = 성격 미지정 (레거시 세이브/테스트용 안전값 — 배율 Identity).
+    /// None을 첫 값으로 두어야 default(Personality)==None이 성립한다.
+    /// </summary>
+    public enum Personality
+    {
+        None,     // 미지정 — 배율 Identity, 라벨 "[없음]"
+        Coward,   // 겁쟁이  — AttackEnemy 비용 상승
+        Brave,    // 용맹    — AttackEnemy 비용 감소
+        Diligent, // 부지런  — 채집 5종 비용 감소
+        Lazy,     // 게으름  — 채집 5종 비용 상승
+        Glutton,  // 대식가  — 배고픔 P0 임계값 하향 (배율 없음)
+        Curious   // 호기심  — Explore 비용 감소
+    }
+
     /// <summary>
     /// GOAP 플래닝 결과. SimulatePlanResult()가 반환하며 VillagerFSM이 소비한다.
     /// 3단계 Job System 연동 후에는 실제 플래너 결과로 교체될 예정.

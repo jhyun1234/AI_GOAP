@@ -373,7 +373,9 @@ namespace AIVillage.Core.GOAP
                     : 1.0f;
                 // [Phase 1 확장] 컨텍스트 비용: 거리·포화·위험·피로 배율 계산 (메인 스레드에서만)
                 ContextCostMultipliers contextMult = ComputeContextMultipliers(brain);
-                actions = GOAPActionRegistry.BuildActionDefs(role, alloc, seasonGatherMod, contextMult);
+                // [F-A] 성격 배율: brain.Personality → 액션별 배율. ADR-P1로 [0.5, 2.0] 클램프.
+                PersonalityCostMultipliers persMult = PersonalityCostMultipliers.From(brain.Personality);
+                actions = GOAPActionRegistry.BuildActionDefs(role, alloc, seasonGatherMod, contextMult, persMult);
 
                 // [PR Fix]: Major-2 — goalMask all-zero 체크: 알 수 없는 goalId 방어
                 // goalMask가 모두 0이면 GoalState를 설정한 case가 없다는 뜻이다.

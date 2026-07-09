@@ -23,6 +23,8 @@ namespace AIVillage.Tests.EditMode
         // Registry BaseCost 계산에 필요한 컨텍스트. 모든 배율 Identity → 순수 등록 검증만 수행.
         private const float SEASON_MOD = 1.0f;
         private static readonly ContextCostMultipliers CTX_IDENTITY = ContextCostMultipliers.Identity;
+        // [F-A] 성격 배율. Identity로 순수 등록 검증 유지.
+        private static readonly PersonalityCostMultipliers PERS_IDENTITY = PersonalityCostMultipliers.Identity;
 
         // 역할별 액션 개수는 동일하다(비용만 배율 적용). 대표 역할 6종을 반복 실행한다.
         private static readonly AgentRole[] ROLES = new[]
@@ -68,7 +70,7 @@ namespace AIVillage.Tests.EditMode
             foreach (var role in ROLES)
             {
                 using var defs = GOAPActionRegistry.BuildActionDefs(
-                    role, Allocator.Temp, SEASON_MOD, CTX_IDENTITY);
+                    role, Allocator.Temp, SEASON_MOD, CTX_IDENTITY, PERS_IDENTITY);
 
                 Assert.AreEqual(
                     names.Length, defs.Length,
@@ -92,7 +94,7 @@ namespace AIVillage.Tests.EditMode
         {
             const int EXPECTED_COUNT = 22;
             using var defs = GOAPActionRegistry.BuildActionDefs(
-                AgentRole.None, Allocator.Temp, SEASON_MOD, CTX_IDENTITY);
+                AgentRole.None, Allocator.Temp, SEASON_MOD, CTX_IDENTITY, PERS_IDENTITY);
 
             Assert.AreEqual(
                 EXPECTED_COUNT, defs.Length,
@@ -115,7 +117,7 @@ namespace AIVillage.Tests.EditMode
             foreach (var role in ROLES)
             {
                 using var defs = GOAPActionRegistry.BuildActionDefs(
-                    role, Allocator.Temp, SEASON_MOD, CTX_IDENTITY);
+                    role, Allocator.Temp, SEASON_MOD, CTX_IDENTITY, PERS_IDENTITY);
 
                 for (int i = 0; i < defs.Length; i++)
                 {
@@ -145,7 +147,7 @@ namespace AIVillage.Tests.EditMode
         {
             string[] names = GOAPActionRegistry.GetActionNamesForTest();
             using var defs = GOAPActionRegistry.BuildActionDefs(
-                AgentRole.None, Allocator.Temp, SEASON_MOD, CTX_IDENTITY);
+                AgentRole.None, Allocator.Temp, SEASON_MOD, CTX_IDENTITY, PERS_IDENTITY);
 
             var defHashes = new HashSet<int>();
             for (int i = 0; i < defs.Length; i++)
@@ -178,7 +180,7 @@ namespace AIVillage.Tests.EditMode
 
             // 2) 각 Def의 Effect 슬롯을 뽑아 goalSlots와 교집합이 있는지 확인.
             using var defs = GOAPActionRegistry.BuildActionDefs(
-                AgentRole.None, Allocator.Temp, SEASON_MOD, CTX_IDENTITY);
+                AgentRole.None, Allocator.Temp, SEASON_MOD, CTX_IDENTITY, PERS_IDENTITY);
 
             for (int i = 0; i < defs.Length; i++)
             {

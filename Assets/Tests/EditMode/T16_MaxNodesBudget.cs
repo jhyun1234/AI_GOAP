@@ -206,7 +206,8 @@ namespace AIVillage.Tests.EditMode
                 useNumericGoals: true,
                 alloc);
 
-            var actions = GOAPActionRegistry.BuildActionDefs(s.Role, alloc, s.SeasonMod, s.Ctx);
+            // [F-A] 성격 배율 축은 T16 시나리오에 없다 — Identity로 무해 폴백.
+            var actions = GOAPActionRegistry.BuildActionDefs(s.Role, alloc, s.SeasonMod, s.Ctx, PersonalityCostMultipliers.Identity);
             GOAPActionRegistry.BuildMaxGainDrop(actions, totalSlots, alloc,
                 out NativeArray<float> maxGain, out NativeArray<float> maxDrop);
 

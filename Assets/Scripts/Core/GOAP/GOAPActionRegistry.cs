@@ -58,6 +58,82 @@ namespace AIVillage.Core.GOAP
     }
 
     /// <summary>
+    /// F-A: 성격별 액션 비용 배율. ContextCostMultipliers와 곱해져 최종 액션 비용에 반영된다.
+    /// GOAPPlannerScheduler.Schedule()에서 PersonalityCostMultipliers.From(brain.Personality)로 생성해 주입.
+    /// 모든 필드 기본값 0 → BuildActionDefs 내부에서 Identity(1f)로 자동 치환된다
+    /// (default(PersonalityCostMultipliers)를 그대로 곱하면 비용 0 폭발 방지, ADR-P1).
+    /// 반환 값은 항상 [PersonalityData.MULT_MIN, MULT_MAX] = [0.5, 2.0]으로 클램프됨.
+    /// </summary>
+    public struct PersonalityCostMultipliers
+    {
+        public float ChopWood;
+        public float MineStone;
+        public float MineIron;
+        public float MineCopper;
+        public float HarvestBerries;
+        public float Explore;
+        public float AttackEnemy;
+        public float RestOnGround;
+
+        public static PersonalityCostMultipliers Identity => new PersonalityCostMultipliers
+        {
+            ChopWood      = 1f,
+            MineStone     = 1f,
+            MineIron      = 1f,
+            MineCopper    = 1f,
+            HarvestBerries = 1f,
+            Explore        = 1f,
+            AttackEnemy    = 1f,
+            RestOnGround   = 1f
+        };
+
+        /// <summary>
+        /// Personality → 배율 테이블. §2 표 값 하드코딩. 모든 결과 필드는 [MULT_MIN, MULT_MAX] 클램프.
+        /// Personality.None/Glutton은 Identity 반환 (Glutton은 배율 축이 아니라 임계값 축, ADR-P4).
+        /// </summary>
+        public static PersonalityCostMultipliers From(Personality p)
+        {
+            var m = Identity;
+            switch (p)
+            {
+                case Personality.Coward:   m.AttackEnemy = 2.0f; break;
+                case Personality.Brave:    m.AttackEnemy = 0.7f; break;
+                case Personality.Diligent:
+                    m.ChopWood       = 0.85f;
+                    m.MineStone      = 0.85f;
+                    m.MineIron       = 0.85f;
+                    m.MineCopper     = 0.85f;
+                    m.HarvestBerries = 0.85f;
+                    break;
+                case Personality.Lazy:
+                    m.ChopWood       = 1.3f;
+                    m.MineStone      = 1.3f;
+                    m.MineIron       = 1.3f;
+                    m.MineCopper     = 1.3f;
+                    m.HarvestBerries = 1.3f;
+                    break;
+                case Personality.Curious:  m.Explore = 0.75f; break;
+                // Personality.None / Personality.Glutton: Identity 유지
+            }
+            Clamp(ref m);
+            return m;
+        }
+
+        /// <summary>모든 배율 필드를 [PersonalityData.MULT_MIN, MULT_MAX]로 클램프 (ADR-P1).</summary>
+        private static void Clamp(ref PersonalityCostMultipliers m)
+        {
+            m.ChopWood       = UnityEngine.Mathf.Clamp(m.ChopWood,       PersonalityData.MULT_MIN, PersonalityData.MULT_MAX);
+            m.MineStone      = UnityEngine.Mathf.Clamp(m.MineStone,      PersonalityData.MULT_MIN, PersonalityData.MULT_MAX);
+            m.MineIron       = UnityEngine.Mathf.Clamp(m.MineIron,       PersonalityData.MULT_MIN, PersonalityData.MULT_MAX);
+            m.MineCopper     = UnityEngine.Mathf.Clamp(m.MineCopper,     PersonalityData.MULT_MIN, PersonalityData.MULT_MAX);
+            m.HarvestBerries = UnityEngine.Mathf.Clamp(m.HarvestBerries, PersonalityData.MULT_MIN, PersonalityData.MULT_MAX);
+            m.Explore        = UnityEngine.Mathf.Clamp(m.Explore,        PersonalityData.MULT_MIN, PersonalityData.MULT_MAX);
+            m.AttackEnemy    = UnityEngine.Mathf.Clamp(m.AttackEnemy,    PersonalityData.MULT_MIN, PersonalityData.MULT_MAX);
+            m.RestOnGround   = UnityEngine.Mathf.Clamp(m.RestOnGround,   PersonalityData.MULT_MIN, PersonalityData.MULT_MAX);
+        }
+    }
+
+    /// <summary>
     /// Burst Compiler 호환 GOAP Action 정의 구조체.
     ///
     /// Burst 제약 사항:
@@ -455,7 +531,8 @@ namespace AIVillage.Core.GOAP
             AgentRole role,
             Allocator allocator = Allocator.Persistent,
             float seasonGatherModifier = 1.0f,
-            ContextCostMultipliers contextMult = default)
+            ContextCostMultipliers contextMult = default,
+            PersonalityCostMultipliers personalityMult = default)
         {
             // 각 필드가 0이면(default 미설정) 1f로 치환 — 부분 설정 struct도 안전하게 처리
             if (contextMult.ChopWood       <= 0f) contextMult.ChopWood       = 1f;
@@ -466,6 +543,18 @@ namespace AIVillage.Core.GOAP
             if (contextMult.Explore        <= 0f) contextMult.Explore        = 1f;
             if (contextMult.AttackEnemy    <= 0f) contextMult.AttackEnemy    = 1f;
             if (contextMult.RestOnGround   <= 0f) contextMult.RestOnGround   = 1f;
+
+            // F-A: 성격 배율도 default 감지 시 Identity 치환 (ADR-P1 오해 위험 방어).
+            // default(PersonalityCostMultipliers)의 모든 float=0f를 그대로 곱하면 비용이 0이 되어
+            // 플래너 무한 확장.
+            if (personalityMult.ChopWood       <= 0f) personalityMult.ChopWood       = 1f;
+            if (personalityMult.MineStone      <= 0f) personalityMult.MineStone      = 1f;
+            if (personalityMult.MineIron       <= 0f) personalityMult.MineIron       = 1f;
+            if (personalityMult.MineCopper     <= 0f) personalityMult.MineCopper     = 1f;
+            if (personalityMult.HarvestBerries <= 0f) personalityMult.HarvestBerries = 1f;
+            if (personalityMult.Explore        <= 0f) personalityMult.Explore        = 1f;
+            if (personalityMult.AttackEnemy    <= 0f) personalityMult.AttackEnemy    = 1f;
+            if (personalityMult.RestOnGround   <= 0f) personalityMult.RestOnGround   = 1f;
 
             // 기획서 수치 — 22개 Action 기본 비용 (GDD v0.4 기준 + BuildHouse/BuildWatchtower)
             var defs = new NativeArray<GOAPActionDef>(22, allocator);
@@ -487,6 +576,7 @@ namespace AIVillage.Core.GOAP
             else if (role == AgentRole.Miner)      chopCost *= MINER_CHOP_MODIFIER;
             chopCost *= seasonGatherModifier;
             chopCost *= contextMult.ChopWood;
+            chopCost *= personalityMult.ChopWood;
             defs[i++] = new GOAPActionDef
             {
                 ActionStringHash = Animator.StringToHash("ChopWood"),
@@ -505,6 +595,7 @@ namespace AIVillage.Core.GOAP
             else if (role == AgentRole.Lumberjack) mineStoneCost *= LUMBERJACK_MINE_MODIFIER;
             mineStoneCost *= seasonGatherModifier;
             mineStoneCost *= contextMult.MineStone;
+            mineStoneCost *= personalityMult.MineStone;
             defs[i++] = new GOAPActionDef
             {
                 ActionStringHash = Animator.StringToHash("MineStone"),
@@ -522,6 +613,7 @@ namespace AIVillage.Core.GOAP
             if (role == AgentRole.Miner) mineIronCost *= MINER_MINE_MODIFIER;
             mineIronCost *= seasonGatherModifier;
             mineIronCost *= contextMult.MineIron;
+            mineIronCost *= personalityMult.MineIron;
             defs[i++] = new GOAPActionDef
             {
                 ActionStringHash = Animator.StringToHash("MineIron"),
@@ -539,6 +631,7 @@ namespace AIVillage.Core.GOAP
             if (role == AgentRole.Miner) mineCopperCost *= MINER_MINE_MODIFIER;
             mineCopperCost *= seasonGatherModifier;
             mineCopperCost *= contextMult.MineCopper;
+            mineCopperCost *= personalityMult.MineCopper;
             defs[i++] = new GOAPActionDef
             {
                 ActionStringHash = Animator.StringToHash("MineCopper"),
@@ -622,7 +715,7 @@ namespace AIVillage.Core.GOAP
             defs[i++] = new GOAPActionDef
             {
                 ActionStringHash = Animator.StringToHash("RestOnGround"),
-                BaseCost = 12f * contextMult.RestOnGround,
+                BaseCost = 12f * contextMult.RestOnGround * personalityMult.RestOnGround,
                 PrecCount = 0,
                 EffectCount = 3,
                 Eff0S = S.FatigueSolved, Eff0V = 1,
@@ -680,6 +773,7 @@ namespace AIVillage.Core.GOAP
             if (role == AgentRole.Warrior)      attackCost *= WARRIOR_ATTACK_MODIFIER;
             else if (role == AgentRole.Cook)    attackCost *= COOK_ATTACK_MODIFIER;
             attackCost *= contextMult.AttackEnemy;
+            attackCost *= personalityMult.AttackEnemy;
             defs[i++] = new GOAPActionDef
             {
                 ActionStringHash = Animator.StringToHash("AttackEnemy"),
@@ -791,7 +885,7 @@ namespace AIVillage.Core.GOAP
             defs[i++] = new GOAPActionDef
             {
                 ActionStringHash = Animator.StringToHash("Explore"),
-                BaseCost = 15f * contextMult.Explore,
+                BaseCost = 15f * contextMult.Explore * personalityMult.Explore,
                 PrecCount = 0,
                 EffectCount = 2, Eff0S = S.AreaExplored, Eff0V = 1, Eff1S = S.NearDiscoveredResource, Eff1V = 1
             };
@@ -802,7 +896,7 @@ namespace AIVillage.Core.GOAP
             defs[i++] = new GOAPActionDef
             {
                 ActionStringHash = Animator.StringToHash("HarvestWildBerries"),
-                BaseCost = 10f * contextMult.HarvestBerries,
+                BaseCost = 10f * contextMult.HarvestBerries * personalityMult.HarvestBerries,
                 PrecCount = 1, Prec0S = S.NearDiscoveredResource, Prec0V = 1,
                 EffectCount = 4,
                 Eff0S = S.ResourcesGathered,          Eff0V = 1,

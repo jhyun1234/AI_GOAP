@@ -55,8 +55,9 @@ public class GOAPPlannerTests
             alloc);
 
         // ── 액션 정의 ─────────────────────────────────────────────────────
+        // [F-A] 성격 배율은 Identity — 이 테스트는 성격 축을 배제한 순수 플래너 검증.
         var actions = GOAPActionRegistry.BuildActionDefs(
-            role, alloc, 1.0f, ContextCostMultipliers.Identity);
+            role, alloc, 1.0f, ContextCostMultipliers.Identity, PersonalityCostMultipliers.Identity);
 
         // ── MaxGain / MaxDrop ─────────────────────────────────────────────
         GOAPActionRegistry.BuildMaxGainDrop(actions, totalSlots, alloc,
@@ -165,7 +166,7 @@ public class GOAPPlannerTests
         goalMask[goalSlot]  = 1;
         goalOps[goalSlot]   = goalOp;
 
-        var actions = GOAPActionRegistry.BuildActionDefs(role, alloc, 1.0f, ContextCostMultipliers.Identity);
+        var actions = GOAPActionRegistry.BuildActionDefs(role, alloc, 1.0f, ContextCostMultipliers.Identity, PersonalityCostMultipliers.Identity);
         GOAPActionRegistry.BuildMaxGainDrop(actions, totalSlots, alloc,
             out NativeArray<float> maxGain, out NativeArray<float> maxDrop);
 

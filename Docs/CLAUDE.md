@@ -30,6 +30,12 @@ Unity 탑다운 마을 생존 시뮬레이션. GOAP(Burst Job A*) 기반 주민 
    호출자는 **좌표 스냅 금지**. 반드시 `Brain.NearDiscoveredResource = false` 강제 후
    `RequestReplanning(AbortReason.PathUnreachable, ...)` 호출. GOAP에 이동 실패를
    "성공"으로 위장 전달하지 않는다 (방향 ② M2 명세, EditMode 게이트 M17/M18).
+10. **문맥 배율 무해 방지**: 발견되지 않은 자원 타입의 Gather Goal은 상위 계층
+    (`GatherGoalSelector`/`SelectGatherGoalId`)에서 **후보 제외**한다. 미발견 자원의
+    컨텍스트 배율(`FULL_NODE_PENALTY × 2 = 10`)이 액션 비용을 폭발시켜 admissible
+    휴리스틱이 A*를 안내하지 못하고 MAX_NODES 4096을 소진하며 NoSolutionFound가
+    발생한다 (방향 ③ 명세, P1-A 진단 `Docs/이슈_GatherIron_초반_무해.md`).
+    검증: EditMode 게이트 T17.
 
 ## 작업 프로토콜
 - 명세서의 작업 항목(W/F/P/N 번호) 1개 = 커밋 1개. 합쳐 커밋 금지.
@@ -43,6 +49,7 @@ Unity 탑다운 마을 생존 시뮬레이션. GOAP(Burst Job A*) 기반 주민 
   ⑤ Registry 상수·발동 임계값·액션 추가 커밋이면 T13/T14/T15가 초록불인지 명시 확인
   ⑥ 컨텍스트 비용 배율·MAX_NODES·액션 배율 변경 커밋이면 T16을 실행하고 결과를 커밋 메시지에 인용
   ⑦ 이동/경로 관련 커밋이면 `grep -n "Brain\.TileX\s*=\s*targetX" Assets/Scripts` 결과 0건 확인 (ADR-9, 결함 C 부활 감시)
+  ⑧ Gather Goal 후보 확장 커밋이면 T17이 초록인지 명시 확인, 그리고 `grep -n "GatherGoalSelector\.Select(" Assets/Scripts` 결과가 1건이고 인자 11개인지 확인 (ADR-10)
 
 ## 검증 명령 (커밋 전 실행)
 ```

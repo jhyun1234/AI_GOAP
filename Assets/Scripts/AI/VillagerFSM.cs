@@ -390,7 +390,12 @@ namespace AIVillage.AI
                 {
                     Debug.Log($"[VillagerFSM] AnyState → Planning (P0 Goal: {p0GoalId}). AgentId={AgentId}");
                     // F4: P0 전환 발화 — Goal이 바뀌는 순간에만 1회 표시
-                    if (p0GoalId == "SurviveHunger")  ShowThoughtBubble(Pick(THOUGHT_P0_HUNGER));
+                    // [F-A] Glutton 성격이면 50% 확률로 성격 라인 대체 (SurviveHunger 한정)
+                    if (p0GoalId == "SurviveHunger")
+                    {
+                        string persLine = TryPickPersonalityLine("p0_hunger");
+                        ShowThoughtBubble(persLine ?? Pick(THOUGHT_P0_HUNGER));
+                    }
                     else if (p0GoalId == "SurviveFatigue") ShowThoughtBubble(Pick(THOUGHT_P0_FATIGUE));
                     Brain.CurrentGoalId = p0GoalId;
                     TransitionTo(VillagerState.Planning);
@@ -668,6 +673,9 @@ namespace AIVillage.AI
                 // 우선순위 P1: 적 위협 → [8단계] Fighting 상태 직접 진입
                 if (Brain.NearEnemy)
                 {
+                    // [F-A] Coward/Brave 성격이면 Fighting 진입 시 항상 성격 라인 발화 (확률 무시)
+                    string persLine = TryPickPersonalityLine("fighting", alwaysSpeak: true);
+                    if (persLine != null) ShowThoughtBubble(persLine);
                     TransitionTo(VillagerState.Fighting);
                     return;
                 }
@@ -698,7 +706,12 @@ namespace AIVillage.AI
                     {
                         bool goalChanged = Brain.CurrentGoalId != gatherGoal;
                         Brain.CurrentGoalId = gatherGoal;
-                        if (goalChanged) ShowThoughtBubble(Pick(THOUGHT_GOAL_GATHER));
+                        if (goalChanged)
+                        {
+                            // [F-A] Diligent/Lazy 성격이면 50% 확률로 성격 라인 대체
+                            string persLine = TryPickPersonalityLine("gather");
+                            ShowThoughtBubble(persLine ?? Pick(THOUGHT_GOAL_GATHER));
+                        }
                         TransitionTo(VillagerState.Planning);
                         return;
                     }
@@ -711,7 +724,12 @@ namespace AIVillage.AI
                 {
                     bool goalChanged = Brain.CurrentGoalId != "Explore";
                     Brain.CurrentGoalId = "Explore";
-                    if (goalChanged) ShowThoughtBubble(Pick(THOUGHT_GOAL_EXPLORE));
+                    if (goalChanged)
+                    {
+                        // [F-A] Curious 성격이면 50% 확률로 성격 라인 대체
+                        string persLine = TryPickPersonalityLine("explore");
+                        ShowThoughtBubble(persLine ?? Pick(THOUGHT_GOAL_EXPLORE));
+                    }
                     TransitionTo(VillagerState.Planning);
                     return;
                 }
@@ -1558,6 +1576,49 @@ namespace AIVillage.AI
         private static readonly string[] THOUGHT_GOAL_EXPLORE = { "여유가 생겼으니 주변을 둘러볼까.", "미지의 지역이 있어. 탐험해보자.", "지도에 빈 곳이 많아. 가봐야겠어." };
         private static readonly string[] THOUGHT_P0_HUNGER    = { "안 되겠다, 뭐라도 먹어야 해.", "배가 너무 고파. 쓰러지기 전에!", "먹는 게 최우선이야. 지금 당장!" };
         private static readonly string[] THOUGHT_P0_FATIGUE   = { "잠깐... 좀 쉬어야겠어.", "탈진하기 전에 쉬어야 해.", "몸이 한계야. 지금 쉬지 않으면 안 돼." };
+
+        // ── [F-A] 성격별 대사 (재미 로드맵 P0) ────────────────────────────────
+        // 사용 규칙: Goal 전환 지점에서 PERSONALITY_LINE_CHANCE 확률로 goal 라인 대신 발화.
+        // Fighting 진입은 확률 무시 (Coward/Brave 성격이면 항상 발화).
+        // 스로틀은 기존 THOUGHT_MIN_INTERVAL_SEC(5s)를 공유 — 별도 카운터 추가 금지 (⚠️ 명세 §4 FA-5).
+        private const float PERSONALITY_LINE_CHANCE = 0.5f;
+        private static readonly string[] THOUGHT_PERS_COWARD_COMBAT = { "무서워… 못 싸워!", "도망칠래!", "이런 건 나 못 해!" };
+        private static readonly string[] THOUGHT_PERS_BRAVE_COMBAT  = { "덤벼!", "지지 않아!", "겁먹은 놈은 내가 처리한다." };
+        private static readonly string[] THOUGHT_PERS_DILIGENT_WORK = { "일이 최고야.", "쉬는 게 오히려 답답해.", "부지런히 움직이자!" };
+        private static readonly string[] THOUGHT_PERS_LAZY_WORK     = { "잠깐만 쉬었다 하자…", "귀찮아…", "왜 나만 시키지…" };
+        private static readonly string[] THOUGHT_PERS_GLUTTON_HUNGRY= { "배고파! 먹을 거 없어?", "밥! 밥!", "이 배고픔은 못 참지." };
+        private static readonly string[] THOUGHT_PERS_CURIOUS_EXPLR = { "저 너머엔 뭐가 있을까?", "가보자!", "새로운 게 보고 싶어." };
+
+        /// <summary>
+        /// F-A: Goal/상태 전환 지점에서 발화할 성격 대사를 확률적으로 선택한다.
+        /// 성격이 매치되지 않거나 확률 실패 시 null 반환 → 호출자는 기존 goal 라인으로 폴백.
+        /// alwaysSpeak=true는 Fighting/Fleeing 진입 등 성격 표현이 최우선인 경우.
+        /// </summary>
+        private string TryPickPersonalityLine(string ctx, bool alwaysSpeak = false)
+        {
+            if (Brain.Personality == Personality.None) return null;
+            if (!alwaysSpeak && UnityEngine.Random.value >= PERSONALITY_LINE_CHANCE) return null;
+
+            switch (ctx)
+            {
+                case "gather":
+                    if (Brain.Personality == Personality.Diligent) return Pick(THOUGHT_PERS_DILIGENT_WORK);
+                    if (Brain.Personality == Personality.Lazy)     return Pick(THOUGHT_PERS_LAZY_WORK);
+                    return null;
+                case "explore":
+                    if (Brain.Personality == Personality.Curious)  return Pick(THOUGHT_PERS_CURIOUS_EXPLR);
+                    return null;
+                case "p0_hunger":
+                    if (Brain.Personality == Personality.Glutton)  return Pick(THOUGHT_PERS_GLUTTON_HUNGRY);
+                    return null;
+                case "fighting":
+                    if (Brain.Personality == Personality.Brave)    return Pick(THOUGHT_PERS_BRAVE_COMBAT);
+                    if (Brain.Personality == Personality.Coward)   return Pick(THOUGHT_PERS_COWARD_COMBAT);
+                    return null;
+                default:
+                    return null;
+            }
+        }
 
         /// <summary>풀에서 무작위로 대사 하나를 선택한다. 연속 중복을 방지하기 위해 마지막 인덱스를 추적한다.</summary>
         private int _lastPickIndex = -1;

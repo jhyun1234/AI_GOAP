@@ -95,6 +95,16 @@ namespace AIVillage.Core
         private const float PLUNDER_COPPER_MIN     = 5f;   // 기획서 수치: 약탈 트리거 copper 하한
         private const float PLUNDER_SILVER_MIN     = 3f;   // 기획서 수치: 약탈 트리거 silver 하한
 
+        // ── 침략 예고 스테이지 (F-B, ADR-B1/B2) ──────────────────────────────
+        // 제안치: 관성 실험 1회 이상 이후에만 조정 (F-B 명세 §6 ADR-B2)
+        private const float WARNING_LEAD_DAYS_RUMOR     = 3f; // Rumor 진입 시점 (D-3)
+        private const float WARNING_LEAD_DAYS_CONFIRMED = 1f; // Confirmed 전환 임계 (D-1)
+
+        // 예고 스테이지 상수 — nested enum 대신 int 상수(확장 예정 낮음)
+        private const int WSTAGE_NONE      = 0;
+        private const int WSTAGE_RUMOR     = 1;
+        private const int WSTAGE_CONFIRMED = 2;
+
         // ── 플레이어 기지 위치 (더미 기본값) ─────────────────────────────────
         // GameManager가 InitializeBase()를 통해 실제 값을 주입한다.
         // TODO: 기획팀 확인 필요 — 플레이어 기지의 기본 타일 좌표
@@ -216,6 +226,16 @@ namespace AIVillage.Core
 
         /// <summary>직전 FactionTick의 GameTime. deltaGameDays 계산에 사용.</summary>
         private float _prevTickGameDay = 0f;
+
+        // ── 침략 예고 상태 (F-B, ADR-B1) ─────────────────────────────────────
+        /// <summary>F-B: 현재 예고 스테이지. WSTAGE_NONE/RUMOR/CONFIRMED.</summary>
+        private int   _warningStage       = WSTAGE_NONE;
+        /// <summary>F-B: 예고 트리거된 시점의 예상 침략 게임일. Rumor 발행 시 확정 후 불변.</summary>
+        private float _expectedRaidDay    = -1f;
+        /// <summary>F-B: Rumor 스테이지 발행 여부(디버그·통계용).</summary>
+        private bool  _rumorPublished     = false;
+        /// <summary>F-B: Confirmed 스테이지 발행 여부(디버그·통계용).</summary>
+        private bool  _confirmedPublished = false;
 
         #endregion
 
@@ -417,6 +437,7 @@ namespace AIVillage.Core
             {
                 _isRaiding             = false;
                 _raidCooldownRemaining = _raidCooldownDays;
+                ResetWarningState("레이드 격퇴 → 쿨다운 진입"); // F-B ADR-B1: 쿨다운 진입 시 예고 상태 초기화
                 Debug.Log($"[FactionAI] 레이드 격퇴 감지 → 쿨다운 {_raidCooldownDays:F1}일 시작. FactionId={_factionId}");
                 return;
             }
@@ -428,6 +449,7 @@ namespace AIVillage.Core
                           $"현재 전력={_factionStrength:F1}, 초기×30%={_initialFactionStrength * SURVIVE_FACTION_RATIO:F1}. " +
                           $"FactionId={_factionId}");
                 _isRaiding = false;
+                ResetWarningState("SurviveFaction 진입 → 침략 계획 소멸"); // F-B ADR-B1
                 // TODO: 기획팀 확인 필요 — SurviveFaction 시 방어 유닛 배치 방식
                 return;
             }
@@ -439,6 +461,7 @@ namespace AIVillage.Core
                           $"플레이어 전력({playerStrength:F1}) > 팩션×1.2({_factionStrength * DEFEND_BASE_RATIO:F1}). " +
                           $"FactionId={_factionId}");
                 _isRaiding = false;
+                ResetWarningState("DefendBase 진입 → 침략 계획 소멸"); // F-B ADR-B1
                 // TODO: 기획팀 확인 필요 — 방어 유닛 배치 로직
                 return;
             }
@@ -487,10 +510,12 @@ namespace AIVillage.Core
                 }
             }
 
-            // ── F-P2: ExpandTerritory (침략) ─────────────────────────────────────
+            // ── F-P2: ExpandTerritory (침략 예고 스테이지 머신, F-B ADR-B1) ─────
+            // 조건 충족 시 즉시 침략이 아니라 Rumor(D-3) → Confirmed(D-1) → Raid(D0) 순서로 진행.
+            // 같은 Tick 이중 전이 금지 — 각 전이는 반드시 다음 Tick에서만 발생.
             if (EvaluateRaidDecision(playerStrength))
             {
-                // 상인 연합 특수 규칙: RaidDecision 전 TradeProposal 1회 발행
+                // 상인 연합 특수 규칙: RaidDecision 전 TradeProposal 1회 발행 (ADR-B5: 예고 이전 단계)
                 if (_factionId == FACTION_MERCHANT && !_tradeProposalSent)
                 {
                     PublishTradeProposal();
@@ -500,14 +525,50 @@ namespace AIVillage.Core
                     return;
                 }
 
-                if (!_isRaiding)
+                // Stage 진입: None → Rumor
+                if (_warningStage == WSTAGE_NONE)
                 {
-                    _isRaiding = true;
-                    RaidMode mode = DetermineRaidMode(playerStrength);
-                    PublishRaidDecision(playerStrength);
-                    IssueRaidOrders(mode);
+                    _warningStage    = WSTAGE_RUMOR;
+                    _expectedRaidDay = currentGameDay + WARNING_LEAD_DAYS_RUMOR;
+                    PublishInvasionWarning(MessageBus.INVASION_STAGE_RUMOR, currentGameDay);
+                    _rumorPublished  = true;
+                    return;
                 }
+
+                float leadRemaining = _expectedRaidDay - currentGameDay;
+
+                // Stage 전이: Rumor → Confirmed (남은 lead가 CONFIRMED 임계 이하로 진입)
+                if (_warningStage == WSTAGE_RUMOR && leadRemaining <= WARNING_LEAD_DAYS_CONFIRMED)
+                {
+                    _warningStage = WSTAGE_CONFIRMED;
+                    PublishInvasionWarning(MessageBus.INVASION_STAGE_CONFIRMED, currentGameDay);
+                    _confirmedPublished = true;
+                    return;
+                }
+
+                // Stage 종료: Confirmed → 실제 침략 개시 (D0 도달)
+                if (_warningStage == WSTAGE_CONFIRMED && leadRemaining <= 0f)
+                {
+                    if (!_isRaiding)
+                    {
+                        _isRaiding = true;
+                        RaidMode mode = DetermineRaidMode(playerStrength);
+                        PublishRaidDecision(playerStrength);
+                        IssueRaidOrders(mode);
+                        // 다음 침략 사이클 대비 초기화 (쿨다운 진입 없어도 초기화 필요)
+                        ResetWarningState("실제 침략 개시 → 스테이지 머신 초기화");
+                    }
+                    return;
+                }
+
+                // 스테이지 유지(예고 진행 중) — 이번 Tick은 아무 것도 안 함
                 return;
+            }
+
+            // ── 예고 중 조건 소멸: 침략 조건이 도중에 깨졌으면 예고 취소 (ADR-B1) ───
+            if (_warningStage != WSTAGE_NONE)
+            {
+                ResetWarningState("EvaluateRaidDecision=false → 침략 조건 소멸");
             }
 
             // ── F-P4: GatherFaction (더미) — 레이드 조건 미충족 시 Idle 유지 ──────
@@ -516,6 +577,36 @@ namespace AIVillage.Core
                 _isRaiding = false;
                 Debug.Log($"[FactionAI] 레이드 조건 미충족 → 레이드 중단. FactionId={_factionId}");
             }
+        }
+
+        /// <summary>
+        /// F-B ADR-B1: 예고 상태 머신을 초기 상태(WSTAGE_NONE)로 리셋한다.
+        /// 호출 지점: 쿨다운 진입, SurviveFaction/DefendBase 진입, 조건 소멸, 실제 침략 개시.
+        /// </summary>
+        private void ResetWarningState(string reason)
+        {
+            if (_warningStage == WSTAGE_NONE) return; // 이미 초기 상태면 로그 스팸 방지
+
+            Debug.Log($"[FactionAI] 예고 상태 리셋. 이유='{reason}', " +
+                      $"이전 Stage={_warningStage}, ExpectedRaidDay={_expectedRaidDay:F1}, FactionId={_factionId}");
+            _warningStage       = WSTAGE_NONE;
+            _expectedRaidDay    = -1f;
+            _rumorPublished     = false;
+            _confirmedPublished = false;
+        }
+
+        /// <summary>
+        /// F-B: 침략 예고 메시지 발행 (FB-2 스텁 — FB-3에서 MessageBus.Publish로 교체).
+        /// 현 커밋 시점에는 로그만 남기고 실제 MessageBus 페이로드 구성은 하지 않는다.
+        /// 이렇게 분리하는 이유: FB-2 커밋 단독 빌드 가능성 보장 + T19 게이트가 두 단계를
+        /// 독립 관찰하도록 함(순서 로직 vs 페이로드 구성 분리).
+        /// </summary>
+        private void PublishInvasionWarning(string stageId, float currentGameDay)
+        {
+            float leadRemain = Mathf.Max(0f, _expectedRaidDay - currentGameDay);
+            Debug.Log($"[FactionAI] InvasionWarning 발행. Stage={stageId}, " +
+                      $"ExpectedDay={_expectedRaidDay:F1}, LeadRemain={leadRemain:F1}일, FactionId={_factionId}");
+            // FB-3: MessageBus.Instance.Publish(new AIMessage { ... InvasionWarningPayload ... });
         }
 
         /// <summary>

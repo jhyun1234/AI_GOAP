@@ -193,12 +193,13 @@ if (_warningStage != WSTAGE_NONE)
 ```
 
 **DoD 체크리스트**:
-- [ ] 4개 신규 필드 + 3개 상수(WSTAGE_*) + 2개 lead 상수 존재.
-- [ ] Rumor → Confirmed 순서 위반 코드 경로 없음(반드시 leadRemaining 비교 단계별로만 전환).
-- [ ] Confirmed 진입 후 leadRemaining <= 0에서만 실제 `PublishRaidDecision` + `IssueRaidOrders` 호출.
-- [ ] 조건 소멸 시(정찰 등으로 playerWeak false 전환) 예고 취소 및 상태 초기화.
-- [ ] 침략 쿨다운 진입 시 (`_raidCooldownRemaining` 설정 지점)에도 상태 초기화 코드 존재.
-- [ ] 컴파일 green.
+- [x] 4개 신규 필드 + 3개 상수(WSTAGE_*) + 2개 lead 상수 존재.
+- [x] Rumor → Confirmed 순서 위반 코드 경로 없음(반드시 leadRemaining 비교 단계별로만 전환).
+- [x] Confirmed 진입 후 leadRemaining <= 0에서만 실제 `PublishRaidDecision` + `IssueRaidOrders` 호출.
+- [x] 조건 소멸 시(정찰 등으로 playerWeak false 전환) 예고 취소 및 상태 초기화.
+- [x] 침략 쿨다운 진입 시 (`_raidCooldownRemaining` 설정 지점)에도 상태 초기화 코드 존재.
+- [x] F-P0 SurviveFaction · F-P1 DefendBase · 실제 침략 개시 시점에도 `ResetWarningState` 호출(스코프 확장 아닌 ADR-B1 일관성 보강).
+- [x] 컴파일 green (mcp__ide__getDiagnostics 0건, 2026-07-11).
 
 **⚠️ 오해 위험**:
 - **`EvaluateRaidDecision` 자체를 개조하지 않는다.** 트리거 판정 로직은 그대로. F-B는 판정 결과 사용법만 바꾼다. — 판정 로직에 예고 상태를 섞으면 T19가 판정 원인과 예고 상태를 분리 관찰 불가.

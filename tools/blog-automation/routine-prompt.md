@@ -55,6 +55,29 @@ blog-master, blog-publisher). Agent 도구로 이 순서대로 호출.
    - 이번에 소비한 `state/blog_next_material_priority.md`가 있으면 "소비 완료 YYYY-MM-DD"
      마커로 초기화(다음 사이클 중복 방지).
 
+8. **상태 커밋 + push (orchestrator가 직접 실행, 서브에이전트 아님)** — publisher 성공 후
+   상태 파일 변경을 리포에 반영한다. 원격 sandbox는 `main`에 직접 push 불가 (기본 제약,
+   403) → **반드시 `claude/state-*` prefix 브랜치로 push해야 한다.** GitHub Actions
+   (`.github/workflows/blog-state-auto-merge.yml`)가 이 브랜치를 자동으로 main에 fast-forward
+   머지하고 브랜치를 삭제한다.
+   ```bash
+   BRANCH="claude/state-$(date -u +%Y-%m-%dT%H%M%SZ)"
+   git config user.email "blog-automation@aigoap.local"
+   git config user.name "aigoap-blog-automation"
+   git checkout -b "$BRANCH"
+   git add tools/blog-automation/state/ tools/blog-automation/published/
+   git commit -m "chore(blog): auto-run state update ($(date -u +%Y-%m-%d))" || {
+     echo "No state changes to commit"; exit 0;
+   }
+   git push origin "$BRANCH"
+   ```
+   push 실패 시(403 재발 등) `state/blog_pipeline_alerts.md`에 기록하되 파이프라인은
+   PUBLISHED로 종료(Blogger 발행 자체는 이미 성공했으므로). 상태 파일 반영 실패는
+   다음 auto-run이 중복 소재를 볼 위험만 있고 이번 사이클 자체는 성공이다.
+
+   **API_FAILED / REJECTED_3X 경로에서도** `state/blog_pipeline_alerts.md`만 수정된 경우
+   동일하게 `claude/state-*` 브랜치로 push한다 (main 직접 push 시도 금지).
+
 ## 반려 카운터 & 안전장치
 
 이번 실행(하나의 스케줄 사이클) 안에서 3번/4번/6번의 반려를 합산 카운트.

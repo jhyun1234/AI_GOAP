@@ -1,0 +1,64 @@
+name: Blog state auto-merge
+
+# Blog automation routine (원격 sandbox)이 push한 claude/state-* 브랜치를
+# main에 fast-forward 머지하고 브랜치를 삭제한다.
+#
+# 원격 sandbox는 main에 직접 push 불가 (403). 이 워크플로우가 그 갭을 채운다.
+# 안전장치: tools/blog-automation/{state,published}/ 이외 경로 수정된 브랜치는 거부.
+
+on:
+  push:
+    branches:
+      - 'claude/state-*'
+
+concurrency:
+  group: blog-state-merge
+  cancel-in-progress: false
+
+jobs:
+  merge:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Fast-forward main to state branch
+        env:
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git fetch origin "$BRANCH"
+
+          CHANGED=$(git diff --name-only origin/main..."origin/$BRANCH")
+          if [ -z "$CHANGED" ]; then
+            echo "No changes on $BRANCH vs main — deleting stale branch."
+            git push origin --delete "$BRANCH"
+            exit 0
+          fi
+
+          echo "Changed files:"
+          echo "$CHANGED"
+
+          if echo "$CHANGED" | grep -Ev '^tools/blog-automation/(state|published)/' ; then
+            echo "::error::$BRANCH modifies files outside tools/blog-automation/{state,published}/ — refusing to merge."
+            exit 1
+          fi
+
+          if git merge-base --is-ancestor origin/main "origin/$BRANCH" ; then
+            git merge --ff-only "origin/$BRANCH"
+            git push origin main
+            git push origin --delete "$BRANCH"
+            echo "Fast-forwarded main to $BRANCH and deleted branch."
+          else
+            echo "::error::$BRANCH is not a fast-forward of main. Manual review needed."
+            exit 1
+          fi

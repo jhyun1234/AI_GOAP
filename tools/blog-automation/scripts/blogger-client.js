@@ -20,6 +20,23 @@ const CLIENT_SECRET_PATH = path.join(CRED_DIR, 'client_secret.json');
 const TOKEN_PATH = path.join(CRED_DIR, 'blogger_token.json');
 const BLOG_CONFIG_PATH = path.join(CRED_DIR, 'blog_config.json');
 
+// 원격 routine 실행 지원: credentials/ 파일이 없으면 env var에서 JSON을 읽는다.
+// - BLOGGER_CLIENT_SECRET: client_secret.json 전체 내용 (JSON 문자열)
+// - BLOGGER_TOKEN:         blogger_token.json 전체 내용 (JSON 문자열)
+// - BLOG_CONFIG:           blog_config.json 전체 내용 (JSON 문자열)
+// env var 경로에서는 refresh 후 새 access_token을 디스크에 되쓰지 않는다 —
+// 다음 실행에서 다시 refresh_token으로 갱신하면 되므로 무해하다.
+function loadJsonWithFallback(filePath, envName) {
+  if (fs.existsSync(filePath)) {
+    return { data: JSON.parse(fs.readFileSync(filePath, 'utf8')), fromEnv: false };
+  }
+  const envVal = process.env[envName];
+  if (envVal) {
+    return { data: JSON.parse(envVal), fromEnv: true };
+  }
+  throw new Error(`${filePath}도 없고 env ${envName}도 없음 — 원격 실행이면 routine env vars 설정 필요`);
+}
+
 function httpsJson(urlStr, { method = 'GET', headers = {}, body } = {}) {
   return new Promise((resolve, reject) => {
     const req = https.request(
@@ -49,8 +66,9 @@ function httpsJson(urlStr, { method = 'GET', headers = {}, body } = {}) {
 }
 
 async function ensureAccessToken() {
-  const { installed } = JSON.parse(fs.readFileSync(CLIENT_SECRET_PATH, 'utf8'));
-  const token = JSON.parse(fs.readFileSync(TOKEN_PATH, 'utf8'));
+  const { data: clientSecretJson, fromEnv: csFromEnv } = loadJsonWithFallback(CLIENT_SECRET_PATH, 'BLOGGER_CLIENT_SECRET');
+  const { data: token, fromEnv: tokFromEnv } = loadJsonWithFallback(TOKEN_PATH, 'BLOGGER_TOKEN');
+  const { installed } = clientSecretJson;
 
   const expiresAt = (token.obtained_at || 0) + (token.expires_in || 0) * 1000;
   const stillValid = Date.now() < expiresAt - 5 * 60 * 1000; // 5분 여유
@@ -82,13 +100,16 @@ async function ensureAccessToken() {
     expires_in: refreshed.expires_in,
     obtained_at: Date.now(),
   };
-  fs.writeFileSync(TOKEN_PATH, JSON.stringify(merged, null, 2));
+  // env var 경로에서는 디스크에 쓰지 않는다 — 다음 실행에서 refresh_token으로 다시 갱신하면 됨.
+  if (!tokFromEnv) {
+    fs.writeFileSync(TOKEN_PATH, JSON.stringify(merged, null, 2));
+  }
   return merged.access_token;
 }
 
 function loadBlogId() {
-  const cfg = JSON.parse(fs.readFileSync(BLOG_CONFIG_PATH, 'utf8'));
-  if (!cfg.blogId) throw new Error('blog_config.json에 blogId 없음');
+  const { data: cfg } = loadJsonWithFallback(BLOG_CONFIG_PATH, 'BLOG_CONFIG');
+  if (!cfg.blogId) throw new Error('blog_config에 blogId 없음 (파일 또는 env BLOG_CONFIG)');
   return cfg.blogId;
 }
 

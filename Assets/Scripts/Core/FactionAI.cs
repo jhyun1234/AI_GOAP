@@ -596,17 +596,46 @@ namespace AIVillage.Core
         }
 
         /// <summary>
-        /// F-B: 침략 예고 메시지 발행 (FB-2 스텁 — FB-3에서 MessageBus.Publish로 교체).
-        /// 현 커밋 시점에는 로그만 남기고 실제 MessageBus 페이로드 구성은 하지 않는다.
-        /// 이렇게 분리하는 이유: FB-2 커밋 단독 빌드 가능성 보장 + T19 게이트가 두 단계를
-        /// 독립 관찰하도록 함(순서 로직 vs 페이로드 구성 분리).
+        /// F-B: 침략 예고 메시지 발행. Rumor(Medium Priority) 또는 Confirmed(High Priority)
+        /// 스테이지에 따라 우선순위가 달라지므로 MessageBus.DEFAULT_PRIORITY_MAP에 등록하지 않고
+        /// 이 메서드에서 명시 설정한다(FB-1 map 주석 [F-B 예외] 참조).
+        /// UI 배너(InvasionWarningIndicator)와 주민 대사(VillagerFSM.OnInvasionWarning)가
+        /// 이 메시지를 구독한다.
         /// </summary>
         private void PublishInvasionWarning(string stageId, float currentGameDay)
         {
             float leadRemain = Mathf.Max(0f, _expectedRaidDay - currentGameDay);
+
+            if (MessageBus.Instance == null)
+            {
+                Debug.LogWarning($"[FactionAI] PublishInvasionWarning: MessageBus.Instance가 null입니다. " +
+                                 $"메시지를 발행할 수 없습니다. Stage={stageId}, FactionId={_factionId}");
+                return;
+            }
+
+            var payload = new MessageBus.InvasionWarningPayload
+            {
+                FactionId          = _factionId.ToString(),
+                StageId            = stageId,
+                ExpectedRaidDay    = Mathf.RoundToInt(_expectedRaidDay),
+                LeadDaysRemaining  = leadRemain,
+                FactionNameKnown   = _playerStrengthKnown  // ADR-B4: 정찰 완료 시에만 팩션명 노출
+            };
+
+            MessageBus.Instance.Publish(new AIMessage
+            {
+                Type     = MessageType.InvasionWarning,
+                Priority = (stageId == MessageBus.INVASION_STAGE_CONFIRMED)
+                           ? MessagePriority.High
+                           : MessagePriority.Medium, // Rumor는 EnemyDetected 큐와 섞이지 않도록 Medium
+                SenderId = $"faction_{_factionId}",
+                Payload  = payload,
+                IssuedAt = Time.time
+            });
+
             Debug.Log($"[FactionAI] InvasionWarning 발행. Stage={stageId}, " +
-                      $"ExpectedDay={_expectedRaidDay:F1}, LeadRemain={leadRemain:F1}일, FactionId={_factionId}");
-            // FB-3: MessageBus.Instance.Publish(new AIMessage { ... InvasionWarningPayload ... });
+                      $"ExpectedDay={_expectedRaidDay:F1}, LeadRemain={leadRemain:F1}일, " +
+                      $"NameKnown={_playerStrengthKnown}, FactionId={_factionId}");
         }
 
         /// <summary>

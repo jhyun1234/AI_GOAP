@@ -247,10 +247,10 @@ private void PublishInvasionWarning(string stageId, float currentGameDay)
 ```
 
 **DoD 체크리스트**:
-- [ ] Rumor 발행 시 Priority=Normal, Confirmed 발행 시 Priority=High.
-- [ ] `LeadDaysRemaining` 음수 방지 (Mathf.Max).
-- [ ] Console 로그에 Stage/ExpectedDay/LeadRemain 3개 값 포함 (T19가 이 로그로 검증).
-- [ ] 컴파일 green.
+- [x] Rumor 발행 시 Priority=**Medium**(명세는 "Normal"이나 MessagePriority enum에 Normal 부재 → Medium이 의미상 동치), Confirmed 발행 시 Priority=High.
+- [x] `LeadDaysRemaining` 음수 방지 (Mathf.Max).
+- [x] Console 로그에 Stage/ExpectedDay/LeadRemain 3개 값 포함 (T19가 이 로그로 검증). NameKnown도 추가 노출.
+- [x] 컴파일 green (mcp__ide__getDiagnostics 0건, 2026-07-11).
 
 **⚠️ 오해 위험**:
 - **Rumor에도 High Priority를 주지 않는다.** MessageBus의 High 큐는 EnemyDetected(RAID_THREAT_TIER 4)와 공유된다. Rumor를 High로 올리면 임박 신호와 조짐 신호가 같은 큐에서 섞여 주민 반응이 마비된다.

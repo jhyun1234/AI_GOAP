@@ -43,6 +43,15 @@ Unity 탑다운 마을 생존 시뮬레이션. GOAP(Burst Job A*) 기반 주민 
     Glutton은 배율 축이 아니라 `HasActiveP0Condition` 포만감 임계값 축(+10)으로 표현하며
     ADR-7 정합(goal target 70 > 임계값 30, Satiety 세만틱)을 유지한다 (F-A 명세, ADR-P4).
     검증: EditMode 게이트 T18.
+12. **침략 예고 스테이지 순서 (ADR-B1)**: `FactionAI`가 `EvaluateRaidDecision`=true를
+    받아도 즉시 `IssueRaidOrders`를 부르지 않는다. `_warningStage`는 반드시
+    `None → Rumor(D-3) → Confirmed(D-1) → Raid(D0)` 순서로만 전이하며, 각 전이는
+    별도 Tick에서만 발생한다(같은 Tick 이중 전이 금지). 예고 조건 소멸(EvaluateRaidDecision
+    false로 뒤집힘), F-P0/F-P1 진입, 쿨다운 진입, 실제 침략 개시 모두 `ResetWarningState`
+    호출로 초기화. Rumor의 팩션명 노출은 정찰 완료 여부에 종속(ADR-B4: 미상 시
+    "미상의 세력" + 텍스트 깜빡임). `PublishInvasionWarning`은 스테이지별 Priority를
+    명시 설정하므로 `MessageBus.DEFAULT_PRIORITY_MAP`에 InvasionWarning을 넣지 않는다.
+    검증: EditMode 게이트 T19 (F-B 명세, Docs/F-B_침략예고_명세서.md §6 ADR-B1).
 
 ## 작업 프로토콜
 - 명세서의 작업 항목(W/F/P/N 번호) 1개 = 커밋 1개. 합쳐 커밋 금지.
@@ -60,6 +69,10 @@ Unity 탑다운 마을 생존 시뮬레이션. GOAP(Burst Job A*) 기반 주민 
   ⑨ 성격 배율·`PersonalityData` 상수·`PersonalityCostMultipliers.From()` 변경 커밋이면 T17·T18이 초록인지 명시 확인,
      그리고 `grep -n "GOAPActionRegistry\.BuildActionDefs(" Assets` 결과 호출부가 성격 배율 축(5인자 이상)을
      인지한 형태인지 확인. 3인자 이하 호출부는 default 폴백(Identity) 의도 명시 (ADR-11/ADR-P1)
+  ⑩ 침략 예고 관련 커밋(`FactionAI._warningStage`, `PublishInvasionWarning`, `InvasionWarningIndicator`,
+     `MessageType.InvasionWarning` payload 변경)이면 T19가 초록인지 명시 확인, 그리고
+     `grep -n "IssueRaidOrders\s*(" Assets/Scripts` 결과가 예고 D0(WSTAGE_CONFIRMED + leadRemaining<=0)
+     조건 없이 직접 호출되는 경로가 없는지 확인 (ADR-12/ADR-B1)
 
 ## 자동 커밋 + 개발 일지 (devlog-workflow.md 실행)
 

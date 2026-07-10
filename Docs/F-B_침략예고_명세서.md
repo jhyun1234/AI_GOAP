@@ -513,9 +513,10 @@ namespace AIVillage.Tests.EditMode
 ```
 
 **DoD 체크리스트**:
-- [ ] CLAUDE.md에 ADR-12(ADR-B1) 절 추가.
-- [ ] 커밋 전 체크 ⑩ 추가.
-- [ ] 다른 ADR/체크 번호 재부여 없음.
+- [x] CLAUDE.md에 ADR-12(ADR-B1) 절 추가 (ADR-P1 뒤 · 작업 프로토콜 앞).
+- [x] 커밋 전 체크 ⑩ 추가 (기존 ⑨ 뒤).
+- [x] 다른 ADR/체크 번호 재부여 없음 (기존 1~11 · ①~⑨ 원본 그대로 유지).
+- [x] `grep -n "IssueRaidOrders\s*(" Assets/Scripts` 결과 사전 확인: 실호출 1건(FactionAI.cs:557)이며 CONFIRMED+leadRemaining≤0 조건 안에서만. ADR-B1 준수.
 
 **⚠️ 오해 위험**:
 - ADR 번호는 11 다음이 12. "B1"은 명세 표기용 별칭(behavior-warning 1).

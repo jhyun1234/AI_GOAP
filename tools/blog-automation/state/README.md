@@ -27,3 +27,4 @@
 
 로컬 auto-memory MEMORY.md에는 이 디렉토리로 향하는 pointer만 두고, 실제 데이터는
 여기서만 관리한다. 원격 routine은 리포를 체크아웃해 이 경로를 그대로 읽고 쓴다.
+

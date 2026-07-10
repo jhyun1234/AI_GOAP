@@ -1600,6 +1600,16 @@ namespace AIVillage.AI
         private static readonly string[] THOUGHT_PERS_GLUTTON_HUNGRY= { "배고파! 먹을 거 없어?", "밥! 밥!", "이 배고픔은 못 참지." };
         private static readonly string[] THOUGHT_PERS_CURIOUS_EXPLR = { "저 너머엔 뭐가 있을까?", "가보자!", "새로운 게 보고 싶어." };
 
+        // ── [F-B] 침략 예고 반응 대사 (ADR-B6: Coward/Brave만 전용, 나머지 Default) ─
+        // 사용 규칙: MessageBus.InvasionWarning 수신 시 스테이지·성격 조합으로 풀 선택 → ShowThoughtBubble.
+        // 스로틀·LOD·FallbackCounter 게이트를 기존 ShowThoughtBubble이 공유(⚠️ 명세 §4 FB-5).
+        private static readonly string[] THOUGHT_INVASION_RUMOR_DEFAULT = { "…뭔가 이상해.", "공기가 무거워졌어.", "왜 이리 조용하지?" };
+        private static readonly string[] THOUGHT_INVASION_RUMOR_COWARD  = { "뭐가… 온다…", "숨을 데 없나…", "무서워…" };
+        private static readonly string[] THOUGHT_INVASION_RUMOR_BRAVE   = { "덤빌 테면 덤벼봐라!", "무기 챙겨두자.", "예감이 안 좋군." };
+        private static readonly string[] THOUGHT_INVASION_CONF_DEFAULT  = { "온다!", "각오해야 해.", "드디어 오는군!" };
+        private static readonly string[] THOUGHT_INVASION_CONF_COWARD   = { "안 돼… 안 돼!", "도망갈래!", "숨을 곳! 어디!" };
+        private static readonly string[] THOUGHT_INVASION_CONF_BRAVE    = { "드디어 오는군!", "지지 않는다!", "각오는 됐다!" };
+
         /// <summary>
         /// F-A: Goal/상태 전환 지점에서 발화할 성격 대사를 확률적으로 선택한다.
         /// 성격이 매치되지 않거나 확률 실패 시 null 반환 → 호출자는 기존 goal 라인으로 폴백.
@@ -2895,6 +2905,66 @@ namespace AIVillage.AI
             // 항상 유효하다. 해당 조건은 도달 불가(dead code)였으며 혼란을 야기한다.
             gameObject.SetActive(false);
             Debug.Log($"[VillagerFSM] GameObject 비활성화 완료. AgentId={AgentId}");
+        }
+
+        /// <summary>
+        /// F-B: GameObject 활성화 시 MessageBus.InvasionWarning 구독.
+        /// LOD SetActive 사이클에서 자동 재구독되도록 Awake가 아닌 OnEnable에 둔다.
+        /// MessageBus.Subscribe는 자체 중복 방지가 있어 재구독 안전.
+        /// </summary>
+        private void OnEnable()
+        {
+            if (MessageBus.Instance != null)
+            {
+                MessageBus.Instance.Subscribe(MessageType.InvasionWarning, OnInvasionWarning);
+            }
+        }
+
+        /// <summary>
+        /// F-B: 대칭 Unsubscribe. OnDestroy가 아니라 OnDisable에서 해제하는 이유는
+        /// LOD 비활성 상태에서 예고 알림에 반응하지 않도록 하기 위함.
+        /// </summary>
+        private void OnDisable()
+        {
+            if (MessageBus.Instance != null)
+            {
+                MessageBus.Instance.Unsubscribe(MessageType.InvasionWarning, OnInvasionWarning);
+            }
+        }
+
+        /// <summary>
+        /// F-B: 침략 예고 수신 콜백. 스테이지·성격 조합으로 대사 풀 선택 후 ShowThoughtBubble.
+        /// ShowThoughtBubble이 THOUGHT_MIN_INTERVAL_SEC(5s) 스로틀·LOD 게이트·FallbackCounter
+        /// 억제를 담당하므로 여기서는 별도 스로틀 추가 금지 (⚠️ 명세 §4 FB-5 오해 위험).
+        /// </summary>
+        private void OnInvasionWarning(AIMessage msg)
+        {
+            if (!(msg.Payload is MessageBus.InvasionWarningPayload p)) return;
+            if (Brain == null) return;
+
+            string[] pool = SelectInvasionThoughtPool(p.StageId, Brain.Personality);
+            if (pool == null || pool.Length == 0) return;
+
+            ShowThoughtBubble(Pick(pool));
+        }
+
+        /// <summary>
+        /// F-B ADR-B6: 침략 예고 스테이지·성격 조합으로 대사 풀 선택.
+        /// Coward/Brave만 전용 풀, 그 외 성격(Diligent/Lazy/Glutton/Curious/None)은 Default 풀 공유.
+        /// 6종 모두 전용 대사는 스코프 팽창(관성 실험 신호 흐림) — F-D 이후 확장.
+        /// </summary>
+        private static string[] SelectInvasionThoughtPool(string stageId, Personality p)
+        {
+            bool confirmed = (stageId == MessageBus.INVASION_STAGE_CONFIRMED);
+            switch (p)
+            {
+                case Personality.Coward:
+                    return confirmed ? THOUGHT_INVASION_CONF_COWARD  : THOUGHT_INVASION_RUMOR_COWARD;
+                case Personality.Brave:
+                    return confirmed ? THOUGHT_INVASION_CONF_BRAVE   : THOUGHT_INVASION_RUMOR_BRAVE;
+                default:
+                    return confirmed ? THOUGHT_INVASION_CONF_DEFAULT : THOUGHT_INVASION_RUMOR_DEFAULT;
+            }
         }
 
         /// <summary>

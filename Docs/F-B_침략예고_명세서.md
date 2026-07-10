@@ -433,11 +433,11 @@ private static string[] SelectInvasionThoughtPool(string stageId, Personality p)
 ```
 
 **DoD 체크리스트**:
-- [ ] `THOUGHT_INVASION_*` 배열 6종 존재 (Rumor/Confirmed × Default/Coward/Brave).
-- [ ] `OnEnable`/`OnDisable`에 InvasionWarning 구독/해제 쌍 대칭.
-- [ ] 발화가 기존 `THOUGHT_MIN_INTERVAL_SEC` 스로틀을 통과 (F-A와 채널·카운터 공유).
-- [ ] 방치 검증: FactionAI DEBUG 강제 트리거 → 주민 5명 이상에서 각 스테이지 대사 최소 1회 관찰(S3).
-- [ ] 컴파일 green.
+- [x] `THOUGHT_INVASION_*` 배열 6종 존재 (Rumor/Confirmed × Default/Coward/Brave).
+- [x] `OnEnable`/`OnDisable`에 InvasionWarning 구독/해제 쌍 대칭 (Subscribe/Unsubscribe grep 각 1건 확인, 2026-07-11).
+- [x] 발화가 기존 `ShowThoughtBubble` 3게이트(THOUGHT_MIN_INTERVAL_SEC 스로틀·LOD_FSM 생략·FallbackCounter 억제) 공유 — 별도 스로틀·게이트 추가 없음.
+- [ ] 방치 검증: FactionAI DEBUG 강제 트리거 → 주민 5명 이상에서 각 스테이지 대사 최소 1회 관찰(S3). — **사용자 Play Mode 검증 필요** (자동 검증 불가).
+- [x] 컴파일 green (mcp__ide__getDiagnostics 0건, 2026-07-11).
 
 **⚠️ 오해 위험**:
 - **성격 6종 모두에 개별 배열을 만들지 않는다.** F-B 스코프는 Coward/Brave만 전용 대사. Diligent/Lazy/Glutton/Curious는 Default 풀 사용. — 대사 폭발 방지 (ADR-B6). 정말 필요하면 F-D 이후 안건.

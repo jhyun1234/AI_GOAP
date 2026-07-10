@@ -19,6 +19,11 @@
 /[Ll]ogs/
 /[Uu]ser[Ss]ettings/
 *.log
+!devlog/published.log
+
+# devlog hook 로컬 상태 (기기별 상이)
+tools/devlog/.last-processed-commit
+tools/devlog/.hook-errors.log
 
 # By default unity supports Blender asset imports, *.blend1 blender files do not need to be committed to version control.
 *.blend1
@@ -105,3 +110,8 @@ InitTestScene*.unity*
 
 # Auto-generated scenes by play mode tests
 /[Aa]ssets/[Ii]nit[Tt]est[Ss]cene*.unity*
+
+# Blog automation secrets (OAuth client + tokens) — never commit
+/tools/blog-automation/credentials/
+# Blog automation pipeline staging (ephemeral working artifacts between steps)
+/tools/blog-automation/.staging/

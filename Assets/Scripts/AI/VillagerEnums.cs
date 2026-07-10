@@ -93,7 +93,8 @@ namespace AIVillage.AI
         RaidDecision,       // 팩션 침략 결정 공지
         RageKill,           // [8단계] Rage 상태 주민이 적을 처치 → 6타일 이내 Rage 전염 유발
         SeasonChanged,      // [14단계] 계절 전환 발생
-        WinterCrisis        // [14단계] 겨울 식량 비축 임계값 미달
+        WinterCrisis,       // [14단계] 겨울 식량 비축 임계값 미달
+        InvasionWarning     // [F-B] 팩션 침략 예고 (Rumor/Confirmed 2단계, D-3/D-1 발행)
     }
 
     /// <summary>

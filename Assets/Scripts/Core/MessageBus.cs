@@ -278,6 +278,35 @@ namespace AIVillage.Core
         }
 
         /// <summary>
+        /// InvasionWarning 메시지 페이로드. [F-B]
+        /// 팩션 AI가 침략 조건을 충족한 시점에 실제 침략 D0 이전(Rumor: D-3, Confirmed: D-1)에 발행한다.
+        /// UI 배너와 주민 대사 발화가 이 페이로드를 구독한다.
+        /// </summary>
+        public struct InvasionWarningPayload
+        {
+            /// <summary>침략을 예고한 팩션 ID.</summary>
+            public string FactionId;
+
+            /// <summary>예고 스테이지 ID. INVASION_STAGE_RUMOR 또는 INVASION_STAGE_CONFIRMED.</summary>
+            public string StageId;
+
+            /// <summary>예상 침략 게임 일수. Rumor 발행 시 확정되며 Confirmed에서도 동일 값 유지.</summary>
+            public int ExpectedRaidDay;
+
+            /// <summary>ExpectedRaidDay - 현재 게임일. 0 미만은 음수 방지 후 발행자가 클램프.</summary>
+            public float LeadDaysRemaining;
+
+            /// <summary>ADR-B4: 정찰(F-P3) 완료 여부. false이면 UI가 "미상의 세력"으로 표기하고 텍스트 깜빡임.</summary>
+            public bool FactionNameKnown;
+        }
+
+        // ── InvasionWarning 스테이지 상수 (F-B) ─────────────────────────────────
+        /// <summary>InvasionWarningPayload.StageId — 약한 조짐 단계(D-3, 회색 배너).</summary>
+        public const string INVASION_STAGE_RUMOR     = "Rumor";
+        /// <summary>InvasionWarningPayload.StageId — 확실 신호 단계(D-1, 빨강 배너).</summary>
+        public const string INVASION_STAGE_CONFIRMED = "Confirmed";
+
+        /// <summary>
         /// RaidDecision 메시지 페이로드.
         /// 팩션 AI가 다른 팩션을 침략하기로 결정했을 때 발행된다.
         /// </summary>
@@ -334,6 +363,10 @@ namespace AIVillage.Core
         /// | ResourceDepleted   | Medium   |
         /// | OrderIssued        | Medium   |
         /// | OrderRefused       | Low      |
+        ///
+        /// [F-B 예외]: InvasionWarning은 스테이지에 따라 Priority가 달라지므로(Rumor=Medium,
+        /// Confirmed=High) 의도적으로 이 테이블에 포함하지 않는다. FactionAI.PublishInvasionWarning이
+        /// 스테이지별로 message.Priority를 명시 설정하며, 이 값이 그대로 유지된다.
         /// </summary>
         private static readonly Dictionary<MessageType, MessagePriority> DEFAULT_PRIORITY_MAP
             = new Dictionary<MessageType, MessagePriority>

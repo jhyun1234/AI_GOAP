@@ -369,15 +369,15 @@ namespace AIVillage.UI
 ```
 
 **DoD 체크리스트**:
-- [ ] `Assets/Scripts/UI/InvasionWarningIndicator.cs` 신규 파일 존재.
-- [ ] `OnEnable`/`OnDisable`에서 MessageBus Subscribe/Unsubscribe 쌍 대칭. (누락 시 씬 리로드에서 leak)
-- [ ] Rumor Payload 수신 시 회색, Confirmed 수신 시 빨강 배경.
-- [ ] `Update()`에서 잔여 일수 CeilToInt로 카운트다운, D0 도달 시 비활성화.
-- [ ] `FactionNameKnown == false`이면 "미상의 세력" 표기.
-- [ ] **미상의 세력 + Rumor 조합**에서만 텍스트 알파가 `_blinkMinAlpha`↔`1f` 사이 PingPong. Confirmed 진입 즉시 알파 1로 복구.
-- [ ] Inspector에 `_blinkPeriodSec`, `_blinkMinAlpha` 노출 (사용자 튜닝 가능).
-- [ ] 스크립트가 `RectTransform.anchoredPosition`·`sizeDelta`·`anchors`를 프로그램적으로 세팅하지 않음 (사용자 배치 자유).
-- [ ] 컴파일 green. **씬 배치는 사용자가 수동 확인.**
+- [x] `Assets/Scripts/UI/InvasionWarningIndicator.cs` 신규 파일 존재.
+- [x] `OnEnable`/`OnDisable`에서 MessageBus Subscribe/Unsubscribe 쌍 대칭. (누락 시 씬 리로드에서 leak)
+- [x] Rumor Payload 수신 시 회색, Confirmed 수신 시 빨강 배경.
+- [x] `Update()`에서 잔여 일수 CeilToInt로 카운트다운, D0 도달 시 비활성화.
+- [x] `FactionNameKnown == false`이면 "미상의 세력" 표기.
+- [x] **미상의 세력 + Rumor 조합**에서만 텍스트 알파가 `_blinkMinAlpha`↔`1f` 사이 PingPong. Confirmed 진입 즉시 알파 1로 복구.
+- [x] Inspector에 `_blinkPeriodSec`, `_blinkMinAlpha` 노출 (사용자 튜닝 가능).
+- [x] 스크립트가 `RectTransform.anchoredPosition`·`sizeDelta`·`anchors`를 프로그램적으로 세팅하지 않음 (grep 0건, 2026-07-11 확인).
+- [x] 컴파일 green (mcp__ide__getDiagnostics 0건). **씬 배치는 사용자가 수동 확인.**
 
 **⚠️ 오해 위험**:
 - **씬 배치·위치·크기는 이 커밋의 DoD가 아니다.** 스크립트는 위치 정보를 절대 건드리지 않는다. — `SampleScene.unity` 자동 수정은 다른 modified 파일 상태와 충돌 위험. (`gitStatus`상 이미 씬 modified 상태)

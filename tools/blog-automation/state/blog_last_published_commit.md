@@ -15,13 +15,25 @@ metadata:
 
 ## 최신 사용 커밋
 
+- `latest_commit`: `b930365` (refactor(core): 허기 → 포만감 세만틱 반전 — F-A 성격배분+Satiety 반전 묶음 소재의 마지막 커밋)
+- `selected_commits_range`: 549444d ~ b930365 (549444d F-A 성격배분 + b930365 허기→포만감 반전, 2커밋 묶음)
+- `cycle_date`: 2026-07-11 (원격 auto-run, session `cse_01U1p6C8aDWswa4xhkCzhXSR`)
+- `publish_status`: PUBLISHED (실제 공개 발행 완료, Blogger status: LIVE)
+- `blogger_post_id`: 118729701893909598
+- `blog_url`: https://gamedevclaude.blogspot.com/2026/07/goap-ai-ai.html
+- `local_archive`: (원격 sandbox에서 생성, git push 실패로 리포에 없음 — 필요 시 blogger-client.js get으로 재획득)
+- `title`: 유니티 GOAP AI 개발일지: 인디게임 AI 리팩터링 — 성격 시스템 완성 후 발견한 씬 배치 버그와 허기→포만감 반전
+- `labels`: 유니티, 인디게임, AI개발, GOAP
+
+### 이전 회차 이력 (2026-07-09, 방향 ③ GatherIron 무해 봉합)
+
 - `latest_commit`: `4df41cc` (docs(goap): N2 CLAUDE.md ADR-10 + 커밋 전 체크 ⑧ 추가 — 방향 ③ GatherIron 초반 무해 봉합 소재의 마지막 커밋)
 - `selected_commits_range`: 87ac93c ~ 4df41cc (87ac93c, 5448e68, 45d546c, 81d8c76, 4df41cc — 방향 ③ GatherIron 초반 무해 봉합 5커밋)
 - `cycle_date`: 2026-07-09
-- `publish_status`: PUBLISHED (실제 공개 발행 완료, Blogger status: LIVE)
-- `blogger_post_id`: 3490326739510391777 (신규 게시 — 기존 DRAFT 7396645330542050308과는 별개의 새 글)
-- `blog_url`: https://gamedevclaude.blogspot.com/2026/07/unity-goap-ai-4096.html (실제 게시된 글의 퍼머링크)
-- `local_archive`: tools/blog-automation/published/2026-07-09-unity-goap-ai-4096.html (AI_GOAP 저장소 내부 경로)
+- `publish_status`: PUBLISHED
+- `blogger_post_id`: 3490326739510391777
+- `blog_url`: https://gamedevclaude.blogspot.com/2026/07/unity-goap-ai-4096.html
+- `local_archive`: tools/blog-automation/published/2026-07-09-unity-goap-ai-4096.html
 
 ### 이전 DRAFT 이력 (참고용, 별개 소재)
 

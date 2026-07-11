@@ -226,9 +226,17 @@ namespace AIVillage.AI
         private Vector3 _waypointTarget = Vector3.zero;
 
         // ── 물리 컴포넌트 캐시 ──────────────────────────────────────────────────
-        // Awake에서 부착 후 캐시. Update에서 rb.MovePosition으로 이동시켜 유닛 간 자동 분리 + 발사체 히트 지원.
+        // Awake에서 부착 후 캐시. Update에서 velocity 설정으로 이동시켜 유닛 간 자동 분리 + 발사체 히트 지원.
         private Rigidbody _rigidbody;
         private SphereCollider _sphereCollider;
+
+        // ── 근접 유닛 회피 (Boids separation) ──────────────────────────────
+        // linearVelocity를 매 프레임 방향*속도로 덮어쓰면 물리 depenetration 임펄스가 즉시 사라져
+        // 서로 반대 방향으로 가려는 유닛이 겹친 채 정지한다. OverlapSphere로 이웃 유닛을 감지해
+        // "밀어내는" 벡터를 velocity에 합성한다.
+        private static readonly Collider[] _overlapBuffer = new Collider[8];
+        private const float SEPARATION_RADIUS   = 0.8f; // 콜라이더 반경(0.3)의 약 2.5배 — 이 반경 안에 이웃 있으면 분리 힘 발동
+        private const float SEPARATION_STRENGTH = 2f;   // velocity에 합성되는 회피 벡터의 배율
 
         // ── [Phase 1 F1] 사고 말풍선 마지막 발화 시간 ───────────────────────────
         // -999f로 초기화하여 첫 발화는 시간 게이트를 통과한다.
@@ -551,11 +559,12 @@ namespace AIVillage.AI
                 }
                 else
                 {
-                    // 이동: 목표 방향 * 속도를 velocity로 지정. 물리 엔진이 콜라이더 겹침을 자동 해소한다.
-                    // 도달 직전(< speed*dt)에는 딱 도착할 만큼만 이동시켜 overshoot 방지.
+                    // 이동: 목표 방향 * 속도 + 이웃 유닛으로부터의 회피 벡터.
+                    // 회피 성분을 합쳐야 반대 방향으로 진행하는 두 유닛이 서로 옆으로 밀어내며 갈라진다.
                     float stepThisFrame = speed * Time.deltaTime;
                     float velMag = distToTarget < stepThisFrame ? distToTarget / Time.deltaTime : speed;
-                    _rigidbody.linearVelocity = (toTarget / distToTarget) * velMag;
+                    Vector3 desired = (toTarget / distToTarget) * velMag;
+                    _rigidbody.linearVelocity = desired + ComputeSeparation();
                 }
             }
             else
@@ -2708,6 +2717,48 @@ namespace AIVillage.AI
 
             Brain.RecentAllyDeathWitness = 0;
             Brain.RecentRageKillWitness  = 0;
+        }
+
+        /// <summary>
+        /// 주변 유닛(Rigidbody 부착 객체)을 감지해 회피 벡터를 계산한다.
+        /// linearVelocity를 매 프레임 방향*속도로 덮어쓰면 물리 depenetration 임펄스가
+        /// 즉시 사라져 반대 방향으로 이동하는 두 유닛이 겹친 채 정지한다.
+        /// 이 함수의 결과를 velocity에 더해서 물리 힘 대신 명시적 회피를 준다.
+        /// </summary>
+        private Vector3 ComputeSeparation()
+        {
+            if (_rigidbody == null || _sphereCollider == null) return Vector3.zero;
+
+            int count = Physics.OverlapSphereNonAlloc(
+                _rigidbody.position, SEPARATION_RADIUS, _overlapBuffer);
+
+            Vector3 sum = Vector3.zero;
+            int neighbors = 0;
+            for (int i = 0; i < count; i++)
+            {
+                Collider c = _overlapBuffer[i];
+                if (c == null) continue;
+                // 자신의 콜라이더는 건너뛰고, Rigidbody가 부착된 유닛만 회피 대상으로 삼는다.
+                // (자원 노드/건물 등 정적 콜라이더는 여기서 무시 — 이동은 JPS 경로가 처리한다.)
+                Rigidbody rb = c.attachedRigidbody;
+                if (rb == null || rb == _rigidbody) continue;
+
+                Vector3 away = _rigidbody.position - rb.position;
+                float dist = away.magnitude;
+                if (dist < 0.01f)
+                {
+                    // 완전히 겹친 상태 — 임의 수평 방향으로 밀어낸다 (deterministic 하기 위해 좌표 해시 사용).
+                    int seed = (int)(_rigidbody.position.x * 1000f + _rigidbody.position.y * 999f);
+                    float angle = (Mathf.Abs(seed) % 360) * Mathf.Deg2Rad;
+                    away = new Vector3(Mathf.Cos(angle), Mathf.Sin(angle), 0f);
+                    dist = 1f;
+                }
+                // 가까울수록 강한 밀림 (1/dist 가중)
+                sum += (away / dist) / dist;
+                neighbors++;
+            }
+
+            return neighbors > 0 ? sum * SEPARATION_STRENGTH : Vector3.zero;
         }
 
         private EnemyFSM FindNearestEnemy(float rangeTiles)

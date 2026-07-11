@@ -107,6 +107,11 @@ namespace AIVillage.AI
         private Rigidbody     _rigidbody;
         private SphereCollider _sphereCollider;
 
+        // ── 근접 유닛 회피 (Boids separation) ──────────────────────────────
+        private static readonly Collider[] _overlapBuffer = new Collider[8];
+        private const float SEPARATION_RADIUS   = 0.8f;
+        private const float SEPARATION_STRENGTH = 2f;
+
         #endregion
 
         #region ── IEnemyAgent 프로퍼티 구현 ──
@@ -262,9 +267,11 @@ namespace AIVillage.AI
                 }
                 else
                 {
+                    // 이동: 목표 방향 + 이웃 유닛 회피 벡터 합성 (velocity를 매 프레임 덮어써도 겹침 해소되도록)
                     float stepThisFrame = ENEMY_MOVE_SPEED * Time.deltaTime;
                     float velMag = distToTarget < stepThisFrame ? distToTarget / Time.deltaTime : ENEMY_MOVE_SPEED;
-                    _rigidbody.linearVelocity = (toTarget / distToTarget) * velMag;
+                    Vector3 desired = (toTarget / distToTarget) * velMag;
+                    _rigidbody.linearVelocity = desired + ComputeSeparation();
                 }
             }
             else
@@ -479,6 +486,42 @@ namespace AIVillage.AI
         /// 지정 타일 거리(맨해튼) 이내에서 살아있는 주민 중 가장 가까운 VillagerFSM을 반환한다.
         /// GameManager.Instance가 없거나 범위 내 주민이 없으면 null을 반환한다.
         /// </summary>
+        /// <summary>
+        /// 주변 유닛으로부터의 회피 벡터 계산 (VillagerFSM.ComputeSeparation과 동일 로직).
+        /// velocity 덮어쓰기로 무효화되는 물리 depenetration을 명시적으로 대체한다.
+        /// </summary>
+        private Vector3 ComputeSeparation()
+        {
+            if (_rigidbody == null || _sphereCollider == null) return Vector3.zero;
+
+            int count = Physics.OverlapSphereNonAlloc(
+                _rigidbody.position, SEPARATION_RADIUS, _overlapBuffer);
+
+            Vector3 sum = Vector3.zero;
+            int neighbors = 0;
+            for (int i = 0; i < count; i++)
+            {
+                Collider c = _overlapBuffer[i];
+                if (c == null) continue;
+                Rigidbody rb = c.attachedRigidbody;
+                if (rb == null || rb == _rigidbody) continue;
+
+                Vector3 away = _rigidbody.position - rb.position;
+                float dist = away.magnitude;
+                if (dist < 0.01f)
+                {
+                    int seed = (int)(_rigidbody.position.x * 1000f + _rigidbody.position.y * 999f);
+                    float angle = (Mathf.Abs(seed) % 360) * Mathf.Deg2Rad;
+                    away = new Vector3(Mathf.Cos(angle), Mathf.Sin(angle), 0f);
+                    dist = 1f;
+                }
+                sum += (away / dist) / dist;
+                neighbors++;
+            }
+
+            return neighbors > 0 ? sum * SEPARATION_STRENGTH : Vector3.zero;
+        }
+
         private VillagerFSM FindNearestVillager(float rangeTiles)
         {
             if (GameManager.Instance == null) return null;

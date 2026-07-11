@@ -92,6 +92,8 @@ namespace AIVillage.AI
         // ── [8단계] 전투 / 정신 상태 수치 ────────────────────────────────────────
         private const float BASE_VILLAGER_DAMAGE     = 8f;   // 틱당 주민이 적에게 입히는 기본 피해
         private const float ATTACK_RANGE_TILES       = 2f;   // 공격 유효 타일 거리 (맨해튼)
+        private const float CHASE_MAX_RANGE_TILES    = 8f;   // Fighting 중 공격 범위 밖 적을 추격할 최대 거리 (SensorSystem._enemyDetectionRadius와 일치)
+        private const int   CHASE_REPATH_DRIFT_TILES = 3;    // 추격 중 적이 이만큼 이동하면 경로 재계산 (성능/반응성 균형)
         private const float FEAR_CONTAGION_RADIUS    = 5f;   // 아군 사망 목격 Fear 전염 반경
         private const float RAGE_CONTAGION_RADIUS    = 6f;   // Rage 처치 목격 전염 반경
         private const float RAGE_DURATION_SEC        = 8f;   // Rage 지속 시간(초)
@@ -109,7 +111,9 @@ namespace AIVillage.AI
         // 기획서 수치 확정값
         private const float VILLAGER_MOVE_SPEED  = 2.0f;  // 기획서 수치: 일반 이동 속도 (타일/초)
         private const float VILLAGER_FLEE_SPEED  = 3.0f;  // 기획서 수치: Fleeing 상태 이동 속도 (타일/초)
-        private const float WAYPOINT_ARRIVE_DIST = 0.05f; // 이 거리(Unity 유닛) 이하면 웨이포인트 도착 간주
+        private const float WAYPOINT_ARRIVE_DIST     = 0.05f; // 중간 웨이포인트 도착 반경 (정확한 경로 추종)
+        private const float TERMINAL_ARRIVE_DIST     = 0.5f;  // 최종 웨이포인트 도착 반경 — 콜라이더 밀림에도 진동 없이 안착
+        private const float STATIONARY_SNAP_THRESHOLD = 1.0f; // 정지 상태에서 이 거리(1타일) 초과로 이탈 시에만 논리 좌표로 복귀
 
         #endregion
 
@@ -220,6 +224,11 @@ namespace AIVillage.AI
 
         /// <summary>현재 이동 중인 웨이포인트의 월드 좌표. Vector3.MoveTowards의 목표값.</summary>
         private Vector3 _waypointTarget = Vector3.zero;
+
+        // ── 물리 컴포넌트 캐시 ──────────────────────────────────────────────────
+        // Awake에서 부착 후 캐시. Update에서 rb.MovePosition으로 이동시켜 유닛 간 자동 분리 + 발사체 히트 지원.
+        private Rigidbody _rigidbody;
+        private SphereCollider _sphereCollider;
 
         // ── [Phase 1 F1] 사고 말풍선 마지막 발화 시간 ───────────────────────────
         // -999f로 초기화하여 첫 발화는 시간 게이트를 통과한다.
@@ -337,16 +346,35 @@ namespace AIVillage.AI
                                  $"InjectDependencies()를 호출하세요. AgentId={Brain.VillagerId}");
             }
 
-            // ── [9단계] 물리 감지용 SphereCollider 자동 추가 ─────────────────
-            // PlayerInputController가 Physics.Raycast로 주민을 감지하려면
-            // Collider 컴포넌트가 반드시 있어야 한다.
-            // Inspector에서 수동으로 부착하지 않아도 Awake에서 자동으로 추가된다.
-            if (GetComponent<SphereCollider>() == null)
+            // ── SphereCollider + Rigidbody 자동 부착 ─────────────────────────
+            // 두 용도를 하나로 통합:
+            //   1) PlayerInputController.Physics.Raycast 클릭 감지 (트리거·논트리거 무관하게 히트)
+            //   2) 유닛 간 물리 분리 + 나중에 발사체 히트 판정용 (비트리거 콜라이더 필요)
+            // 프리팹에 이미 붙어 있으면 재사용, 없으면 런타임에 AddComponent.
+            _sphereCollider = GetComponent<SphereCollider>();
+            if (_sphereCollider == null)
             {
-                SphereCollider sc = gameObject.AddComponent<SphereCollider>();
-                sc.radius    = 0.5f;  // 2D-in-3D 씬: 타일 1칸의 절반 크기로 클릭 판정
-                sc.isTrigger = true;  // 물리 충돌 없이 레이캐스트만 감지
+                _sphereCollider = gameObject.AddComponent<SphereCollider>();
             }
+            _sphereCollider.radius    = 0.4f;   // 타일 크기(1)보다 작게 → 인접 타일 유닛과 밀림 완화
+            _sphereCollider.isTrigger = false;  // 물리 분리 활성 (Physics.Raycast는 논트리거도 히트하므로 클릭 감지도 유지됨)
+
+            _rigidbody = GetComponent<Rigidbody>();
+            if (_rigidbody == null)
+            {
+                _rigidbody = gameObject.AddComponent<Rigidbody>();
+            }
+            _rigidbody.useGravity     = false;
+            _rigidbody.linearDamping  = 5f;      // 충돌 후 잔여 속도 빠르게 감쇠 (미끄러짐 방지)
+            _rigidbody.angularDamping = 5f;
+            _rigidbody.interpolation  = RigidbodyInterpolation.Interpolate; // Update에서 MovePosition 호출 시 시각 부드러움
+            _rigidbody.collisionDetectionMode = CollisionDetectionMode.Continuous;
+            // Z 위치 잠금 + 모든 회전 잠금 (2D-in-3D 씬에서 평면 유지)
+            _rigidbody.constraints =
+                RigidbodyConstraints.FreezePositionZ |
+                RigidbodyConstraints.FreezeRotationX |
+                RigidbodyConstraints.FreezeRotationY |
+                RigidbodyConstraints.FreezeRotationZ;
 
             // ── Villager 레이어 설정 ─────────────────────────────────────────
             // PlayerInputController의 레이어 마스크가 "Villager" 레이어만 감지하므로
@@ -428,6 +456,28 @@ namespace AIVillage.AI
                 return;
             }
 
+            // ── AnyState 전이 #4: NearEnemy 진입 시 자원 채취/이동 중단하고 Fighting 진입 ─
+            // State_Idle만 NearEnemy를 감지하던 기존 로직으로는 Executing/Planning 중 적이
+            // 접근해도 액션 타이머가 끝날 때까지 반응하지 못했다. AnyState에서 감지해 즉시
+            // Fighting으로 전이시켜 전투 상태로 진입하게 한다.
+            //   - Fear 조건은 위 #3에서 이미 처리됨(HP<30 → Fleeing).
+            //   - LOD_FSM은 State_LOD_FSM()에서 자체적으로 Idle 복귀 처리하므로 여기서 건너뛴다.
+            //   - CommandConflict는 1틱 내 자체 해소되는 전이 상태이므로 건너뛴다.
+            //   - EnterFighting()이 CurrentPlan/CurrentGoalId를 정리하고 AbortCurrentPath()로
+            //     이동 경로를 중단하며, OnStateExit(Executing)이 자원 예약을 해제한다.
+            if (Brain.IsAlive
+                && Brain.NearEnemy
+                && Brain.FSMState != VillagerState.Fighting
+                && Brain.FSMState != VillagerState.Fleeing
+                && Brain.FSMState != VillagerState.Dead
+                && Brain.FSMState != VillagerState.LOD_FSM
+                && Brain.FSMState != VillagerState.CommandConflict)
+            {
+                Debug.Log($"[VillagerFSM] AnyState → Fighting (NearEnemy 감지, prev={Brain.FSMState}). AgentId={AgentId}");
+                TransitionTo(VillagerState.Fighting);
+                return;
+            }
+
             // ── LOD 틱 누적 (LOD_FSM 상태일 때만) ───────────────────────────
             // LOD 모드의 내부 상태는 매 프레임이 아닌 0.5초 간격으로만 실행한다.
             if (Brain.FSMState == VillagerState.LOD_FSM)
@@ -458,13 +508,24 @@ namespace AIVillage.AI
                               ? VILLAGER_FLEE_SPEED
                               : VILLAGER_MOVE_SPEED;
 
-                transform.position = Vector3.MoveTowards(
-                    transform.position,
+                // rb.MovePosition으로 이동 — 물리 엔진이 유닛 간 겹침을 자동 해소하고,
+                // 나중에 발사체 히트 시 AddForce로 뒤로 밀림도 이 Rigidbody가 처리한다.
+                Vector3 nextPos = Vector3.MoveTowards(
+                    _rigidbody.position,
                     _waypointTarget,
                     speed * Time.deltaTime);
+                _rigidbody.MovePosition(nextPos);
 
-                // 웨이포인트에 충분히 가까워졌으면 도착 처리
-                if (Vector3.Distance(transform.position, _waypointTarget) < WAYPOINT_ARRIVE_DIST)
+                // 도착 판정:
+                //   - 중간 웨이포인트: nextPos 정밀 비교 — MoveTowards가 목표에 도달하면 nextPos == waypoint.
+                //   - 마지막 웨이포인트: 실제 물리 위치 기준 넉넉한 반경(TERMINAL_ARRIVE_DIST=0.5).
+                //     같은 자원 노드에 여럿이 몰릴 때 콜라이더가 서로 밀어내며 정확한 목표에
+                //     도달하지 못해 발생하던 진동 루프를 방지한다.
+                bool isTerminal = (_pathIndex >= _currentPath.Count - 1);
+                bool arrived = isTerminal
+                    ? Vector3.Distance(_rigidbody.position, _waypointTarget) < TERMINAL_ARRIVE_DIST
+                    : Vector3.Distance(nextPos, _waypointTarget) < WAYPOINT_ARRIVE_DIST;
+                if (arrived)
                 {
                     // 웨이포인트 도착 시점에 Brain 논리 좌표를 갱신한다.
                     // (이동 시작 시가 아닌 도착 시 갱신 — SensorSystem 감지 정확성 보장)
@@ -501,12 +562,18 @@ namespace AIVillage.AI
             }
             else
             {
-                // 이동 중이 아닐 때: transform을 Brain 논리 위치로 부드럽게 스냅 유지
-                // 순간이동 없이 논리 위치로 자연스럽게 정렬된다.
-                transform.position = Vector3.MoveTowards(
-                    transform.position,
-                    new Vector3(Brain.TileX, Brain.TileY, 0f),
-                    VILLAGER_MOVE_SPEED * Time.deltaTime);
+                // 정지 상태: 콜라이더가 유닛끼리 자연스럽게 분리하도록 두고, 논리 위치에서
+                // 심하게(> 1타일) 벗어난 경우에만 부드럽게 복귀시킨다.
+                // 작은 이탈(콜라이더 밀림 등)은 매 프레임 되돌리지 않아 진동을 방지한다.
+                Vector3 logicalPos = new Vector3(Brain.TileX, Brain.TileY, 0f);
+                if (Vector3.Distance(_rigidbody.position, logicalPos) > STATIONARY_SNAP_THRESHOLD)
+                {
+                    Vector3 snapPos = Vector3.MoveTowards(
+                        _rigidbody.position,
+                        logicalPos,
+                        VILLAGER_MOVE_SPEED * Time.deltaTime);
+                    _rigidbody.MovePosition(snapPos);
+                }
             }
         }
 
@@ -682,11 +749,9 @@ namespace AIVillage.AI
             if (!cooldownActive)
             {
                 // 우선순위 P1: 적 위협 → [8단계] Fighting 상태 직접 진입
+                // 진입 시 사고 말풍선은 EnterFighting()이 담당한다 (AnyState 진입 경로와 일관성 유지).
                 if (Brain.NearEnemy)
                 {
-                    // [F-A] Coward/Brave 성격이면 Fighting 진입 시 항상 성격 라인 발화 (확률 무시)
-                    string persLine = TryPickPersonalityLine("fighting", alwaysSpeak: true);
-                    if (persLine != null) ShowThoughtBubble(persLine);
                     TransitionTo(VillagerState.Fighting);
                     return;
                 }
@@ -1113,6 +1178,9 @@ namespace AIVillage.AI
             EnemyFSM target = FindNearestEnemy(ATTACK_RANGE_TILES);
             if (target != null && target.Brain != null && target.Brain.IsAlive)
             {
+                // 사거리 안 — 이동 중이던 추격 경로를 중단하고 그 자리에서 공격한다.
+                if (_isMoving) AbortCurrentPath();
+
                 float damage = BASE_VILLAGER_DAMAGE * Brain.AttackModifier;
                 target.Brain.HealthLevel = Mathf.Max(0f, target.Brain.HealthLevel - damage);
                 Debug.Log($"[VillagerFSM] Fighting: Enemy={target.Brain.EnemyId} HP={target.Brain.HealthLevel:F0} " +
@@ -1125,6 +1193,33 @@ namespace AIVillage.AI
                     if (Brain.CombatMentalState == CombatMentalState.Rage)
                         PublishRageKillEvent();
                 }
+                return;
+            }
+
+            // ── 공격 범위 밖 적 추격 ────────────────────────────────────────────
+            // NearEnemy=true(감지 8타일)지만 공격 범위(2타일) 안에 없는 경우.
+            // 기존 로직은 여기서 아무 것도 안 해 "전투 진입만 하고 서있는" 상태였다.
+            // 이제 감지 범위 내 가장 가까운 적을 향해 JPS 경로로 추격한다.
+            EnemyFSM chaseTarget = FindNearestEnemy(CHASE_MAX_RANGE_TILES);
+            if (chaseTarget == null || chaseTarget.Brain == null || !chaseTarget.Brain.IsAlive)
+            {
+                // 감지 범위 내 살아있는 적이 없다 — 다음 틱에 NearEnemy가 false가 되면 자연 종료.
+                return;
+            }
+
+            // 이미 이동 중이고 적이 크게 이동하지 않았다면 경로 유지 (재산출 비용 절약).
+            bool needRepath = !_isMoving;
+            if (!needRepath && _currentPath != null && _currentPath.Count > 0)
+            {
+                var lastWaypoint = _currentPath[_currentPath.Count - 1];
+                int drift = Mathf.Abs(lastWaypoint.x - chaseTarget.Brain.TileX)
+                          + Mathf.Abs(lastWaypoint.y - chaseTarget.Brain.TileY);
+                if (drift >= CHASE_REPATH_DRIFT_TILES) needRepath = true;
+            }
+
+            if (needRepath)
+            {
+                StartPathTo(chaseTarget.Brain.TileX, chaseTarget.Brain.TileY);
             }
         }
 
@@ -1724,6 +1819,11 @@ namespace AIVillage.AI
             Brain.CurrentGoalId   = null;
             Brain.CurrentPlan.Clear();
             Brain.IsExecutingPlan = false;
+
+            // 사고 말풍선: 성격 라인 우선, 없으면 위기 대사로 폴백. AnyState/Idle 어느 경로에서 진입해도 표시된다.
+            string persLine = TryPickPersonalityLine("fighting", alwaysSpeak: true);
+            ShowThoughtBubble(persLine ?? Pick(THOUGHT_DANGER_REPLAN));
+
             Debug.Log($"[VillagerFSM] → Fighting ({Brain.CombatMentalState}). AgentId={AgentId}");
         }
 
@@ -3091,7 +3191,16 @@ namespace AIVillage.AI
             _isMoving = false;
             _currentPath.Clear();
             _pathIndex = 0;
-            transform.position = new Vector3(Brain.TileX, Brain.TileY, 0f);
+            // Rigidbody 사용 중 — 텔레포트에도 물리 상태를 맞춘다.
+            if (_rigidbody != null)
+            {
+                _rigidbody.position = new Vector3(Brain.TileX, Brain.TileY, 0f);
+                _rigidbody.linearVelocity = Vector3.zero;
+            }
+            else
+            {
+                transform.position = new Vector3(Brain.TileX, Brain.TileY, 0f);
+            }
         }
 
         #endregion

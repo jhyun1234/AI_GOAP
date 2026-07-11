@@ -54,8 +54,10 @@ namespace AIVillage.AI
         private const float PLUNDER_WOOD_AMOUNT   = 5f;    // [FactionAI 확장] 약탈 시 빼앗는 나무 양
 
         // ── [12단계] 경로 이동 속도 ─────────────────────────────────────────────
-        private const float ENEMY_MOVE_SPEED     = 1.5f;   // 적 유닛 이동 속도 (타일/초)
-        private const float WAYPOINT_ARRIVE_DIST = 0.05f;  // 웨이포인트 도착 판정 거리 (Unity 유닛)
+        private const float ENEMY_MOVE_SPEED          = 1.5f;   // 적 유닛 이동 속도 (타일/초)
+        private const float WAYPOINT_ARRIVE_DIST      = 0.05f;  // 중간 도착 판정 거리 (Unity 유닛)
+        private const float TERMINAL_ARRIVE_DIST      = 0.5f;   // 최종 목표 도착 반경 — 몰림 시 진동 방지
+        private const float STATIONARY_SNAP_THRESHOLD = 1.0f;   // 정지 상태에서 이 거리 초과로 이탈 시에만 논리 좌표 복귀
 
         #endregion
 
@@ -99,6 +101,11 @@ namespace AIVillage.AI
         // ── [12단계] FlowField 기반 이동 추적 ────────────────────────────────────
         private bool    _isMoving   = false;       // 타일 간 시각적 이동 진행 중
         private Vector3 _moveTarget = Vector3.zero; // 현재 이동 목표 월드 좌표
+
+        // ── 물리 컴포넌트 캐시 ──────────────────────────────────────────────────
+        // Awake에서 부착 후 캐시. 유닛 간 자동 분리 + 나중 발사체 히트 판정용.
+        private Rigidbody     _rigidbody;
+        private SphereCollider _sphereCollider;
 
         #endregion
 
@@ -167,6 +174,32 @@ namespace AIVillage.AI
 
             Debug.Log($"[EnemyFSM] 초기화 완료. EnemyId={Brain.EnemyId}, " +
                       $"FactionId={_factionId}, 기지=({_baseTileX},{_baseTileY})");
+
+            // ── SphereCollider + Rigidbody 자동 부착 ─────────────────────────
+            // 목적: 유닛 간 물리 분리 + 나중에 발사체 히트 판정. VillagerFSM과 동일 패턴.
+            _sphereCollider = GetComponent<SphereCollider>();
+            if (_sphereCollider == null)
+            {
+                _sphereCollider = gameObject.AddComponent<SphereCollider>();
+            }
+            _sphereCollider.radius    = 0.4f;
+            _sphereCollider.isTrigger = false;
+
+            _rigidbody = GetComponent<Rigidbody>();
+            if (_rigidbody == null)
+            {
+                _rigidbody = gameObject.AddComponent<Rigidbody>();
+            }
+            _rigidbody.useGravity     = false;
+            _rigidbody.linearDamping  = 5f;
+            _rigidbody.angularDamping = 5f;
+            _rigidbody.interpolation  = RigidbodyInterpolation.Interpolate;
+            _rigidbody.collisionDetectionMode = CollisionDetectionMode.Continuous;
+            _rigidbody.constraints =
+                RigidbodyConstraints.FreezePositionZ |
+                RigidbodyConstraints.FreezeRotationX |
+                RigidbodyConstraints.FreezeRotationY |
+                RigidbodyConstraints.FreezeRotationZ;
         }
 
         /// <summary>
@@ -211,14 +244,16 @@ namespace AIVillage.AI
             }
 
             // ── [12단계] 시각적 이동 처리 ────────────────────────────────────────
+            // rb.MovePosition 사용: 유닛 간 물리 자동 분리 + 발사체 히트 시 AddForce 지원.
             if (_isMoving)
             {
-                transform.position = Vector3.MoveTowards(
-                    transform.position,
+                Vector3 nextPos = Vector3.MoveTowards(
+                    _rigidbody.position,
                     _moveTarget,
                     ENEMY_MOVE_SPEED * Time.deltaTime);
+                _rigidbody.MovePosition(nextPos);
 
-                if (Vector3.Distance(transform.position, _moveTarget) < WAYPOINT_ARRIVE_DIST)
+                if (Vector3.Distance(nextPos, _moveTarget) < WAYPOINT_ARRIVE_DIST)
                 {
                     _isMoving = false;
                     // 도착 시 논리 좌표를 목표 월드 위치 기준으로 갱신
@@ -228,11 +263,17 @@ namespace AIVillage.AI
             }
             else
             {
-                // 이동 중이 아니면 논리 위치로 부드럽게 스냅
-                transform.position = Vector3.MoveTowards(
-                    transform.position,
-                    new Vector3(Brain.TileX, Brain.TileY, 0f),
-                    ENEMY_MOVE_SPEED * Time.deltaTime);
+                // 정지 상태(Attacking/Idle 등): 콜라이더가 유닛끼리 자연스럽게 분리하도록 두고,
+                // 논리 위치에서 심하게(> 1타일) 이탈한 경우에만 복귀. 소량 오프셋은 진동 방지 위해 유지.
+                Vector3 logicalPos = new Vector3(Brain.TileX, Brain.TileY, 0f);
+                if (Vector3.Distance(_rigidbody.position, logicalPos) > STATIONARY_SNAP_THRESHOLD)
+                {
+                    Vector3 snapPos = Vector3.MoveTowards(
+                        _rigidbody.position,
+                        logicalPos,
+                        ENEMY_MOVE_SPEED * Time.deltaTime);
+                    _rigidbody.MovePosition(snapPos);
+                }
             }
         }
 

@@ -194,6 +194,26 @@ namespace AIVillage.Core
         }
 
         /// <summary>
+        /// 지정한 buildingId가 이미 Pending 또는 InProgress 상태로 대기열에 있는지 확인한다.
+        /// 호출자가 EnqueueBuilding을 시도하기 전에 사전 확인하여 중복 거부 로그 스팸을 방지한다.
+        /// </summary>
+        public bool IsBuildingPending(string buildingId)
+        {
+            if (string.IsNullOrEmpty(buildingId)) return false;
+
+            foreach (BuildingQueueEntry entry in _queue)
+            {
+                if (entry.BuildingId == buildingId
+                    && (entry.Status == BuildingStatus.Pending
+                     || entry.Status == BuildingStatus.InProgress))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>
         /// 가장 오래된 Pending 또는 InProgress 상태의 건설 항목을 반환한다.
         /// ActionDatabase.Plan_BuildStructure()에서 다음 건설 대상을 파악할 때 호출한다.
         /// </summary>

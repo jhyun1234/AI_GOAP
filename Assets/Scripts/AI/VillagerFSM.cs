@@ -501,44 +501,33 @@ namespace AIVillage.AI
                 Brain.RefuseMessageTimer -= Time.deltaTime;
             }
 
-            // ── [12단계] 경로 이동 처리 ──────────────────────────────────────────
-            // 이동 중이면 MoveTowards로 다음 웨이포인트로 부드럽게 이동한다.
-            // 이동 중이 아니면 transform을 Brain 논리 위치로 부드럽게 스냅 유지한다.
+            // ── [12단계] 경로 이동 처리 (velocity 기반) ─────────────────────────
+            // linearVelocity로 이동하고 도착 시 0으로 초기화한다.
+            // MovePosition은 매 프레임 위치를 강제해 물리 depenetration을 무효화하는 문제로
+            // 반대 방향 두 유닛이 겹쳐 정지하는 버그를 유발했다. velocity 방식은 물리 엔진에
+            // 이동과 충돌 해소를 위임하므로 겹침 시 자연스럽게 밀려나며 각자 목표로 진행한다.
             if (_isMoving)
             {
-                // Fleeing 상태이면 도주 속도(3.0 타일/초), 그 외엔 일반 속도(2.0 타일/초)
                 float speed = (Brain.FSMState == VillagerState.Fleeing)
                               ? VILLAGER_FLEE_SPEED
                               : VILLAGER_MOVE_SPEED;
 
-                // rb.MovePosition으로 이동 — 물리 엔진이 유닛 간 겹침을 자동 해소하고,
-                // 나중에 발사체 히트 시 AddForce로 뒤로 밀림도 이 Rigidbody가 처리한다.
-                Vector3 nextPos = Vector3.MoveTowards(
-                    _rigidbody.position,
-                    _waypointTarget,
-                    speed * Time.deltaTime);
-                _rigidbody.MovePosition(nextPos);
+                Vector3 toTarget = _waypointTarget - _rigidbody.position;
+                float distToTarget = toTarget.magnitude;
 
-                // 도착 판정:
-                //   - 중간 웨이포인트: nextPos 정밀 비교 — MoveTowards가 목표에 도달하면 nextPos == waypoint.
-                //   - 마지막 웨이포인트: 실제 물리 위치 기준 넉넉한 반경(TERMINAL_ARRIVE_DIST=0.5).
-                //     같은 자원 노드에 여럿이 몰릴 때 콜라이더가 서로 밀어내며 정확한 목표에
-                //     도달하지 못해 발생하던 진동 루프를 방지한다.
                 bool isTerminal = (_pathIndex >= _currentPath.Count - 1);
-                bool arrived = isTerminal
-                    ? Vector3.Distance(_rigidbody.position, _waypointTarget) < TERMINAL_ARRIVE_DIST
-                    : Vector3.Distance(nextPos, _waypointTarget) < WAYPOINT_ARRIVE_DIST;
-                if (arrived)
+                float arriveDist = isTerminal ? TERMINAL_ARRIVE_DIST : WAYPOINT_ARRIVE_DIST;
+
+                if (distToTarget < arriveDist)
                 {
-                    // 웨이포인트 도착 시점에 Brain 논리 좌표를 갱신한다.
-                    // (이동 시작 시가 아닌 도착 시 갱신 — SensorSystem 감지 정확성 보장)
+                    // 도착: 관성 방지를 위해 velocity 0
+                    _rigidbody.linearVelocity = Vector3.zero;
+
+                    // Brain 논리 좌표 갱신 (SensorSystem 감지 정확성)
                     Brain.TileX = _currentPath[_pathIndex].x;
                     Brain.TileY = _currentPath[_pathIndex].y;
 
-                    // ── [13단계] 웨이포인트 도착 시 FoW 시야 + 자원 노드 발견 갱신 ──
-                    // 주민이 이동하는 매 타일마다 FoW와 ResourceNode.IsDiscovered를 동시에 갱신한다.
-                    // SensorSystem.DiscoverArea를 함께 호출해야 NearDiscoveredResource=true가 되어
-                    // GOAP 플래너의 [Explore → ChopWood] 체인이 실제로 동작한다.
+                    // ── [13단계] FoW 시야 + 자원 노드 발견 갱신 ────────────────
                     if (MapConfig.Active != null)
                     {
                         int sight = MapConfig.Active.villagerSightRadius;
@@ -550,24 +539,31 @@ namespace AIVillage.AI
 
                     if (_pathIndex >= _currentPath.Count)
                     {
-                        // 전체 경로 완료
                         _isMoving = false;
                     }
                     else
                     {
-                        // 다음 웨이포인트로 이동 목표 전환
                         _waypointTarget = new Vector3(
                             _currentPath[_pathIndex].x,
                             _currentPath[_pathIndex].y,
                             0f);
                     }
                 }
+                else
+                {
+                    // 이동: 목표 방향 * 속도를 velocity로 지정. 물리 엔진이 콜라이더 겹침을 자동 해소한다.
+                    // 도달 직전(< speed*dt)에는 딱 도착할 만큼만 이동시켜 overshoot 방지.
+                    float stepThisFrame = speed * Time.deltaTime;
+                    float velMag = distToTarget < stepThisFrame ? distToTarget / Time.deltaTime : speed;
+                    _rigidbody.linearVelocity = (toTarget / distToTarget) * velMag;
+                }
             }
             else
             {
-                // 정지 상태: 콜라이더가 유닛끼리 자연스럽게 분리하도록 두고, 논리 위치에서
-                // 심하게(> 1타일) 벗어난 경우에만 부드럽게 복귀시킨다.
-                // 작은 이탈(콜라이더 밀림 등)은 매 프레임 되돌리지 않아 진동을 방지한다.
+                // 정지 상태: 관성 제거. 콜라이더가 유닛끼리 자연스럽게 분리하도록 두되,
+                // 논리 위치에서 심하게(> 1타일) 이탈하면 부드럽게 복귀 (텔레포트/튕김 복원용).
+                _rigidbody.linearVelocity = Vector3.zero;
+
                 Vector3 logicalPos = new Vector3(Brain.TileX, Brain.TileY, 0f);
                 if (Vector3.Distance(_rigidbody.position, logicalPos) > STATIONARY_SNAP_THRESHOLD)
                 {

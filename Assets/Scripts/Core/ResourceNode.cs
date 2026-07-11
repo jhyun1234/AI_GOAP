@@ -116,9 +116,12 @@ namespace AIVillage.Core
         public int CurrentGatherers { get; private set; } = 0;
 
         /// <summary>
-        /// 동시 채집 허용 최대 인원. 기획서 수치: 2명 (옵션 A 포화도 시스템).
+        /// 동시 채집 허용 최대 인원.
+        /// 1명으로 제한 — 여러 주민이 같은 노드에 몰려 콜라이더가 서로 밀어내며
+        /// 최전방 유닛만 접근하고 나머지가 튕겨나가는 시각적 문제를 방지한다.
+        /// 다른 주민은 FindNearestDiscoveredNode 필터에서 이 노드가 제외되어 다른 노드를 선택한다.
         /// </summary>
-        public int MaxGatherers { get; set; } = 2;
+        public int MaxGatherers { get; set; } = 1;
 
         #endregion
 

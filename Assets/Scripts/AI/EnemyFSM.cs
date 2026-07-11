@@ -244,28 +244,34 @@ namespace AIVillage.AI
                 Brain.HealthLevel = Mathf.Min(100f, Brain.HealthLevel + HP_REGEN_PER_SEC * Time.deltaTime);
             }
 
-            // ── [12단계] 시각적 이동 처리 ────────────────────────────────────────
-            // rb.MovePosition 사용: 유닛 간 물리 자동 분리 + 발사체 히트 시 AddForce 지원.
+            // ── [12단계] 시각적 이동 처리 (velocity 기반) ─────────────────────
+            // linearVelocity로 이동 — 물리 엔진이 유닛 간 겹침을 자동 해소한다.
             if (_isMoving)
             {
-                Vector3 nextPos = Vector3.MoveTowards(
-                    _rigidbody.position,
-                    _moveTarget,
-                    ENEMY_MOVE_SPEED * Time.deltaTime);
-                _rigidbody.MovePosition(nextPos);
+                Vector3 toTarget = _moveTarget - _rigidbody.position;
+                float distToTarget = toTarget.magnitude;
 
-                if (Vector3.Distance(nextPos, _moveTarget) < WAYPOINT_ARRIVE_DIST)
+                // 한 타일씩 이동하므로 각 스텝은 terminal 성격 — 도착 반경 완화
+                if (distToTarget < TERMINAL_ARRIVE_DIST)
                 {
+                    _rigidbody.linearVelocity = Vector3.zero;
                     _isMoving = false;
                     // 도착 시 논리 좌표를 목표 월드 위치 기준으로 갱신
                     Brain.TileX = Mathf.RoundToInt(_moveTarget.x);
                     Brain.TileY = Mathf.RoundToInt(_moveTarget.y);
                 }
+                else
+                {
+                    float stepThisFrame = ENEMY_MOVE_SPEED * Time.deltaTime;
+                    float velMag = distToTarget < stepThisFrame ? distToTarget / Time.deltaTime : ENEMY_MOVE_SPEED;
+                    _rigidbody.linearVelocity = (toTarget / distToTarget) * velMag;
+                }
             }
             else
             {
-                // 정지 상태(Attacking/Idle 등): 콜라이더가 유닛끼리 자연스럽게 분리하도록 두고,
-                // 논리 위치에서 심하게(> 1타일) 이탈한 경우에만 복귀. 소량 오프셋은 진동 방지 위해 유지.
+                // 정지 상태(Attacking/Idle 등): velocity 제거, 논리 위치 심하게 이탈 시에만 복귀.
+                _rigidbody.linearVelocity = Vector3.zero;
+
                 Vector3 logicalPos = new Vector3(Brain.TileX, Brain.TileY, 0f);
                 if (Vector3.Distance(_rigidbody.position, logicalPos) > STATIONARY_SNAP_THRESHOLD)
                 {

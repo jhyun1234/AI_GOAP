@@ -3371,18 +3371,34 @@ namespace AIVillage.AI
         {
             IReadOnlyList<ResourceNode> nodes = SensorSystem.Instance.GetAllNodes();
 
+            // 진단: 필터 통과 여부와 후보 개수를 먼저 집계한다.
+            int totalOfType = 0, discovered = 0, hasAmount = 0, notFull = 0;
+
             // 옵션 A: 포화도 조건 포함한 후보 수집
             var candidates = new System.Collections.Generic.List<ResourceNode>();
             for (int i = 0; i < nodes.Count; i++)
             {
                 ResourceNode node = nodes[i];
-                if (node.ResourceType == type && node.IsDiscovered
-                    && node.CurrentAmount > 0f && node.CurrentGatherers < node.MaxGatherers)
-                {
-                    candidates.Add(node);
-                }
+                if (node.ResourceType != type) continue;
+                totalOfType++;
+                if (!node.IsDiscovered) continue;
+                discovered++;
+                if (node.CurrentAmount <= 0f) continue;
+                hasAmount++;
+                if (node.CurrentGatherers >= node.MaxGatherers) continue;
+                notFull++;
+                candidates.Add(node);
             }
-            if (candidates.Count == 0) return null;
+
+            if (candidates.Count == 0)
+            {
+                Debug.Log(
+                    $"[VillagerFSM] FindNearestDiscoveredNode 후보 0: type={type}, " +
+                    $"totalOfType={totalOfType}, discovered={discovered}, " +
+                    $"hasAmount={hasAmount}, notFull={notFull}. AgentId={AgentId}"
+                );
+                return null;
+            }
 
             // 옵션 B: VillagerId 해시 기반 선호 인덱스 (주민마다 다른 노드 선호)
             int preferredIdx = Mathf.Abs(AgentId.GetHashCode()) % candidates.Count;
@@ -3401,6 +3417,13 @@ namespace AIVillage.AI
                     best = node;
                 }
             }
+
+            Debug.Log(
+                $"[VillagerFSM] FindNearestDiscoveredNode 선택: type={type}, " +
+                $"candidates={candidates.Count}(전체type={totalOfType}, 발견={discovered}, 잔량>0={hasAmount}, 여유={notFull}), " +
+                $"bestNodeId={best?.NodeId}, bestTile=({best?.TileX},{best?.TileY}), " +
+                $"bestGatherers={best?.CurrentGatherers}/{best?.MaxGatherers}. AgentId={AgentId}"
+            );
             return best;
         }
 

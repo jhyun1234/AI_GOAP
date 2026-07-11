@@ -356,7 +356,7 @@ namespace AIVillage.AI
             {
                 _sphereCollider = gameObject.AddComponent<SphereCollider>();
             }
-            _sphereCollider.radius    = 0.4f;   // 타일 크기(1)보다 작게 → 인접 타일 유닛과 밀림 완화
+            _sphereCollider.radius    = 0.3f;   // 유닛 중심 반경 — 같은 타일 겹침 시 분리 부담 최소화
             _sphereCollider.isTrigger = false;  // 물리 분리 활성 (Physics.Raycast는 논트리거도 히트하므로 클릭 감지도 유지됨)
 
             _rigidbody = GetComponent<Rigidbody>();
@@ -365,10 +365,13 @@ namespace AIVillage.AI
                 _rigidbody = gameObject.AddComponent<Rigidbody>();
             }
             _rigidbody.useGravity     = false;
-            _rigidbody.linearDamping  = 5f;      // 충돌 후 잔여 속도 빠르게 감쇠 (미끄러짐 방지)
-            _rigidbody.angularDamping = 5f;
-            _rigidbody.interpolation  = RigidbodyInterpolation.Interpolate; // Update에서 MovePosition 호출 시 시각 부드러움
-            _rigidbody.collisionDetectionMode = CollisionDetectionMode.Continuous;
+            // linearDamping 낮게 유지 — 5.0은 depenetration 임펄스를 즉시 소멸시켜 서로 겹친 채 정지하는 버그 유발.
+            // 1.0이면 물리 엔진의 분리 힘이 실제 이동으로 반영되어 마주 겹친 유닛이 옆으로 밀려난다.
+            _rigidbody.linearDamping  = 1f;
+            _rigidbody.angularDamping = 1f;
+            _rigidbody.interpolation  = RigidbodyInterpolation.Interpolate;
+            // Continuous는 Kinematic-vs-Dynamic용. Dynamic-vs-Dynamic에는 Discrete가 안정적이고 저비용이다.
+            _rigidbody.collisionDetectionMode = CollisionDetectionMode.Discrete;
             // Z 위치 잠금 + 모든 회전 잠금 (2D-in-3D 씬에서 평면 유지)
             _rigidbody.constraints =
                 RigidbodyConstraints.FreezePositionZ |

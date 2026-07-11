@@ -182,7 +182,7 @@ namespace AIVillage.AI
             {
                 _sphereCollider = gameObject.AddComponent<SphereCollider>();
             }
-            _sphereCollider.radius    = 0.4f;
+            _sphereCollider.radius    = 0.3f;
             _sphereCollider.isTrigger = false;
 
             _rigidbody = GetComponent<Rigidbody>();
@@ -191,10 +191,11 @@ namespace AIVillage.AI
                 _rigidbody = gameObject.AddComponent<Rigidbody>();
             }
             _rigidbody.useGravity     = false;
-            _rigidbody.linearDamping  = 5f;
-            _rigidbody.angularDamping = 5f;
+            // VillagerFSM와 동일한 이유: 5.0 damping은 겹침 분리 힘을 소멸시켜 서로 붙어 정지하는 버그 유발.
+            _rigidbody.linearDamping  = 1f;
+            _rigidbody.angularDamping = 1f;
             _rigidbody.interpolation  = RigidbodyInterpolation.Interpolate;
-            _rigidbody.collisionDetectionMode = CollisionDetectionMode.Continuous;
+            _rigidbody.collisionDetectionMode = CollisionDetectionMode.Discrete;
             _rigidbody.constraints =
                 RigidbodyConstraints.FreezePositionZ |
                 RigidbodyConstraints.FreezeRotationX |

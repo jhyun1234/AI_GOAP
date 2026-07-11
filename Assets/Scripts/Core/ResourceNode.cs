@@ -192,6 +192,11 @@ namespace AIVillage.Core
             }
 
             CurrentGatherers++;
+            Debug.Log(
+                $"[ResourceNode] TryOccupy 성공. NodeId={NodeId}, ResourceType={ResourceType}, " +
+                $"Tile=({TileX},{TileY}), CurrentGatherers={CurrentGatherers}/{MaxGatherers}, " +
+                $"VillagerId={villagerId}"
+            );
             return true;
         }
 
@@ -201,6 +206,10 @@ namespace AIVillage.Core
         public void Release()
         {
             CurrentGatherers = Mathf.Max(0, CurrentGatherers - 1);
+            Debug.Log(
+                $"[ResourceNode] Release. NodeId={NodeId}, Tile=({TileX},{TileY}), " +
+                $"CurrentGatherers={CurrentGatherers}/{MaxGatherers}"
+            );
         }
 
         #endregion

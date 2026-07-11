@@ -3244,6 +3244,12 @@ namespace AIVillage.AI
                     }
                     return;
                 }
+                // 진단 로그: 채집 액션인데 노드를 확보 못한 경우 (필터 통과 노드 없음 또는 경쟁 실패)
+                Debug.Log(
+                    $"[VillagerFSM] MoveTileForAction 노드 미확보 → 기지 폴백. " +
+                    $"actionId={actionId}, targetType={targetType.Value}, " +
+                    $"nearestNull={nearest == null}, AgentId={AgentId}"
+                );
             }
 
             // 기지 관련 Action 또는 해당 자원 노드 미발견 → 기지 타일

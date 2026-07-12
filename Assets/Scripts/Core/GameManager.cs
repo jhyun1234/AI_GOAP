@@ -305,6 +305,10 @@ namespace AIVillage.Core
         /// </summary>
         private void Awake()
         {
+            // ── Step -1: TileReservationRegistry 초기화 (TR-1, ADR-T2) ─────────
+            // 도메인 리로드 비활성 환경에서 이전 세션 좀비 예약이 남지 않도록 씬 시작 즉시 비운다.
+            TileReservationRegistry.ResetAll();
+
             // ── Step 0: MapConfig 활성화 ─────────────────────────────────────────
             // 반드시 모든 초기화보다 먼저 실행해야 한다.
             // FowManager(-55), MapChunkRenderer(-60)은 Awake에서 MapConfig.Active를 참조하는데,

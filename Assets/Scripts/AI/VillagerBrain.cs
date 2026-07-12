@@ -32,7 +32,10 @@ namespace AIVillage.AI
         PathUnreachable = 2,
 
         /// <summary>Perform 중 액션 전제 무효화 — 자원 고갈 등.</summary>
-        ActionPreconditionInvalidated = 3
+        ActionPreconditionInvalidated = 3,
+
+        /// <summary>TR-1: 다음 타일 예약이 WAIT_MAX_FRAMES 초과 실패 (ADR-T5, 이동시스템_타일예약_명세서).</summary>
+        PathBlocked = 4
     }
 
     /// <summary>
@@ -253,10 +256,11 @@ namespace AIVillage.AI
 
         /// <summary>
         /// 방향 ② M3: Fallback 원인별 카운터. 인덱스는 AbortReason enum 값.
-        /// [0]=PlanFailed, [1]=ResourceReservationFailed, [2]=PathUnreachable, [3]=ActionPreconditionInvalidated.
-        /// int[4] 고정 (Dictionary GC 회피 — ADR-M3 오해 위험 반영).
+        /// [0]=PlanFailed, [1]=ResourceReservationFailed, [2]=PathUnreachable, [3]=ActionPreconditionInvalidated,
+        /// [4]=PathBlocked (TR-1).
+        /// int[5] 고정 (Dictionary GC 회피 — ADR-M3 오해 위험 반영).
         /// </summary>
-        public int[] FallbackByReason    { get; set; } = new int[4];
+        public int[] FallbackByReason    { get; set; } = new int[5];
 
         /// <summary>도움 요청 플래그. Deadlock 발생 시 true. GameManager가 이 플래그를 감지한다.</summary>
         public bool  NeedsHelp           { get; set; } = false;

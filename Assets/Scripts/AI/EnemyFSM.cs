@@ -57,7 +57,11 @@ namespace AIVillage.AI
         private const float ENEMY_MOVE_SPEED          = 1.5f;   // 적 유닛 이동 속도 (타일/초)
         private const float WAYPOINT_ARRIVE_DIST      = 0.05f;  // 중간 도착 판정 거리 (Unity 유닛)
         private const float TERMINAL_ARRIVE_DIST      = 0.5f;   // 최종 목표 도착 반경 — 몰림 시 진동 방지
-        private const float STATIONARY_SNAP_THRESHOLD = 1.0f;   // 정지 상태에서 이 거리 초과로 이탈 시에만 논리 좌표 복귀
+
+        // ── [TR-3 ADR-T5] 타일 예약 대기 초과 임계 (Tick 단위) ───────────────
+        // State_Moving은 Tick(0.1초) 주기로 호출된다. Villager는 Update(프레임)마다 시도해
+        // 30프레임 ≈ 0.5초였는데, Enemy는 5 Tick ≈ 0.5초로 상응하도록 조정.
+        private const int   WAIT_MAX_TICKS = 5;
 
         #endregion
 
@@ -102,15 +106,13 @@ namespace AIVillage.AI
         private bool    _isMoving   = false;       // 타일 간 시각적 이동 진행 중
         private Vector3 _moveTarget = Vector3.zero; // 현재 이동 목표 월드 좌표
 
-        // ── 물리 컴포넌트 캐시 ──────────────────────────────────────────────────
-        // Awake에서 부착 후 캐시. 유닛 간 자동 분리 + 나중 발사체 히트 판정용.
-        private Rigidbody     _rigidbody;
-        private SphereCollider _sphereCollider;
-
-        // ── 근접 유닛 회피 (Boids separation) ──────────────────────────────
-        private static readonly Collider[] _overlapBuffer = new Collider[8];
-        private const float SEPARATION_RADIUS   = 0.8f;
-        private const float SEPARATION_STRENGTH = 2f;
+        // ── [TR-3 ADR-T3] 타일 예약 이동 추적 ─────────────────────────────
+        // Tick 기반 State_Moving 재시도 카운터. 대기 초과 시 AbortCurrentPath+Idle 전이 (§9 정책).
+        private int        _waitTicks         = 0;
+        // 도착 시 반환할 이전 타일. State_Moving에서 다음 타일 예약 후 저장한다.
+        private Vector2Int _prevTileToRelease = Vector2Int.zero;
+        // 이 이동 스텝이 예약 해제를 동반해야 하는지. Retreating 같은 free-move는 false.
+        private bool       _releaseOnArrive   = false;
 
         #endregion
 
@@ -180,32 +182,20 @@ namespace AIVillage.AI
             Debug.Log($"[EnemyFSM] 초기화 완료. EnemyId={Brain.EnemyId}, " +
                       $"FactionId={_factionId}, 기지=({_baseTileX},{_baseTileY})");
 
-            // ── SphereCollider + Rigidbody 자동 부착 ─────────────────────────
-            // 목적: 유닛 간 물리 분리 + 나중에 발사체 히트 판정. VillagerFSM과 동일 패턴.
-            _sphereCollider = GetComponent<SphereCollider>();
-            if (_sphereCollider == null)
-            {
-                _sphereCollider = gameObject.AddComponent<SphereCollider>();
-            }
-            _sphereCollider.radius    = 0.3f;
-            _sphereCollider.isTrigger = false;
+            // ── [TR-3 ADR-T6] 자기 타일 초기 예약 ───────────────────────────
+            // Brain.TileX/Y는 위에서 _initialTileX/Y로 세팅됨. 씬 시작 시 자기 타일 선점.
+            TileReservationRegistry.TryReserve(new Vector2Int(Brain.TileX, Brain.TileY), EnemyId);
+        }
 
-            _rigidbody = GetComponent<Rigidbody>();
-            if (_rigidbody == null)
-            {
-                _rigidbody = gameObject.AddComponent<Rigidbody>();
-            }
-            _rigidbody.useGravity     = false;
-            // VillagerFSM와 동일한 이유: 5.0 damping은 겹침 분리 힘을 소멸시켜 서로 붙어 정지하는 버그 유발.
-            _rigidbody.linearDamping  = 1f;
-            _rigidbody.angularDamping = 1f;
-            _rigidbody.interpolation  = RigidbodyInterpolation.Interpolate;
-            _rigidbody.collisionDetectionMode = CollisionDetectionMode.Discrete;
-            _rigidbody.constraints =
-                RigidbodyConstraints.FreezePositionZ |
-                RigidbodyConstraints.FreezeRotationX |
-                RigidbodyConstraints.FreezeRotationY |
-                RigidbodyConstraints.FreezeRotationZ;
+        /// <summary>
+        /// [TR-3 ADR-T6] 씬 언로드/GameObject Destroy 시 예약 leak 원천 차단.
+        /// EnterDead에서도 별도로 회수하지만, EnterDead를 거치지 않는 경로(씬 재시작 등)
+        /// 대응용 이중 안전망.
+        /// </summary>
+        private void OnDestroy()
+        {
+            if (Brain != null)
+                TileReservationRegistry.ReleaseAllBy(EnemyId);
         }
 
         /// <summary>
@@ -249,45 +239,50 @@ namespace AIVillage.AI
                 Brain.HealthLevel = Mathf.Min(100f, Brain.HealthLevel + HP_REGEN_PER_SEC * Time.deltaTime);
             }
 
-            // ── [12단계] 시각적 이동 처리 (velocity 기반) ─────────────────────
-            // linearVelocity로 이동 — 물리 엔진이 유닛 간 겹침을 자동 해소한다.
+            // ── [TR-3 이동 처리] Transform + TileReservationRegistry 기반 ──────
+            // ADR-T4: Vector3.MoveTowards로 부드럽게 보간. 도착 시 소유권 정리.
+            // 예약 확보는 State_Moving(Tick)에서 이미 완료됐고 여기서는 시각 보간만 담당.
             if (_isMoving)
             {
-                Vector3 toTarget = _moveTarget - _rigidbody.position;
-                float distToTarget = toTarget.magnitude;
+                transform.position = Vector3.MoveTowards(
+                    transform.position, _moveTarget, ENEMY_MOVE_SPEED * Time.deltaTime);
 
-                // 한 타일씩 이동하므로 각 스텝은 terminal 성격 — 도착 반경 완화
-                if (distToTarget < TERMINAL_ARRIVE_DIST)
+                if (Vector3.Distance(transform.position, _moveTarget) < WAYPOINT_ARRIVE_DIST)
                 {
-                    _rigidbody.linearVelocity = Vector3.zero;
                     _isMoving = false;
-                    // 도착 시 논리 좌표를 목표 월드 위치 기준으로 갱신
-                    Brain.TileX = Mathf.RoundToInt(_moveTarget.x);
-                    Brain.TileY = Mathf.RoundToInt(_moveTarget.y);
-                }
-                else
-                {
-                    // 이동: 목표 방향 + 이웃 유닛 회피 벡터 합성 (velocity를 매 프레임 덮어써도 겹침 해소되도록)
-                    float stepThisFrame = ENEMY_MOVE_SPEED * Time.deltaTime;
-                    float velMag = distToTarget < stepThisFrame ? distToTarget / Time.deltaTime : ENEMY_MOVE_SPEED;
-                    Vector3 desired = (toTarget / distToTarget) * velMag;
-                    _rigidbody.linearVelocity = desired + ComputeSeparation();
+                    OnMoveArrived();
                 }
             }
-            else
-            {
-                // 정지 상태(Attacking/Idle 등): velocity 제거, 논리 위치 심하게 이탈 시에만 복귀.
-                _rigidbody.linearVelocity = Vector3.zero;
+            // 정지 상태(_isMoving == false): 자기 타일 예약은 이미 유지 중. 아무것도 안 함.
+            // transform.position은 표시용, 진리는 Brain 좌표.
+        }
 
-                Vector3 logicalPos = new Vector3(Brain.TileX, Brain.TileY, 0f);
-                if (Vector3.Distance(_rigidbody.position, logicalPos) > STATIONARY_SNAP_THRESHOLD)
-                {
-                    Vector3 snapPos = Vector3.MoveTowards(
-                        _rigidbody.position,
-                        logicalPos,
-                        ENEMY_MOVE_SPEED * Time.deltaTime);
-                    _rigidbody.MovePosition(snapPos);
-                }
+        /// <summary>
+        /// [TR-3] 이동 스텝 도착 후처리. 두 케이스 분기:
+        ///   1) tile-step (State_Moving 경로): Brain.TileX/Y가 이미 nextTile로 세팅됨 →
+        ///      _prevTileToRelease를 반환한다.
+        ///   2) free-move (Retreating/Scouting 텔레포트 뒤 시각 도착): Brain.TileX/Y는
+        ///      old 좌표 → arrivedTile로 갱신 + 새 예약 확보.
+        /// </summary>
+        private void OnMoveArrived()
+        {
+            Vector2Int arrivedTile = new Vector2Int(
+                Mathf.RoundToInt(_moveTarget.x),
+                Mathf.RoundToInt(_moveTarget.y));
+
+            if (_releaseOnArrive)
+            {
+                // tile-step 경로: State_Moving에서 예약 후 Brain을 미리 옮겼다.
+                if (_prevTileToRelease != arrivedTile)
+                    TileReservationRegistry.Release(_prevTileToRelease, EnemyId);
+                _releaseOnArrive = false;
+            }
+            else if (arrivedTile.x != Brain.TileX || arrivedTile.y != Brain.TileY)
+            {
+                // free-move 경로 (Retreating 도착 등): 논리 좌표를 여기서 갱신 + 새 타일 선점.
+                Brain.TileX = arrivedTile.x;
+                Brain.TileY = arrivedTile.y;
+                TileReservationRegistry.TryReserve(arrivedTile, EnemyId);
             }
         }
 
@@ -445,11 +440,49 @@ namespace AIVillage.AI
             Vector2Int dir = FlowFieldManager.Instance.GetDirection(Brain.TileX, Brain.TileY);
             if (dir == Vector2Int.zero) return; // 이미 목표이거나 도달 불가
 
+            // [TR-3 ADR-T3] 다음 타일 예약 확보 — 실패 시 대기, 초과 시 Idle 복귀 (§9 정책).
+            Vector2Int nextTile = new Vector2Int(Brain.TileX + dir.x, Brain.TileY + dir.y);
+            if (!TileReservationRegistry.IsOwnedBy(nextTile, EnemyId))
+            {
+                if (!TileReservationRegistry.TryReserve(nextTile, EnemyId))
+                {
+                    _waitTicks++;
+                    if (_waitTicks > WAIT_MAX_TICKS)
+                    {
+                        _waitTicks = 0;
+                        Debug.Log($"[EnemyFSM] Moving 대기 초과 ({nextTile.x},{nextTile.y}) 예약 실패 → Idle 복귀. " +
+                                  $"EnemyId={Brain.EnemyId}");
+                        AbortCurrentPath();
+                        TransitionTo(EnemyState.Idle);
+                    }
+                    return;
+                }
+                _waitTicks = 0;
+            }
+
+            // 예약 확보 완료 — 이전 타일은 도착 시 반환
+            _prevTileToRelease = new Vector2Int(Brain.TileX, Brain.TileY);
+            _releaseOnArrive   = (_prevTileToRelease != nextTile);
+
             // 논리 위치 즉시 갱신 → 시각적 이동 시작
-            Brain.TileX += dir.x;
-            Brain.TileY += dir.y;
-            _moveTarget  = new Vector3(Brain.TileX, Brain.TileY, 0f);
+            Brain.TileX  = nextTile.x;
+            Brain.TileY  = nextTile.y;
+            _moveTarget  = new Vector3(nextTile.x, nextTile.y, 0f);
             _isMoving    = true;
+        }
+
+        /// <summary>
+        /// [TR-3] 현재 이동을 즉시 중단하고 자기 현재 타일 한 셀만 유지하도록 예약을 정리한다.
+        /// 예약 대기 초과 / Retreating 진입 / 사망 시 호출된다.
+        /// </summary>
+        private void AbortCurrentPath()
+        {
+            _isMoving = false;
+            _releaseOnArrive = false;
+            _waitTicks = 0;
+            TileReservationRegistry.ReleaseAllBy(EnemyId);
+            TileReservationRegistry.TryReserve(new Vector2Int(Brain.TileX, Brain.TileY), EnemyId);
+            transform.position = new Vector3(Brain.TileX, Brain.TileY, 0f);
         }
 
         /// <summary>
@@ -482,46 +515,12 @@ namespace AIVillage.AI
             }
         }
 
+        // (Boids 회피 로직은 TR-3에서 폐기 — ADR-T9)
+
         /// <summary>
         /// 지정 타일 거리(맨해튼) 이내에서 살아있는 주민 중 가장 가까운 VillagerFSM을 반환한다.
         /// GameManager.Instance가 없거나 범위 내 주민이 없으면 null을 반환한다.
         /// </summary>
-        /// <summary>
-        /// 주변 유닛으로부터의 회피 벡터 계산 (VillagerFSM.ComputeSeparation과 동일 로직).
-        /// velocity 덮어쓰기로 무효화되는 물리 depenetration을 명시적으로 대체한다.
-        /// </summary>
-        private Vector3 ComputeSeparation()
-        {
-            if (_rigidbody == null || _sphereCollider == null) return Vector3.zero;
-
-            int count = Physics.OverlapSphereNonAlloc(
-                _rigidbody.position, SEPARATION_RADIUS, _overlapBuffer);
-
-            Vector3 sum = Vector3.zero;
-            int neighbors = 0;
-            for (int i = 0; i < count; i++)
-            {
-                Collider c = _overlapBuffer[i];
-                if (c == null) continue;
-                Rigidbody rb = c.attachedRigidbody;
-                if (rb == null || rb == _rigidbody) continue;
-
-                Vector3 away = _rigidbody.position - rb.position;
-                float dist = away.magnitude;
-                if (dist < 0.01f)
-                {
-                    int seed = (int)(_rigidbody.position.x * 1000f + _rigidbody.position.y * 999f);
-                    float angle = (Mathf.Abs(seed) % 360) * Mathf.Deg2Rad;
-                    away = new Vector3(Mathf.Cos(angle), Mathf.Sin(angle), 0f);
-                    dist = 1f;
-                }
-                sum += (away / dist) / dist;
-                neighbors++;
-            }
-
-            return neighbors > 0 ? sum * SEPARATION_STRENGTH : Vector3.zero;
-        }
-
         private VillagerFSM FindNearestVillager(float rangeTiles)
         {
             if (GameManager.Instance == null) return null;
@@ -555,6 +554,11 @@ namespace AIVillage.AI
                 Brain.TileX          = Brain.TargetTileX;
                 Brain.TileY          = Brain.TargetTileY;
                 Brain.ScoutCompleted = true;
+
+                // [TR-3] 텔레포트 이후 시각 좌표 및 타일 예약 정합.
+                transform.position = new Vector3(Brain.TileX, Brain.TileY, 0f);
+                TileReservationRegistry.ReleaseAllBy(EnemyId);
+                TileReservationRegistry.TryReserve(new Vector2Int(Brain.TileX, Brain.TileY), EnemyId);
 
                 Debug.Log($"[EnemyFSM] 정찰 완료. 위치=({Brain.TileX},{Brain.TileY}). EnemyId={Brain.EnemyId}");
                 TransitionTo(EnemyState.Idle);
@@ -652,7 +656,10 @@ namespace AIVillage.AI
 
                 case EnemyState.Retreating:
                     // [12단계] 즉시 텔레포트 대신 기지 방향으로 시각적 이동 시작.
-                    // Brain.TileX/Y는 Update()에서 기지 도착 시 갱신된다.
+                    // Brain.TileX/Y는 Update()의 OnMoveArrived에서 기지 도착 시 갱신된다.
+                    // [TR-3] 후퇴는 free-move — 현재 타일 예약을 즉시 반환하고 도착 시 base 타일 재예약.
+                    TileReservationRegistry.ReleaseAllBy(EnemyId);
+                    _releaseOnArrive       = false;
                     _moveTarget            = new Vector3(Brain.BaseTileX, Brain.BaseTileY, 0f);
                     _isMoving              = true;
                     Brain.RetreatStartTime = Time.time;
@@ -686,6 +693,11 @@ namespace AIVillage.AI
 
             // 2. 틱 비활성화 — 이후 GameManager의 Tick() 호출을 차단한다.
             _isTickActive = false;
+
+            // [TR-3 ADR-T6] 예약 leak 방지 — 시체가 타일을 영원히 점유하지 않도록 즉시 해제.
+            _isMoving = false;
+            _releaseOnArrive = false;
+            TileReservationRegistry.ReleaseAllBy(EnemyId);
 
             // 3. 콘솔 기록
             Debug.Log($"[EnemyFSM] 사망 처리 완료. " +

@@ -319,6 +319,14 @@ namespace AIVillage.AI
         private void Awake()
         {
             // VillagerBrain 초기화 — 모든 상태 데이터의 컨테이너
+            // [TR-2 후속 fix] Brain.TileX/Y를 씬 배치본 transform.position에서 반올림해 초기값으로 사용.
+            // 이전엔 default 0이었기 때문에 모든 씬 배치 주민이 자기 타일을 (0,0)으로 잘못 인식했고,
+            // TileReservationRegistry.TryReserve((0,0), agentN)이 첫 주민만 성공해 나머지 예약이 어긋난 채
+            // 이동 파이프라인이 굴러가면서 연쇄 블록이 발생했다. SpawnVillager/RecruitmentSystem 경로는
+            // Awake 이후 Brain.TileX/Y를 _baseTileX/Y로 재할당하므로 이 값을 덮어써도 무해하다.
+            int initialTileX = Mathf.RoundToInt(transform.position.x);
+            int initialTileY = Mathf.RoundToInt(transform.position.y);
+
             Brain = new VillagerBrain
             {
                 // 런타임 GUID 생성: 에디터에서 복사본을 만들어도 ID가 충돌하지 않는다
@@ -327,6 +335,8 @@ namespace AIVillage.AI
                 OriginalFactionId = 0, // TODO: 기획팀 — 팩션 ID 할당 방식 확인 필요
                 FSMState         = VillagerState.Idle,
                 LODState         = LODState.LOD_Idle,
+                TileX            = initialTileX,
+                TileY            = initialTileY,
             };
 
             // F-A: 씬 배치본 성격 배분. Inspector가 None이면 6종 중 랜덤(모집 로직과 동일 규칙),

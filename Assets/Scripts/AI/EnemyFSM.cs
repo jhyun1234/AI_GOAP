@@ -182,6 +182,12 @@ namespace AIVillage.AI
             Debug.Log($"[EnemyFSM] 초기화 완료. EnemyId={Brain.EnemyId}, " +
                       $"FactionId={_factionId}, 기지=({_baseTileX},{_baseTileY})");
 
+            // ── [TR-3 후속 fix] 시각 좌표를 논리 좌표에 스냅 ────────────────
+            // 이전 velocity 모델은 stationary snap이 매 프레임 Brain.TileX/Y로 transform을 끌어당겼지만,
+            // TR-3에서 그 로직이 제거됐다. 씬 배치본 transform이 _initialTileX/Y와 어긋나 있으면
+            // 시각-논리 좌표 불일치가 영구화되므로 Awake에서 1회 강제 정합시킨다.
+            transform.position = new Vector3(Brain.TileX, Brain.TileY, 0f);
+
             // ── [TR-3 ADR-T6] 자기 타일 초기 예약 ───────────────────────────
             // Brain.TileX/Y는 위에서 _initialTileX/Y로 세팅됨. 씬 시작 시 자기 타일 선점.
             TileReservationRegistry.TryReserve(new Vector2Int(Brain.TileX, Brain.TileY), EnemyId);

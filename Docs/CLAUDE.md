@@ -109,6 +109,16 @@ Console에 NoSolutionFound·에러 0건 (PathBlocked 경고는 자기 회복 로
 - 재사용 라이브러리(JPS·타일예약·FoW 등) 수정 — 필연적이면 최소 절제 + 커밋에 사유
 - 문서(*.md) 신규 생성은 사용자 요청 시에만
 
+## 플러그인 스킬 활용 지도 (2026-07-14 설치분 — 상황 맞으면 자동 호출)
+
+- 버그 접수 → `superpowers:systematic-debugging` (연쇄 오류 검토 규칙의 실행 절차로)
+- "완료" 보고 직전 → `superpowers:verification-before-completion` (자가 재검토 체크포인트와 병행)
+- 새 게이트 테스트 작성 → `superpowers:test-driven-development`
+- 새 밀스톤 명세 **직전** 요구 탐색 → `superpowers:brainstorming` (탐색 후 본 작성은 반드시 spec-write)
+- 세션 교훈의 이 문서 반영 → `claude-md-management:revise-claude-md`
+- ⚠️ 우선순위: superpowers의 writing-plans/executing-plans는 이 프로젝트의
+  spec-write/spec-implement와 겹침 — **프로젝트 스킬이 항상 우선**, 범용은 보조.
+
 ## 같은 오해 2회 반복 시
 
 동일 오해 2회 → ADR-M0 신규 항목 제안. M0-T 게이트가 못 잡은 위반 → 게이트 확장 승격.

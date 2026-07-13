@@ -25,6 +25,10 @@
 tools/devlog/.last-processed-commit
 tools/devlog/.hook-errors.log
 
+# Obsidian 뷰어 설정 (개인 워크스페이스 상태, 커밋 불필요)
+.obsidian/
+.trash/
+
 # By default unity supports Blender asset imports, *.blend1 blender files do not need to be committed to version control.
 *.blend1
 *.blend1.meta

@@ -68,6 +68,11 @@ namespace AIVillage.M0
         private bool _hasNextReserved;
         private float _blockedWaitSec;
 
+        // ── 표현 (W5) ─────────────────────────────────────────────────────
+        private MoveMotion _motion;
+        private AgentAnimator _animator;
+        private Vector2 _lastDir = Vector2.down;
+
         // ─────────────────────────────────────────────────────────────────────
         // 라이프사이클
         // ─────────────────────────────────────────────────────────────────────
@@ -78,7 +83,6 @@ namespace AIVillage.M0
             // 씬 배치 위치 → 논리 타일 정합 (舊 Awake sync fix 계승 — Brain=(0,0) 몰림 방지)
             TileX = Mathf.RoundToInt(transform.position.x);
             TileY = Mathf.RoundToInt(transform.position.y);
-            EnsureMarker();
         }
 
         private void Start()
@@ -93,6 +97,8 @@ namespace AIVillage.M0
             _cfg = _sim.AgentConfig;
             Satiety = _cfg.InitialSatiety;
             Fatigue = _cfg.InitialFatigue;
+            _motion = new MoveMotion(_cfg, AgentId);
+            SetupView();
 
             // 두 셀 소유 규칙의 '현재' 셀 확보
             if (!TileReservationRegistry.TryReserve(new Vector2Int(TileX, TileY), AgentId))
@@ -113,6 +119,7 @@ namespace AIVillage.M0
         private void Update()
         {
             if (State == AgentState.Moving) TickMoving(Time.deltaTime);
+            _animator?.Tick(Time.deltaTime, State == AgentState.Moving && _hasNextReserved, _lastDir);
         }
 
         // ─────────────────────────────────────────────────────────────────────
@@ -260,6 +267,7 @@ namespace AIVillage.M0
                     _wpIndex = 0;
                     _hasNextReserved = false;
                     _blockedWaitSec = 0f;
+                    _motion.ResetPath();
                     State = AgentState.Moving;
                     break;
 
@@ -330,7 +338,13 @@ namespace AIVillage.M0
             }
 
             var targetPos = new Vector3(_nextTile.x, _nextTile.y, 0f); // ADR-4: X-Y 평면
-            transform.position = Vector3.MoveTowards(transform.position, targetPos, _cfg.BaseMoveSpeed * dt);
+
+            // W5 표현: 개체 편차 + 출발 가속 + 최종 목적지 근접 감속 (논리 도착 판정과 분리)
+            bool nearDest = _wpIndex >= _waypoints.Count - 1
+                            && (transform.position - targetPos).magnitude < _cfg.DecelDistance;
+            float speed = _motion.Tick(dt, nearDest);
+            _lastDir = (targetPos - transform.position).normalized;
+            transform.position = Vector3.MoveTowards(transform.position, targetPos, speed * dt);
 
             if ((transform.position - targetPos).sqrMagnitude <= ARRIVE_EPSILON)
             {
@@ -398,16 +412,36 @@ namespace AIVillage.M0
             Discovery.DiscoverArea(x, y, radius);
         }
 
-        /// <summary>SpriteRenderer가 없으면 개체 색 원형 마커를 자동 생성 (W5에서 Kenmi 애니로 교체).</summary>
-        private void EnsureMarker()
+        /// <summary>
+        /// 시각 표현 초기화 (W5): 스프라이트 세트가 있으면 Kenmi 걷기 애니메이션,
+        /// 없으면 개체 색 원형 마커 폴백. 아트 교체 = AgentSpriteSetSO 에셋 교체.
+        /// </summary>
+        private void SetupView()
         {
-            if (GetComponent<SpriteRenderer>() != null) return;
-            var sr = gameObject.AddComponent<SpriteRenderer>();
-            sr.sprite = M0Sprites.Circle;
             float hue = Mathf.Abs(AgentId.GetHashCode() % 1000) / 1000f;
-            sr.color = Color.HSVToRGB(hue, 0.7f, 1f);
+            Color agentColor = Color.HSVToRGB(hue, 0.7f, 1f);
+
+            AgentSpriteSetSO set = _sim.SpriteSet;
+            if (set == null)
+            {
+                if (GetComponent<SpriteRenderer>() != null) return;
+                var marker = gameObject.AddComponent<SpriteRenderer>();
+                marker.sprite = M0Sprites.Circle;
+                marker.color = agentColor;
+                marker.sortingOrder = 10;
+                transform.localScale = Vector3.one * 0.8f;
+                return;
+            }
+
+            // Kenmi 조각은 피벗이 좌하단 — 자식 오프셋으로 타일 중앙 정렬 (32px/16ppu = 2유닛)
+            var view = new GameObject("View");
+            view.transform.SetParent(transform, worldPositionStays: false);
+            view.transform.localScale = Vector3.one * set.Scale;
+            view.transform.localPosition = new Vector3(-set.Scale, -set.Scale, 0f);
+
+            var sr = view.AddComponent<SpriteRenderer>();
             sr.sortingOrder = 10;
-            transform.localScale = Vector3.one * 0.8f;
+            _animator = new AgentAnimator(sr, set, agentColor);
         }
     }
 }

@@ -624,6 +624,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: e4cfcb5a82f04673a28d2478b6afbf2a, type: 2}
   - {fileID: 11400000, guid: f0658a3851d840a7b24ac5106dd430f4, type: 2}
   _nodeSpawner: {fileID: 502}
+  _spriteSet: {fileID: 11400000, guid: b9a6564a8f7c4724b5edf1d3d32e17b6, type: 2}
 --- !u!1 &800
 GameObject:
   m_ObjectHideFlags: 0

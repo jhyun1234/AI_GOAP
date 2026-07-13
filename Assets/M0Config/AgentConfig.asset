@@ -14,6 +14,9 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   BaseMoveSpeed: 2
   SpeedVariancePct: 0.15
+  AccelSec: 0.25
+  DecelFactor: 0.45
+  DecelDistance: 0.6
   PlanningTimeoutSec: 3
   InitialSatiety: 70
   InitialFatigue: 20

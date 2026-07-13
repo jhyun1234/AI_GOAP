@@ -16,6 +16,16 @@ namespace AIVillage.M0
         [Tooltip("개체별 속도 편차 비율 (W5 사용). 제안치 ±15% — 기존 값 없음, 관찰 후 튜닝.")]
         public float SpeedVariancePct = 0.15f;
 
+        [Header("이동 표현 (W5 — 전부 제안치, 관찰 후 튜닝)")]
+        [Tooltip("출발 가속 시간(초). 0이면 즉시 최고 속도.")]
+        public float AccelSec = 0.25f;
+
+        [Tooltip("목적지 근접 시 감속 배율 (1=감속 없음).")]
+        public float DecelFactor = 0.45f;
+
+        [Tooltip("감속을 시작하는 목적지까지의 거리(타일).")]
+        public float DecelDistance = 0.6f;
+
         [Header("플래닝")]
         [Tooltip("플랜 요청 타임아웃(초). 舊 PLANNING_TIMEOUT_SEC 3.0 이관.")]
         public float PlanningTimeoutSec = 3f;

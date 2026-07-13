@@ -621,6 +621,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 73178870f5144fa1873437af4870b763, type: 2}
   - {fileID: 11400000, guid: 4e9d9c50c2d4421295343434a9d2c9ff, type: 2}
   - {fileID: 11400000, guid: b9fb2b567b0d45fd9585ed6260f05255, type: 2}
+  - {fileID: 11400000, guid: e4cfcb5a82f04673a28d2478b6afbf2a, type: 2}
   - {fileID: 11400000, guid: f0658a3851d840a7b24ac5106dd430f4, type: 2}
   _nodeSpawner: {fileID: 502}
 --- !u!1 &800

@@ -24,8 +24,8 @@ namespace AIVillage.M0
         public float InitialSatiety = 70f;
         public float InitialFatigue = 20f;
 
-        [Tooltip("게임 1일당 포만감 자연 감소량. ⚠️ 舊 코드에 자연 감쇠가 존재하지 않아(식사 사이클 사실상 미발동) " +
-                 "기본 0 — 실제 값은 기획 결정 필요 (W3 진입 전 확정).")]
-        public float SatietyDecayPerGameDay = 0f;
+        [Tooltip("게임 1일당 포만감 자연 감소량. 舊 코드에는 자연 감쇠가 없었음 — " +
+                 "25는 2026-07-13 기획 승인값 (초기 70 기준 약 2일마다 식사).")]
+        public float SatietyDecayPerGameDay = 25f;
     }
 }

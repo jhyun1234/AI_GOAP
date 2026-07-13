@@ -17,4 +17,4 @@ MonoBehaviour:
   PlanningTimeoutSec: 3
   InitialSatiety: 70
   InitialFatigue: 20
-  SatietyDecayPerGameDay: 0
+  SatietyDecayPerGameDay: 25

@@ -570,11 +570,65 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier:
   _mapConfig: {fileID: 11400000, guid: e889255be0e77264484bb81b392a38d4, type: 2}
+--- !u!1 &700
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 701}
+  - component: {fileID: 702}
+  m_Layer: 0
+  m_Name: _M0SimulationLoop
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &701
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 700}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &702
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 700}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 587fb04588f54e919ac061828b7a193d, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  _worldConfig: {fileID: 11400000, guid: d7954c9f145145518371975b413c9b57, type: 2}
+  _agentConfig: {fileID: 11400000, guid: 9a2b6bedae404eca8db4d3838bcc02b7, type: 2}
+  _catalog: {fileID: 11400000, guid: 953427c356b6407b964121002f049d2c, type: 2}
+  _goals:
+  - {fileID: 11400000, guid: 73178870f5144fa1873437af4870b763, type: 2}
+  - {fileID: 11400000, guid: 4e9d9c50c2d4421295343434a9d2c9ff, type: 2}
+  - {fileID: 11400000, guid: b9fb2b567b0d45fd9585ed6260f05255, type: 2}
+  - {fileID: 11400000, guid: f0658a3851d840a7b24ac5106dd430f4, type: 2}
+  _nodeSpawner: {fileID: 502}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
   - {fileID: 601}
+  - {fileID: 701}
   - {fileID: 101}
   - {fileID: 201}
   - {fileID: 301}

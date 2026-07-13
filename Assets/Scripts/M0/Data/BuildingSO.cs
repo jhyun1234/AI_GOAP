@@ -28,7 +28,16 @@ namespace AIVillage.M0
         [Tooltip("완공 시 1로 세팅되는 논리형 슬롯")]
         public SlotId BuiltFlagSlot;
 
-        [Tooltip("완공 시 스폰할 프리팹. 비우면 BuildingSpawner의 fallback 스프라이트 사용.")]
+        [Tooltip("완공 시 스폰할 프리팹. 비우면 아래 Fallback 설정으로 원형 마커를 코드 생성.")]
         public GameObject Prefab;
+
+        [Tooltip("프리팹 없을 때 마커 색. 알파 0이면 런타임에서 1로 자동 보정 (舊 BC5 함정 방어).")]
+        public Color FallbackColor = new Color(1f, 0.55f, 0.15f, 1f);
+
+        [Tooltip("프리팹 없을 때 마커 크기 (타일 단위 스케일)")]
+        public float FallbackSize = 1f;
+
+        [Tooltip("스프라이트 정렬 순서. 음수면 맵 아래로 숨음 — 기본 5 (舊 BuildingSpawner 기본값)")]
+        public int SortingOrder = 5;
     }
 }

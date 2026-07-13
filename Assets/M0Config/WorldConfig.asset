@@ -9,15 +9,12 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ede60e605d324d7e8a9b06f7e3bb5693, type: 3}
-  m_Name: Campfire
+  m_Script: {fileID: 11500000, guid: 18734be44fdc4f87bbc858ff23087678, type: 3}
+  m_Name: WorldConfig
   m_EditorClassIdentifier:
-  DisplayName: "모닥불"
-  Costs:
-  - StockSlot: 0
-    Amount: 5
-  BuiltFlagSlot: 6
-  Prefab: {fileID: 0}
-  FallbackColor: {r: 1, g: 0.55, b: 0.15, a: 1}
-  FallbackSize: 1
-  SortingOrder: 5
+  InitialWoodStock: 10
+  InitialRawFoodStock: 30
+  GameTimeScale: 0.01
+  BaseTileX: 0
+  BaseTileY: 0
+  BaseDiscoverRadius: 12

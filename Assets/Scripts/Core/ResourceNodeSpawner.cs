@@ -4,6 +4,15 @@ using UnityEngine;
 namespace AIVillage.Core
 {
     /// <summary>
+    /// 스폰된 노드를 받는 등록처. 舊 경로는 SensorSystem, M0 경로는 DiscoveryService가 구현한다.
+    /// (M0 W3: SensorSystem 하드 의존을 주입 시임으로 대체 — W8에서 SensorSystem 폐기 시 필연 변경의 선행)
+    /// </summary>
+    public interface IResourceNodeSink
+    {
+        void AddResourceNode(ResourceNode node);
+    }
+
+    /// <summary>
     /// 게임 시작 시 ResourceNode를 맵에 랜덤 클러스터 배치하는 시스템.
     ///
     /// 역할:
@@ -40,6 +49,15 @@ namespace AIVillage.Core
         // 프리팹이 없을 때 코드로 생성하는 공용 스프라이트 (SpawnAll마다 새로 생성, static 금지)
         private Sprite _fallbackSprite;
 
+        // 현재 스폰의 노드 등록처 (SpawnAll 진입 시 설정)
+        private IResourceNodeSink _sink;
+
+        /// <summary>기존 시그니처용 SensorSystem 위임 싱크.</summary>
+        private sealed class SensorSystemSink : IResourceNodeSink
+        {
+            public void AddResourceNode(ResourceNode node) => SensorSystem.Instance.AddResourceNode(node);
+        }
+
         // ─────────────────────────────────────────────────────────────────────────
         // 공개 API
         // ─────────────────────────────────────────────────────────────────────────
@@ -54,15 +72,31 @@ namespace AIVillage.Core
         /// <returns>성공 여부 (SensorSystem 또는 MapConfig 미준비 시 false)</returns>
         public bool SpawnAll(int baseTileX, int baseTileY, int discoveryRadius)
         {
+            if (SensorSystem.Instance == null)
+            {
+                Debug.LogError("[ResourceNodeSpawner] SensorSystem.Instance가 null입니다. 노드 스폰 취소.");
+                return false;
+            }
+            return SpawnAll(baseTileX, baseTileY, discoveryRadius, new SensorSystemSink());
+        }
+
+        /// <summary>
+        /// 노드 등록처를 주입받는 오버로드 (M0 DiscoveryService 등).
+        /// 배치 알고리즘은 기존과 동일 — 등록처만 다르다.
+        /// </summary>
+        public bool SpawnAll(int baseTileX, int baseTileY, int discoveryRadius, IResourceNodeSink sink)
+        {
+            if (sink == null)
+            {
+                Debug.LogError("[ResourceNodeSpawner] sink가 null입니다. 노드 스폰 취소.");
+                return false;
+            }
+            _sink = sink;
+
             if (_config == null)
             {
                 Debug.LogError("[ResourceNodeSpawner] _config가 Inspector에 연결되지 않았습니다. " +
                                "Project 창에서 ResourceNodeSpawnConfig 에셋을 생성하고 슬롯에 드래그하세요.");
-                return false;
-            }
-            if (SensorSystem.Instance == null)
-            {
-                Debug.LogError("[ResourceNodeSpawner] SensorSystem.Instance가 null입니다. 노드 스폰 취소.");
                 return false;
             }
             if (MapConfig.Active == null)
@@ -186,7 +220,7 @@ namespace AIVillage.Core
                         string nodeId = $"node_{typeData.resourceType}_{spawned}";
                         var node = new ResourceNode(nodeId, typeData.resourceType, tx, ty,
                                                     typeData.maxAmount, isDiscovered);
-                        SensorSystem.Instance.AddResourceNode(node);
+                        _sink.AddResourceNode(node);
 
                         // 시각 마커 스폰
                         SpawnView(node, typeData);

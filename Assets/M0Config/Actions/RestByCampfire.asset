@@ -16,7 +16,10 @@ MonoBehaviour:
   BaseCost: 1
   DurationSec: 4
   Preconditions: []
-  Effects: []
+  Effects:
+  - Slot: 3
+    Op: 2
+    Value: 4
   AnchorAtBuilding: 1
   AnchorFlagSlot: 6
   WanderRadius: 2

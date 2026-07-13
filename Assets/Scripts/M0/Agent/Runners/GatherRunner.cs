@@ -20,7 +20,14 @@ namespace AIVillage.M0
 
         public override bool Prepare(VillagerAgent agent)
         {
-            _node = agent.Discovery.FindNearestDiscovered(_so.TargetResource, agent.TileX, agent.TileY);
+            // 촌장이 특정 노드를 지목한 명령(M1-C)이면 그 노드 우선 — "저거 캐와"의 '저거'
+            ResourceNode target = agent.OrderTargetNode;
+            if (target != null && target.ResourceType == _so.TargetResource
+                && target.IsDiscovered && DiscoveryService.IsHarvestable(target))
+                _node = target;
+            else
+                _node = agent.Discovery.FindNearestDiscovered(_so.TargetResource, agent.TileX, agent.TileY);
+
             if (_node == null)
             {
                 FailReason = $"발견된 {_so.TargetResource} 노드 없음";

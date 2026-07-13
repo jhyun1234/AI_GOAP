@@ -77,7 +77,7 @@ namespace AIVillage.M0
                     Debug.Log($"[PlayerInput] {node.ResourceType}에 대한 명령 매핑 없음 (M1 미지원 자원).");
                     return;
                 }
-                _selected.TryGiveOrder(order); // 수락/거부 피드백은 주민의 말풍선·로그가 담당
+                _selected.TryGiveOrder(order, node); // 지목 노드 동봉 — 수락/거부 피드백은 주민의 말풍선·로그가 담당
             }
         }
 

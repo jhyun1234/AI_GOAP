@@ -37,6 +37,13 @@ namespace AIVillage.M0
         }
 
         /// <summary>
+        /// 채집 가능 판정의 단일 기준: 잔량 ≥ 1 (수확 요구량과 동일 — 재생으로 0.x 차오르는
+        /// 노드가 '선택은 되고 수확은 실패'하는 판정 불일치 방지) + 점유 여유.
+        /// </summary>
+        public static bool IsHarvestable(ResourceNode n)
+            => n != null && n.CurrentAmount >= 1f && n.CurrentGatherers < n.MaxGatherers;
+
+        /// <summary>
         /// 채집 가능한(잔량 + 점유 여유) 발견 노드 존재 여부 — 스냅샷 NearDiscovered* 슬롯의 원천.
         /// 점유 중인 노드를 '없음'으로 취급하는 것이 핵심: 덤불이 다 차면 플래너가
         /// Explore 체인으로 대체 계획을 세워 주민이 새 노드를 찾아 나선다 (자연 분산).
@@ -44,7 +51,7 @@ namespace AIVillage.M0
         public bool HasDiscovered(ResourceType type)
         {
             foreach (ResourceNode n in _nodes)
-                if (n.ResourceType == type && n.IsDiscovered && n.IsAvailableForHarvest())
+                if (n.ResourceType == type && n.IsDiscovered && IsHarvestable(n))
                     return true;
             return false;
         }
@@ -56,7 +63,7 @@ namespace AIVillage.M0
             int bestDist = int.MaxValue;
             foreach (ResourceNode n in _nodes)
             {
-                if (n.ResourceType != type || !n.IsDiscovered || !n.IsAvailableForHarvest()) continue;
+                if (n.ResourceType != type || !n.IsDiscovered || !IsHarvestable(n)) continue;
                 int d = Manhattan(n.TileX, n.TileY, fromX, fromY);
                 if (d < bestDist)
                 {

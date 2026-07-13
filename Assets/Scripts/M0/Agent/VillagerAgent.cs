@@ -69,12 +69,16 @@ namespace AIVillage.M0
 
         public GoalSO CurrentOrder => _order;
 
+        /// <summary>촌장이 지목한 노드 ("저거 캐와"의 '저거'). GatherRunner가 최우선 대상으로 삼는다.</summary>
+        public ResourceNode OrderTargetNode { get; private set; }
+
         /// <summary>명령 슬롯 정리 — 런타임 사본이면 파괴 (누수 방지). 소멸의 유일한 경로.</summary>
         private void ClearOrderInstance()
         {
             if (_order != null && _orderIsRuntimeClone) Destroy(_order);
             _order = null;
             _orderIsRuntimeClone = false;
+            OrderTargetNode = null;
         }
         private float _idleCooldownSec;
         private int _tickCounter;
@@ -440,7 +444,7 @@ namespace AIVillage.M0
         /// 명령 수신 — 거부는 수신 시점 1회, 욕구 상태 기반 판정 (ADR-M1-2, 랜덤 아님).
         /// 수락 시 goal이 개인 사다리에 합류하며, P0 인터럽트 후에도 유지되어 자동 복귀한다.
         /// </summary>
-        public OrderResult TryGiveOrder(GoalSO order)
+        public OrderResult TryGiveOrder(GoalSO order, ResourceNode targetNode = null)
         {
             if (order == null) return OrderResult.Accepted;
 
@@ -477,6 +481,7 @@ namespace AIVillage.M0
                 _order = order;
                 _orderIsRuntimeClone = false;
             }
+            OrderTargetNode = targetNode;
             _goalRetryAt.Remove(_order); // 새 명령은 과거 실패 쿨다운을 잊는다
 
             // 즉시 착수: 현재 일이 명령보다 낮으면 중단 (실패 아님 — 쿨다운 없음)

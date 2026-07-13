@@ -203,7 +203,7 @@ namespace AIVillage.Core
                         bool isDiscovered = Manhattan(tx, ty, baseTileX, baseTileY) <= discoveryRadius;
                         string nodeId = $"node_{typeData.resourceType}_{spawned}";
                         var node = new ResourceNode(nodeId, typeData.resourceType, tx, ty,
-                                                    typeData.maxAmount, isDiscovered);
+                                                    typeData.maxAmount, typeData.regenPerDay, isDiscovered);
                         _sink.AddResourceNode(node);
 
                         // 시각 마커 스폰

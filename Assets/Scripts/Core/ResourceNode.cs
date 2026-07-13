@@ -31,15 +31,8 @@ namespace AIVillage.Core
     /// </summary>
     public class ResourceNode
     {
-        // ── 기획서 수치: GDD v0.4 자원 재생률 (per game day) ──────────────────
-        // Wood=5, Stone=3, Iron=1.5, Copper=0.5, Silver=0.2
-        // RawFood 노드는 재생 없음 (요리사가 별도 생산)
-        // 이 값들은 새 노드 생성 시 ResourceType에 맞게 GetDefaultRegenRate()로 자동 설정된다.
-        private const float REGEN_WOOD   = 5.0f;   // 기획서 수치: 나무 재생률
-        private const float REGEN_STONE  = 3.0f;   // 기획서 수치: 돌 재생률
-        private const float REGEN_IRON   = 1.5f;   // 기획서 수치: 철 재생률
-        private const float REGEN_COPPER = 0.5f;   // 기획서 수치: 구리 재생률
-        private const float REGEN_SILVER = 0.2f;   // 기획서 수치: 은 재생률
+        // 재생률(per game day)은 M1-B에서 ResourceNodeSpawnConfig 에셋으로 이관됨 (ADR-M1-4).
+        // 코드에는 어떤 자원의 재생 수치도 존재하지 않는다 — 생성자 인자로 주입받는다.
 
         #region ── 식별 정보 ──
 
@@ -135,13 +128,14 @@ namespace AIVillage.Core
 
         /// <summary>
         /// 자주 사용하는 파라미터를 받는 편의 생성자.
-        /// RegenerationRate는 ResourceType에 따라 GDD v0.4 기본값으로 자동 설정된다.
+        /// 재생률은 호출자(ResourceNodeSpawner가 ResourceNodeSpawnConfig에서 읽음)가 주입한다 (ADR-M1-4).
         /// </summary>
         /// <param name="nodeId">고유 식별자 (null이면 GUID 자동 생성)</param>
         /// <param name="resourceType">자원 종류</param>
         /// <param name="tileX">타일 X 좌표</param>
         /// <param name="tileY">타일 Y 좌표</param>
         /// <param name="maxAmount">최대 자원량</param>
+        /// <param name="regenPerDay">게임 1일당 재생량 (기본 0 = 재생 없음)</param>
         /// <param name="isDiscovered">초기 발견 여부 (기본 false)</param>
         public ResourceNode(
             string       nodeId,
@@ -149,6 +143,7 @@ namespace AIVillage.Core
             int          tileX,
             int          tileY,
             float        maxAmount,
+            float        regenPerDay  = 0f,
             bool         isDiscovered = false)
         {
             // nodeId가 null이면 GUID 자동 생성
@@ -157,9 +152,9 @@ namespace AIVillage.Core
             TileX                 = tileX;
             TileY                 = tileY;
             MaxAmount             = maxAmount;
-            CurrentAmount         = maxAmount;                          // 신규 노드는 꽉 찬 상태로 시작
-            BaseRegenerationRate  = GetDefaultRegenRate(resourceType); // 기본값 고정 (계절 배율 기준)
-            RegenerationRate      = BaseRegenerationRate;              // 실제 재생률은 SeasonManager가 조정
+            CurrentAmount         = maxAmount;   // 신규 노드는 꽉 찬 상태로 시작
+            BaseRegenerationRate  = regenPerDay;
+            RegenerationRate      = regenPerDay; // 계절 배율은 M2 이후 (배율 시스템 폐기 상태)
             IsDiscovered          = isDiscovered;
         }
 
@@ -241,31 +236,6 @@ namespace AIVillage.Core
         #endregion
 
         #region ── 정적 헬퍼 ──
-
-        /// <summary>
-        /// ResourceType에 맞는 GDD v0.4 기본 재생률을 반환한다.
-        /// 편의 생성자 및 외부 초기화 코드에서 사용한다.
-        /// </summary>
-        /// <param name="type">자원 종류</param>
-        /// <returns>게임 일수당 재생량 (per game day)</returns>
-        public static float GetDefaultRegenRate(ResourceType type)
-        {
-            switch (type)
-            {
-                case ResourceType.Wood:       return REGEN_WOOD;
-                case ResourceType.Stone:      return REGEN_STONE;
-                case ResourceType.Iron:       return REGEN_IRON;
-                case ResourceType.Copper:     return REGEN_COPPER;
-                case ResourceType.Silver:     return REGEN_SILVER;
-                case ResourceType.RawFood:    return 0f; // 요리사가 생산; 자연 재생 없음
-                case ResourceType.CookedFood: return 0f; // 요리사가 생산; 자연 재생 없음
-                default:
-                    Debug.LogWarning(
-                        $"[ResourceNode] GetDefaultRegenRate: 알 수 없는 ResourceType '{type}'. 0을 반환합니다."
-                    );
-                    return 0f;
-            }
-        }
 
         #endregion
     }

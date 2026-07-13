@@ -19,6 +19,7 @@ MonoBehaviour:
   - resourceType: 2
     nodeCount: 40
     maxAmount: 50
+    regenPerDay: 5
     minDistanceFromBase: 10
     maxDistanceFromBase: 0
     clusterCount: 9
@@ -32,6 +33,7 @@ MonoBehaviour:
   - resourceType: 3
     nodeCount: 25
     maxAmount: 40
+    regenPerDay: 3
     minDistanceFromBase: 15
     maxDistanceFromBase: 0
     clusterCount: 7
@@ -45,6 +47,7 @@ MonoBehaviour:
   - resourceType: 4
     nodeCount: 15
     maxAmount: 30
+    regenPerDay: 1.5
     minDistanceFromBase: 25
     maxDistanceFromBase: 0
     clusterCount: 6
@@ -58,6 +61,7 @@ MonoBehaviour:
   - resourceType: 6
     nodeCount: 4
     maxAmount: 15
+    regenPerDay: 0.2
     minDistanceFromBase: 40
     maxDistanceFromBase: 0
     clusterCount: 4
@@ -71,6 +75,7 @@ MonoBehaviour:
   - resourceType: 0
     nodeCount: 12
     maxAmount: 25
+    regenPerDay: 3
     minDistanceFromBase: 5
     maxDistanceFromBase: 0
     clusterCount: 12
@@ -84,6 +89,7 @@ MonoBehaviour:
   - resourceType: 0
     nodeCount: 0
     maxAmount: 0
+    regenPerDay: 0
     minDistanceFromBase: 0
     maxDistanceFromBase: 0
     clusterCount: 0

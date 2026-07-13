@@ -20,6 +20,10 @@ namespace AIVillage.Core
         [Tooltip("노드 1개당 최대 자원량")]
         [Min(1f)] public float maxAmount = 50f;
 
+        [Tooltip("게임 1일당 재생량. M1-B에서 코드 상수 이관 — 기존 값: Wood 5 / Stone 3 / Iron 1.5 / " +
+                 "Copper 0.5 / Silver 0.2. RawFood 3은 2026-07-14 기획 승인 (舊 '재생 없음'에서 변경).")]
+        [Min(0f)] public float regenPerDay = 0f;
+
         // ── 배치 거리 제한 (기지 기준) ────────────────────────────────────────────
         [Header("기지 거리 제한")]
         [Tooltip("기지로부터 최소 맨해튼 거리. 이 값보다 가까이는 배치되지 않는다.")]

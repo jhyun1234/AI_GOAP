@@ -19,8 +19,13 @@ namespace AIVillage.M0
         [Tooltip("이 조건 전부 만족 시 goal 후보로 발동. 비우면 항상 후보.")]
         public SlotCondition[] TriggerConditions;
 
-        [Tooltip("플래너에 넘길 목표 조건. 이미 전부 만족이면 GoalSelector가 스킵한다.")]
+        [Tooltip("플래너에 넘길 목표 조건. 이미 전부 만족이면 GoalSelector가 스킵한다. " +
+                 "비워 두면 '항상 미달성'으로 취급 (여가 등 달성 개념이 없는 goal — DirectActionPool과 함께 사용).")]
         public SlotCondition[] GoalConditions;
+
+        [Tooltip("설정 시 플래너를 생략하고 이 풀에서 랜덤 1개를 즉시 실행 (M1-A ADR-M1-3: 여가 전용 특례 — " +
+                 "다른 goal에 남용 금지, 플래너 우회 뒷문이 된다).")]
+        public ActionSO[] DirectActionPool;
 
         /// <summary>
         /// ADR-M0-7 정합 검사: goal 달성 상태가 trigger를 다시 발동시키면 무한 루프다.

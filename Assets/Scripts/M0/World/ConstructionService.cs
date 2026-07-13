@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace AIVillage.M0
@@ -12,8 +13,15 @@ namespace AIVillage.M0
     {
         private readonly WorldModel _world;
 
+        // 완공 위치 기록 — 여가 앵커(WanderRunner) 등 "건물이 어디 있나" 질의의 단일 출처 (M1-A)
+        private readonly Dictionary<SlotId, Vector2Int> _builtTiles = new Dictionary<SlotId, Vector2Int>();
+
         /// <summary>완공 후처리 (building, tileX, tileY). M0SimulationLoop가 시각 스폰을 구독한다.</summary>
         public event Action<BuildingSO, int, int> OnCompleted;
+
+        /// <summary>완공된 건물의 타일 위치. 미완공이면 false.</summary>
+        public bool TryGetBuiltTile(SlotId flagSlot, out Vector2Int tile)
+            => _builtTiles.TryGetValue(flagSlot, out tile);
 
         public ConstructionService(WorldModel world)
         {
@@ -55,8 +63,9 @@ namespace AIVillage.M0
                     _world.TrySpendStock(c.StockSlot, c.Amount);
             }
 
-            // ── 3단계: 완공 플래그 + 후처리 ──
+            // ── 3단계: 완공 플래그 + 위치 기록 + 후처리 ──
             _world.SetBuiltFlag(building.BuiltFlagSlot, true);
+            _builtTiles[building.BuiltFlagSlot] = new Vector2Int(tileX, tileY);
             OnCompleted?.Invoke(building, tileX, tileY);
 
             Debug.Log($"[ConstructionService] {building.DisplayName} 완공 @ ({tileX}, {tileY})");

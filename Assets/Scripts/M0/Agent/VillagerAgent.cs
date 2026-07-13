@@ -50,11 +50,13 @@ namespace AIVillage.M0
         public WorldModel World => _sim.World;
         public DiscoveryService Discovery => _sim.Discovery;
         public ConstructionService Construction => _sim.Construction;
+        public WorldConfigSO WorldConfig => _sim.WorldConfig;
 
         // ── 플랜 상태 ──────────────────────────────────────────────────────
         private readonly List<ActionSO> _plan = new List<ActionSO>(PlanningConfig.MaxPlanLen);
         private int _planIndex;
         private GoalSO _goal;
+        private bool _directGoal; // DirectActionPool goal 여부 (완료 로그 억제용)
         private PlannerGateway.PendingPlan _pending;
         private IActionRunner _runner;
         private float _idleCooldownSec;
@@ -176,6 +178,19 @@ namespace AIVillage.M0
                 return;
             }
 
+            // M1-A DirectActionPool 특례: 여가는 플래너를 태우지 않는다 (ADR-M1-3)
+            if (_goal.DirectActionPool != null && _goal.DirectActionPool.Length > 0)
+            {
+                _directGoal = true;
+                _plan.Clear();
+                ActionSO pick = _goal.DirectActionPool[Random.Range(0, _goal.DirectActionPool.Length)];
+                if (pick != null) _plan.Add(pick);
+                _planIndex = 0;
+                StartNextAction();
+                return;
+            }
+            _directGoal = false;
+
             _pending = _sim.Planner.RequestPlan(snap, _goal);
             if (_pending == null)
             {
@@ -238,8 +253,8 @@ namespace AIVillage.M0
 
             if (_planIndex >= _plan.Count)
             {
-                Debug.Log($"[VillagerAgent] {AgentId}: {_goal.DisplayName} 플랜 완료");
-                ToIdle(0f);
+                if (!_directGoal) Debug.Log($"[VillagerAgent] {AgentId}: {_goal.DisplayName} 플랜 완료");
+                ToIdle(0f); // 여가는 로그 없이 조용히 반복 (스팸 방지)
                 return;
             }
 

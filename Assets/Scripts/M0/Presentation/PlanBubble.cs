@@ -54,14 +54,18 @@ namespace AIVillage.M0
 
             var sb = new System.Text.StringBuilder(64);
             if (!string.IsNullOrEmpty(prefix)) sb.Append(prefix);
-            for (int i = currentIndex; i < plan.Count; i++)
+
+            sb.Append("<color=#").Append(_currentColorHex).Append('>')
+              .Append(plan[currentIndex].PickBubbleLine()).Append("</color>"); // 현재 액션만 변주 (ADR-M1-5)
+
+            // 뒤 계획: 같은 액션의 연속 반복은 접는다 ("쉬자 → 쉬자 → 쉬자"는 정보가 아니라 소음).
+            // 계획의 줄거리(다음에 올 '다른' 행동)만 남긴다.
+            string lastShown = plan[currentIndex].DisplayName;
+            for (int i = currentIndex + 1; i < plan.Count; i++)
             {
-                if (i > currentIndex) sb.Append(" → ");
-                if (i == currentIndex)
-                    sb.Append("<color=#").Append(_currentColorHex).Append('>')
-                      .Append(plan[i].PickBubbleLine()).Append("</color>"); // 현재 액션만 변주 (ADR-M1-5)
-                else
-                    sb.Append(plan[i].DisplayName); // 뒤 계획은 고정 문구 — 계획 가독성 유지
+                if (plan[i].DisplayName == lastShown) continue;
+                lastShown = plan[i].DisplayName;
+                sb.Append(" → ").Append(lastShown);
             }
             _text.text = sb.ToString();
         }

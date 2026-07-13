@@ -40,8 +40,11 @@ namespace AIVillage.M0
             Clear();
         }
 
-        /// <summary>플랜 표시 — 현재 액션은 강조색, 완료분은 생략, 남은 액션은 → 로 연결.</summary>
-        public void ShowPlan(IReadOnlyList<ActionSO> plan, int currentIndex)
+        /// <summary>임시 문구 표시 (거부 대사 등). 다음 ShowPlan/Clear가 덮어쓴다.</summary>
+        public void ShowText(string text) => _text.text = text;
+
+        /// <summary>플랜 표시 — 현재 액션은 강조색, 완료분은 생략, 남은 액션은 → 로 연결. prefix는 명령 표시용.</summary>
+        public void ShowPlan(IReadOnlyList<ActionSO> plan, int currentIndex, string prefix = null)
         {
             if (plan == null || currentIndex >= plan.Count)
             {
@@ -50,6 +53,7 @@ namespace AIVillage.M0
             }
 
             var sb = new System.Text.StringBuilder(64);
+            if (!string.IsNullOrEmpty(prefix)) sb.Append(prefix);
             for (int i = currentIndex; i < plan.Count; i++)
             {
                 if (i > currentIndex) sb.Append(" → ");

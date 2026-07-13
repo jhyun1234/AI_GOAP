@@ -1,0 +1,160 @@
+using System;
+using AIVillage.Core;
+using UnityEngine;
+
+namespace AIVillage.M0
+{
+    /// <summary>
+    /// 촌장(플레이어) 입력 (M1-C):
+    ///   좌클릭 주민 = 선택 (선택 링) / 빈 곳 좌클릭·ESC = 해제
+    ///   선택 중 우클릭 자원 노드 = "저거 캐와" 명령 (자원 타입 → Order goal 매핑)
+    ///   선택 중 우클릭 주민 자신 = 명령 취소
+    /// 콜라이더 없이 거리 픽킹 — 반경은 Inspector 튜닝 (UX 상수).
+    /// </summary>
+    [DefaultExecutionOrder(-20)]
+    [DisallowMultipleComponent]
+    public sealed class PlayerInputController : MonoBehaviour
+    {
+        [Serializable]
+        public struct OrderMapping
+        {
+            [Tooltip("우클릭한 노드의 자원 타입")]
+            public ResourceType Resource;
+            [Tooltip("주입할 명령 goal (Priority 60 Order_* 에셋)")]
+            public GoalSO Order;
+        }
+
+        [Tooltip("자원 타입 → 명령 goal 매핑. 매핑 없는 타입은 명령 불가 (Iron 등 M1 미지원).")]
+        [SerializeField] private OrderMapping[] _orders;
+
+        [Tooltip("주민 선택 픽킹 반경 (타일)")]
+        [SerializeField] private float _villagerPickRadius = 0.8f;
+
+        [Tooltip("노드 명령 픽킹 반경 (타일)")]
+        [SerializeField] private float _nodePickRadius = 1.5f;
+
+        private VillagerAgent _selected;
+        private GameObject _ring;
+        private Camera _camera;
+
+        private void Start()
+        {
+            _camera = Camera.main;
+        }
+
+        private void Update()
+        {
+            if (M0SimulationLoop.Instance == null || _camera == null) return;
+
+            if (Input.GetKeyDown(KeyCode.Escape)) Deselect();
+
+            if (Input.GetMouseButtonDown(0))
+            {
+                VillagerAgent hit = PickVillager(MouseWorld());
+                if (hit != null) Select(hit);
+                else Deselect();
+            }
+
+            if (Input.GetMouseButtonDown(1) && _selected != null)
+            {
+                Vector2 world = MouseWorld();
+
+                // 자기 자신 우클릭 = 명령 취소
+                VillagerAgent hitVillager = PickVillager(world);
+                if (hitVillager == _selected)
+                {
+                    _selected.CancelOrder();
+                    return;
+                }
+
+                // 발견된 노드 우클릭 = 채집 명령
+                ResourceNode node = PickNode(world);
+                if (node == null) return;
+
+                GoalSO order = FindOrder(node.ResourceType);
+                if (order == null)
+                {
+                    Debug.Log($"[PlayerInput] {node.ResourceType}에 대한 명령 매핑 없음 (M1 미지원 자원).");
+                    return;
+                }
+                _selected.TryGiveOrder(order); // 수락/거부 피드백은 주민의 말풍선·로그가 담당
+            }
+        }
+
+        private Vector2 MouseWorld()
+        {
+            Vector3 w = _camera.ScreenToWorldPoint(Input.mousePosition);
+            return new Vector2(w.x, w.y);
+        }
+
+        private VillagerAgent PickVillager(Vector2 world)
+        {
+            VillagerAgent best = null;
+            float bestDist = _villagerPickRadius;
+            foreach (VillagerAgent a in M0SimulationLoop.Instance.Agents)
+            {
+                if (a == null) continue;
+                float d = Vector2.Distance(world, a.transform.position);
+                if (d < bestDist)
+                {
+                    bestDist = d;
+                    best = a;
+                }
+            }
+            return best;
+        }
+
+        private ResourceNode PickNode(Vector2 world)
+        {
+            ResourceNode best = null;
+            float bestDist = _nodePickRadius;
+            foreach (ResourceNode n in M0SimulationLoop.Instance.Discovery.Nodes)
+            {
+                if (!n.IsDiscovered) continue; // 못 본 노드에는 명령 불가 (FoW 공정성)
+                float d = Vector2.Distance(world, new Vector2(n.TileX, n.TileY));
+                if (d < bestDist)
+                {
+                    bestDist = d;
+                    best = n;
+                }
+            }
+            return best;
+        }
+
+        private GoalSO FindOrder(ResourceType type)
+        {
+            if (_orders == null) return null;
+            foreach (OrderMapping m in _orders)
+                if (m.Resource == type)
+                    return m.Order;
+            return null;
+        }
+
+        private void Select(VillagerAgent agent)
+        {
+            _selected = agent;
+            if (_ring == null)
+            {
+                _ring = new GameObject("SelectionRing");
+                var sr = _ring.AddComponent<SpriteRenderer>();
+                sr.sprite = M0Sprites.Circle;
+                sr.color = new Color(1f, 0.9f, 0.3f, 0.45f); // 반투명 노랑
+                sr.sortingOrder = 9;                          // 주민(10) 바로 아래
+                _ring.transform.localScale = Vector3.one * 1.2f;
+            }
+            _ring.transform.SetParent(agent.transform, worldPositionStays: false);
+            _ring.transform.localPosition = Vector3.zero;
+            _ring.SetActive(true);
+        }
+
+        private void Deselect()
+        {
+            _selected = null;
+            if (_ring != null)
+            {
+                _ring.transform.SetParent(null);
+                _ring.SetActive(false);
+            }
+        }
+    }
+}

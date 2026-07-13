@@ -61,6 +61,12 @@ namespace AIVillage.M0
         private IActionRunner _runner;
         // 실패 goal 재시도 쿨다운 — 공회전(실패→즉시 재선택) 방지, 그동안 하위 goal로
         private readonly Dictionary<GoalSO, float> _goalRetryAt = new Dictionary<GoalSO, float>();
+
+        // ── 촌장 명령 (M1-C, ADR-M1-1: 상태머신이 아니라 사다리의 한 칸) ──
+        private GoalSO _order;
+        private float _transientTextUntil;
+
+        public GoalSO CurrentOrder => _order;
         private float _idleCooldownSec;
         private int _tickCounter;
         private readonly List<SlotEffect> _effectBuf = new List<SlotEffect>(8);
@@ -126,6 +132,14 @@ namespace AIVillage.M0
         {
             if (State == AgentState.Moving) TickMoving(Time.deltaTime);
             _animator?.Tick(Time.deltaTime, State == AgentState.Moving && _hasNextReserved, _lastDir);
+
+            // 임시 문구(거부 대사) 만료 처리 — 실행 중이면 다음 ShowPlan이 자연 복원
+            if (_transientTextUntil > 0f && Time.time >= _transientTextUntil)
+            {
+                _transientTextUntil = 0f;
+                if (State == AgentState.Idle) _bubble?.Clear();
+                else _bubble?.ShowPlan(_plan, _planIndex, OrderPrefix());
+            }
         }
 
         // ─────────────────────────────────────────────────────────────────────
@@ -145,7 +159,7 @@ namespace AIVillage.M0
             {
                 // 쿨다운 필터를 Idle 선택과 동일하게 적용 — 방금 실패한 goal이 전환 대상으로
                 // 재등장해 중단↔재시작 폭주(0.5초 주기)를 일으키는 것을 방지
-                GoalSO now = _sim.Goals.Select(BuildSnapshot(), IsGoalCoolingDown);
+                GoalSO now = _sim.Goals.Select(BuildSnapshot(), IsGoalCoolingDown, _order);
                 if (now != null && _goal != null && now != _goal && now.Priority > _goal.Priority)
                 {
                     // 정상 전환은 실패가 아니다 — 쿨다운 없이 중단해야 M1-C 명령 복귀가 즉시 성립
@@ -176,7 +190,16 @@ namespace AIVillage.M0
             if (_idleCooldownSec > 0f) return;
 
             WorldSnapshot snap = BuildSnapshot();
-            _goal = _sim.Goals.Select(snap, IsGoalCoolingDown);
+
+            // 명령 완수 판정 — 목표 충족 시 자동 소멸 (ADR-M1-1)
+            if (_order != null && _order.GoalConditions != null && _order.GoalConditions.Length > 0
+                && GoalSelector.AllHold(_order.GoalConditions, snap))
+            {
+                Debug.Log($"[VillagerAgent] {AgentId}: 명령 완수 — {_order.DisplayName}");
+                _order = null;
+            }
+
+            _goal = _sim.Goals.Select(snap, IsGoalCoolingDown, _order);
             if (_goal == null)
             {
                 _idleCooldownSec = 0.5f; // 할 일 없음 — 정상 Idle
@@ -252,9 +275,11 @@ namespace AIVillage.M0
         // 액션 시작 / 실행
         // ─────────────────────────────────────────────────────────────────────
 
+        private string OrderPrefix() => _goal != null && _goal == _order ? "<color=#FF8A65>[명령]</color> " : null;
+
         private void StartNextAction()
         {
-            _bubble?.ShowPlan(_plan, _planIndex); // 갱신 단일 지점: 적재·전환·완료 모두 여기 경유
+            _bubble?.ShowPlan(_plan, _planIndex, OrderPrefix()); // 갱신 단일 지점: 적재·전환·완료 모두 여기 경유
 
             if (_planIndex >= _plan.Count)
             {
@@ -394,6 +419,71 @@ namespace AIVillage.M0
 
         private bool IsGoalCoolingDown(GoalSO goal)
             => _goalRetryAt.TryGetValue(goal, out float until) && Time.time < until;
+
+        // ─────────────────────────────────────────────────────────────────────
+        // 촌장 명령 (M1-C)
+        // ─────────────────────────────────────────────────────────────────────
+
+        public enum OrderResult { Accepted, RefusedHungry, RefusedTired }
+
+        /// <summary>
+        /// 명령 수신 — 거부는 수신 시점 1회, 욕구 상태 기반 판정 (ADR-M1-2, 랜덤 아님).
+        /// 수락 시 goal이 개인 사다리에 합류하며, P0 인터럽트 후에도 유지되어 자동 복귀한다.
+        /// </summary>
+        public OrderResult TryGiveOrder(GoalSO order)
+        {
+            if (order == null) return OrderResult.Accepted;
+
+            if (Satiety < _cfg.OrderRefuseSatiety)
+            {
+                ShowTransient(Pick(_cfg.RefuseHungryLines));
+                Debug.Log($"[VillagerAgent] {AgentId}: 명령 거부 (배고픔 {Satiety:F0} < {_cfg.OrderRefuseSatiety})");
+                return OrderResult.RefusedHungry;
+            }
+            if (Fatigue > _cfg.OrderRefuseFatigue)
+            {
+                ShowTransient(Pick(_cfg.RefuseTiredLines));
+                Debug.Log($"[VillagerAgent] {AgentId}: 명령 거부 (피로 {Fatigue:F0} > {_cfg.OrderRefuseFatigue})");
+                return OrderResult.RefusedTired;
+            }
+
+            _order = order;
+            _goalRetryAt.Remove(order); // 새 명령은 과거 실패 쿨다운을 잊는다
+
+            // 즉시 착수: 현재 일이 명령보다 낮으면 중단 (실패 아님 — 쿨다운 없음)
+            if ((State == AgentState.Moving || State == AgentState.Acting)
+                && _goal != null && _goal.Priority < order.Priority)
+            {
+                AbortPlan($"촌장 명령 수락: {order.DisplayName}", warn: false, cooldown: false);
+                _idleCooldownSec = 0f;
+            }
+            else if (State == AgentState.Idle)
+            {
+                _idleCooldownSec = 0f;
+            }
+            Debug.Log($"[VillagerAgent] {AgentId}: 명령 수락 — {order.DisplayName}");
+            return OrderResult.Accepted;
+        }
+
+        /// <summary>명령 취소 (주민 우클릭). 수행 중이었다면 즉시 자율 복귀.</summary>
+        public void CancelOrder()
+        {
+            if (_order == null) return;
+            GoalSO cancelled = _order;
+            _order = null;
+            if (_goal == cancelled && (State == AgentState.Moving || State == AgentState.Acting))
+                AbortPlan("명령 취소 (자율 복귀)", warn: false, cooldown: false);
+        }
+
+        private void ShowTransient(string line)
+        {
+            if (string.IsNullOrEmpty(line)) return;
+            _bubble?.ShowText(line);
+            _transientTextUntil = Time.time + 2.5f; // 대사 노출 시간 (연출 상수)
+        }
+
+        private static string Pick(string[] lines)
+            => lines == null || lines.Length == 0 ? null : lines[Random.Range(0, lines.Length)];
 
         /// <summary>
         /// warn=false는 정상 흐름의 전환(상위 goal 인터럽트) — 경고가 아닌 정보 로그.

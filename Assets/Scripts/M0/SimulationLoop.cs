@@ -59,6 +59,9 @@ namespace AIVillage.M0
         private int _lastLoggedDay = -1;
         private readonly List<VillagerAgent> _agents = new List<VillagerAgent>(8);
 
+        /// <summary>등록된 주민 목록 (PlayerInputController 픽킹용, 읽기 전용).</summary>
+        public IReadOnlyList<VillagerAgent> Agents => _agents;
+
         public void RegisterAgent(VillagerAgent agent)
         {
             if (agent != null && !_agents.Contains(agent)) _agents.Add(agent);

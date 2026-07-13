@@ -47,6 +47,27 @@ namespace AIVillage.M0
                  "그동안 하위 goal(여가 등)로 내려가게 한다. 제안치 3.")]
         public float GoalRetryCooldownSec = 3f;
 
+        [Header("명령/거부 (M1-C — 임계값·대사 전부 제안치)")]
+        [Tooltip("포만감이 이 값 미만이면 명령 거부. P0 발동선(20)보다 여유 — '아직 안 쓰러졌지만 시키면 싫은' 구간.")]
+        public float OrderRefuseSatiety = 35f;
+
+        [Tooltip("피로가 이 값 초과면 명령 거부. P0 발동선(90)보다 여유.")]
+        public float OrderRefuseFatigue = 70f;
+
+        [Tooltip("배고픔 거부 대사 (랜덤 선택)")]
+        public string[] RefuseHungryLines =
+        {
+            "지금은... 배가 너무 고파요.",
+            "밥부터 먹고요. 진짜로요.",
+        };
+
+        [Tooltip("피로 거부 대사 (랜덤 선택)")]
+        public string[] RefuseTiredLines =
+        {
+            "숨 좀 돌리고요. 너무 지쳤어요.",
+            "조금만 쉬었다 하면 안 될까요...",
+        };
+
         [Header("욕구 (초기값은 舊 VillagerBrain 기본값 이관)")]
         public float InitialSatiety = 70f;
         public float InitialFatigue = 20f;

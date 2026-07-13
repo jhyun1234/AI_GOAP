@@ -1,0 +1,59 @@
+using UnityEngine;
+
+namespace AIVillage.M0
+{
+    /// <summary>
+    /// M0 목표 정의. 발동 임계값(TriggerConditions)과 플래너 목표(GoalConditions)를
+    /// 한 에셋의 두 필드로 강제한다 (ADR-M0-7) —
+    /// 舊 ADR-7 위반(목표치·임계값 역전 → alreadySatisfied 무한 루프)의 구조적 차단.
+    /// </summary>
+    [CreateAssetMenu(menuName = "AIVillage/M0/Goal", fileName = "Goal")]
+    public sealed class GoalSO : ScriptableObject
+    {
+        [Tooltip("한국어 표시명 (예: 배고픔 해결)")]
+        public string DisplayName;
+
+        [Tooltip("높을수록 먼저 평가된다.")]
+        public int Priority;
+
+        [Tooltip("이 조건 전부 만족 시 goal 후보로 발동. 비우면 항상 후보.")]
+        public SlotCondition[] TriggerConditions;
+
+        [Tooltip("플래너에 넘길 목표 조건. 이미 전부 만족이면 GoalSelector가 스킵한다.")]
+        public SlotCondition[] GoalConditions;
+
+        /// <summary>
+        /// ADR-M0-7 정합 검사: goal 달성 상태가 trigger를 다시 발동시키면 무한 루프다.
+        /// 같은 슬롯에 대해 "목표값이 발동 조건을 만족"하면 에셋 저장 시점에 에러를 띄운다.
+        /// </summary>
+        private void OnValidate()
+        {
+            if (TriggerConditions == null || GoalConditions == null) return;
+
+            foreach (SlotCondition g in GoalConditions)
+            {
+                foreach (SlotCondition t in TriggerConditions)
+                {
+                    if (g.Slot != t.Slot) continue;
+                    if (Satisfies(g.Value, t))
+                    {
+                        Debug.LogError($"[GoalSO] {name}: 슬롯 {g.Slot}의 목표값 {g.Value}이(가) " +
+                                       $"발동 조건({t.Op} {t.Value})을 만족합니다 — 달성 즉시 재발동 무한 루프 (ADR-M0-7).",
+                                       this);
+                    }
+                }
+            }
+        }
+
+        private static bool Satisfies(int value, SlotCondition cond)
+        {
+            switch (cond.Op)
+            {
+                case CompareOp.Equal:          return value == cond.Value;
+                case CompareOp.GreaterOrEqual: return value >= cond.Value;
+                case CompareOp.LessOrEqual:    return value <= cond.Value;
+                default:                       return false;
+            }
+        }
+    }
+}

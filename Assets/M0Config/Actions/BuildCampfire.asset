@@ -1,0 +1,20 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ac650d4317ee413eaed31b2e75c34290, type: 3}
+  m_Name: BuildCampfire
+  m_EditorClassIdentifier:
+  DisplayName: "모닥불을 짓자"
+  BaseCost: 20
+  DurationSec: 0
+  Preconditions: []
+  Effects: []
+  Building: {fileID: 11400000, guid: ff902f62e16946d38629923afb822606, type: 2}

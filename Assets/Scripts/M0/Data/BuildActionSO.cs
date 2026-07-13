@@ -1,0 +1,47 @@
+using System.Collections.Generic;
+using UnityEngine;
+
+namespace AIVillage.M0
+{
+    /// <summary>
+    /// 건설 액션. 비용·완공 플래그의 단일 출처는 BuildingSO다 —
+    /// 이 SO의 Preconditions/Effects 배열에 건설 비용을 중복 기입하지 않는다.
+    /// 플래너용 전제(재고 충분 + 미완공)와 효과(재고 차감 + 완공 플래그)는
+    /// BuildingSO에서 파생 생성된다.
+    /// </summary>
+    [CreateAssetMenu(menuName = "AIVillage/M0/Action/Build", fileName = "BuildAction")]
+    public sealed class BuildActionSO : ActionSO
+    {
+        [Tooltip("지을 건물. 비용/완공 플래그는 이 BuildingSO가 단일 출처.")]
+        public BuildingSO Building;
+
+        public override void CollectPreconditions(List<SlotCondition> into)
+        {
+            base.CollectPreconditions(into);
+            if (Building == null) return;
+
+            // 미완공일 때만 후보 (무전제 액션 재적용 함정 방어 — 舊 버그21 계승)
+            into.Add(new SlotCondition { Slot = Building.BuiltFlagSlot, Op = CompareOp.Equal, Value = 0 });
+
+            foreach (ResourceCost c in Building.Costs)
+                into.Add(new SlotCondition { Slot = c.StockSlot, Op = CompareOp.GreaterOrEqual, Value = c.Amount });
+        }
+
+        public override void CollectEffects(List<SlotEffect> into)
+        {
+            base.CollectEffects(into);
+            if (Building == null) return;
+
+            foreach (ResourceCost c in Building.Costs)
+                into.Add(new SlotEffect { Slot = c.StockSlot, Op = EffectOp.SubClamp0, Value = c.Amount });
+
+            into.Add(new SlotEffect { Slot = Building.BuiltFlagSlot, Op = EffectOp.Set, Value = 1 });
+        }
+
+        private void OnValidate()
+        {
+            if (Building == null)
+                Debug.LogError($"[BuildActionSO] {name}: Building이 비어 있습니다.", this);
+        }
+    }
+}

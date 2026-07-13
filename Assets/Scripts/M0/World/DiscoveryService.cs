@@ -63,6 +63,24 @@ namespace AIVillage.M0
             return best;
         }
 
+        /// <summary>가장 가까운 미발견 노드 (타입 무관) — ExploreRunner의 1순위 목표. 없으면 null.</summary>
+        public ResourceNode FindNearestUndiscovered(int fromX, int fromY)
+        {
+            ResourceNode best = null;
+            int bestDist = int.MaxValue;
+            foreach (ResourceNode n in _nodes)
+            {
+                if (n.IsDiscovered) continue;
+                int d = Manhattan(n.TileX, n.TileY, fromX, fromY);
+                if (d < bestDist)
+                {
+                    bestDist = d;
+                    best = n;
+                }
+            }
+            return best;
+        }
+
         /// <summary>노드 재생 틱 (RegenerationRate = 게임일당, 기획서 수치는 ResourceNode 생성자가 자동 세팅).</summary>
         public void TickRegeneration(float deltaGameDays)
         {

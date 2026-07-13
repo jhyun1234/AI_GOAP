@@ -9,5 +9,6 @@ namespace AIVillage.M0
     [CreateAssetMenu(menuName = "AIVillage/M0/Action/Consume", fileName = "ConsumeAction")]
     public sealed class ConsumeActionSO : ActionSO
     {
+        public override IActionRunner CreateRunner(VillagerAgent agent) => new ConsumeRunner(this);
     }
 }

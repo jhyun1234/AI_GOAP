@@ -35,5 +35,11 @@ namespace AIVillage.M0
         {
             if (Effects != null) into.AddRange(Effects);
         }
+
+        /// <summary>
+        /// 실행자 생성 — 실행 1회마다 새 인스턴스 (W4).
+        /// abstract이므로 새 계열 SO는 컴파일러가 구현을 강제한다. 문자열 분기 금지의 핵심.
+        /// </summary>
+        public abstract IActionRunner CreateRunner(VillagerAgent agent);
     }
 }

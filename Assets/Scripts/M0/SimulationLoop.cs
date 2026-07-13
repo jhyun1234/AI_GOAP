@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using AIVillage.Core;
 using UnityEngine;
 
@@ -42,8 +43,22 @@ namespace AIVillage.M0
         /// <summary>게임 시간 (게임일 단위). 1게임일 = 0.1초 × (1/GameTimeScale) = 100초 (배율 0.01 기준).</summary>
         public float GameTime { get; private set; }
 
+        /// <summary>JPS용 통행 가능 배열 (배열 인덱스 기준, MapConfig 크기). M0는 장애물 없음 — 전부 true.</summary>
+        public bool[,] Walkable { get; private set; }
+
         private BuildingVisualizer _visualizer;
         private int _lastLoggedDay = -1;
+        private readonly List<VillagerAgent> _agents = new List<VillagerAgent>(8);
+
+        public void RegisterAgent(VillagerAgent agent)
+        {
+            if (agent != null && !_agents.Contains(agent)) _agents.Add(agent);
+        }
+
+        public void UnregisterAgent(VillagerAgent agent)
+        {
+            _agents.Remove(agent);
+        }
 
         private void Awake()
         {
@@ -70,6 +85,13 @@ namespace AIVillage.M0
 
             _visualizer = new BuildingVisualizer(transform);
             Construction.OnCompleted += (b, x, y) => _visualizer.Spawn(b, x, y);
+
+            // JPS 통행 배열 — Bootstrap(-95)이 MapConfig를 먼저 활성화한다
+            int mapSize = MapConfig.Active != null ? MapConfig.Active.mapSize : 100;
+            Walkable = new bool[mapSize, mapSize];
+            for (int x = 0; x < mapSize; x++)
+                for (int y = 0; y < mapSize; y++)
+                    Walkable[x, y] = true;
         }
 
         private void Start()
@@ -99,6 +121,10 @@ namespace AIVillage.M0
                 GameTime += deltaGameDays;
 
                 Discovery.TickRegeneration(deltaGameDays);
+
+                // 에이전트 틱 (W4) — 역순 순회: SimTick 중 파괴/해제로 리스트가 줄어도 안전
+                for (int i = _agents.Count - 1; i >= 0; i--)
+                    _agents[i].SimTick(TICK_INTERVAL_SEC, deltaGameDays);
 
                 // 하루 경계 로그 — W3 관측용 (Play 검증 지표)
                 int day = (int)GameTime;

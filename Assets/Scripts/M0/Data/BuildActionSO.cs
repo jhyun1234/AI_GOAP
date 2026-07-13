@@ -38,6 +38,8 @@ namespace AIVillage.M0
             into.Add(new SlotEffect { Slot = Building.BuiltFlagSlot, Op = EffectOp.Set, Value = 1 });
         }
 
+        public override IActionRunner CreateRunner(VillagerAgent agent) => new BuildRunner(this);
+
         private void OnValidate()
         {
             if (Building == null)

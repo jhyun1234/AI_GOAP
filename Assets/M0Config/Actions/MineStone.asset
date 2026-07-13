@@ -9,24 +9,21 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 490d65d7b3924fe3939f080831e467e3, type: 3}
-  m_Name: Explore
+  m_Script: {fileID: 11500000, guid: eea84d338d3a4f52a4496373a54e8802, type: 3}
+  m_Name: MineStone
   m_EditorClassIdentifier:
-  DisplayName: "주변을 둘러보자"
-  BaseCost: 15
+  DisplayName: "돌을 캐자"
+  BaseCost: 12
   DurationSec: 0
-  Preconditions: []
-  Effects:
-  - Slot: 4
-    Op: 0
-    Value: 1
-  - Slot: 5
-    Op: 0
-    Value: 1
+  Preconditions:
   - Slot: 9
     Op: 0
     Value: 1
+  Effects:
+  - Slot: 8
+    Op: 1
+    Value: 8
   - Slot: 3
     Op: 1
-    Value: 5
-  MoveDistanceTiles: 15
+    Value: 15
+  TargetResource: 3

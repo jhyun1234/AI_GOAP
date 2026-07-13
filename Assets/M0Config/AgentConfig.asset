@@ -11,12 +11,16 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 3373d0d9f857429c85a0541aead5d04f, type: 3}
   m_Name: AgentConfig
-  m_EditorClassIdentifier:
+  m_EditorClassIdentifier: 
   BaseMoveSpeed: 2
   SpeedVariancePct: 0.15
   AccelSec: 0.25
   DecelFactor: 0.45
   DecelDistance: 0.6
+  BubbleOffsetY: 1.1
+  BubbleFontSize: 3
+  BubbleWidth: 6
+  BubbleCurrentColor: {r: 1, g: 0.83, b: 0.31, a: 1}
   PlanningTimeoutSec: 3
   InitialSatiety: 70
   InitialFatigue: 20

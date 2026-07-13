@@ -86,6 +86,8 @@ Console에 NoSolutionFound·에러 0건 (PathBlocked 경고는 자기 회복 로
 모든 의미 있는 단위(버그 1건·기능 1개·테스트 1건) 완료 시 즉시 커밋. 배치 지연 금지.
 커밋 메시지: `<type>(<scope>): <요약>` — type ∈ {fix, feat, refactor, test, docs, spec}.
 세션 로그는 PostToolUse 훅이 자동 처리 (`devlog/sessions/`, 실패 시 session-log-append 스킬).
+**훅은 파일만 쓴다 — 커밋은 자동이 아니다.** 세션 로그는 블로그 파이프라인의 1차 소재이므로
+세션 마무리마다 `devlog/` 변경분을 커밋·푸시한다 (2026-07-13 소재 유실 사고의 재발 방지).
 문서 허브: `devlog/INDEX.md` (옵시디언 볼트 루트 = 저장소. 과거 기록은 원본보다 INDEX 먼저).
 
 ## 응답 규율 (컨텍스트/토큰 절감)

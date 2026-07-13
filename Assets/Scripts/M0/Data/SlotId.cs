@@ -1,4 +1,5 @@
 using System;
+using AIVillage.Core;
 
 namespace AIVillage.M0
 {
@@ -19,11 +20,43 @@ namespace AIVillage.M0
         NearDiscoveredFood = 5,
         CampfireBuilt      = 6,
         AtBuildSite        = 7,
+
+        // ── W7 확장 (기존 인덱스 뒤에만 추가 — 에셋 호환 유지) ─────────────
+        StoneStock          = 8,  // 수치형
+        NearDiscoveredStone = 9,  // 논리형
     }
 
     public static class SlotIds
     {
-        public const int Count = 8;
+        public const int Count = 10;
+
+        /// <summary>전역 스톡 슬롯 여부 — EffectApplier/러너가 공유하는 유일한 판정.</summary>
+        public static bool IsStock(SlotId slot)
+            => slot == SlotId.WoodStock || slot == SlotId.RawFoodStock || slot == SlotId.StoneStock;
+
+        /// <summary>자원 타입 → 스톡 슬롯. M0 미지원 타입이면 null (Iron/Copper/Silver는 M1).</summary>
+        public static SlotId? StockOf(ResourceType type)
+        {
+            switch (type)
+            {
+                case ResourceType.Wood:    return SlotId.WoodStock;
+                case ResourceType.RawFood: return SlotId.RawFoodStock;
+                case ResourceType.Stone:   return SlotId.StoneStock;
+                default:                   return null;
+            }
+        }
+
+        /// <summary>자원 타입 → 발견 플래그 슬롯. 새 자원 추가 시 여기와 enum만 확장하면 된다.</summary>
+        public static SlotId? DiscoveredOf(ResourceType type)
+        {
+            switch (type)
+            {
+                case ResourceType.Wood:    return SlotId.NearDiscoveredWood;
+                case ResourceType.RawFood: return SlotId.NearDiscoveredFood;
+                case ResourceType.Stone:   return SlotId.NearDiscoveredStone;
+                default:                   return null;
+            }
+        }
     }
 
     /// <summary>전제조건 비교 연산. 값은 舊 goalOps 규약(1=GreaterEq)과 정렬 — W2 컴파일 단순화.</summary>

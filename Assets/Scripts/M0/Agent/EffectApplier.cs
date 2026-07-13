@@ -51,7 +51,6 @@ namespace AIVillage.M0
             return true;
         }
 
-        private static bool IsStock(SlotId slot)
-            => slot == SlotId.WoodStock || slot == SlotId.RawFoodStock;
+        private static bool IsStock(SlotId slot) => SlotIds.IsStock(slot);
     }
 }

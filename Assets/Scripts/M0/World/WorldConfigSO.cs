@@ -11,6 +11,7 @@ namespace AIVillage.M0
         [Header("초기 자원 (GDD v0.4)")]
         public int InitialWoodStock = 10;
         public int InitialRawFoodStock = 30;
+        public int InitialStoneStock = 5;
 
         [Header("시간")]
         [Tooltip("게임 시간 배율. 0.01 → 0.1초 틱당 0.001게임일, 1게임일 = 100초 (舊 GameManager._gameTimeScale)")]

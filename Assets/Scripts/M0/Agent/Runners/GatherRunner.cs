@@ -59,7 +59,7 @@ namespace AIVillage.M0
         {
             if (_so.Effects != null)
                 foreach (SlotEffect e in _so.Effects)
-                    if (e.Op == EffectOp.Add && (e.Slot == SlotId.WoodStock || e.Slot == SlotId.RawFoodStock))
+                    if (e.Op == EffectOp.Add && SlotIds.IsStock(e.Slot))
                         return e.Value;
             return 0;
         }

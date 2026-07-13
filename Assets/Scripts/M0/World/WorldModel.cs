@@ -20,6 +20,7 @@ namespace AIVillage.M0
             {
                 _slots[(int)SlotId.WoodStock]    = config.InitialWoodStock;
                 _slots[(int)SlotId.RawFoodStock] = config.InitialRawFoodStock;
+                _slots[(int)SlotId.StoneStock]   = config.InitialStoneStock;
             }
         }
 
@@ -59,13 +60,18 @@ namespace AIVillage.M0
             var slots = new int[PlanningConfig.TotalSlots];
             slots[(int)SlotId.WoodStock]    = _slots[(int)SlotId.WoodStock];
             slots[(int)SlotId.RawFoodStock] = _slots[(int)SlotId.RawFoodStock];
+            slots[(int)SlotId.StoneStock]   = _slots[(int)SlotId.StoneStock];
             slots[(int)SlotId.MySatiety]    = satiety;
             slots[(int)SlotId.MyFatigue]    = fatigue;
-            slots[(int)SlotId.NearDiscoveredWood] = _discovery != null && _discovery.HasDiscovered(ResourceType.Wood) ? 1 : 0;
-            slots[(int)SlotId.NearDiscoveredFood] = _discovery != null && _discovery.HasDiscovered(ResourceType.RawFood) ? 1 : 0;
+            slots[(int)SlotId.NearDiscoveredWood]  = Discovered(ResourceType.Wood);
+            slots[(int)SlotId.NearDiscoveredFood]  = Discovered(ResourceType.RawFood);
+            slots[(int)SlotId.NearDiscoveredStone] = Discovered(ResourceType.Stone);
             slots[(int)SlotId.CampfireBuilt] = _slots[(int)SlotId.CampfireBuilt];
             slots[(int)SlotId.AtBuildSite]   = 0; // W6에서 사용
             return new WorldSnapshot(slots);
         }
+
+        private int Discovered(ResourceType type)
+            => _discovery != null && _discovery.HasDiscovered(type) ? 1 : 0;
     }
 }

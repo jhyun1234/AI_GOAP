@@ -148,7 +148,8 @@ namespace AIVillage.M0
                 GoalSO now = _sim.Goals.Select(BuildSnapshot(), IsGoalCoolingDown);
                 if (now != null && _goal != null && now != _goal && now.Priority > _goal.Priority)
                 {
-                    AbortPlan($"상위 목표 전환: {_goal.DisplayName} → {now.DisplayName}", warn: false);
+                    // 정상 전환은 실패가 아니다 — 쿨다운 없이 중단해야 M1-C 명령 복귀가 즉시 성립
+                    AbortPlan($"상위 목표 전환: {_goal.DisplayName} → {now.DisplayName}", warn: false, cooldown: false);
                     return;
                 }
             }
@@ -394,12 +395,15 @@ namespace AIVillage.M0
         private bool IsGoalCoolingDown(GoalSO goal)
             => _goalRetryAt.TryGetValue(goal, out float until) && Time.time < until;
 
-        /// <summary>warn=false는 정상 흐름의 전환(상위 goal 인터럽트) — 경고가 아닌 정보 로그.</summary>
-        private void AbortPlan(string reason, bool warn = true)
+        /// <summary>
+        /// warn=false는 정상 흐름의 전환(상위 goal 인터럽트) — 경고가 아닌 정보 로그.
+        /// cooldown=false는 실패가 아닌 중단 — 재시도 벌칙을 주지 않는다 (전환·복귀 즉시 성립).
+        /// </summary>
+        private void AbortPlan(string reason, bool warn = true, bool cooldown = true)
         {
             string msg = $"[VillagerAgent] {AgentId}: 플랜 중단 — {reason} (goal={(_goal != null ? _goal.name : "?")})";
             if (warn) Debug.LogWarning(msg); else Debug.Log(msg);
-            if (_goal != null) _goalRetryAt[_goal] = Time.time + _cfg.GoalRetryCooldownSec;
+            if (cooldown && _goal != null) _goalRetryAt[_goal] = Time.time + _cfg.GoalRetryCooldownSec;
             _runner?.Cleanup(this);
             _runner = null;
             _plan.Clear();

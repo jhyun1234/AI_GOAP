@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   DisplayName: "열매라도 먹자"
   BaseCost: 8
-  DurationSec: 0
+  DurationSec: 1
   Preconditions:
   - Slot: 1
     Op: 1

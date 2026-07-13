@@ -35,7 +35,27 @@ blog-master, blog-publisher). Agent 도구로 이 순서대로 호출.
 
 ## 실행 순서
 
+0. **소재 게이트 (오케스트레이터 직접 — 에이전트 호출 전, 2026-07-14 도입)**
+   이 routine은 매일 트리거되지만 **발행은 소재가 충분할 때만** 한다. 게이트는
+   git 명령 몇 개로만 판단해 미달 시 에이전트를 하나도 부르지 않는다 (토큰 절약).
+   ```bash
+   # 상태 파일 형식: - `latest_commit`: `b930365` (...) — 첫 항목이 최신
+   LAST=$(grep -oP '`latest_commit`:\s*`\K[0-9a-f]+' tools/blog-automation/state/blog_last_published_commit.md | head -1)
+   # 소재 후보: 마지막 소비 커밋 이후, 파이프라인 자기 커밋(chore(blog)) 제외
+   COMMITS=$(git log --oneline "$LAST"..HEAD | grep -cv "chore(blog)")
+   BIG=$(git log --oneline "$LAST"..HEAD | grep -cE "^\w+ (spec|refactor)\(")
+   DAYS_SINCE=$(( ( $(date +%s) - $(git log -1 --format=%ct "$LAST") ) / 86400 ))
+   ```
+   **통과 기준 (하나라도 충족 시 Step 1 진행):**
+   - A. 미소비 커밋 ≥ 10 (활발한 개발 — 하루치 대형 세션)
+   - B. 대형 이벤트(spec/refactor 커밋) ≥ 1 이고 미소비 커밋 ≥ 5 (명세 확정·재설계 등 이야깃거리)
+   - C. 마지막 소비 후 5일 이상 경과 이고 미소비 커밋 ≥ 3 (블로그 공백 방지 백스톱)
+
+   미달이면 즉시 종료: `PIPELINE_RESULT: SKIPPED (게이트 미달 — 커밋 N개, 대형 M개, 경과 D일)`
+   발행 상한은 cron이 일 1회이므로 자동으로 하루 최대 1편이다.
+
 1. **blog-planner** — 이번 회차 소재 선정. `skip: true`면 이번 사이클 조용히 종료.
+   (게이트는 "양" 판단, 기획팀은 "글이 되는가" 판단 — 이중 필터는 의도된 설계다.)
 2. **blog-writer** — 기획팀 브리프로 초안 작성.
 3. **blog-reviewer** — 초안 검증.
    - FAIL이면 반려 사유를 blog-writer에게 넘기고 2번 재시도. (반려 카운터 +1)

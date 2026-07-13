@@ -25,4 +25,5 @@ MonoBehaviour:
   GoalRetryCooldownSec: 3
   InitialSatiety: 70
   InitialFatigue: 20
+  InitialSatietyVariance: 15
   SatietyDecayPerGameDay: 25

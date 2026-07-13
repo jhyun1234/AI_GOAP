@@ -72,6 +72,10 @@ namespace AIVillage.M0
         public float InitialSatiety = 70f;
         public float InitialFatigue = 20f;
 
+        [Tooltip("초기 포만감 개인 편차(±). 전원 동일값 시작 → 동시 배고픔 웨이브를 흩는다. " +
+                 "AgentId 해시 기반 결정적. 제안치 15.")]
+        public float InitialSatietyVariance = 15f;
+
         [Tooltip("게임 1일당 포만감 자연 감소량. 舊 코드에는 자연 감쇠가 없었음 — " +
                  "25는 2026-07-13 기획 승인값 (초기 70 기준 약 2일마다 식사).")]
         public float SatietyDecayPerGameDay = 25f;

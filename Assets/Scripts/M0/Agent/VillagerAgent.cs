@@ -119,7 +119,9 @@ namespace AIVillage.M0
                 return;
             }
             _cfg = _sim.AgentConfig;
-            Satiety = _cfg.InitialSatiety;
+            // 개인 편차: 전원 동일 초기값 → 동시 배고픔 웨이브 방지 (해시 기반 결정적)
+            float spread = (Mathf.Abs(AgentId.GetHashCode() % 1000) / 999f) * 2f - 1f; // [-1, 1]
+            Satiety = Mathf.Clamp(_cfg.InitialSatiety + spread * _cfg.InitialSatietyVariance, 0f, 100f);
             Fatigue = _cfg.InitialFatigue;
             _motion = new MoveMotion(_cfg, AgentId);
             SetupView();

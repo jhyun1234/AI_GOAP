@@ -52,12 +52,6 @@ namespace AIVillage.Core
         // 현재 스폰의 노드 등록처 (SpawnAll 진입 시 설정)
         private IResourceNodeSink _sink;
 
-        /// <summary>기존 시그니처용 SensorSystem 위임 싱크.</summary>
-        private sealed class SensorSystemSink : IResourceNodeSink
-        {
-            public void AddResourceNode(ResourceNode node) => SensorSystem.Instance.AddResourceNode(node);
-        }
-
         // ─────────────────────────────────────────────────────────────────────────
         // 공개 API
         // ─────────────────────────────────────────────────────────────────────────
@@ -70,19 +64,9 @@ namespace AIVillage.Core
         /// <param name="baseTileY">기지 타일 Y</param>
         /// <param name="discoveryRadius">기지 반경 내 자동 발견 거리</param>
         /// <returns>성공 여부 (SensorSystem 또는 MapConfig 미준비 시 false)</returns>
-        public bool SpawnAll(int baseTileX, int baseTileY, int discoveryRadius)
-        {
-            if (SensorSystem.Instance == null)
-            {
-                Debug.LogError("[ResourceNodeSpawner] SensorSystem.Instance가 null입니다. 노드 스폰 취소.");
-                return false;
-            }
-            return SpawnAll(baseTileX, baseTileY, discoveryRadius, new SensorSystemSink());
-        }
-
         /// <summary>
-        /// 노드 등록처를 주입받는 오버로드 (M0 DiscoveryService 등).
-        /// 배치 알고리즘은 기존과 동일 — 등록처만 다르다.
+        /// 노드 등록처를 주입받아 전체 자원 노드를 배치한다 (M0 DiscoveryService 등).
+        /// 舊 SensorSystem 전용 시그니처는 W8에서 폐기됨.
         /// </summary>
         public bool SpawnAll(int baseTileX, int baseTileY, int discoveryRadius, IResourceNodeSink sink)
         {

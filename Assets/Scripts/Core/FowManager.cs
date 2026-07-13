@@ -293,31 +293,10 @@ namespace AIVillage.Core
                 }
             }
 
-            // ── Step 2: 살아있는 모든 주민의 현재 시야 재계산 ─────────────────
-            // GameManager.Villagers 프로퍼티(IReadOnlyList<VillagerFSM>)로 리스트에 접근한다.
-            if (GameManager.Instance == null) return;
-
-            IReadOnlyList<VillagerFSM> villagers = GameManager.Instance.Villagers;
-            if (villagers == null) return;
-
-            // villagerSightRadius: MapConfig에서 읽음, null이면 10 폴백
-            int sightRadius = (MapConfig.Active != null)
-                              ? MapConfig.Active.villagerSightRadius
-                              : 10;
-
-            int count = villagers.Count;
-            for (int i = 0; i < count; i++)
-            {
-                VillagerFSM fsm = villagers[i];
-
-                // null 방어: 사망/비활성 주민 제외
-                if (fsm == null) continue;
-                if (!fsm.isActiveAndEnabled) continue;
-                if (fsm.Brain == null || !fsm.Brain.IsAlive) continue;
-
-                // 주민 현재 위치에서 시야 재계산
-                RevealArea(fsm.Brain.TileX, fsm.Brain.TileY, sightRadius);
-            }
+            // ── Step 2 (W8 폐기): 舊 GameManager.Villagers 기반 시야 재계산 제거 ──
+            // M0에서는 에이전트가 타일 이동마다 RevealArea()를 직접 호출한다.
+            // OnTick을 다시 쓰려면 다운그레이드 후 호출자가 각 에이전트 위치에서
+            // RevealArea()를 재호출할 것 (현재 M0는 미호출 — 밝힌 지역은 가시 유지).
         }
 
         /// <summary>

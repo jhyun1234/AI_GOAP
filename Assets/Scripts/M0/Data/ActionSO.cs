@@ -15,6 +15,16 @@ namespace AIVillage.M0
         [Tooltip("말풍선/로그용 한국어 문구 (예: 나무를 베자)")]
         public string DisplayName;
 
+        [Tooltip("말풍선 변주 문구 (M1-D, ADR-M1-5) — 현재 실행 중인 액션에만 적용, 비면 DisplayName. " +
+                 "같은 액션 반복 시 문구가 단조로워지는 것을 막는다.")]
+        public string[] BubbleLines;
+
+        /// <summary>표시 시점 랜덤 선택 — 표현 전용, 로직·플래너와 무관 (ADR-M1-5).</summary>
+        public string PickBubbleLine()
+            => BubbleLines == null || BubbleLines.Length == 0
+                ? DisplayName
+                : BubbleLines[UnityEngine.Random.Range(0, BubbleLines.Length)];
+
         [Tooltip("플래너 기본 비용. 舊 GOAPActionRegistry BaseCost 이관값.")]
         public float BaseCost = 1f;
 

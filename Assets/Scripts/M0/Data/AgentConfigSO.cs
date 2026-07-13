@@ -39,6 +39,9 @@ namespace AIVillage.M0
         [Tooltip("현재 실행 중인 액션의 강조색")]
         public Color BubbleCurrentColor = new Color(1f, 0.83f, 0.31f, 1f);
 
+        [Tooltip("명령 수행 중 말풍선 프리픽스 (TMP 리치 텍스트 허용)")]
+        public string OrderBubblePrefix = "<color=#FF8A65>[명령]</color> ";
+
         [Header("플래닝")]
         [Tooltip("플랜 요청 타임아웃(초). 舊 PLANNING_TIMEOUT_SEC 3.0 이관.")]
         public float PlanningTimeoutSec = 3f;

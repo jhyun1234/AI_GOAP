@@ -13,6 +13,10 @@ MonoBehaviour:
   m_Name: Stroll
   m_EditorClassIdentifier:
   DisplayName: "마을을 둘러보자"
+  BubbleLines:
+  - "마을을 둘러보자"
+  - "산책이나 할까"
+  - "오늘 날씨 좋네"
   BaseCost: 1
   DurationSec: 4
   Preconditions: []

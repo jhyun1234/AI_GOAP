@@ -291,7 +291,7 @@ namespace AIVillage.M0
         // 액션 시작 / 실행
         // ─────────────────────────────────────────────────────────────────────
 
-        private string OrderPrefix() => _goal != null && _goal == _order ? "<color=#FF8A65>[명령]</color> " : null;
+        private string OrderPrefix() => _goal != null && _goal == _order ? _cfg.OrderBubblePrefix : null;
 
         private void StartNextAction()
         {

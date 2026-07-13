@@ -13,6 +13,10 @@ MonoBehaviour:
   m_Name: EatRawFood
   m_EditorClassIdentifier:
   DisplayName: "열매라도 먹자"
+  BubbleLines:
+  - "열매라도 먹자"
+  - "우물우물..."
+  - "배부터 채우자"
   BaseCost: 8
   DurationSec: 2
   Preconditions:

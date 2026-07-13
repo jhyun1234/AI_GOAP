@@ -13,6 +13,10 @@ MonoBehaviour:
   m_Name: HarvestWildBerries
   m_EditorClassIdentifier:
   DisplayName: "열매를 따자"
+  BubbleLines:
+  - "열매를 따자"
+  - "잘 익은 것만 골라야지"
+  - "덤불을 뒤져보자"
   BaseCost: 10
   DurationSec: 0
   Preconditions:

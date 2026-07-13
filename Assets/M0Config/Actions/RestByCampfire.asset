@@ -13,6 +13,10 @@ MonoBehaviour:
   m_Name: RestByCampfire
   m_EditorClassIdentifier:
   DisplayName: "모닥불 곁에서 쉬자"
+  BubbleLines:
+  - "모닥불 곁에서 쉬자"
+  - "불멍이 최고야"
+  - "따뜻하다..."
   BaseCost: 1
   DurationSec: 4
   Preconditions: []

@@ -13,6 +13,10 @@ MonoBehaviour:
   m_Name: MineStone
   m_EditorClassIdentifier:
   DisplayName: "돌을 캐자"
+  BubbleLines:
+  - "돌을 캐자"
+  - "단단한 놈이네"
+  - "곡괭이질 좀 해볼까"
   BaseCost: 12
   DurationSec: 0
   Preconditions:

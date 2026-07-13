@@ -59,9 +59,9 @@ namespace AIVillage.M0
                 if (i > currentIndex) sb.Append(" → ");
                 if (i == currentIndex)
                     sb.Append("<color=#").Append(_currentColorHex).Append('>')
-                      .Append(plan[i].DisplayName).Append("</color>");
+                      .Append(plan[i].PickBubbleLine()).Append("</color>"); // 현재 액션만 변주 (ADR-M1-5)
                 else
-                    sb.Append(plan[i].DisplayName);
+                    sb.Append(plan[i].DisplayName); // 뒤 계획은 고정 문구 — 계획 가독성 유지
             }
             _text.text = sb.ToString();
         }

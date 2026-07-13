@@ -13,6 +13,10 @@ MonoBehaviour:
   m_Name: RestOnGround
   m_EditorClassIdentifier:
   DisplayName: "좀 쉬어야겠어"
+  BubbleLines:
+  - "좀 쉬어야겠어"
+  - "다리가 후들거려..."
+  - "잠깐만 앉자"
   BaseCost: 12
   DurationSec: 0
   Preconditions: []

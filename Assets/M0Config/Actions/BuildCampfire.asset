@@ -13,6 +13,10 @@ MonoBehaviour:
   m_Name: BuildCampfire
   m_EditorClassIdentifier:
   DisplayName: "모닥불을 짓자"
+  BubbleLines:
+  - "모닥불을 짓자"
+  - "여기가 불자리로 좋겠어"
+  - "이제 불을 피워볼까"
   BaseCost: 20
   DurationSec: 0
   Preconditions: []

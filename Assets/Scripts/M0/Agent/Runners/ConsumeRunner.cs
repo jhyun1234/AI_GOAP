@@ -1,3 +1,4 @@
+using AIVillage.Core;
 using UnityEngine;
 
 namespace AIVillage.M0
@@ -20,10 +21,31 @@ namespace AIVillage.M0
         {
             if (!_so.EatAtAnchor) return true; // 제자리 식사
 
+            int cx, cy;
             if (agent.Construction.TryGetBuiltTile(_so.AnchorFlagSlot, out Vector2Int built))
-                MoveTarget = built;
+            {
+                cx = built.x; cy = built.y;
+            }
             else if (agent.WorldConfig != null)
-                MoveTarget = new Vector2Int(agent.WorldConfig.BaseTileX, agent.WorldConfig.BaseTileY);
+            {
+                cx = agent.WorldConfig.BaseTileX; cy = agent.WorldConfig.BaseTileY;
+            }
+            else return true;
+
+            // 반경 내 산개 — 정확히 같은 타일을 노리면 타일 예약 충돌 + 불 위에 서게 됨
+            MapConfig map = MapConfig.Active;
+            int minX = -50, maxX = 49, minY = -50, maxY = 49;
+            if (map != null)
+            {
+                minX = -map.mapOffset;
+                maxX = map.mapSize - map.mapOffset - 1;
+                minY = -map.mapOffset;
+                maxY = map.mapSize - map.mapOffset - 1;
+            }
+            int r = Mathf.Max(1, _so.AnchorRadius);
+            MoveTarget = new Vector2Int(
+                Mathf.Clamp(cx + Random.Range(-r, r + 1), minX, maxX),
+                Mathf.Clamp(cy + Random.Range(-r, r + 1), minY, maxY));
             return true;
         }
 

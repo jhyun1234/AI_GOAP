@@ -16,6 +16,9 @@ namespace AIVillage.M0
         [Tooltip("식사 장소 건물의 완공 플래그 슬롯 (기본 모닥불 — 마을의 부엌)")]
         public SlotId AnchorFlagSlot = SlotId.CampfireBuilt;
 
+        [Tooltip("식사 위치 산개 반경(타일). 정확히 같은 타일을 노리면 타일 예약 충돌 + 불 위에 서게 된다.")]
+        public int AnchorRadius = 1;
+
         public override IActionRunner CreateRunner(VillagerAgent agent) => new ConsumeRunner(this);
     }
 }

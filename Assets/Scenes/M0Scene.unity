@@ -625,6 +625,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: f0658a3851d840a7b24ac5106dd430f4, type: 2}
   _nodeSpawner: {fileID: 502}
   _spriteSet: {fileID: 11400000, guid: b9a6564a8f7c4724b5edf1d3d32e17b6, type: 2}
+  _bubbleFont: {fileID: 11400000, guid: 67865f5944a154b43b12b21a5f1d92c1, type: 2}
 --- !u!1 &800
 GameObject:
   m_ObjectHideFlags: 0

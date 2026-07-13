@@ -26,6 +26,19 @@ namespace AIVillage.M0
         [Tooltip("감속을 시작하는 목적지까지의 거리(타일).")]
         public float DecelDistance = 0.6f;
 
+        [Header("플랜 말풍선 (W6 — 전부 제안치)")]
+        [Tooltip("머리 위 오프셋 (월드 유닛)")]
+        public float BubbleOffsetY = 1.1f;
+
+        [Tooltip("WorldSpace TMP 폰트 크기")]
+        public float BubbleFontSize = 2.5f;
+
+        [Tooltip("말풍선 랩핑 폭 (월드 유닛). 0 금지 — 버그C7 오버플로우 방어")]
+        public float BubbleWidth = 6f;
+
+        [Tooltip("현재 실행 중인 액션의 강조색")]
+        public Color BubbleCurrentColor = new Color(1f, 0.83f, 0.31f, 1f);
+
         [Header("플래닝")]
         [Tooltip("플랜 요청 타임아웃(초). 舊 PLANNING_TIMEOUT_SEC 3.0 이관.")]
         public float PlanningTimeoutSec = 3f;

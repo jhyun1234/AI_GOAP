@@ -34,6 +34,9 @@ namespace AIVillage.M0
         [Tooltip("주민 스프라이트 세트 (W5). 비우면 원형 마커 폴백.")]
         [SerializeField] private AgentSpriteSetSO _spriteSet;
 
+        [Tooltip("말풍선 한국어 폰트 (W6). NeoDunggeunmoPro SDF. 비우면 TMP 기본 폰트(한글 미표시 위험).")]
+        [SerializeField] private TMPro.TMP_FontAsset _bubbleFont;
+
         public static M0SimulationLoop Instance { get; private set; }
 
         public WorldModel World { get; private set; }
@@ -43,6 +46,7 @@ namespace AIVillage.M0
         public GoalSelector Goals { get; private set; }
         public AgentConfigSO AgentConfig => _agentConfig;
         public AgentSpriteSetSO SpriteSet => _spriteSet;
+        public TMPro.TMP_FontAsset BubbleFont => _bubbleFont;
 
         /// <summary>게임 시간 (게임일 단위). 1게임일 = 0.1초 × (1/GameTimeScale) = 100초 (배율 0.01 기준).</summary>
         public float GameTime { get; private set; }

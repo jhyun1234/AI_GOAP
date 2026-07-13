@@ -68,9 +68,10 @@ namespace AIVillage.M0
         private bool _hasNextReserved;
         private float _blockedWaitSec;
 
-        // ── 표현 (W5) ─────────────────────────────────────────────────────
+        // ── 표현 (W5/W6) ──────────────────────────────────────────────────
         private MoveMotion _motion;
         private AgentAnimator _animator;
+        private PlanBubble _bubble;
         private Vector2 _lastDir = Vector2.down;
 
         // ─────────────────────────────────────────────────────────────────────
@@ -99,6 +100,7 @@ namespace AIVillage.M0
             Fatigue = _cfg.InitialFatigue;
             _motion = new MoveMotion(_cfg, AgentId);
             SetupView();
+            SetupBubble();
 
             // 두 셀 소유 규칙의 '현재' 셀 확보
             if (!TileReservationRegistry.TryReserve(new Vector2Int(TileX, TileY), AgentId))
@@ -205,7 +207,7 @@ namespace AIVillage.M0
                     _plan.AddRange(plan);
                     _planIndex = 0;
                     Debug.Log($"[VillagerAgent] {AgentId}: {_goal.DisplayName} 플랜 [{Join(plan)}]");
-                    StartNextAction();
+                    StartNextAction(); // 말풍선 갱신은 StartNextAction 단일 지점에서
                     break;
 
                 case PlanStatus.AlreadySatisfied:
@@ -232,6 +234,8 @@ namespace AIVillage.M0
 
         private void StartNextAction()
         {
+            _bubble?.ShowPlan(_plan, _planIndex); // 갱신 단일 지점: 적재·전환·완료 모두 여기 경유
+
             if (_planIndex >= _plan.Count)
             {
                 Debug.Log($"[VillagerAgent] {AgentId}: {_goal.DisplayName} 플랜 완료");
@@ -374,6 +378,7 @@ namespace AIVillage.M0
             _runner?.Cleanup(this);
             _runner = null;
             _plan.Clear();
+            _bubble?.Clear();
             _waypoints = null;
             _hasNextReserved = false;
 
@@ -442,6 +447,12 @@ namespace AIVillage.M0
             var sr = view.AddComponent<SpriteRenderer>();
             sr.sortingOrder = 10;
             _animator = new AgentAnimator(sr, set, agentColor);
+        }
+
+        /// <summary>말풍선 초기화 (W6). SetupView와 분리 — 마커 폴백이어도 말풍선은 표시.</summary>
+        private void SetupBubble()
+        {
+            _bubble = new PlanBubble(transform, _sim.BubbleFont, _cfg);
         }
     }
 }

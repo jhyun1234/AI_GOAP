@@ -443,6 +443,17 @@ namespace AIVillage.M0
         public enum OrderResult { Accepted, RefusedHungry, RefusedTired }
 
         /// <summary>
+        /// 거부 판정의 유일한 규칙 (ADR-M1-2: 욕구 2축, 랜덤 없음) — 순수 함수라 게이트(M1-T1)가 직접 검증한다.
+        /// 배고픔이 피로보다 먼저 판정된다 (둘 다면 배고픔 사유).
+        /// </summary>
+        public static OrderResult JudgeOrder(float satiety, float fatigue, AgentConfigSO cfg)
+        {
+            if (satiety < cfg.OrderRefuseSatiety) return OrderResult.RefusedHungry;
+            if (fatigue > cfg.OrderRefuseFatigue) return OrderResult.RefusedTired;
+            return OrderResult.Accepted;
+        }
+
+        /// <summary>
         /// 명령 수신 — 거부는 수신 시점 1회, 욕구 상태 기반 판정 (ADR-M1-2, 랜덤 아님).
         /// 수락 시 goal이 개인 사다리에 합류하며, P0 인터럽트 후에도 유지되어 자동 복귀한다.
         /// </summary>
@@ -450,17 +461,18 @@ namespace AIVillage.M0
         {
             if (order == null) return OrderResult.Accepted;
 
-            if (Satiety < _cfg.OrderRefuseSatiety)
+            OrderResult verdict = JudgeOrder(Satiety, Fatigue, _cfg);
+            if (verdict == OrderResult.RefusedHungry)
             {
                 ShowTransient(Pick(_cfg.RefuseHungryLines));
                 Debug.Log($"[VillagerAgent] {AgentId}: 명령 거부 (배고픔 {Satiety:F0} < {_cfg.OrderRefuseSatiety})");
-                return OrderResult.RefusedHungry;
+                return verdict;
             }
-            if (Fatigue > _cfg.OrderRefuseFatigue)
+            if (verdict == OrderResult.RefusedTired)
             {
                 ShowTransient(Pick(_cfg.RefuseTiredLines));
                 Debug.Log($"[VillagerAgent] {AgentId}: 명령 거부 (피로 {Fatigue:F0} > {_cfg.OrderRefuseFatigue})");
-                return OrderResult.RefusedTired;
+                return verdict;
             }
 
             ClearOrderInstance(); // 기존 명령 교체 시 런타임 사본 정리

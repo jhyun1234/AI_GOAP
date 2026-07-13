@@ -140,9 +140,11 @@ namespace AIVillage.M0
                 {
                     _lastLoggedDay = day;
                     Debug.Log($"[M0Sim] Day {day} — Wood {World.GetStock(SlotId.WoodStock)}, " +
+                              $"Stone {World.GetStock(SlotId.StoneStock)}, " +
                               $"RawFood {World.GetStock(SlotId.RawFoodStock)}, " +
-                              $"발견Wood={Discovery.HasDiscovered(ResourceType.Wood)}, " +
-                              $"발견Food={Discovery.HasDiscovered(ResourceType.RawFood)}");
+                              $"발견 W/S/F={Discovery.HasDiscovered(ResourceType.Wood)}/" +
+                              $"{Discovery.HasDiscovered(ResourceType.Stone)}/" +
+                              $"{Discovery.HasDiscovered(ResourceType.RawFood)}");
                 }
             }
         }

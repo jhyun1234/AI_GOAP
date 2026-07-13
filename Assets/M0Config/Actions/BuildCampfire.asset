@@ -18,7 +18,7 @@ MonoBehaviour:
   - "여기가 불자리로 좋겠어"
   - "이제 불을 피워볼까"
   BaseCost: 20
-  DurationSec: 0
+  DurationSec: 4
   Preconditions: []
   Effects: []
   Building: {fileID: 11400000, guid: ff902f62e16946d38629923afb822606, type: 2}

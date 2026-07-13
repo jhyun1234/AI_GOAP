@@ -18,7 +18,7 @@ MonoBehaviour:
   - "단단한 놈이네"
   - "곡괭이질 좀 해볼까"
   BaseCost: 12
-  DurationSec: 0
+  DurationSec: 3
   Preconditions:
   - Slot: 9
     Op: 0

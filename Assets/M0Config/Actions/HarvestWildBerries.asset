@@ -18,7 +18,7 @@ MonoBehaviour:
   - "잘 익은 것만 골라야지"
   - "덤불을 뒤져보자"
   BaseCost: 10
-  DurationSec: 0
+  DurationSec: 2
   Preconditions:
   - Slot: 5
     Op: 0

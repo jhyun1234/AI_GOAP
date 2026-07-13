@@ -64,9 +64,18 @@ namespace AIVillage.M0
 
         // ── 촌장 명령 (M1-C, ADR-M1-1: 상태머신이 아니라 사다리의 한 칸) ──
         private GoalSO _order;
+        private bool _orderIsRuntimeClone; // 상대 목표 해석용 사본 여부 (수명 관리)
         private float _transientTextUntil;
 
         public GoalSO CurrentOrder => _order;
+
+        /// <summary>명령 슬롯 정리 — 런타임 사본이면 파괴 (누수 방지). 소멸의 유일한 경로.</summary>
+        private void ClearOrderInstance()
+        {
+            if (_order != null && _orderIsRuntimeClone) Destroy(_order);
+            _order = null;
+            _orderIsRuntimeClone = false;
+        }
         private float _idleCooldownSec;
         private int _tickCounter;
         private readonly List<SlotEffect> _effectBuf = new List<SlotEffect>(8);
@@ -122,6 +131,7 @@ namespace AIVillage.M0
 
         private void OnDestroy()
         {
+            ClearOrderInstance();
             _runner?.Cleanup(this);
             if (_pending != null && _sim != null) _sim.Planner.Cancel(_pending);
             TileReservationRegistry.ReleaseAllBy(AgentId);
@@ -196,7 +206,7 @@ namespace AIVillage.M0
                 && GoalSelector.AllHold(_order.GoalConditions, snap))
             {
                 Debug.Log($"[VillagerAgent] {AgentId}: 명령 완수 — {_order.DisplayName}");
-                _order = null;
+                ClearOrderInstance();
             }
 
             _goal = _sim.Goals.Select(snap, IsGoalCoolingDown, _order);
@@ -447,8 +457,27 @@ namespace AIVillage.M0
                 return OrderResult.RefusedTired;
             }
 
-            _order = order;
-            _goalRetryAt.Remove(order); // 새 명령은 과거 실패 쿨다운을 잊는다
+            ClearOrderInstance(); // 기존 명령 교체 시 런타임 사본 정리
+
+            // 상대 목표 해석: "지금보다 +N" — 수신 시점 절대값으로 고정한 런타임 사본 생성
+            if (order.RelativeToCurrent && order.GoalConditions != null)
+            {
+                WorldSnapshot snap = BuildSnapshot();
+                GoalSO resolved = Instantiate(order);
+                resolved.name = order.name; // 로그·비교 가독성 (에셋은 무변경)
+                resolved.RelativeToCurrent = false;
+                for (int i = 0; i < resolved.GoalConditions.Length; i++)
+                    resolved.GoalConditions[i].Value = snap.Get(resolved.GoalConditions[i].Slot)
+                                                       + order.GoalConditions[i].Value;
+                _order = resolved;
+                _orderIsRuntimeClone = true;
+            }
+            else
+            {
+                _order = order;
+                _orderIsRuntimeClone = false;
+            }
+            _goalRetryAt.Remove(_order); // 새 명령은 과거 실패 쿨다운을 잊는다
 
             // 즉시 착수: 현재 일이 명령보다 낮으면 중단 (실패 아님 — 쿨다운 없음)
             if ((State == AgentState.Moving || State == AgentState.Acting)
@@ -470,7 +499,7 @@ namespace AIVillage.M0
         {
             if (_order == null) return;
             GoalSO cancelled = _order;
-            _order = null;
+            ClearOrderInstance();
             if (_goal == cancelled && (State == AgentState.Moving || State == AgentState.Acting))
                 AbortPlan("명령 취소 (자율 복귀)", warn: false, cooldown: false);
         }

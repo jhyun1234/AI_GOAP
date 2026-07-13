@@ -27,6 +27,10 @@ namespace AIVillage.M0
                  "다른 goal에 남용 금지, 플래너 우회 뒷문이 된다).")]
         public ActionSO[] DirectActionPool;
 
+        [Tooltip("true면 GoalConditions.Value를 '수신 시점 현재값 + Value(증분)'로 해석 (명령 goal 전용, M1-C). " +
+                 "'창고를 30까지'가 아니라 '지금보다 10 더'가 플레이어의 의도 — 수신 시 절대값 사본으로 고정된다.")]
+        public bool RelativeToCurrent;
+
         /// <summary>
         /// ADR-M0-7 정합 검사: goal 달성 상태가 trigger를 다시 발동시키면 무한 루프다.
         /// 같은 슬롯에 대해 "목표값이 발동 조건을 만족"하면 에셋 저장 시점에 에러를 띄운다.

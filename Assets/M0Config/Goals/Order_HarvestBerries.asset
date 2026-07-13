@@ -18,5 +18,6 @@ MonoBehaviour:
   GoalConditions:
   - Slot: 1
     Op: 1
-    Value: 15
+    Value: 10
   DirectActionPool: []
+  RelativeToCurrent: 1

@@ -59,6 +59,8 @@ namespace AIVillage.M0
         private bool _directGoal; // DirectActionPool goal 여부 (완료 로그 억제용)
         private PlannerGateway.PendingPlan _pending;
         private IActionRunner _runner;
+        // 실패 goal 재시도 쿨다운 — 공회전(실패→즉시 재선택) 방지, 그동안 하위 goal로
+        private readonly Dictionary<GoalSO, float> _goalRetryAt = new Dictionary<GoalSO, float>();
         private float _idleCooldownSec;
         private int _tickCounter;
         private readonly List<SlotEffect> _effectBuf = new List<SlotEffect>(8);
@@ -171,7 +173,7 @@ namespace AIVillage.M0
             if (_idleCooldownSec > 0f) return;
 
             WorldSnapshot snap = BuildSnapshot();
-            _goal = _sim.Goals.Select(snap);
+            _goal = _sim.Goals.Select(snap, IsGoalCoolingDown);
             if (_goal == null)
             {
                 _idleCooldownSec = 0.5f; // 할 일 없음 — 정상 Idle
@@ -387,9 +389,13 @@ namespace AIVillage.M0
         // 중단 / 공용
         // ─────────────────────────────────────────────────────────────────────
 
+        private bool IsGoalCoolingDown(GoalSO goal)
+            => _goalRetryAt.TryGetValue(goal, out float until) && Time.time < until;
+
         private void AbortPlan(string reason)
         {
             Debug.LogWarning($"[VillagerAgent] {AgentId}: 플랜 중단 — {reason} (goal={(_goal != null ? _goal.name : "?")})");
+            if (_goal != null) _goalRetryAt[_goal] = Time.time + _cfg.GoalRetryCooldownSec;
             _runner?.Cleanup(this);
             _runner = null;
             _plan.Clear();

@@ -22,6 +22,7 @@ MonoBehaviour:
   BubbleWidth: 6
   BubbleCurrentColor: {r: 1, g: 0.83, b: 0.31, a: 1}
   PlanningTimeoutSec: 3
+  GoalRetryCooldownSec: 3
   InitialSatiety: 70
   InitialFatigue: 20
   SatietyDecayPerGameDay: 25

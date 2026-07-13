@@ -29,13 +29,17 @@ namespace AIVillage.M0
                 Debug.LogWarning("[GoalSelector] 등록된 goal이 없습니다 — 주민이 항상 Idle 상태가 됩니다.");
         }
 
-        /// <summary>현재 스냅샷에서 수행할 goal을 반환한다. 할 일이 없으면 null (정상 Idle).</summary>
-        public GoalSO Select(WorldSnapshot snap)
+        /// <summary>
+        /// 현재 스냅샷에서 수행할 goal을 반환한다. 할 일이 없으면 null (정상 Idle).
+        /// skip: 후보 제외 판정 (에이전트의 실패 쿨다운 등) — 상위가 막히면 하위로 내려간다.
+        /// </summary>
+        public GoalSO Select(WorldSnapshot snap, System.Func<GoalSO, bool> skip = null)
         {
             if (!snap.IsValid) return null;
 
             foreach (GoalSO goal in _goals)
             {
+                if (skip != null && skip(goal)) continue;                  // 쿨다운 등 제외
                 if (!AllHold(goal.TriggerConditions, snap)) continue;      // 미발동
                 if (goal.GoalConditions != null && goal.GoalConditions.Length > 0
                     && AllHold(goal.GoalConditions, snap)) continue;       // 이미 달성 → 스킵

@@ -36,11 +36,15 @@ namespace AIVillage.M0
             return found;
         }
 
-        /// <summary>잔량 있는 발견 노드 존재 여부 — 스냅샷 NearDiscovered* 슬롯의 원천.</summary>
+        /// <summary>
+        /// 채집 가능한(잔량 + 점유 여유) 발견 노드 존재 여부 — 스냅샷 NearDiscovered* 슬롯의 원천.
+        /// 점유 중인 노드를 '없음'으로 취급하는 것이 핵심: 덤불이 다 차면 플래너가
+        /// Explore 체인으로 대체 계획을 세워 주민이 새 노드를 찾아 나선다 (자연 분산).
+        /// </summary>
         public bool HasDiscovered(ResourceType type)
         {
             foreach (ResourceNode n in _nodes)
-                if (n.ResourceType == type && n.IsDiscovered && n.CurrentAmount >= 1f)
+                if (n.ResourceType == type && n.IsDiscovered && n.IsAvailableForHarvest())
                     return true;
             return false;
         }

@@ -43,6 +43,10 @@ namespace AIVillage.M0
         [Tooltip("플랜 요청 타임아웃(초). 舊 PLANNING_TIMEOUT_SEC 3.0 이관.")]
         public float PlanningTimeoutSec = 3f;
 
+        [Tooltip("실패한 goal의 재시도 대기(초). 실패 직후 같은 goal을 재선택하는 공회전을 막고 " +
+                 "그동안 하위 goal(여가 등)로 내려가게 한다. 제안치 3.")]
+        public float GoalRetryCooldownSec = 3f;
+
         [Header("욕구 (초기값은 舊 VillagerBrain 기본값 이관)")]
         public float InitialSatiety = 70f;
         public float InitialFatigue = 20f;

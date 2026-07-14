@@ -21,10 +21,10 @@ MonoBehaviour:
   DurationSec: 2
   Preconditions:
   - Slot: 12
-    Op: 0
+    Op: 1
     Value: 1
   Effects:
   - Slot: 12
-    Op: 0
-    Value: 0
+    Op: 2
+    Value: 1
   Kind: 0

@@ -72,9 +72,10 @@ namespace AIVillage.M0
             slots[(int)SlotId.AtBuildSite]   = 0; // W6에서 사용
             slots[(int)SlotId.CookedFoodStock] = _slots[(int)SlotId.CookedFoodStock];
             slots[(int)SlotId.FarmPlotCount]   = _slots[(int)SlotId.FarmPlotCount];
-            // Empty/Ripe의 유일한 원천은 FarmService (ADR-M2-4) — 미배선(테스트 등)이면 0
-            slots[(int)SlotId.EmptyFarmPlot]     = _farm != null && _farm.HasEmpty ? 1 : 0;
-            slots[(int)SlotId.RipeCropAvailable] = _farm != null && _farm.HasRipe  ? 1 : 0;
+            // Empty/Ripe의 유일한 원천은 FarmService (ADR-M2-4) — 미배선(테스트 등)이면 0.
+            // 값은 개수 (ADR-M3-2) — 익은 밭 N개면 한 플랜에 수확 N회가 담긴다.
+            slots[(int)SlotId.EmptyFarmPlot]     = _farm != null ? _farm.CountEmpty() : 0;
+            slots[(int)SlotId.RipeCropAvailable] = _farm != null ? _farm.CountRipe()  : 0;
             return new WorldSnapshot(slots);
         }
 

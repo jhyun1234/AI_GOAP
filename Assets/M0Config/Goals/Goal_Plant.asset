@@ -16,7 +16,7 @@ MonoBehaviour:
   Priority: 22
   TriggerConditions:
   - Slot: 12
-    Op: 0
+    Op: 1
     Value: 1
   GoalConditions:
   - Slot: 12

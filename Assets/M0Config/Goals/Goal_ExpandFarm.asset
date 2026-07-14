@@ -10,17 +10,20 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 33fdfa0cd09f4e98b5f035ae8ed6614b, type: 3}
-  m_Name: Goal_HarvestCrop
+  m_Name: Goal_ExpandFarm
   m_EditorClassIdentifier:
-  DisplayName: "작물 수확"
-  Priority: 24
+  DisplayName: "밭 확장 (식량 위기)"
+  Priority: 26
   TriggerConditions:
-  - Slot: 13
-    Op: 1
+  - Slot: 1
+    Op: 2
+    Value: 10
+  - Slot: 6
+    Op: 0
     Value: 1
   GoalConditions:
-  - Slot: 13
-    Op: 0
-    Value: 0
+  - Slot: 11
+    Op: 1
+    Value: 4
   DirectActionPool: []
   RelativeToCurrent: 0

@@ -69,24 +69,22 @@ namespace AIVillage.M0
             }
         }
 
-        public bool HasEmpty
-        {
-            get
-            {
-                foreach (FarmPlot p in _plots)
-                    if (p.State == FarmState.Empty) return true;
-                return false;
-            }
-        }
+        /// <summary>빈 밭 개수 — 스냅샷 EmptyFarmPlot 슬롯의 원천 (ADR-M3-2: 0/1 → 개수 승격).</summary>
+        public int CountEmpty() => CountState(FarmState.Empty);
 
-        public bool HasRipe
+        /// <summary>익은 밭 개수 — 스냅샷 RipeCropAvailable 슬롯의 원천. 개수라서 한 플랜에 연속 수확이 담긴다.</summary>
+        public int CountRipe() => CountState(FarmState.Ripe);
+
+        public bool HasEmpty => CountEmpty() > 0;
+
+        public bool HasRipe => CountRipe() > 0;
+
+        private int CountState(FarmState state)
         {
-            get
-            {
-                foreach (FarmPlot p in _plots)
-                    if (p.State == FarmState.Ripe) return true;
-                return false;
-            }
+            int n = 0;
+            foreach (FarmPlot p in _plots)
+                if (p.State == state) n++;
+            return n;
         }
 
         /// <summary>최근접 빈 밭. 타인 점유 밭은 제외 — 같은 밭에 두 주민이 몰리는 헛걸음 완화.</summary>

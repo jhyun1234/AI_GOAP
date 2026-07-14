@@ -1,5 +1,7 @@
+using AIVillage.Core.GOAP;
 using AIVillage.M0;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 
 namespace AIVillage.Tests.EditMode
@@ -59,6 +61,69 @@ namespace AIVillage.Tests.EditMode
             Assert.AreEqual(new Vector2Int(2, 2), tile, "가까운 쪽 선택");
             construction.TryGetAnchorTile(priority, 19, 19, out tile);
             Assert.AreEqual(new Vector2Int(20, 20), tile, "위치가 바뀌면 최근접도 바뀜 — 조용한 기지 폴백 함정 해소");
+        }
+
+        [Test]
+        public void M3_T2_RipeCount_MultipleHarvestsInOnePlan()
+        {
+            // ADR-M3-2: Ripe가 개수라서 익은 밭 3개 → 한 플랜에 수확 3회 (재계획 폭주 해소, M3-S3)
+            var catalog = AssetDatabase.LoadAssetAtPath<ActionCatalog>("Assets/M0Config/ActionCatalog.asset");
+            var goal = AssetDatabase.LoadAssetAtPath<GoalSO>("Assets/M0Config/Goals/Goal_HarvestCrop.asset");
+            Assert.IsNotNull(catalog); Assert.IsNotNull(goal);
+            var gw = new PlannerGateway(catalog);
+
+            var slots = new int[PlanningConfig.TotalSlots];
+            slots[(int)SlotId.MySatiety] = 80;
+            slots[(int)SlotId.RipeCropAvailable] = 3;
+            PlannerGateway.PendingPlan pending = gw.RequestPlan(new WorldSnapshot(slots), goal);
+            gw.CompleteNow(pending);
+            Assert.IsTrue(gw.TryGetResult(pending, out PlanStatus status, out ActionSO[] plan, out _));
+
+            Assert.AreEqual(PlanStatus.Success, status);
+            Assert.AreEqual(3, plan.Length, "익은 밭 3개 → HarvestCrop ×3 연속 플랜");
+            foreach (ActionSO a in plan)
+                Assert.AreEqual("HarvestCrop", a.name);
+        }
+
+        [Test]
+        public void M3_T2b_Snapshot_CountsFromFarmService()
+        {
+            var farm = new FarmService(growthDays: 1.5f);
+            var world = new WorldModel(new DiscoveryService(), Config(0, 0), farm);
+            farm.RegisterPlot(1, 1);
+            farm.RegisterPlot(2, 2);
+            farm.RegisterPlot(3, 3);
+            Assert.AreEqual(3, world.BuildSnapshot(50, 50).Get(SlotId.EmptyFarmPlot), "빈 밭 개수 반영");
+
+            farm.TryPlant(farm.NearestEmpty(0, 0));
+            farm.TryPlant(farm.NearestEmpty(0, 0));
+            farm.TickGrowth(2f);
+            WorldSnapshot snap = world.BuildSnapshot(50, 50);
+            Assert.AreEqual(1, snap.Get(SlotId.EmptyFarmPlot), "빈 1 (심은 2 제외)");
+            Assert.AreEqual(2, snap.Get(SlotId.RipeCropAvailable), "익은 2");
+        }
+
+        [Test]
+        public void M3_T3_ExpandFarm_TriggersOnFoodPressure()
+        {
+            var goal = AssetDatabase.LoadAssetAtPath<GoalSO>("Assets/M0Config/Goals/Goal_ExpandFarm.asset");
+            Assert.IsNotNull(goal, "Goal_ExpandFarm 에셋 없음");
+            var selector = new GoalSelector(new[] { goal });
+
+            var slots = new int[PlanningConfig.TotalSlots];
+            slots[(int)SlotId.MySatiety] = 80;
+            slots[(int)SlotId.CampfireBuilt] = 1;
+            slots[(int)SlotId.FarmPlotCount] = 2;
+            slots[(int)SlotId.RawFoodStock] = 8;
+            Assert.AreEqual("Goal_ExpandFarm", selector.Select(new WorldSnapshot(slots)).name,
+                            "식량 압박(생식 8 ≤ 10) → 밭 확장 발동");
+
+            slots[(int)SlotId.RawFoodStock] = 30;
+            Assert.IsNull(selector.Select(new WorldSnapshot(slots)), "식량 여유 → 미발동");
+
+            slots[(int)SlotId.RawFoodStock] = 8;
+            slots[(int)SlotId.FarmPlotCount] = 4;
+            Assert.IsNull(selector.Select(new WorldSnapshot(slots)), "목표 4개 도달 → 재발동 없음");
         }
     }
 }

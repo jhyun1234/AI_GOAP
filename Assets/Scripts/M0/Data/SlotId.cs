@@ -29,8 +29,8 @@ namespace AIVillage.M0
         // ── M2 확장 (기존 인덱스 뒤에만 추가 — 에셋 호환 유지) ─────────────
         CookedFoodStock   = 10, // 수치형
         FarmPlotCount     = 11, // 수치형 — 수량형 건물 카운트 (ADR-M2-3)
-        EmptyFarmPlot     = 12, // 논리형 — FarmService가 유일한 원천 (ADR-M2-4)
-        RipeCropAvailable = 13, // 논리형 — FarmService가 유일한 원천 (ADR-M2-4)
+        EmptyFarmPlot     = 12, // 수치형(개수, ADR-M3-2 승격) — FarmService가 유일한 원천 (ADR-M2-4)
+        RipeCropAvailable = 13, // 수치형(개수, ADR-M3-2 승격) — FarmService가 유일한 원천 (ADR-M2-4)
     }
 
     public static class SlotIds

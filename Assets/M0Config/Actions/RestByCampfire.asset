@@ -26,5 +26,6 @@ MonoBehaviour:
     Value: 4
   AnchorAtBuilding: 1
   AnchorPriority:
+  - 14
   - 6
   WanderRadius: 2

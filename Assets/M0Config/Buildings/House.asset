@@ -23,6 +23,7 @@ MonoBehaviour:
   CountSlot: 14
   BlocksMovement: 1
   Prefab: {fileID: 0}
+  MarkerSprite: {fileID: 21300000, guid: 56b0033ed9681724b91ea116a038b5a9, type: 3}
   FallbackColor: {r: 0.78, g: 0.5, b: 0.28, a: 1}
-  FallbackSize: 1
+  FallbackSize: 0.35
   SortingOrder: 5

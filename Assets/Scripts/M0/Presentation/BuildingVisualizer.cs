@@ -30,11 +30,17 @@ namespace AIVillage.M0
             go.transform.localScale = Vector3.one * Mathf.Max(0.1f, building.FallbackSize);
 
             var sr = go.AddComponent<SpriteRenderer>();
-            sr.sprite = M0Sprites.Circle;
-
-            Color c = building.FallbackColor;
-            if (c.a <= 0f) c.a = 1f; // BC5: 알파 0 에셋 함정 방어
-            sr.color = c;
+            if (building.MarkerSprite != null)
+            {
+                sr.sprite = building.MarkerSprite; // 원본색 그대로 (M3-D 시각 보강)
+            }
+            else
+            {
+                sr.sprite = M0Sprites.Circle;
+                Color c = building.FallbackColor;
+                if (c.a <= 0f) c.a = 1f; // BC5: 알파 0 에셋 함정 방어
+                sr.color = c;
+            }
             sr.sortingOrder = building.SortingOrder;
             return go;
         }

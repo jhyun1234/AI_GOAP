@@ -14,6 +14,7 @@ namespace AIVillage.M0
         private const int SEARCH_RADIUS = 3; // 알고리즘 상수 — 인접 빈 타일 링 탐색 한계
 
         private readonly BuildActionSO _so;
+        private Vector2Int _buildTile; // 완공 위치 — 차단 건물은 서는 타일(MoveTarget)과 분리 (ADR-M3-3)
 
         public override bool AppliesOwnEffects => true;
 
@@ -44,13 +45,35 @@ namespace AIVillage.M0
 
             if (!TryPickBuildTile(Occupied, hasCluster, cluster,
                     new Vector2Int(agent.TileX, agent.TileY), minX, maxX, minY, maxY,
-                    out Vector2Int tile, out bool needMove))
+                    out _buildTile, out bool needMove))
             {
                 FailReason = $"{_so.Building.DisplayName}: 주변 {SEARCH_RADIUS}칸 내 건설 가능한 빈 타일 없음";
                 return false;
             }
-            if (needMove) MoveTarget = tile;
+
+            if (_so.Building.BlocksMovement)
+            {
+                // 차단 건물은 자기가 만든 벽 위에 설 수 없다 — 건설 타일 인접 빈 칸에서 짓는다 (ADR-M3-3)
+                if (!TryPickStandTile(Occupied, _buildTile, minX, maxX, minY, maxY, out Vector2Int stand))
+                {
+                    FailReason = $"{_so.Building.DisplayName}: 건설 타일 곁에 설 자리 없음";
+                    return false;
+                }
+                MoveTarget = stand;
+            }
+            else if (needMove)
+            {
+                MoveTarget = _buildTile;
+            }
             return true;
+        }
+
+        /// <summary>차단 건물 건설자가 설 타일 — 건설 타일 자신을 제외한 인접 빈 칸 (순수 함수, 게이트 대상).</summary>
+        public static bool TryPickStandTile(System.Func<int, int, bool> occupied, Vector2Int buildTile,
+            int minX, int maxX, int minY, int maxY, out Vector2Int standTile)
+        {
+            bool Blocked(int x, int y) => (x == buildTile.x && y == buildTile.y) || occupied(x, y);
+            return TryFindFreeTileNear(Blocked, buildTile.x, buildTile.y, minX, maxX, minY, maxY, out standTile);
         }
 
         /// <summary>
@@ -112,7 +135,8 @@ namespace AIVillage.M0
         {
             if (!DurationElapsed(dt)) return RunnerResult.Running;
 
-            return agent.Construction.Complete(_so.Building, agent.TileX, agent.TileY)
+            // 완공 위치 = Prepare에서 정한 건설 타일 (비차단은 도착 타일과 동일, 차단은 인접에서 시공)
+            return agent.Construction.Complete(_so.Building, _buildTile.x, _buildTile.y)
                 ? RunnerResult.Succeeded
                 : Fail($"{_so.Building.DisplayName} 완공 실패 (비용 부족 또는 중복)");
         }

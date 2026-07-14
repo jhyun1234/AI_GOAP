@@ -104,6 +104,30 @@ namespace AIVillage.Tests.EditMode
         }
 
         [Test]
+        public void M3_T4_ExistingBuildings_DoNotBlockMovement()
+        {
+            // ADR-M3-3: 통행 차단은 건물 속성 — 기존 건물(모닥불·밭)은 밟고 지나다닌다 (동작 무변경 보증)
+            var campfire = AssetDatabase.LoadAssetAtPath<BuildingSO>("Assets/M0Config/Buildings/Campfire.asset");
+            var farm = AssetDatabase.LoadAssetAtPath<BuildingSO>("Assets/M0Config/Buildings/FarmPlot.asset");
+            Assert.IsNotNull(campfire); Assert.IsNotNull(farm);
+            Assert.IsFalse(campfire.BlocksMovement, "모닥불은 통행 가능 유지");
+            Assert.IsFalse(farm.BlocksMovement, "밭은 통행 가능 유지");
+        }
+
+        [Test]
+        public void M3_T4b_StandTile_AdjacentButNotOnBuildSite()
+        {
+            // 차단 건물 건설자는 자기가 만든 벽 위에 설 수 없다 — 인접 빈 칸 선택 (순수 게이트)
+            var site = new Vector2Int(5, 5);
+            Assert.IsTrue(BuildRunner.TryPickStandTile((x, y) => false, site, -50, 49, -50, 49, out Vector2Int stand));
+            Assert.AreNotEqual(site, stand, "건설 타일 자신은 제외");
+            Assert.AreEqual(1, Mathf.Max(Mathf.Abs(stand.x - 5), Mathf.Abs(stand.y - 5)), "인접 링에서 선택");
+
+            // 주변 전부 점유(건설 타일 포함) → false (좌표 스냅 없이 실패)
+            Assert.IsFalse(BuildRunner.TryPickStandTile((x, y) => true, site, -50, 49, -50, 49, out _));
+        }
+
+        [Test]
         public void M3_T3_ExpandFarm_TriggersOnFoodPressure()
         {
             var goal = AssetDatabase.LoadAssetAtPath<GoalSO>("Assets/M0Config/Goals/Goal_ExpandFarm.asset");

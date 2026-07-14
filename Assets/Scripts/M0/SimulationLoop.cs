@@ -110,6 +110,12 @@ namespace AIVillage.M0
                     Farm.RegisterPlot(x, y);
             };
             _farmView = new FarmPlotView(transform, _cropSprites, Farm); // M2-D 성장 표현 (이벤트 구독)
+            // 통행 차단 건물 → Walkable 갱신의 유일한 지점 (ADR-M3-3) — JPS는 이 배열만 보고 우회한다
+            Construction.OnCompleted += (b, x, y) =>
+            {
+                if (b.BlocksMovement && MapBounds.ToArrayIndex(x, y, out int ax, out int ay))
+                    Walkable[ax, ay] = false;
+            };
 
             // JPS 통행 배열 — Bootstrap(-95)이 MapConfig를 먼저 활성화한다
             int mapSize = MapConfig.Active != null ? MapConfig.Active.mapSize : 100;

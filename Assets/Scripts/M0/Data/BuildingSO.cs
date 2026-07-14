@@ -35,6 +35,10 @@ namespace AIVillage.M0
         [Tooltip("수량형 카운트 수치 슬롯 (예: FarmPlotCount). IsCountable일 때만 사용.")]
         public SlotId CountSlot;
 
+        [Tooltip("true면 완공 타일이 통행 불가가 된다 (집 등, ADR-M3-3). 모닥불·밭은 false — 밟고 지나다닌다. " +
+                 "차단 건물은 건설자가 인접 타일에서 짓는다.")]
+        public bool BlocksMovement;
+
         [Tooltip("완공 시 스폰할 프리팹. 비우면 아래 Fallback 설정으로 원형 마커를 코드 생성.")]
         public GameObject Prefab;
 

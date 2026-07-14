@@ -437,6 +437,13 @@ namespace AIVillage.M0
         private bool IsGoalCoolingDown(GoalSO goal)
             => _goalRetryAt.TryGetValue(goal, out float until) && Time.time < until;
 
+        /// <summary>
+        /// 실패 쿨다운 기록 여부 (순수 판정 — EditMode 게이트 대상, M2-E).
+        /// P0 생존 goal은 SkipFailureCooldown으로 면제된다 (ADR-M2-5) — 실패 직후에도 즉시 재선택.
+        /// </summary>
+        public static bool ShouldRecordFailureCooldown(GoalSO goal, bool cooldownRequested)
+            => cooldownRequested && goal != null && !goal.SkipFailureCooldown;
+
         // ─────────────────────────────────────────────────────────────────────
         // 촌장 명령 (M1-C)
         // ─────────────────────────────────────────────────────────────────────
@@ -542,7 +549,7 @@ namespace AIVillage.M0
         {
             string msg = $"[VillagerAgent] {AgentId}: 플랜 중단 — {reason} (goal={(_goal != null ? _goal.name : "?")})";
             if (warn) Debug.LogWarning(msg); else Debug.Log(msg);
-            if (cooldown && _goal != null) _goalRetryAt[_goal] = Time.time + _cfg.GoalRetryCooldownSec;
+            if (ShouldRecordFailureCooldown(_goal, cooldown)) _goalRetryAt[_goal] = Time.time + _cfg.GoalRetryCooldownSec;
             _runner?.Cleanup(this);
             _runner = null;
             _plan.Clear();

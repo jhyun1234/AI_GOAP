@@ -22,3 +22,4 @@ MonoBehaviour:
   - Slot: 3
     Op: 2
     Value: 30
+  SkipFailureCooldown: 1

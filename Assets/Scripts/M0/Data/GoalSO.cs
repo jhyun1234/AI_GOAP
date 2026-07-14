@@ -31,6 +31,10 @@ namespace AIVillage.M0
                  "'창고를 30까지'가 아니라 '지금보다 10 더'가 플레이어의 의도 — 수신 시 절대값 사본으로 고정된다.")]
         public bool RelativeToCurrent;
 
+        [Tooltip("P0 생존 goal 전용 (ADR-M2-5): 플랜 실패 후 재시도 쿨다운을 면제한다 — " +
+                 "굶는데 여가를 가는 상황 원천 차단. 다른 goal에 켜면 공회전 방지가 무력화된다.")]
+        public bool SkipFailureCooldown;
+
         /// <summary>
         /// ADR-M0-7 정합 검사: goal 달성 상태가 trigger를 다시 발동시키면 무한 루프다.
         /// 같은 슬롯에 대해 "목표값이 발동 조건을 만족"하면 에셋 저장 시점에 에러를 띄운다.

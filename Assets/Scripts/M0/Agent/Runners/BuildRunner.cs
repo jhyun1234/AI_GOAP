@@ -33,9 +33,6 @@ namespace AIVillage.M0
             bool Occupied(int x, int y)
                 => agent.Discovery.HasNodeAt(x, y) || agent.Construction.HasBuildingAt(x, y);
 
-            if (!Occupied(agent.TileX, agent.TileY))
-                return true; // MoveTarget null = 제자리
-
             // 맵 경계 (ExploreRunner와 동일 규칙)
             AIVillage.Core.MapConfig map = AIVillage.Core.MapConfig.Active;
             int minX = -50, maxX = 49, minY = -50, maxY = 49;
@@ -47,12 +44,50 @@ namespace AIVillage.M0
                 maxY = map.mapSize - map.mapOffset - 1;
             }
 
-            if (TryFindFreeTileNear(Occupied, agent.TileX, agent.TileY, minX, maxX, minY, maxY, out Vector2Int free))
+            // 군집 앵커: 동종 수량형 건물이 이미 있으면 그 곁부터 — "밭은 밭 옆에" (상식적 자율)
+            Vector2Int cluster = default;
+            bool hasCluster = _so.Building.IsCountable
+                && agent.Construction.TryGetNearestBuiltTile(
+                       _so.Building.CountSlot, agent.TileX, agent.TileY, out cluster);
+
+            if (!TryPickBuildTile(Occupied, hasCluster, cluster,
+                    new Vector2Int(agent.TileX, agent.TileY), minX, maxX, minY, maxY,
+                    out Vector2Int tile, out bool needMove))
             {
-                MoveTarget = free;
+                FailReason = $"{_so.Building.DisplayName}: 주변 {SEARCH_RADIUS}칸 내 건설 가능한 빈 타일 없음";
+                return false;
+            }
+            if (needMove) MoveTarget = tile;
+            return true;
+        }
+
+        /// <summary>
+        /// 건설 타일 결정 (순수 함수 — EditMode 게이트 대상):
+        /// ① 군집 앵커(동종 건물) 곁 빈 타일 → ② 현재 타일 비점유면 제자리 →
+        /// ③ 현재 위치 곁 빈 타일 → ④ 실패 (좌표 스냅 없이 재계획).
+        /// </summary>
+        public static bool TryPickBuildTile(System.Func<int, int, bool> occupied,
+            bool hasClusterAnchor, Vector2Int clusterAnchor, Vector2Int agentTile,
+            int minX, int maxX, int minY, int maxY, out Vector2Int tile, out bool needMove)
+        {
+            if (hasClusterAnchor
+                && TryFindFreeTileNear(occupied, clusterAnchor.x, clusterAnchor.y, minX, maxX, minY, maxY, out tile))
+            {
+                needMove = true;
                 return true;
             }
-            FailReason = $"{_so.Building.DisplayName}: 주변 {SEARCH_RADIUS}칸 내 건설 가능한 빈 타일 없음";
+            if (!occupied(agentTile.x, agentTile.y))
+            {
+                tile = agentTile;
+                needMove = false;
+                return true;
+            }
+            if (TryFindFreeTileNear(occupied, agentTile.x, agentTile.y, minX, maxX, minY, maxY, out tile))
+            {
+                needMove = true;
+                return true;
+            }
+            needMove = false;
             return false;
         }
 

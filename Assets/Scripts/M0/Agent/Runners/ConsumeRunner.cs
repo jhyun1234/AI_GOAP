@@ -22,7 +22,7 @@ namespace AIVillage.M0
             if (!_so.EatAtAnchor) return true; // 제자리 식사
 
             int cx, cy;
-            if (agent.Construction.TryGetBuiltTile(_so.AnchorFlagSlot, out Vector2Int built))
+            if (agent.Construction.TryGetFirstBuiltAnchor(_so.AnchorPriority, out Vector2Int built))
             {
                 cx = built.x; cy = built.y;
             }

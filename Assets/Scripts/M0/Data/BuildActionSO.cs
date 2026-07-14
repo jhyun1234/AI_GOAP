@@ -20,8 +20,11 @@ namespace AIVillage.M0
             base.CollectPreconditions(into);
             if (Building == null) return;
 
-            // 미완공일 때만 후보 (무전제 액션 재적용 함정 방어 — 舊 버그21 계승)
-            into.Add(new SlotCondition { Slot = Building.BuiltFlagSlot, Op = CompareOp.Equal, Value = 0 });
+            // 미완공일 때만 후보 (무전제 액션 재적용 함정 방어 — 舊 버그21 계승).
+            // 수량형(ADR-M2-3)은 중복 완공이 정상이라 이 전제를 생략 — goal 목표치(FarmPlotCount>=N)와
+            // 건설 비용이 상한 역할을 한다.
+            if (!Building.IsCountable)
+                into.Add(new SlotCondition { Slot = Building.BuiltFlagSlot, Op = CompareOp.Equal, Value = 0 });
 
             foreach (ResourceCost c in Building.Costs)
                 into.Add(new SlotCondition { Slot = c.StockSlot, Op = CompareOp.GreaterOrEqual, Value = c.Amount });
@@ -35,7 +38,10 @@ namespace AIVillage.M0
             foreach (ResourceCost c in Building.Costs)
                 into.Add(new SlotEffect { Slot = c.StockSlot, Op = EffectOp.SubClamp0, Value = c.Amount });
 
-            into.Add(new SlotEffect { Slot = Building.BuiltFlagSlot, Op = EffectOp.Set, Value = 1 });
+            if (Building.IsCountable)
+                into.Add(new SlotEffect { Slot = Building.CountSlot, Op = EffectOp.Add, Value = 1 });
+            else
+                into.Add(new SlotEffect { Slot = Building.BuiltFlagSlot, Op = EffectOp.Set, Value = 1 });
         }
 
         public override IActionRunner CreateRunner(VillagerAgent agent) => new BuildRunner(this);

@@ -31,4 +31,5 @@ MonoBehaviour:
     Op: 1
     Value: 15
   EatAtAnchor: 1
-  AnchorFlagSlot: 6
+  AnchorPriority:
+  - 6

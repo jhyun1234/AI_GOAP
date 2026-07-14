@@ -68,6 +68,9 @@ namespace AIVillage.M0
             slots[(int)SlotId.NearDiscoveredStone] = Discovered(ResourceType.Stone);
             slots[(int)SlotId.CampfireBuilt] = _slots[(int)SlotId.CampfireBuilt];
             slots[(int)SlotId.AtBuildSite]   = 0; // W6에서 사용
+            slots[(int)SlotId.CookedFoodStock] = _slots[(int)SlotId.CookedFoodStock];
+            slots[(int)SlotId.FarmPlotCount]   = _slots[(int)SlotId.FarmPlotCount];
+            // EmptyFarmPlot/RipeCropAvailable은 FarmService 배선(M2-C) 전까지 0 (ADR-M2-4)
             return new WorldSnapshot(slots);
         }
 

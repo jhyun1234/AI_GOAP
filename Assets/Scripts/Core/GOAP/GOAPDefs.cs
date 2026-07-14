@@ -37,7 +37,7 @@ namespace AIVillage.Core.GOAP
     }
 
     /// <summary>
-    /// 잡의 슬롯 배열 크기 상수 브릿지. M0는 앞쪽 SlotIds.Count(10)개만 사용하고
+    /// 잡의 슬롯 배열 크기 상수 브릿지. M0는 앞쪽 SlotIds.Count개만 사용하고
     /// 나머지는 0 유지 (GoalMask 0 → 판정 무시). 값 무변경 (舊 52).
     /// </summary>
     public static class GOAPPlanningSlots

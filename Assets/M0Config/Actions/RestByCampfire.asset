@@ -25,5 +25,6 @@ MonoBehaviour:
     Op: 2
     Value: 4
   AnchorAtBuilding: 1
-  AnchorFlagSlot: 6
+  AnchorPriority:
+  - 6
   WanderRadius: 2

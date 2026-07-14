@@ -22,7 +22,7 @@ namespace AIVillage.M0
             int cx = agent.TileX, cy = agent.TileY;
             if (_so.AnchorAtBuilding)
             {
-                if (agent.Construction.TryGetBuiltTile(_so.AnchorFlagSlot, out Vector2Int built))
+                if (agent.Construction.TryGetFirstBuiltAnchor(_so.AnchorPriority, out Vector2Int built))
                 {
                     cx = built.x; cy = built.y;
                 }

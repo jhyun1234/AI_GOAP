@@ -10,11 +10,12 @@ namespace AIVillage.M0
     [CreateAssetMenu(menuName = "AIVillage/M0/Action/Consume", fileName = "ConsumeAction")]
     public sealed class ConsumeActionSO : ActionSO
     {
-        [Tooltip("true면 AnchorFlagSlot 건물 곁에서 먹는다 (미완공이면 기지 폴백). false면 제자리.")]
+        [Tooltip("true면 AnchorPriority에서 지어진 첫 건물 곁에서 먹는다 (전부 미완공이면 기지 폴백). false면 제자리.")]
         public bool EatAtAnchor;
 
-        [Tooltip("식사 장소 건물의 완공 플래그 슬롯 (기본 모닥불 — 마을의 부엌)")]
-        public SlotId AnchorFlagSlot = SlotId.CampfireBuilt;
+        [Tooltip("식사 장소 건물 우선순위 (ADR-M2-2) — 완공 플래그 슬롯 목록, 앞이 우선. " +
+                 "후반 전용 건물(부엌 등) 도입 시 맨 앞에 추가만 하면 이주 완료 — 코드 0줄.")]
+        public SlotId[] AnchorPriority = { SlotId.CampfireBuilt };
 
         [Tooltip("식사 위치 산개 반경(타일). 정확히 같은 타일을 노리면 타일 예약 충돌 + 불 위에 서게 된다.")]
         public int AnchorRadius = 1;

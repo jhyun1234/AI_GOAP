@@ -50,6 +50,8 @@ blog-master, blog-publisher). Agent 도구로 이 순서대로 호출.
    - A. 미소비 커밋 ≥ 10 (활발한 개발 — 하루치 대형 세션)
    - B. 대형 이벤트(spec/refactor 커밋) ≥ 1 이고 미소비 커밋 ≥ 5 (명세 확정·재설계 등 이야깃거리)
    - C. 마지막 소비 후 5일 이상 경과 이고 미소비 커밋 ≥ 3 (블로그 공백 방지 백스톱)
+   - D. `state/blog_next_material_priority.md`가 **STATUS: ACTIVE** (사용자 지정 소재 대기 중 —
+     커밋 수와 무관하게 무조건 통과)
 
    미달이면 즉시 종료: `PIPELINE_RESULT: SKIPPED (게이트 미달 — 커밋 N개, 대형 M개, 경과 D일)`
    발행 상한은 cron이 일 1회이므로 자동으로 하루 최대 1편이다.

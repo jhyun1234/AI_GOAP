@@ -27,6 +27,17 @@ namespace AIVillage.M0
         public bool TryGetBuiltTile(SlotId flagSlot, out Vector2Int tile)
             => _builtTiles.TryGetValue(flagSlot, out tile);
 
+        /// <summary>해당 타일에 완공 건물이 있는가 (단일형+수량형) — 건설 위치 회피(BuildRunner) 질의.</summary>
+        public bool HasBuildingAt(int tileX, int tileY)
+        {
+            foreach (Vector2Int t in _builtTiles.Values)
+                if (t.x == tileX && t.y == tileY) return true;
+            foreach (List<Vector2Int> list in _builtTileLists.Values)
+                foreach (Vector2Int t in list)
+                    if (t.x == tileX && t.y == tileY) return true;
+            return false;
+        }
+
         /// <summary>수량형 건물(CountSlot 키)의 최근접 완공 타일. 하나도 없으면 false. 동일 거리는 먼저 지어진 쪽.</summary>
         public bool TryGetNearestBuiltTile(SlotId countSlot, int fromX, int fromY, out Vector2Int tile)
         {

@@ -199,6 +199,29 @@ namespace AIVillage.Tests.EditMode
         }
 
         [Test]
+        public void M2_Fix_BuildSite_AvoidsOccupiedTiles()
+        {
+            // 리뷰 ① 발견: 밭이 자원 노드 타일을 덮는 문제 — 링 탐색이 비점유 최근접 링을 찾는다
+            var occupiedTiles = new System.Collections.Generic.HashSet<Vector2Int>
+            {
+                new Vector2Int(0, 0), new Vector2Int(1, 0), new Vector2Int(-1, 0),
+            };
+            bool Occ(int x, int y) => occupiedTiles.Contains(new Vector2Int(x, y));
+
+            Assert.IsTrue(BuildRunner.TryFindFreeTileNear(Occ, 0, 0, -50, 49, -50, 49, out Vector2Int tile));
+            Assert.IsFalse(occupiedTiles.Contains(tile), "점유 타일 회피");
+            Assert.AreEqual(1, Mathf.Max(Mathf.Abs(tile.x), Mathf.Abs(tile.y)), "반경 1 링에 빈 타일 존재 → 최근접 링 선택");
+
+            // 반경 3 내 전부 점유면 false (러너는 Fail — 좌표 스냅 없음)
+            Assert.IsFalse(BuildRunner.TryFindFreeTileNear((x, y) => true, 0, 0, -50, 49, -50, 49, out _));
+
+            // 맵 경계 밖은 후보에서 제외
+            Assert.IsTrue(BuildRunner.TryFindFreeTileNear((x, y) => false, -50, -50, -50, 49, -50, 49, out Vector2Int corner));
+            Assert.GreaterOrEqual(corner.x, -50);
+            Assert.GreaterOrEqual(corner.y, -50);
+        }
+
+        [Test]
         public void M2_A_AnchorPriority_FirstBuiltWins()
         {
             var world = new WorldModel(new DiscoveryService(), Config(0, 0));

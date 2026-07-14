@@ -20,6 +20,15 @@ namespace AIVillage.M0
             _nodes.Add(node);
         }
 
+        /// <summary>해당 타일에 자원 노드가 있는가 — 건설 위치 회피(BuildRunner) 질의.
+        /// 고갈 노드도 점유로 본다 (재생 시스템이 되살리므로).</summary>
+        public bool HasNodeAt(int tileX, int tileY)
+        {
+            foreach (ResourceNode n in _nodes)
+                if (n.TileX == tileX && n.TileY == tileY) return true;
+            return false;
+        }
+
         /// <summary>중심 기준 맨해튼 반경 내 미발견 노드를 발견 처리. 발견 수를 반환한다.</summary>
         public int DiscoverArea(int centerX, int centerY, int radius)
         {

@@ -94,6 +94,14 @@ blog-master, blog-publisher). Agent 도구로 이 순서대로 호출.
    push 실패 시(403 재발 등) `state/blog_pipeline_alerts.md`에 기록하되 파이프라인은
    PUBLISHED로 종료(Blogger 발행 자체는 이미 성공했으므로). 상태 파일 반영 실패는
    다음 auto-run이 중복 소재를 볼 위험만 있고 이번 사이클 자체는 성공이다.
+   **단, push 실패 시 최종 PIPELINE_RESULT 줄 다음에 수동 반영용 블록을 반드시 출력한다**
+   (2026-07-14 403 사고에서 URL만 출력되어 소비 커밋을 추정해야 했음):
+   ```
+   MANUAL_STATE_UPDATE:
+   latest_commit: <이번에 소비한 마지막 커밋 해시와 제목>
+   blog_url / title / labels / blogger_post_id
+   next_material_priority 소비 여부
+   ```
 
    **API_FAILED / REJECTED_3X 경로에서도** `state/blog_pipeline_alerts.md`만 수정된 경우
    동일하게 `claude/state-*` 브랜치로 push한다 (main 직접 push 시도 금지).

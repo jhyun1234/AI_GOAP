@@ -15,6 +15,17 @@ metadata:
 
 ## 최신 사용 커밋
 
+- `latest_commit`: `cc4602e` (M1 밀스톤 완결 시점 — M1 개발 소재의 마지막 커밋. 이후 M2 명세 커밋들은 미소비)
+- `selected_commits_range`: M1 트랙 (여가·식량순환·명령/거부·대사변주, 2026-07-14)
+- `cycle_date`: 2026-07-14 (원격 auto-run 13:03 KST — 일일 게이트 전환 후 첫 발행)
+- `publish_status`: PUBLISHED
+- `blog_url`: https://gamedevclaude.blogspot.com/2026/07/unity-goap-ai-ai-m1.html
+- `비고`: 원격 sandbox의 claude/state-* push가 403으로 실패 → 이 항목은 로컬에서 수동
+  반영함 (2026-07-14). ⚠️ M0 재설계 대서사(24,800→5,977줄)는 이 글에서 다뤄지지 않음 —
+  `blog_next_material_priority.md`에 다음 회차 우선 소재로 지정됨.
+
+### 이전 회차 이력 (2026-07-11, F-A 성격배분 + Satiety 반전)
+
 - `latest_commit`: `b930365` (refactor(core): 허기 → 포만감 세만틱 반전 — F-A 성격배분+Satiety 반전 묶음 소재의 마지막 커밋)
 - `selected_commits_range`: 549444d ~ b930365 (549444d F-A 성격배분 + b930365 허기→포만감 반전, 2커밋 묶음)
 - `cycle_date`: 2026-07-11 (원격 auto-run, session `cse_01U1p6C8aDWswa4xhkCzhXSR`)

@@ -56,15 +56,18 @@ namespace AIVillage.M0
         }
 
         /// <summary>
-        /// 앵커 우선순위 목록(ADR-M2-2)에서 "지어진 첫 건물"의 타일. 전부 미완공이면 false —
-        /// 폴백(기지/현재 위치)은 호출한 러너가 결정한다. 순수 조회라 EditMode 게이트 대상.
+        /// 앵커 우선순위 목록(ADR-M2-2/M3-1)에서 "지어진 첫 건물"의 타일 — 앵커 조회의 단일 창구.
+        /// 단일형 슬롯이면 그 위치, 수량형 슬롯이면 fromX/Y 최근접 완공 위치 (집 여러 채 대비).
+        /// 전부 미완공이면 false — 폴백(기지/현재 위치)은 호출한 러너가 결정한다.
         /// </summary>
-        public bool TryGetFirstBuiltAnchor(SlotId[] priority, out Vector2Int tile)
+        public bool TryGetAnchorTile(SlotId[] priority, int fromX, int fromY, out Vector2Int tile)
         {
             if (priority != null)
                 foreach (SlotId slot in priority)
-                    if (_builtTiles.TryGetValue(slot, out tile))
-                        return true;
+                {
+                    if (_builtTiles.TryGetValue(slot, out tile)) return true;              // 단일형
+                    if (TryGetNearestBuiltTile(slot, fromX, fromY, out tile)) return true; // 수량형
+                }
 
             tile = default;
             return false;

@@ -272,18 +272,18 @@ namespace AIVillage.Tests.EditMode
             // [A, B] 우선순위 — A=후반 건물(미건설 가정), B=모닥불. 폴백(기지)은 러너 담당이라 여기선 false만 본다.
             var priority = new[] { SlotId.AtBuildSite, SlotId.CampfireBuilt };
 
-            Assert.IsFalse(construction.TryGetFirstBuiltAnchor(priority, out _), "둘 다 미건설 → false (러너가 기지 폴백)");
+            Assert.IsFalse(construction.TryGetAnchorTile(priority, 0, 0, out _), "둘 다 미건설 → false (러너가 기지 폴백)");
 
             construction.Complete(FlagBuilding("모닥불", SlotId.CampfireBuilt), 3, 4);
-            Assert.IsTrue(construction.TryGetFirstBuiltAnchor(priority, out Vector2Int tile));
+            Assert.IsTrue(construction.TryGetAnchorTile(priority, 0, 0, out Vector2Int tile));
             Assert.AreEqual(new Vector2Int(3, 4), tile, "A 미건설 → B(모닥불)로");
 
             construction.Complete(FlagBuilding("후반건물", SlotId.AtBuildSite), 7, 7);
-            construction.TryGetFirstBuiltAnchor(priority, out tile);
+            construction.TryGetAnchorTile(priority, 0, 0, out tile);
             Assert.AreEqual(new Vector2Int(7, 7), tile, "A 건설 후에는 A가 우선 — 앵커 승격 (ADR-M2-2)");
 
             // 배열 1원소 = 기존 단일 앵커와 동일 동작 (기존 식사·여가 무변경 보증)
-            Assert.IsTrue(construction.TryGetFirstBuiltAnchor(new[] { SlotId.CampfireBuilt }, out tile));
+            Assert.IsTrue(construction.TryGetAnchorTile(new[] { SlotId.CampfireBuilt }, 0, 0, out tile));
             Assert.AreEqual(new Vector2Int(3, 4), tile);
         }
     }

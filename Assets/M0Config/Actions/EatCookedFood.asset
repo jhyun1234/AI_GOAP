@@ -1,0 +1,36 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 94822823cdc34b08a9e9902f17790132, type: 3}
+  m_Name: EatCookedFood
+  m_EditorClassIdentifier:
+  DisplayName: "따뜻한 밥을 먹자"
+  BubbleLines:
+  - "따뜻한 밥을 먹자"
+  - "김이 모락모락~"
+  - "역시 요리한 게 최고야"
+  BaseCost: 5
+  DurationSec: 2
+  Preconditions:
+  - Slot: 10
+    Op: 1
+    Value: 1
+  Effects:
+  - Slot: 10
+    Op: 2
+    Value: 1
+  - Slot: 2
+    Op: 1
+    Value: 50
+  EatAtAnchor: 1
+  AnchorPriority:
+  - 6
+  AnchorRadius: 1

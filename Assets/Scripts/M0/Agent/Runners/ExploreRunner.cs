@@ -28,20 +28,11 @@ namespace AIVillage.M0
                 return true;
             }
 
-            // 2순위: 랜덤 방향 MoveDistanceTiles (맵 경계 클램프)
-            MapConfig map = MapConfig.Active;
-            int minX = -50, maxX = 49, minY = -50, maxY = 49;
-            if (map != null)
-            {
-                minX = -map.mapOffset;
-                maxX = map.mapSize - map.mapOffset - 1;
-                minY = -map.mapOffset;
-                maxY = map.mapSize - map.mapOffset - 1;
-            }
+            // 2순위: 랜덤 방향 MoveDistanceTiles (맵 경계 클램프 — MapBounds 단일 출처, M3-F)
             Vector2 dir = Random.insideUnitCircle.normalized;
-            int tx = Mathf.Clamp(agent.TileX + Mathf.RoundToInt(dir.x * _so.MoveDistanceTiles), minX, maxX);
-            int ty = Mathf.Clamp(agent.TileY + Mathf.RoundToInt(dir.y * _so.MoveDistanceTiles), minY, maxY);
-            MoveTarget = new Vector2Int(tx, ty);
+            MoveTarget = MapBounds.Clamp(
+                agent.TileX + Mathf.RoundToInt(dir.x * _so.MoveDistanceTiles),
+                agent.TileY + Mathf.RoundToInt(dir.y * _so.MoveDistanceTiles));
             return true;
         }
 

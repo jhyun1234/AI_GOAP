@@ -73,6 +73,16 @@ namespace AIVillage.Tests.EditMode
             StringAssert.Contains("ConstructionService.cs", hits[0]);
         }
 
+        /// <summary>M3-S7: 맵 경계 규칙 단일 출처 — mapOffset 직접 참조는 MapBounds.cs 하나여야 한다 (M3-F).</summary>
+        [Test]
+        public void M0_T3_MapBounds_SingleSource()
+        {
+            List<string> hits = FindViolations(
+                new Regex(@"mapOffset"),
+                file => !file.EndsWith("/World/MapBounds.cs"));
+            Assert.IsEmpty(hits, "MapBounds 외 mapOffset 직접 참조 (M3-F 위반):\n" + string.Join("\n", hits));
+        }
+
         /// <summary>말풍선/로그용 한국어 대사 하드코딩 방지 — 문구는 SO DisplayName에만.</summary>
         [Test]
         public void M0_T3_TransformSnap_Zero()

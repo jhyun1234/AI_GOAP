@@ -32,21 +32,10 @@ namespace AIVillage.M0
                 }
             }
 
-            // 맵 경계 클램프 (ExploreRunner와 동일 규칙)
-            MapConfig map = MapConfig.Active;
-            int minX = -50, maxX = 49, minY = -50, maxY = 49;
-            if (map != null)
-            {
-                minX = -map.mapOffset;
-                maxX = map.mapSize - map.mapOffset - 1;
-                minY = -map.mapOffset;
-                maxY = map.mapSize - map.mapOffset - 1;
-            }
-
+            // 맵 경계 클램프 — MapBounds 단일 출처 (M3-F)
             int r = Mathf.Max(1, _so.WanderRadius);
-            int tx = Mathf.Clamp(cx + Random.Range(-r, r + 1), minX, maxX);
-            int ty = Mathf.Clamp(cy + Random.Range(-r, r + 1), minY, maxY);
-            MoveTarget = new Vector2Int(tx, ty); // 현재 타일과 같으면 제자리 머무름
+            MoveTarget = MapBounds.Clamp(cx + Random.Range(-r, r + 1), cy + Random.Range(-r, r + 1));
+            // 현재 타일과 같으면 제자리 머무름
             return true;
         }
 

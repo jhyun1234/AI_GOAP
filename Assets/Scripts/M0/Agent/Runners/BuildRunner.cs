@@ -33,16 +33,8 @@ namespace AIVillage.M0
             bool Occupied(int x, int y)
                 => agent.Discovery.HasNodeAt(x, y) || agent.Construction.HasBuildingAt(x, y);
 
-            // 맵 경계 (ExploreRunner와 동일 규칙)
-            AIVillage.Core.MapConfig map = AIVillage.Core.MapConfig.Active;
-            int minX = -50, maxX = 49, minY = -50, maxY = 49;
-            if (map != null)
-            {
-                minX = -map.mapOffset;
-                maxX = map.mapSize - map.mapOffset - 1;
-                minY = -map.mapOffset;
-                maxY = map.mapSize - map.mapOffset - 1;
-            }
+            // 맵 경계 — MapBounds 단일 출처 (M3-F)
+            MapBounds.Get(out int minX, out int maxX, out int minY, out int maxY);
 
             // 군집 앵커: 동종 수량형 건물이 이미 있으면 그 곁부터 — "밭은 밭 옆에" (상식적 자율)
             Vector2Int cluster = default;

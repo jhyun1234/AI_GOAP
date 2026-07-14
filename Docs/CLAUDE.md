@@ -45,7 +45,11 @@ Unity 탑다운 마을 생존 시뮬레이션. GOAP(Burst Job A*) 기반 주민 
 8. **타일 두 셀 소유** (舊 ADR-T3~T6 계승): 현재+다음 타일만 예약, 실패·파괴 시
    ReleaseAllBy. 원자성(舊 ADR-2): 자원 차감은 선검사 후 일괄 — 부분 성공 금지.
 9. **좌표계**: 2D X-Y 평면, `new Vector3(x, y, 0f)`. 슬롯 확장은 SlotId enum 뒤에만
-   append (기존 인덱스 불변 — 에셋 호환).
+   append (기존 인덱스 불변 — 에셋 호환). 맵 경계·배열 변환은 MapBounds가 유일한 출처
+   (게이트: M0-T3 mapOffset 단일 참조).
+10. **세이브 원칙 (ADR-M3-5, 구현은 M4+)**: 저장 대상 = 서비스 상태만 (WorldModel·Farm·
+    Discovery·Construction·에이전트 욕구/위치). 플랜·러너·쿨다운은 저장하지 않는다 —
+    로드 후 재계획. 신규 런타임 상태를 추가할 때 "세이브 대상인가"를 주석으로 선언.
 
 ## 콘텐츠 추가 비용표 (이 표보다 비싸게 작업하고 있다면 설계를 잘못 쓰는 것)
 
@@ -53,7 +57,7 @@ Unity 탑다운 마을 생존 시뮬레이션. GOAP(Burst Job A*) 기반 주민 
 |---|---|
 | 기존 계열 액션 추가 (채집/소비/휴식/건설/탐험) | 에셋 1개 + 카탈로그 등록. **코드 0줄** (W7 리허설 증명) |
 | Goal 추가 | GoalSO 에셋 1개 + 씬 _goals 등록. 코드 0줄 |
-| 건물 추가 | BuildingSO + BuildActionSO 에셋. 코드 0줄 |
+| 건물 추가 | BuildingSO + BuildActionSO 에셋. 전용 슬롯 필요 시 SlotId.cs 1파일 — 건물 1종 = 슬롯 1개(단일형 BuiltFlag 또는 수량형 Count), **슬롯 예산 52칸** (M3 종료 시 15 사용) |
 | 새 자원 타입 | SlotId.cs 1파일 (enum 2줄 + 매핑 2줄 + Count) + 에셋 |
 | 새 실행 계열 | ActionSO 서브클래스 + Runner 1개 (다른 파일 수정 없음 — abstract가 강제) |
 | 밸런스·문구 수정 | 에셋 필드만. 코드 diff가 생기면 반려 |

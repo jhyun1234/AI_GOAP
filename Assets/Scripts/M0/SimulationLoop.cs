@@ -37,6 +37,9 @@ namespace AIVillage.M0
         [Tooltip("말풍선 한국어 폰트 (W6). NeoDunggeunmoPro SDF. 비우면 TMP 기본 폰트(한글 미표시 위험).")]
         [SerializeField] private TMPro.TMP_FontAsset _bubbleFont;
 
+        [Tooltip("밭 작물 성장 스프라이트 (M2-D). 비우면 색 폴백 (연두 새싹→노랑 결실).")]
+        [SerializeField] private CropSpriteSetSO _cropSprites;
+
         public static M0SimulationLoop Instance { get; private set; }
 
         public WorldModel World { get; private set; }
@@ -57,6 +60,7 @@ namespace AIVillage.M0
         public bool[,] Walkable { get; private set; }
 
         private BuildingVisualizer _visualizer;
+        private FarmPlotView _farmView;
         private int _lastLoggedDay = -1;
         private readonly List<VillagerAgent> _agents = new List<VillagerAgent>(8);
 
@@ -105,6 +109,7 @@ namespace AIVillage.M0
                 if (b.IsCountable && b.CountSlot == SlotId.FarmPlotCount)
                     Farm.RegisterPlot(x, y);
             };
+            _farmView = new FarmPlotView(transform, _cropSprites, Farm); // M2-D 성장 표현 (이벤트 구독)
 
             // JPS 통행 배열 — Bootstrap(-95)이 MapConfig를 먼저 활성화한다
             int mapSize = MapConfig.Active != null ? MapConfig.Active.mapSize : 100;

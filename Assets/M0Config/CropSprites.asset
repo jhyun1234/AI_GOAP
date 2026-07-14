@@ -1,0 +1,18 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b4f82a1d63c94e07a9d1e85f20c6b374, type: 3}
+  m_Name: CropSprites
+  m_EditorClassIdentifier:
+  Growing: {fileID: 1212273481, guid: 19de471ec8e70ba418cdc18ac63ae945, type: 3}
+  Ripe: {fileID: -1609977462, guid: 19de471ec8e70ba418cdc18ac63ae945, type: 3}
+  Scale: 1
+  SortingOrder: 3

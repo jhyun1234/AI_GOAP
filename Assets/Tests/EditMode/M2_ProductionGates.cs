@@ -222,6 +222,49 @@ namespace AIVillage.Tests.EditMode
         }
 
         [Test]
+        public void M2_Fix_BuildSite_ClustersWithSameKind()
+        {
+            // "밭은 밭 옆에" — 동종 건물이 있으면 그 인접 링에 배치 (상식적 자율, 사용자 결정 2026-07-14)
+            bool OneFarm(int x, int y) => x == 10 && y == 10;
+            Assert.IsTrue(BuildRunner.TryPickBuildTile(OneFarm, true, new Vector2Int(10, 10),
+                new Vector2Int(0, 0), -50, 49, -50, 49, out Vector2Int tile, out bool move));
+            Assert.IsTrue(move);
+            Assert.AreEqual(1, Mathf.Max(Mathf.Abs(tile.x - 10), Mathf.Abs(tile.y - 10)),
+                            "동종 건물 인접 링에 배치");
+
+            // 군집 없으면 기존 동작 무변경: 비점유 제자리
+            Assert.IsTrue(BuildRunner.TryPickBuildTile((x, y) => false, false, default,
+                new Vector2Int(3, 3), -50, 49, -50, 49, out tile, out move));
+            Assert.IsFalse(move);
+            Assert.AreEqual(new Vector2Int(3, 3), tile);
+
+            // 군집 곁 포화(반경 3) → 현재 위치 폴백 (밭 N+1개째가 막히지 않는다)
+            bool NearTenFull(int x, int y) => Mathf.Max(Mathf.Abs(x - 10), Mathf.Abs(y - 10)) <= 3;
+            Assert.IsTrue(BuildRunner.TryPickBuildTile(NearTenFull, true, new Vector2Int(10, 10),
+                new Vector2Int(0, 0), -50, 49, -50, 49, out tile, out move));
+            Assert.IsFalse(move);
+            Assert.AreEqual(new Vector2Int(0, 0), tile);
+        }
+
+        [Test]
+        public void M2_E_P0Goals_SkipFailureCooldown()
+        {
+            var hunger  = AssetDatabase.LoadAssetAtPath<GoalSO>("Assets/M0Config/Goals/Goal_P0_Hunger.asset");
+            var fatigue = AssetDatabase.LoadAssetAtPath<GoalSO>("Assets/M0Config/Goals/Goal_P0_Fatigue.asset");
+            var wood    = AssetDatabase.LoadAssetAtPath<GoalSO>("Assets/M0Config/Goals/Goal_GatherWood.asset");
+            Assert.IsTrue(hunger.SkipFailureCooldown, "ADR-M2-5: P0 생존 goal 2종 면제 설정");
+            Assert.IsTrue(fatigue.SkipFailureCooldown, "ADR-M2-5: P0 생존 goal 2종 면제 설정");
+            Assert.IsFalse(wood.SkipFailureCooldown, "P0 외 goal 남용 금지 — 공회전 방지 유지");
+
+            Assert.IsFalse(VillagerAgent.ShouldRecordFailureCooldown(hunger, cooldownRequested: true),
+                           "P0 goal은 실패 직후에도 즉시 재선택 (쿨다운 미기록)");
+            Assert.IsTrue(VillagerAgent.ShouldRecordFailureCooldown(wood, cooldownRequested: true),
+                          "일반 goal은 실패 쿨다운 유지");
+            Assert.IsFalse(VillagerAgent.ShouldRecordFailureCooldown(wood, cooldownRequested: false),
+                           "전환·복귀 중단은 원래 벌칙 없음 — 회귀 방지");
+        }
+
+        [Test]
         public void M2_A_AnchorPriority_FirstBuiltWins()
         {
             var world = new WorldModel(new DiscoveryService(), Config(0, 0));

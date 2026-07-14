@@ -60,18 +60,19 @@ namespace AIVillage.M0
         public WorldSnapshot BuildSnapshot(int satiety, int fatigue)
         {
             var slots = new int[PlanningConfig.TotalSlots];
-            slots[(int)SlotId.WoodStock]    = _slots[(int)SlotId.WoodStock];
-            slots[(int)SlotId.RawFoodStock] = _slots[(int)SlotId.RawFoodStock];
-            slots[(int)SlotId.StoneStock]   = _slots[(int)SlotId.StoneStock];
-            slots[(int)SlotId.MySatiety]    = satiety;
-            slots[(int)SlotId.MyFatigue]    = fatigue;
-            slots[(int)SlotId.NearDiscoveredWood]  = Discovered(ResourceType.Wood);
+
+            // 월드 소유 슬롯은 전부 복사 — "슬롯 추가 시 복사 목록 누락" 함정의 구조적 제거
+            // (2026-07-14 HouseCount 누락 사고: goal이 달성을 영영 몰라 집 초과 건설 + NoSolution)
+            for (int i = 0; i < SlotIds.Count; i++)
+                slots[i] = _slots[i];
+
+            // 파생 슬롯만 덮어쓰기 — 각 원천이 유일한 출처
+            slots[(int)SlotId.MySatiety] = satiety; // 에이전트 개인 소유
+            slots[(int)SlotId.MyFatigue] = fatigue;
+            slots[(int)SlotId.NearDiscoveredWood]  = Discovered(ResourceType.Wood);   // DiscoveryService
             slots[(int)SlotId.NearDiscoveredFood]  = Discovered(ResourceType.RawFood);
             slots[(int)SlotId.NearDiscoveredStone] = Discovered(ResourceType.Stone);
-            slots[(int)SlotId.CampfireBuilt] = _slots[(int)SlotId.CampfireBuilt];
-            slots[(int)SlotId.AtBuildSite]   = 0; // W6에서 사용
-            slots[(int)SlotId.CookedFoodStock] = _slots[(int)SlotId.CookedFoodStock];
-            slots[(int)SlotId.FarmPlotCount]   = _slots[(int)SlotId.FarmPlotCount];
+            slots[(int)SlotId.AtBuildSite] = 0; // W6에서 사용
             // Empty/Ripe의 유일한 원천은 FarmService (ADR-M2-4) — 미배선(테스트 등)이면 0.
             // 값은 개수 (ADR-M3-2) — 익은 밭 N개면 한 플랜에 수확 N회가 담긴다.
             slots[(int)SlotId.EmptyFarmPlot]     = _farm != null ? _farm.CountEmpty() : 0;

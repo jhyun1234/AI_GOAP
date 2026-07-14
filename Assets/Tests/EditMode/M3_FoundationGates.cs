@@ -112,6 +112,13 @@ namespace AIVillage.Tests.EditMode
             Assert.IsNotNull(campfire); Assert.IsNotNull(farm);
             Assert.IsFalse(campfire.BlocksMovement, "모닥불은 통행 가능 유지");
             Assert.IsFalse(farm.BlocksMovement, "밭은 통행 가능 유지");
+
+            // M3-D: 집은 통행 차단 + 수량형 (舊 기획서 수치 Wood 20/Stone 10, ADR-M3-6)
+            var house = AssetDatabase.LoadAssetAtPath<BuildingSO>("Assets/M0Config/Buildings/House.asset");
+            Assert.IsNotNull(house, "House 에셋 없음");
+            Assert.IsTrue(house.BlocksMovement, "집은 통행 차단 (ADR-M3-3)");
+            Assert.IsTrue(house.IsCountable, "집은 수량형");
+            Assert.AreEqual(SlotId.HouseCount, house.CountSlot);
         }
 
         [Test]
@@ -164,12 +171,58 @@ namespace AIVillage.Tests.EditMode
                 Assert.IsNotNull(g, $"{free} 에셋 없음");
                 Assert.AreEqual(0, g.MaxWorkers, $"{free}: 생존·명령은 인원 제한 금지");
             }
-            foreach (string limited in new[] { "Goal_BuildFarm", "Goal_ExpandFarm", "Goal_CookAhead" })
+            foreach (string limited in new[] { "Goal_BuildFarm", "Goal_ExpandFarm", "Goal_CookAhead", "Goal_BuildHouse" })
             {
                 var g = AssetDatabase.LoadAssetAtPath<GoalSO>($"Assets/M0Config/Goals/{limited}.asset");
                 Assert.IsNotNull(g, $"{limited} 에셋 없음");
                 Assert.AreEqual(1, g.MaxWorkers, $"{limited}: 초과 달성 방지 정원 1");
             }
+        }
+
+        [Test]
+        public void M3_T4d_Snapshot_ReflectsHouseCount_FromRealCompletion()
+        {
+            // 버그 재현 게이트 (2026-07-14 2차): BuildSnapshot 복사 목록에 HouseCount 누락 →
+            // 플래너가 집을 영영 0채로 인식 → 목표 2채인데 5채 초과 건설 + NoSolution.
+            // T4c가 못 잡은 이유 = 손으로 만든 스냅샷이라 배선 우회 — 이 게이트는 실제 완공 경로를 탄다.
+            var world = new WorldModel(new DiscoveryService(), Config(50, 0));
+            var construction = new ConstructionService(world);
+            var house = ScriptableObject.CreateInstance<BuildingSO>();
+            house.DisplayName = "테스트집";
+            house.IsCountable = true;
+            house.CountSlot = SlotId.HouseCount;
+
+            construction.Complete(house, 1, 1);
+            construction.Complete(house, 2, 2);
+            Assert.AreEqual(2, world.BuildSnapshot(50, 50).Get(SlotId.HouseCount),
+                            "완공 2채가 스냅샷에 그대로 보여야 goal 달성 판정이 산다");
+        }
+
+        [Test]
+        public void M3_T4c_BuildHouse_TriggersOnlyWhenMaterialsReady()
+        {
+            // 버그 재현 게이트 (2026-07-14): 재료 조건 없는 트리거 → 자원 0에서 발동 →
+            // 9~11액션 체인 탐색 → MAX_NODES 예산 초과 NoSolutionFound 반복 (스터터).
+            // BuildCampfire 패턴(재료 준비 시 발동)이 정답 — 트리거가 플랜 가능성과 정합해야 한다.
+            var goal = AssetDatabase.LoadAssetAtPath<GoalSO>("Assets/M0Config/Goals/Goal_BuildHouse.asset");
+            Assert.IsNotNull(goal);
+            var selector = new GoalSelector(new[] { goal });
+
+            var slots = new int[PlanningConfig.TotalSlots];
+            slots[(int)SlotId.MySatiety] = 80;
+            slots[(int)SlotId.CampfireBuilt] = 1;
+            slots[(int)SlotId.WoodStock] = 5;
+            slots[(int)SlotId.StoneStock] = 5;
+            Assert.IsNull(selector.Select(new WorldSnapshot(slots)),
+                          "재료 미달(Wood 5/Stone 5)이면 미발동 — NoSolution 스터터 원천 차단");
+
+            slots[(int)SlotId.WoodStock] = 20;
+            slots[(int)SlotId.StoneStock] = 10;
+            Assert.AreEqual("Goal_BuildHouse", selector.Select(new WorldSnapshot(slots)).name,
+                            "1채분 재료(Wood 20/Stone 10) 준비 → 발동, 플랜 깊이 1~2");
+
+            slots[(int)SlotId.HouseCount] = 2;
+            Assert.IsNull(selector.Select(new WorldSnapshot(slots)), "목표 2채 도달 → 소멸");
         }
 
         [Test]

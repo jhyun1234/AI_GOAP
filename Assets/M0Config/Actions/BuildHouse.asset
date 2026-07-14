@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ac650d4317ee413eaed31b2e75c34290, type: 3}
+  m_Name: BuildHouse
+  m_EditorClassIdentifier:
+  DisplayName: "집을 짓자"
+  BubbleLines:
+  - "집을 짓자"
+  - "내 집 마련의 꿈"
+  - "튼튼하게 지어야지"
+  BaseCost: 15
+  DurationSec: 5
+  Preconditions: []
+  Effects: []
+  Building: {fileID: 11400000, guid: c4d81f6a29e3470b95a7d02c8e61b543, type: 2}

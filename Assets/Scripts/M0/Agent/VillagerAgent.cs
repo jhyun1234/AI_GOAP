@@ -138,6 +138,7 @@ namespace AIVillage.M0
 
         private void OnDestroy()
         {
+            if (_goal != null && _sim != null) _sim.Goals.Release(_goal); // 파괴 시 클레임 잠김 방지
             ClearOrderInstance();
             _runner?.Cleanup(this);
             if (_pending != null && _sim != null) _sim.Planner.Cancel(_pending);
@@ -222,6 +223,7 @@ namespace AIVillage.M0
                 _idleCooldownSec = 0.5f; // 할 일 없음 — 정상 Idle
                 return;
             }
+            _sim.Goals.Claim(_goal); // 착수 선언 (ADR-M3-4) — 해제는 ToIdle 단일 지점
 
             // M1-A DirectActionPool 특례: 여가는 플래너를 태우지 않는다 (ADR-M1-3)
             if (_goal.DirectActionPool != null && _goal.DirectActionPool.Length > 0)
@@ -239,7 +241,7 @@ namespace AIVillage.M0
             _pending = _sim.Planner.RequestPlan(snap, _goal);
             if (_pending == null)
             {
-                _idleCooldownSec = 1f;
+                ToIdle(1f); // 클레임 해제 경유 (ADR-M3-4 누수 방지) — 舊 단순 쿨다운과 동작 동일
                 return;
             }
             State = AgentState.Planning;
@@ -566,6 +568,12 @@ namespace AIVillage.M0
 
         private void ToIdle(float cooldownSec)
         {
+            // goal 내려놓기의 유일한 지점 (ADR-M3-4) — 완료·중단·전환·타임아웃 전부 여기를 지난다
+            if (_goal != null)
+            {
+                _sim.Goals.Release(_goal);
+                _goal = null;
+            }
             State = AgentState.Idle;
             _idleCooldownSec = cooldownSec;
         }

@@ -128,6 +128,51 @@ namespace AIVillage.Tests.EditMode
         }
 
         [Test]
+        public void M3_T5_MaxWorkers_ClaimLimitsSelection()
+        {
+            var goal = ScriptableObject.CreateInstance<GoalSO>();
+            goal.name = "테스트클레임";
+            goal.Priority = 10;
+            goal.MaxWorkers = 1;
+            goal.GoalConditions = new[]
+            {
+                new SlotCondition { Slot = SlotId.WoodStock, Op = CompareOp.GreaterOrEqual, Value = 999 },
+            };
+            var selector = new GoalSelector(new[] { goal });
+            var snap = new WorldSnapshot(new int[PlanningConfig.TotalSlots]);
+
+            Assert.AreEqual(goal, selector.Select(snap), "정원 여유 → 선택");
+            selector.Claim(goal);
+            Assert.IsNull(selector.Select(snap), "정원 1 가득 → 스킵 (ADR-M3-4)");
+            selector.Release(goal);
+            Assert.AreEqual(goal, selector.Select(snap), "해제 후 재선택");
+
+            // 이중 해제 → 음수 잠김 없음: 0 클램프라 클레임 1회로 다시 가득이어야 한다
+            selector.Release(goal);
+            selector.Release(goal);
+            selector.Claim(goal);
+            Assert.IsNull(selector.Select(snap), "이중 Release에도 카운트 0 클램프 보증");
+        }
+
+        [Test]
+        public void M3_T5b_MaxWorkers_AssetPolicy()
+        {
+            // ADR-M3-4: P0 생존·명령은 무제한(0), 건설·비축 goal은 1
+            foreach (string free in new[] { "Goal_P0_Hunger", "Goal_P0_Fatigue", "Order_ChopWood", "Order_MineStone", "Order_HarvestBerries" })
+            {
+                var g = AssetDatabase.LoadAssetAtPath<GoalSO>($"Assets/M0Config/Goals/{free}.asset");
+                Assert.IsNotNull(g, $"{free} 에셋 없음");
+                Assert.AreEqual(0, g.MaxWorkers, $"{free}: 생존·명령은 인원 제한 금지");
+            }
+            foreach (string limited in new[] { "Goal_BuildFarm", "Goal_ExpandFarm", "Goal_CookAhead" })
+            {
+                var g = AssetDatabase.LoadAssetAtPath<GoalSO>($"Assets/M0Config/Goals/{limited}.asset");
+                Assert.IsNotNull(g, $"{limited} 에셋 없음");
+                Assert.AreEqual(1, g.MaxWorkers, $"{limited}: 초과 달성 방지 정원 1");
+            }
+        }
+
+        [Test]
         public void M3_T3_ExpandFarm_TriggersOnFoodPressure()
         {
             var goal = AssetDatabase.LoadAssetAtPath<GoalSO>("Assets/M0Config/Goals/Goal_ExpandFarm.asset");

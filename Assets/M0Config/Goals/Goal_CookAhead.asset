@@ -27,3 +27,4 @@ MonoBehaviour:
     Value: 6
   DirectActionPool: []
   RelativeToCurrent: 0
+  MaxWorkers: 1

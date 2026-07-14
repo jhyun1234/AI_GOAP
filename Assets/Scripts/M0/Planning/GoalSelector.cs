@@ -15,6 +15,10 @@ namespace AIVillage.M0
     {
         private readonly GoalSO[] _goals; // Priority 내림차순 정렬본
 
+        // 작업 클레임 카운트 (ADR-M3-4) — 유일한 소유자는 이 클래스. 에이전트는 Claim/Release만 호출.
+        // 에이전트 틱이 단일 스레드 순차라 Select→Claim 사이 경쟁이 없다.
+        private readonly Dictionary<GoalSO, int> _claims = new Dictionary<GoalSO, int>();
+
         public GoalSelector(IEnumerable<GoalSO> goals)
         {
             var list = new List<GoalSO>();
@@ -50,14 +54,35 @@ namespace AIVillage.M0
             return extra != null && Passes(extra, snap, skip) ? extra : null;
         }
 
-        private static bool Passes(GoalSO goal, WorldSnapshot snap, System.Func<GoalSO, bool> skip)
+        private bool Passes(GoalSO goal, WorldSnapshot snap, System.Func<GoalSO, bool> skip)
         {
+            if (IsFull(goal)) return false;                                // 정원 초과 (ADR-M3-4)
             if (skip != null && skip(goal)) return false;                  // 쿨다운 등 제외
             if (!AllHold(goal.TriggerConditions, snap)) return false;      // 미발동
             if (goal.GoalConditions != null && goal.GoalConditions.Length > 0
                 && AllHold(goal.GoalConditions, snap)) return false;       // 이미 달성 → 스킵
             return true;
         }
+
+        /// <summary>goal 착수 선언 — 선택 직후 호출 (Planning 대기도 클레임 상태, ADR-M3-4).</summary>
+        public void Claim(GoalSO goal)
+        {
+            if (goal == null) return;
+            _claims.TryGetValue(goal, out int n);
+            _claims[goal] = n + 1;
+        }
+
+        /// <summary>goal 내려놓기 — 완료·중단·전환 공통. 이중 해제는 0 클램프 (음수 잠김 방지).</summary>
+        public void Release(GoalSO goal)
+        {
+            if (goal == null) return;
+            if (_claims.TryGetValue(goal, out int n))
+                _claims[goal] = Mathf.Max(0, n - 1);
+        }
+
+        /// <summary>동시 인원 가득 여부 — MaxWorkers 0은 무제한.</summary>
+        public bool IsFull(GoalSO goal)
+            => goal.MaxWorkers > 0 && _claims.TryGetValue(goal, out int n) && n >= goal.MaxWorkers;
 
         /// <summary>조건 배열 전체 만족 여부. null/빈 배열은 true (조건 없음 = 항상 성립).</summary>
         public static bool AllHold(SlotCondition[] conditions, WorldSnapshot snap)

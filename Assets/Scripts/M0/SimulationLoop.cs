@@ -42,6 +42,7 @@ namespace AIVillage.M0
         public WorldModel World { get; private set; }
         public DiscoveryService Discovery { get; private set; }
         public ConstructionService Construction { get; private set; }
+        public FarmService Farm { get; private set; }
         public PlannerGateway Planner { get; private set; }
         public GoalSelector Goals { get; private set; }
         public AgentConfigSO AgentConfig => _agentConfig;
@@ -90,13 +91,20 @@ namespace AIVillage.M0
             }
 
             Discovery    = new DiscoveryService();
-            World        = new WorldModel(Discovery, _worldConfig);
+            Farm         = new FarmService(_worldConfig.FarmGrowthDays);
+            World        = new WorldModel(Discovery, _worldConfig, Farm);
             Construction = new ConstructionService(World);
             Planner      = new PlannerGateway(_catalog);
             Goals        = new GoalSelector(_goals);
 
             _visualizer = new BuildingVisualizer(transform);
             Construction.OnCompleted += (b, x, y) => _visualizer.Spawn(b, x, y);
+            // 밭 완공 → FarmService 등록 (RegisterPlot의 유일한 호출 경로, ADR-M2-4)
+            Construction.OnCompleted += (b, x, y) =>
+            {
+                if (b.IsCountable && b.CountSlot == SlotId.FarmPlotCount)
+                    Farm.RegisterPlot(x, y);
+            };
 
             // JPS 통행 배열 — Bootstrap(-95)이 MapConfig를 먼저 활성화한다
             int mapSize = MapConfig.Active != null ? MapConfig.Active.mapSize : 100;
@@ -133,6 +141,7 @@ namespace AIVillage.M0
                 GameTime += deltaGameDays;
 
                 Discovery.TickRegeneration(deltaGameDays);
+                Farm.TickGrowth(deltaGameDays);
 
                 // 에이전트 틱 (W4) — 역순 순회: SimTick 중 파괴/해제로 리스트가 줄어도 안전
                 for (int i = _agents.Count - 1; i >= 0; i--)

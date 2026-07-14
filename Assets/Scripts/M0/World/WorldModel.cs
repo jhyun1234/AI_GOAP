@@ -12,10 +12,12 @@ namespace AIVillage.M0
     {
         private readonly int[] _slots = new int[SlotIds.Count];
         private readonly DiscoveryService _discovery;
+        private readonly FarmService _farm;
 
-        public WorldModel(DiscoveryService discovery, WorldConfigSO config)
+        public WorldModel(DiscoveryService discovery, WorldConfigSO config, FarmService farm = null)
         {
             _discovery = discovery;
+            _farm = farm;
             if (config != null)
             {
                 _slots[(int)SlotId.WoodStock]    = config.InitialWoodStock;
@@ -70,7 +72,9 @@ namespace AIVillage.M0
             slots[(int)SlotId.AtBuildSite]   = 0; // W6에서 사용
             slots[(int)SlotId.CookedFoodStock] = _slots[(int)SlotId.CookedFoodStock];
             slots[(int)SlotId.FarmPlotCount]   = _slots[(int)SlotId.FarmPlotCount];
-            // EmptyFarmPlot/RipeCropAvailable은 FarmService 배선(M2-C) 전까지 0 (ADR-M2-4)
+            // Empty/Ripe의 유일한 원천은 FarmService (ADR-M2-4) — 미배선(테스트 등)이면 0
+            slots[(int)SlotId.EmptyFarmPlot]     = _farm != null && _farm.HasEmpty ? 1 : 0;
+            slots[(int)SlotId.RipeCropAvailable] = _farm != null && _farm.HasRipe  ? 1 : 0;
             return new WorldSnapshot(slots);
         }
 

@@ -121,6 +121,84 @@ namespace AIVillage.Tests.EditMode
         }
 
         [Test]
+        public void M2_T3_Farm_StateMachine_RoundTrip_And_SingleClaim()
+        {
+            var farm = new FarmService(growthDays: 1.5f);
+            farm.RegisterPlot(3, 3);
+            farm.RegisterPlot(6, 6);
+            int events = 0;
+            farm.OnPlotStateChanged += _ => events++;
+
+            Assert.IsTrue(farm.HasEmpty);
+            Assert.IsFalse(farm.HasRipe);
+            FarmPlot p = farm.NearestEmpty(2, 2);
+            Assert.AreEqual(new Vector2Int(3, 3), p.Tile, "최근접 빈 밭");
+
+            // 점유 경쟁 — 1인 보장 + 점유 밭은 탐색에서 제외
+            Assert.IsTrue(p.TryClaim("A"));
+            Assert.IsFalse(p.TryClaim("B"), "타 주민 점유 거부 (1인 점유)");
+            Assert.AreEqual(new Vector2Int(6, 6), farm.NearestEmpty(2, 2).Tile, "점유된 밭은 다음 후보로");
+
+            Assert.IsTrue(farm.TryPlant(p));
+            Assert.IsFalse(farm.TryPlant(p), "빈 밭이 아니면 심기 거부");
+            p.Release();
+
+            farm.TickGrowth(1.0f);
+            Assert.IsFalse(farm.HasRipe, "누적 1.0일 < 1.5일 — 아직 성장 중");
+            farm.TickGrowth(0.6f);
+            Assert.IsTrue(farm.HasRipe, "누적 1.6일 ≥ 1.5일 — 결실");
+
+            FarmPlot r = farm.NearestRipe(0, 0);
+            Assert.AreSame(p, r);
+            Assert.IsTrue(farm.TryHarvest(r));
+            Assert.AreEqual(FarmState.Empty, r.State, "수확 후 빈 밭 복귀 (재심기 가능)");
+            Assert.IsFalse(farm.TryHarvest(r), "익지 않은 밭 수확 거부");
+
+            Assert.AreEqual(3, events, "전이 이벤트: 심기·결실·수확 각 1회 (M2-D 시각 구독 계약)");
+        }
+
+        [Test]
+        public void M2_C_Snapshot_EmptyRipe_FromFarmService()
+        {
+            // ADR-M2-4: Empty/Ripe의 유일한 원천 = FarmService — 스냅샷이 그대로 파생하는지
+            var farm = new FarmService(growthDays: 1.5f);
+            var world = new WorldModel(new DiscoveryService(), Config(0, 0), farm);
+            Assert.AreEqual(0, world.BuildSnapshot(50, 50).Get(SlotId.EmptyFarmPlot), "밭 없음 → 0");
+
+            farm.RegisterPlot(1, 1);
+            Assert.AreEqual(1, world.BuildSnapshot(50, 50).Get(SlotId.EmptyFarmPlot), "빈 밭 존재 → 1");
+
+            farm.TryPlant(farm.NearestEmpty(0, 0));
+            WorldSnapshot growing = world.BuildSnapshot(50, 50);
+            Assert.AreEqual(0, growing.Get(SlotId.EmptyFarmPlot), "재배 중 → 빈 밭 없음");
+            Assert.AreEqual(0, growing.Get(SlotId.RipeCropAvailable), "아직 미성숙");
+
+            farm.TickGrowth(2f);
+            Assert.AreEqual(1, world.BuildSnapshot(50, 50).Get(SlotId.RipeCropAvailable), "결실 → 1");
+        }
+
+        [Test]
+        public void M2_T4_BuildFarm_RequiresCampfire_TechTreeGate()
+        {
+            var goal = AssetDatabase.LoadAssetAtPath<GoalSO>("Assets/M0Config/Goals/Goal_BuildFarm.asset");
+            Assert.IsNotNull(goal, "Goal_BuildFarm 에셋 없음");
+            var selector = new GoalSelector(new[] { goal });
+
+            var slots = new int[PlanningConfig.TotalSlots];
+            slots[(int)SlotId.WoodStock] = 50;
+            slots[(int)SlotId.MySatiety] = 80;
+            Assert.IsNull(selector.Select(new WorldSnapshot(slots)),
+                          "모닥불 미완공이면 밭 goal 미발동 (M2-S4 Tech Tree 첫 사례)");
+
+            slots[(int)SlotId.CampfireBuilt] = 1;
+            Assert.AreEqual("Goal_BuildFarm", selector.Select(new WorldSnapshot(slots)).name,
+                            "모닥불 완공 후 발동");
+
+            slots[(int)SlotId.FarmPlotCount] = 2;
+            Assert.IsNull(selector.Select(new WorldSnapshot(slots)), "목표 2개 도달 시 재발동 없음");
+        }
+
+        [Test]
         public void M2_A_AnchorPriority_FirstBuiltWins()
         {
             var world = new WorldModel(new DiscoveryService(), Config(0, 0));

@@ -50,6 +50,7 @@ namespace AIVillage.M0
         public WorldModel World => _sim.World;
         public DiscoveryService Discovery => _sim.Discovery;
         public ConstructionService Construction => _sim.Construction;
+        public FarmService Farm => _sim.Farm;
         public WorldConfigSO WorldConfig => _sim.WorldConfig;
 
         // ── 플랜 상태 ──────────────────────────────────────────────────────

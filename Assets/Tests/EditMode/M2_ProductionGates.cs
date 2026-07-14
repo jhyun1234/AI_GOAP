@@ -1,5 +1,7 @@
+using AIVillage.Core.GOAP;
 using AIVillage.M0;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 
 namespace AIVillage.Tests.EditMode
@@ -92,6 +94,30 @@ namespace AIVillage.Tests.EditMode
             Assert.AreEqual(1, snap.Get(SlotId.FarmPlotCount));
             Assert.AreEqual(0, snap.Get(SlotId.EmptyFarmPlot), "FarmService 배선(M2-C) 전까지 0");
             Assert.AreEqual(0, snap.Get(SlotId.RipeCropAvailable), "FarmService 배선(M2-C) 전까지 0");
+        }
+
+        [Test]
+        public void M2_T2_Hungry_WithCookedStock_PrefersCookedOverRaw()
+        {
+            // 실제 에셋 + 실제 잡 (M0-T2 하네스 계승). 조리 식사는 goal 무수정으로
+            // 비용(5<8)·효율(+50)의 자연 결과로 선택되어야 한다 (M2-S2, ADR-M2-6).
+            var catalog = AssetDatabase.LoadAssetAtPath<ActionCatalog>("Assets/M0Config/ActionCatalog.asset");
+            var goal = AssetDatabase.LoadAssetAtPath<GoalSO>("Assets/M0Config/Goals/Goal_P0_Hunger.asset");
+            Assert.IsNotNull(catalog); Assert.IsNotNull(goal);
+            var gw = new PlannerGateway(catalog);
+
+            var slots = new int[PlanningConfig.TotalSlots];
+            slots[(int)SlotId.MySatiety] = 10;
+            slots[(int)SlotId.RawFoodStock] = 5;
+            slots[(int)SlotId.CookedFoodStock] = 4;
+            PlannerGateway.PendingPlan pending = gw.RequestPlan(new WorldSnapshot(slots), goal);
+            gw.CompleteNow(pending);
+            Assert.IsTrue(gw.TryGetResult(pending, out PlanStatus status, out ActionSO[] plan, out _));
+
+            Assert.AreEqual(PlanStatus.Success, status);
+            Assert.AreEqual(2, plan.Length, "EatCookedFood ×2(비용 10, +100)가 생식 조합보다 저렴해야 함");
+            foreach (ActionSO a in plan)
+                Assert.AreEqual("EatCookedFood", a.name, "배고픔 플랜이 생식 대신 조리 식사를 선택 (M2-S2)");
         }
 
         [Test]

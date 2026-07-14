@@ -146,6 +146,8 @@ namespace AIVillage.M0
                     Debug.Log($"[M0Sim] Day {day} — Wood {World.GetStock(SlotId.WoodStock)}, " +
                               $"Stone {World.GetStock(SlotId.StoneStock)}, " +
                               $"RawFood {World.GetStock(SlotId.RawFoodStock)}, " +
+                              $"Cooked {World.GetStock(SlotId.CookedFoodStock)}, " +
+                              $"Farm {World.GetStock(SlotId.FarmPlotCount)}, " +
                               $"발견 W/S/F={Discovery.HasDiscovered(ResourceType.Wood)}/" +
                               $"{Discovery.HasDiscovered(ResourceType.Stone)}/" +
                               $"{Discovery.HasDiscovered(ResourceType.RawFood)}");

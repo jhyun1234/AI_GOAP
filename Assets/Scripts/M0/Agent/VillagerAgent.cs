@@ -63,6 +63,7 @@ namespace AIVillage.M0
         /// <summary>배율 개체 편차 [채집, 농사, 건설, 탐험] — 스폰 1회 고정, M4-B 비용 배열 계산에 사용.</summary>
         public float[] MultJitter => _multJitter;
         private float[] _multJitter;
+        private float[] _costMult; // 카탈로그 인덱스별 성격 비용 배율 (스폰 1회 계산, null=중립)
 
         // ── 플랜 상태 ──────────────────────────────────────────────────────
         private readonly List<ActionSO> _plan = new List<ActionSO>(PlanningConfig.MaxPlanLen);
@@ -144,6 +145,8 @@ namespace AIVillage.M0
                 Random.Range(0.9f, 1.1f), Random.Range(0.9f, 1.1f),
             };
             Debug.Log($"[VillagerAgent] {AgentId}: 성격 = {(Personality != null ? Personality.DisplayName : "없음(중립)")}");
+            // 배율 배열 1회 캐시 (M4-B) — 성격 null이면 null = 중립 (RequestPlan이 무시)
+            _costMult = PersonalityCost.Build(_sim.Catalog, Personality, _multJitter);
             _motion = new MoveMotion(_cfg, AgentId);
             SetupView();
             SetupBubble();
@@ -258,7 +261,7 @@ namespace AIVillage.M0
             }
             _directGoal = false;
 
-            _pending = _sim.Planner.RequestPlan(snap, _goal);
+            _pending = _sim.Planner.RequestPlan(snap, _goal, _costMult);
             if (_pending == null)
             {
                 ToIdle(1f); // 클레임 해제 경유 (ADR-M3-4 누수 방지) — 舊 단순 쿨다운과 동작 동일

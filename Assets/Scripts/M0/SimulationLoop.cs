@@ -52,6 +52,7 @@ namespace AIVillage.M0
         public PlannerGateway Planner { get; private set; }
         public GoalSelector Goals { get; private set; }
         public AgentConfigSO AgentConfig => _agentConfig;
+        public ActionCatalog Catalog => _catalog;
         public WorldConfigSO WorldConfig => _worldConfig;
         public AgentSpriteSetSO SpriteSet => _spriteSet;
         public TMPro.TMP_FontAsset BubbleFont => _bubbleFont;

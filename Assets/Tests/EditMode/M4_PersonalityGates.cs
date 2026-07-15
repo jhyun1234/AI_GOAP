@@ -1,3 +1,4 @@
+using AIVillage.Core.GOAP;
 using AIVillage.M0;
 using NUnit.Framework;
 using UnityEditor;
@@ -35,6 +36,64 @@ namespace AIVillage.Tests.EditMode
             Assert.Greater(stubborn.RefuseSatietyOffset, 0f, "고집쟁이는 더 거부 (문턱 상향)");
             Assert.Less(farmer.FarmCostMult, 1f, "농사꾼은 밭 선호");
             Assert.Less(wanderer.GatherCostMult, 1f, "떠돌이는 채집 선호");
+        }
+
+        private static (PlanStatus status, ActionSO[] plan) RunPlan(WorldSnapshot snap, GoalSO goal, float[] costMult)
+        {
+            var catalog = AssetDatabase.LoadAssetAtPath<ActionCatalog>("Assets/M0Config/ActionCatalog.asset");
+            var gw = new PlannerGateway(catalog);
+            PlannerGateway.PendingPlan pending = gw.RequestPlan(snap, goal, costMult);
+            gw.CompleteNow(pending);
+            Assert.IsTrue(gw.TryGetResult(pending, out PlanStatus status, out ActionSO[] plan, out _));
+            return (status, plan);
+        }
+
+        private static WorldSnapshot Snap(params (SlotId slot, int value)[] pairs)
+        {
+            var slots = new int[PlanningConfig.TotalSlots];
+            foreach ((SlotId slot, int value) in pairs) slots[(int)slot] = value;
+            return new WorldSnapshot(slots);
+        }
+
+        [Test]
+        public void M4_T1_NeutralInvariant_PlansIdentical()
+        {
+            // ADR-M4-2: costMult null과 전부 1.0이 기존(M0-T2) 기대 플랜과 완전 동일해야 한다
+            var goal = AssetDatabase.LoadAssetAtPath<GoalSO>("Assets/M0Config/Goals/Goal_P0_Hunger.asset");
+            WorldSnapshot snap = Snap((SlotId.MySatiety, 10), (SlotId.RawFoodStock, 5));
+
+            (PlanStatus s0, ActionSO[] p0) = RunPlan(snap, goal, null);
+            var catalog = AssetDatabase.LoadAssetAtPath<ActionCatalog>("Assets/M0Config/ActionCatalog.asset");
+            var ones = new float[catalog.Actions.Length];
+            for (int i = 0; i < ones.Length; i++) ones[i] = 1f;
+            (PlanStatus s1, ActionSO[] p1) = RunPlan(snap, goal, ones);
+
+            Assert.AreEqual(PlanStatus.Success, s0);
+            Assert.AreEqual(s0, s1);
+            Assert.AreEqual(p0.Length, p1.Length, "중립 배열 = null과 동일 플랜 길이");
+            for (int i = 0; i < p0.Length; i++)
+                Assert.AreSame(p0[i], p1[i], $"중립 불변식 위반 — {i}번째 액션이 다름");
+        }
+
+        [Test]
+        public void M4_T2_PersonalityMult_ChangesPlanPreference()
+        {
+            // 식량 조달(RawFood>=15): 익은 밭(수확 +6, 비용 8)과 열매(+5, 비용 10)가 둘 다 가능한 상황 —
+            // 농사꾼(Farm 0.7)은 밭 수확, 떠돌이(Gather 0.75)는 열매 채집이 플랜에 선택돼야 한다 (M4-S2)
+            var catalog = AssetDatabase.LoadAssetAtPath<ActionCatalog>("Assets/M0Config/ActionCatalog.asset");
+            var goal = AssetDatabase.LoadAssetAtPath<GoalSO>("Assets/M0Config/Goals/Goal_GatherFood.asset");
+            var farmer   = AssetDatabase.LoadAssetAtPath<PersonalitySO>("Assets/M0Config/Personalities/Personality_Farmer.asset");
+            var wanderer = AssetDatabase.LoadAssetAtPath<PersonalitySO>("Assets/M0Config/Personalities/Personality_Wanderer.asset");
+            WorldSnapshot snap = Snap((SlotId.MySatiety, 80), (SlotId.RawFoodStock, 10),
+                                      (SlotId.RipeCropAvailable, 1), (SlotId.NearDiscoveredFood, 1));
+
+            (PlanStatus fs, ActionSO[] fp) = RunPlan(snap, goal, PersonalityCost.Build(catalog, farmer, null));
+            Assert.AreEqual(PlanStatus.Success, fs);
+            Assert.AreEqual("HarvestCrop", fp[0].name, "농사꾼은 밭 수확 선호 (8×0.7=5.6 < 10×1.15)");
+
+            (PlanStatus ws, ActionSO[] wp) = RunPlan(snap, goal, PersonalityCost.Build(catalog, wanderer, null));
+            Assert.AreEqual(PlanStatus.Success, ws);
+            Assert.AreEqual("HarvestWildBerries", wp[0].name, "떠돌이는 열매 채집 선호 (10×0.75=7.5 < 8×1.2)");
         }
 
         [Test]

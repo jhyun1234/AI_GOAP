@@ -16,7 +16,7 @@ namespace AIVillage.M0
 
     /// <summary>
     /// GOAPPlannerJob 스케줄/폴링 게이트웨이 — 舊 GOAPPlannerScheduler(656줄)의 M0 대체 (~200줄).
-    /// 잡 자체는 무변경 (ADR-M0-5). 컨텍스트/역할/성격 배율은 M0 스코프 밖이라 없음.
+    /// 잡 자체는 무변경 (ADR-M0-5). 성격 배율(M4-B)은 RequestPlan의 per-request 사본에만 굽는다.
     ///
     /// 사용 계약:
     ///   1. RequestPlan() → PendingPlan (null이면 요청 실패)
@@ -26,7 +26,7 @@ namespace AIVillage.M0
     public sealed class PlannerGateway
     {
         private readonly ActionCatalog _catalog;
-        private readonly GOAPActionDef[] _defs;     // 시작 시 1회 컴파일 (M0는 배율 없음 → 전 주민 공유)
+        private readonly GOAPActionDef[] _defs;     // 시작 시 1회 컴파일 — 공유 원본 (배율은 사본에만, ADR-M4-1)
         private readonly float[] _maxGain;
         private readonly float[] _maxDrop;
 
@@ -54,8 +54,12 @@ namespace AIVillage.M0
             ActionCompiler.ComputeMaxGainDrop(_defs, PlanningConfig.TotalSlots, out _maxGain, out _maxDrop);
         }
 
-        /// <summary>플랜 요청. 실패(잘못된 입력/OOM) 시 null. 메인 스레드 전용.</summary>
-        public PendingPlan RequestPlan(WorldSnapshot snap, GoalSO goal)
+        /// <summary>
+        /// 플랜 요청. 실패(잘못된 입력/OOM) 시 null. 메인 스레드 전용.
+        /// costMult = 카탈로그 인덱스별 성격 비용 배율 (M4-B, null=중립) — 잡에 넘길 사본에만
+        /// 구워지는 것이 유일한 주입 지점 (ADR-M4-1). 공유 _defs 원본은 무변경.
+        /// </summary>
+        public PendingPlan RequestPlan(WorldSnapshot snap, GoalSO goal, float[] costMult = null)
         {
             if (!snap.IsValid || goal == null || goal.GoalConditions == null || goal.GoalConditions.Length == 0)
             {
@@ -84,6 +88,18 @@ namespace AIVillage.M0
                 }
 
                 p.Actions = new NativeArray<GOAPActionDef>(_defs, alloc);
+                if (costMult != null)
+                {
+                    // 성격 배율을 per-request 사본에 굽는다 (ADR-M4-1). 잡이 min(BaseCost)를
+                    // 실측하므로 휴리스틱 정합 자동 유지. 0 이하 방지 클램프.
+                    for (int i = 0; i < _defs.Length && i < costMult.Length; i++)
+                    {
+                        if (Mathf.Approximately(costMult[i], 1f)) continue;
+                        GOAPActionDef d = p.Actions[i];
+                        d.BaseCost = _defs[i].BaseCost * Mathf.Max(0.1f, costMult[i]);
+                        p.Actions[i] = d;
+                    }
+                }
                 p.MaxGain = new NativeArray<float>(_maxGain, alloc);
                 p.MaxDrop = new NativeArray<float>(_maxDrop, alloc);
 

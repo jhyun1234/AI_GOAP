@@ -46,5 +46,43 @@ namespace AIVillage.M0
             ay = tileY - minY;
             return tileX >= minX && tileX <= maxX && tileY >= minY && tileY <= maxY;
         }
+
+        /// <summary>
+        /// 반경 내 랜덤 목표 타일 (경계 클램프 + 통행 필터, M4-E — 집 타일을 목표로 뽑는 소음 제거).
+        /// ① 랜덤 attempts회 → ② 실패 시 결정적 링 순회(반경 내 walkable이 있으면 반드시 찾음)
+        /// → ③ 전부 막혀 있으면 중심 클램프 (결정적 종료 — 이후는 이동 실패 first-class가 처리).
+        /// walkable=null이면 필터 없음 (기존 동작).
+        /// </summary>
+        public static Vector2Int PickWalkableNear(System.Func<int, int, bool> walkable,
+            int cx, int cy, int radius, int attempts = 4)
+        {
+            int r = Mathf.Max(1, radius);
+
+            if (walkable == null)
+                return Clamp(cx + Random.Range(-r, r + 1), cy + Random.Range(-r, r + 1));
+
+            for (int i = 0; i < attempts; i++)
+            {
+                Vector2Int t = Clamp(cx + Random.Range(-r, r + 1), cy + Random.Range(-r, r + 1));
+                if (walkable(t.x, t.y)) return t;
+            }
+
+            // 링 폴백 — 랜덤이 불운해도 반경 내 통행 가능 타일이 있으면 반드시 반환
+            Get(out int minX, out int maxX, out int minY, out int maxY);
+            for (int ring = 1; ring <= r; ring++)
+            {
+                for (int dy = -ring; dy <= ring; dy++)
+                {
+                    for (int dx = -ring; dx <= ring; dx++)
+                    {
+                        if (Mathf.Max(Mathf.Abs(dx), Mathf.Abs(dy)) != ring) continue; // 테두리만
+                        int x = cx + dx, y = cy + dy;
+                        if (x < minX || x > maxX || y < minY || y > maxY) continue;
+                        if (walkable(x, y)) return new Vector2Int(x, y);
+                    }
+                }
+            }
+            return Clamp(cx, cy);
+        }
     }
 }

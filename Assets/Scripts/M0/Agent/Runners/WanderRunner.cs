@@ -32,10 +32,8 @@ namespace AIVillage.M0
                 }
             }
 
-            // 맵 경계 클램프 — MapBounds 단일 출처 (M3-F)
-            int r = Mathf.Max(1, _so.WanderRadius);
-            MoveTarget = MapBounds.Clamp(cx + Random.Range(-r, r + 1), cy + Random.Range(-r, r + 1));
-            // 현재 타일과 같으면 제자리 머무름
+            // 통행 불가 타일(집 등)은 목표에서 제외 (M4-E). 현재 타일과 같으면 제자리 머무름
+            MoveTarget = MapBounds.PickWalkableNear(agent.IsWalkable, cx, cy, _so.WanderRadius);
             return true;
         }
 

@@ -28,11 +28,14 @@ namespace AIVillage.M0
                 return true;
             }
 
-            // 2순위: 랜덤 방향 MoveDistanceTiles (맵 경계 클램프 — MapBounds 단일 출처, M3-F)
+            // 2순위: 랜덤 방향 MoveDistanceTiles. 도착점이 통행 불가(집 등)면 그 곁 타일로 보정 (M4-E)
             Vector2 dir = Random.insideUnitCircle.normalized;
-            MoveTarget = MapBounds.Clamp(
+            Vector2Int raw = MapBounds.Clamp(
                 agent.TileX + Mathf.RoundToInt(dir.x * _so.MoveDistanceTiles),
                 agent.TileY + Mathf.RoundToInt(dir.y * _so.MoveDistanceTiles));
+            MoveTarget = agent.IsWalkable(raw.x, raw.y)
+                ? raw
+                : MapBounds.PickWalkableNear(agent.IsWalkable, raw.x, raw.y, 2);
             return true;
         }
 

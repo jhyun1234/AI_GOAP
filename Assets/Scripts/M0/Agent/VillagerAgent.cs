@@ -53,6 +53,10 @@ namespace AIVillage.M0
         public FarmService Farm => _sim.Farm;
         public WorldConfigSO WorldConfig => _sim.WorldConfig;
 
+        /// <summary>타일 통행 가능 여부 — 러너의 랜덤 목표 필터용 (M4-E). 맵 밖은 false.</summary>
+        public bool IsWalkable(int x, int y)
+            => MapBounds.ToArrayIndex(x, y, out int ax, out int ay) && _sim.Walkable[ax, ay];
+
         // ── 플랜 상태 ──────────────────────────────────────────────────────
         private readonly List<ActionSO> _plan = new List<ActionSO>(PlanningConfig.MaxPlanLen);
         private int _planIndex;

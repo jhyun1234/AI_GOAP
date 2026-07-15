@@ -32,10 +32,9 @@ namespace AIVillage.M0
             }
             else return true;
 
-            // 반경 내 산개 — 정확히 같은 타일을 노리면 타일 예약 충돌 + 불 위에 서게 됨
-            // (맵 경계 클램프 — MapBounds 단일 출처, M3-F)
-            int r = Mathf.Max(1, _so.AnchorRadius);
-            MoveTarget = MapBounds.Clamp(cx + Random.Range(-r, r + 1), cy + Random.Range(-r, r + 1));
+            // 반경 내 산개 — 정확히 같은 타일을 노리면 타일 예약 충돌 + 불 위에 서게 됨.
+            // 통행 불가 타일(집 등)은 목표에서 제외 (M4-E — 경로 실패 소음 제거)
+            MoveTarget = MapBounds.PickWalkableNear(agent.IsWalkable, cx, cy, _so.AnchorRadius);
             return true;
         }
 

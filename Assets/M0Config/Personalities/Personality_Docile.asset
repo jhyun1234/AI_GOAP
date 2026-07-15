@@ -20,6 +20,10 @@ MonoBehaviour:
   BuildCostMult: 1
   ExploreCostMult: 1
   MoodLines: []
-  RefuseHungryLines: []
-  RefuseTiredLines: []
+  RefuseHungryLines:
+  - "죄, 죄송해요... 배가 너무 고파서..."
+  - "미안해요, 밥만 먹고 바로 할게요"
+  RefuseTiredLines:
+  - "죄송해요... 다리가 후들거려서..."
+  - "조금만, 조금만 쉬고요..."
   MoodLineChance: 0.2

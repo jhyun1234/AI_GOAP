@@ -480,11 +480,24 @@ namespace AIVillage.M0
         /// 배고픔이 피로보다 먼저 판정된다 (둘 다면 배고픔 사유).
         /// </summary>
         public static OrderResult JudgeOrder(float satiety, float fatigue, AgentConfigSO cfg)
+            => JudgeOrder(satiety, fatigue, cfg, null);
+
+        /// <summary>
+        /// 성격 오프셋 포함 거부 판정 (M4-C, 순수 — 게이트 M4-T3). p=null이면 기존과 완전 동일.
+        /// 성격은 문턱을 옮길 뿐 판정은 결정적 (ADR-M1-2 — 랜덤 금지, 플레이어가 학습 가능해야 협상이 성립).
+        /// </summary>
+        public static OrderResult JudgeOrder(float satiety, float fatigue, AgentConfigSO cfg, PersonalitySO p)
         {
-            if (satiety < cfg.OrderRefuseSatiety) return OrderResult.RefusedHungry;
-            if (fatigue > cfg.OrderRefuseFatigue) return OrderResult.RefusedTired;
+            float satLimit = cfg.OrderRefuseSatiety + (p != null ? p.RefuseSatietyOffset : 0f);
+            float fatLimit = cfg.OrderRefuseFatigue + (p != null ? p.RefuseFatigueOffset : 0f);
+            if (satiety < satLimit) return OrderResult.RefusedHungry;
+            if (fatigue > fatLimit) return OrderResult.RefusedTired;
             return OrderResult.Accepted;
         }
+
+        /// <summary>성격 대사 우선, 비면 기본 대사 (중립 경로 — ADR-M4-2).</summary>
+        private static string[] FirstNonEmpty(string[] preferred, string[] fallback)
+            => preferred != null && preferred.Length > 0 ? preferred : fallback;
 
         /// <summary>
         /// 명령 수신 — 거부는 수신 시점 1회, 욕구 상태 기반 판정 (ADR-M1-2, 랜덤 아님).
@@ -494,16 +507,16 @@ namespace AIVillage.M0
         {
             if (order == null) return OrderResult.Accepted;
 
-            OrderResult verdict = JudgeOrder(Satiety, Fatigue, _cfg);
+            OrderResult verdict = JudgeOrder(Satiety, Fatigue, _cfg, Personality);
             if (verdict == OrderResult.RefusedHungry)
             {
-                ShowTransient(Pick(_cfg.RefuseHungryLines));
+                ShowTransient(Pick(FirstNonEmpty(Personality != null ? Personality.RefuseHungryLines : null, _cfg.RefuseHungryLines)));
                 Debug.Log($"[VillagerAgent] {AgentId}: 명령 거부 (배고픔 {Satiety:F0} < {_cfg.OrderRefuseSatiety})");
                 return verdict;
             }
             if (verdict == OrderResult.RefusedTired)
             {
-                ShowTransient(Pick(_cfg.RefuseTiredLines));
+                ShowTransient(Pick(FirstNonEmpty(Personality != null ? Personality.RefuseTiredLines : null, _cfg.RefuseTiredLines)));
                 Debug.Log($"[VillagerAgent] {AgentId}: 명령 거부 (피로 {Fatigue:F0} > {_cfg.OrderRefuseFatigue})");
                 return verdict;
             }

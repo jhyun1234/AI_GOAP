@@ -20,6 +20,10 @@ MonoBehaviour:
   BuildCostMult: 1
   ExploreCostMult: 1.1
   MoodLines: []
-  RefuseHungryLines: []
-  RefuseTiredLines: []
+  RefuseHungryLines:
+  - "밥심으로 일하는 건데, 밥부터요"
+  - "빈속으론 낫도 못 들어요"
+  RefuseTiredLines:
+  - "허리가 안 펴져요..."
+  - "오늘 밭일이 고됐어요, 좀 쉬고요"
   MoodLineChance: 0.2

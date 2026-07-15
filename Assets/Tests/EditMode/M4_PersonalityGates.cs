@@ -97,6 +97,33 @@ namespace AIVillage.Tests.EditMode
         }
 
         [Test]
+        public void M4_T3_JudgeOrder_PersonalityOffsets()
+        {
+            // AgentConfig 기본 문턱 실측값: satiety < 35 거부 / fatigue > 70 거부 (M4-C 착수 시 확인)
+            var cfg = ScriptableObject.CreateInstance<AgentConfigSO>();
+            var docile   = AssetDatabase.LoadAssetAtPath<PersonalitySO>("Assets/M0Config/Personalities/Personality_Docile.asset");
+            var stubborn = AssetDatabase.LoadAssetAtPath<PersonalitySO>("Assets/M0Config/Personalities/Personality_Stubborn.asset");
+
+            // 경계 1 (satiety 40, fatigue 60): 기본·순둥이 수락, 고집쟁이는 배고픔 거부 (40 < 35+8)
+            Assert.AreEqual(VillagerAgent.OrderResult.Accepted, VillagerAgent.JudgeOrder(40f, 60f, cfg, null));
+            Assert.AreEqual(VillagerAgent.OrderResult.Accepted, VillagerAgent.JudgeOrder(40f, 60f, cfg, docile));
+            Assert.AreEqual(VillagerAgent.OrderResult.RefusedHungry, VillagerAgent.JudgeOrder(40f, 60f, cfg, stubborn),
+                            "같은 상태에서 고집쟁이만 거부 — 명령 대상 선택의 재미 (M4-S1)");
+
+            // 경계 2 (satiety 80, fatigue 60): 고집쟁이는 피로 거부 (60 > 70-15)
+            Assert.AreEqual(VillagerAgent.OrderResult.RefusedTired, VillagerAgent.JudgeOrder(80f, 60f, cfg, stubborn));
+            Assert.AreEqual(VillagerAgent.OrderResult.Accepted, VillagerAgent.JudgeOrder(80f, 60f, cfg, docile));
+
+            // 경계 3 (satiety 30): 기본은 거부, 순둥이는 수행 (30 >= 35-8 — 지쳐도 따라가는 성격)
+            Assert.AreEqual(VillagerAgent.OrderResult.RefusedHungry, VillagerAgent.JudgeOrder(30f, 60f, cfg, null));
+            Assert.AreEqual(VillagerAgent.OrderResult.Accepted, VillagerAgent.JudgeOrder(30f, 60f, cfg, docile));
+
+            // 중립 불변식: null 성격 = 기존 3인자 판정과 동일 (M1-T1 계약 유지)
+            Assert.AreEqual(VillagerAgent.JudgeOrder(40f, 60f, cfg), VillagerAgent.JudgeOrder(40f, 60f, cfg, null));
+            Assert.AreEqual(VillagerAgent.JudgeOrder(20f, 95f, cfg), VillagerAgent.JudgeOrder(20f, 95f, cfg, null));
+        }
+
+        [Test]
         public void M4_E_PickWalkableNear_FiltersBlockedTiles()
         {
             // 반경 내 유일한 통행 가능 타일 — 랜덤이 불운해도 링 폴백이 반드시 찾는다 (결정적 성질)

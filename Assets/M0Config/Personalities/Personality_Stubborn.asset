@@ -20,6 +20,10 @@ MonoBehaviour:
   BuildCostMult: 1
   ExploreCostMult: 1
   MoodLines: []
-  RefuseHungryLines: []
-  RefuseTiredLines: []
+  RefuseHungryLines:
+  - "배고픈데 무슨 일이야!"
+  - "밥도 안 주고 부려먹기야?"
+  RefuseTiredLines:
+  - "꼭 내가 해야 해?"
+  - "지쳤다고. 나중에 해."
   MoodLineChance: 0.2

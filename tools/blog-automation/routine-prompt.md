@@ -78,35 +78,59 @@ blog-master, blog-publisher). Agent 도구로 이 순서대로 호출.
      마커로 초기화(다음 사이클 중복 방지).
 
 8. **상태 커밋 + push (orchestrator가 직접 실행, 서브에이전트 아님)** — publisher 성공 후
-   상태 파일 변경을 리포에 반영한다. 원격 sandbox는 `main`에 직접 push 불가 (기본 제약,
-   403) → **반드시 `claude/state-*` prefix 브랜치로 push해야 한다.** GitHub Actions
-   (`.github/workflows/blog-state-auto-merge.yml`)가 이 브랜치를 자동으로 main에 fast-forward
-   머지하고 브랜치를 삭제한다.
+   상태 파일 변경을 리포에 반영한다.
+
+   **⚠️ 샌드박스 push 규칙 (2026-07-15 근본 진단 결과)**: 클라우드 샌드박스의 모든 git
+   작업은 GitHub 프록시를 거치고, 프록시는 push를 **세션의 현재 작업 브랜치로만** 허용한다
+   (공식 문서 "Restricts git push operations to the current working branch"). 세션 도중
+   새로 만든 브랜치는 `claude/*` prefix라도 403이다 — 2026-07-14·07-15 두 번의
+   `claude/state-*` push 403이 이 규칙 때문이었다. 따라서 **새 브랜치를 만들지 말고,
+   지금 체크아웃되어 있는 브랜치에 그대로 커밋해서 push한다.**
    ```bash
-   BRANCH="claude/state-$(date -u +%Y-%m-%dT%H%M%SZ)"
    git config user.email "blog-automation@aigoap.local"
    git config user.name "aigoap-blog-automation"
-   git checkout -b "$BRANCH"
    git add tools/blog-automation/state/ tools/blog-automation/published/
    git commit -m "chore(blog): auto-run state update ($(date -u +%Y-%m-%d))" || {
      echo "No state changes to commit"; exit 0;
    }
-   git push origin "$BRANCH"
+   CUR=$(git branch --show-current)
+   echo "current working branch: $CUR"
+   # 1차: 현재 작업 브랜치 그대로 push (프록시 허용 대상)
+   if git push origin HEAD 2> /tmp/push-err-1.txt; then
+     echo "STATE_PUSH_OK branch=$CUR"
+     # $CUR이 main이면 그대로 반영 완료. claude/*이면 GitHub Actions
+     # (blog-state-auto-merge.yml)가 상태 파일 전용 diff를 확인 후 main에 ff 머지한다.
+   else
+     cat /tmp/push-err-1.txt
+     # 2차(구방식, 세대별 프록시 정책 차이 대비): 새 claude/state-* 브랜치로 push
+     BRANCH="claude/state-$(date -u +%Y-%m-%dT%H%M%SZ)"
+     git branch "$BRANCH"
+     if git push origin "$BRANCH" 2> /tmp/push-err-2.txt; then
+       echo "STATE_PUSH_OK branch=$BRANCH (fallback path)"
+     else
+       cat /tmp/push-err-2.txt
+       echo "STATE_PUSH_FAILED"
+     fi
+   fi
    ```
-   push 실패 시(403 재발 등) `state/blog_pipeline_alerts.md`에 기록하되 파이프라인은
+   두 시도 모두 실패 시 `state/blog_pipeline_alerts.md`에 기록하되 파이프라인은
    PUBLISHED로 종료(Blogger 발행 자체는 이미 성공했으므로). 상태 파일 반영 실패는
    다음 auto-run이 중복 소재를 볼 위험만 있고 이번 사이클 자체는 성공이다.
    **단, push 실패 시 최종 PIPELINE_RESULT 줄 다음에 수동 반영용 블록을 반드시 출력한다**
-   (2026-07-14 403 사고에서 URL만 출력되어 소비 커밋을 추정해야 했음):
+   (2026-07-14 403 사고에서 URL만 출력되어 소비 커밋을 추정해야 했음). **push 실패 원문
+   (stderr 전체, /tmp/push-err-*.txt 내용)과 시도한 브랜치명을 반드시 포함한다** — 로컬
+   세션이 근본 원인을 추적할 유일한 증거다:
    ```
    MANUAL_STATE_UPDATE:
    latest_commit: <이번에 소비한 마지막 커밋 해시와 제목>
    blog_url / title / labels / blogger_post_id
    next_material_priority 소비 여부
+   push_attempts: <브랜치명 → stderr 원문 (1차/2차 각각)>
    ```
 
    **API_FAILED / REJECTED_3X 경로에서도** `state/blog_pipeline_alerts.md`만 수정된 경우
-   동일하게 `claude/state-*` 브랜치로 push한다 (main 직접 push 시도 금지).
+   동일한 push 절차(현재 브랜치 우선, 실패 시 claude/state-* 폴백)를 따른다
+   (main이 현재 브랜치가 아닐 때 main 직접 push 시도 금지).
 
 ## 반려 카운터 & 안전장치
 

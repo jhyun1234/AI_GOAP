@@ -331,6 +331,13 @@ namespace AIVillage.M0
             }
 
             ActionSO action = _plan[_planIndex];
+
+            // 성격 혼잣말 (M4-D) — 표현 전용, 확률·문구 전부 에셋 값. 비면 표시 없음 (중립 경로).
+            // ShowTransient가 잠시 덮고 다음 갱신에서 플랜 문구로 복귀 — 거부 대사와 같은 통로.
+            if (Personality != null && Personality.MoodLines != null && Personality.MoodLines.Length > 0
+                && Random.value < Personality.MoodLineChance)
+                ShowTransient(Pick(Personality.MoodLines));
+
             _runner = action.CreateRunner(this);
 
             if (!_runner.Prepare(this))

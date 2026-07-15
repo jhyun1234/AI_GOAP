@@ -19,7 +19,10 @@ MonoBehaviour:
   FarmCostMult: 0.7
   BuildCostMult: 1
   ExploreCostMult: 1.1
-  MoodLines: []
+  MoodLines:
+  - "흙냄새가 최고야"
+  - "작물은 정직하지"
+  - "비가 오려나..."
   RefuseHungryLines:
   - "밥심으로 일하는 건데, 밥부터요"
   - "빈속으론 낫도 못 들어요"

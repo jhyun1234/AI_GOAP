@@ -19,7 +19,10 @@ MonoBehaviour:
   FarmCostMult: 1
   BuildCostMult: 1
   ExploreCostMult: 1
-  MoodLines: []
+  MoodLines:
+  - "다들 힘내세요!"
+  - "오늘도 평화롭네요"
+  - "뭐 도울 일 없을까..."
   RefuseHungryLines:
   - "죄, 죄송해요... 배가 너무 고파서..."
   - "미안해요, 밥만 먹고 바로 할게요"

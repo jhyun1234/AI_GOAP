@@ -28,4 +28,4 @@ MonoBehaviour:
   AnchorPriority:
   - 14
   - 6
-  WanderRadius: 2
+  WanderRadius: 4

@@ -40,6 +40,9 @@ namespace AIVillage.M0
         [Tooltip("밭 작물 성장 스프라이트 (M2-D). 비우면 색 폴백 (연두 새싹→노랑 결실).")]
         [SerializeField] private CropSpriteSetSO _cropSprites;
 
+        [Tooltip("성격 아키타입 풀 (M4-A) — 스폰 시 랜덤 할당. 비우면 전원 성격 없음(중립, M3 동작).")]
+        [SerializeField] private PersonalitySO[] _personalityPool;
+
         public static M0SimulationLoop Instance { get; private set; }
 
         public WorldModel World { get; private set; }
@@ -66,6 +69,12 @@ namespace AIVillage.M0
 
         /// <summary>등록된 주민 목록 (PlayerInputController 픽킹용, 읽기 전용).</summary>
         public IReadOnlyList<VillagerAgent> Agents => _agents;
+
+        /// <summary>스폰 시 성격 랜덤 할당 (M4-A). 풀이 비면 null = 중립 (ADR-M4-2 불변식 경로).</summary>
+        public PersonalitySO PickRandomPersonality()
+            => _personalityPool != null && _personalityPool.Length > 0
+                ? _personalityPool[Random.Range(0, _personalityPool.Length)]
+                : null;
 
         public void RegisterAgent(VillagerAgent agent)
         {

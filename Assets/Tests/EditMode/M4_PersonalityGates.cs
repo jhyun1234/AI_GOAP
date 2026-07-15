@@ -1,5 +1,6 @@
 using AIVillage.M0;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 
 namespace AIVillage.Tests.EditMode
@@ -11,6 +12,31 @@ namespace AIVillage.Tests.EditMode
     /// </summary>
     public class M4_PersonalityGates
     {
+        [Test]
+        public void M4_A_PersonalityAssets_LoadAndPolicy()
+        {
+            // 신규 인스턴스의 기본값 = 중립 (ADR-M4-2 불변식의 데이터 절반)
+            var fresh = ScriptableObject.CreateInstance<PersonalitySO>();
+            Assert.AreEqual(0f, fresh.RefuseSatietyOffset);
+            Assert.AreEqual(0f, fresh.RefuseFatigueOffset);
+            Assert.AreEqual(1f, fresh.GatherCostMult);
+            Assert.AreEqual(1f, fresh.FarmCostMult);
+            Assert.AreEqual(1f, fresh.BuildCostMult);
+            Assert.AreEqual(1f, fresh.ExploreCostMult);
+
+            // 아키타입 4종 로드 + 축 배치 검증 (§4 제안치)
+            var docile   = AssetDatabase.LoadAssetAtPath<PersonalitySO>("Assets/M0Config/Personalities/Personality_Docile.asset");
+            var stubborn = AssetDatabase.LoadAssetAtPath<PersonalitySO>("Assets/M0Config/Personalities/Personality_Stubborn.asset");
+            var farmer   = AssetDatabase.LoadAssetAtPath<PersonalitySO>("Assets/M0Config/Personalities/Personality_Farmer.asset");
+            var wanderer = AssetDatabase.LoadAssetAtPath<PersonalitySO>("Assets/M0Config/Personalities/Personality_Wanderer.asset");
+            Assert.IsNotNull(docile); Assert.IsNotNull(stubborn); Assert.IsNotNull(farmer); Assert.IsNotNull(wanderer);
+
+            Assert.Less(docile.RefuseSatietyOffset, 0f, "순둥이는 덜 거부 (문턱 하향)");
+            Assert.Greater(stubborn.RefuseSatietyOffset, 0f, "고집쟁이는 더 거부 (문턱 상향)");
+            Assert.Less(farmer.FarmCostMult, 1f, "농사꾼은 밭 선호");
+            Assert.Less(wanderer.GatherCostMult, 1f, "떠돌이는 채집 선호");
+        }
+
         [Test]
         public void M4_E_PickWalkableNear_FiltersBlockedTiles()
         {

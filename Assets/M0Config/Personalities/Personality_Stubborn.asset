@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b7e94a2c53d1480f96c8a05e31d7f284, type: 3}
+  m_Name: Personality_Stubborn
+  m_EditorClassIdentifier:
+  DisplayName: "고집쟁이"
+  RefuseSatietyOffset: 8
+  RefuseFatigueOffset: -15
+  GatherCostMult: 1
+  FarmCostMult: 1
+  BuildCostMult: 1
+  ExploreCostMult: 1
+  MoodLines: []
+  RefuseHungryLines: []
+  RefuseTiredLines: []
+  MoodLineChance: 0.2

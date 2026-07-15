@@ -57,6 +57,13 @@ namespace AIVillage.M0
         public bool IsWalkable(int x, int y)
             => MapBounds.ToArrayIndex(x, y, out int ax, out int ay) && _sim.Walkable[ax, ay];
 
+        /// <summary>성격 아키타입 (M4-A). null = 중립 — M3와 동작 동일 (ADR-M4-2).</summary>
+        public PersonalitySO Personality { get; private set; }
+
+        /// <summary>배율 개체 편차 [채집, 농사, 건설, 탐험] — 스폰 1회 고정, M4-B 비용 배열 계산에 사용.</summary>
+        public float[] MultJitter => _multJitter;
+        private float[] _multJitter;
+
         // ── 플랜 상태 ──────────────────────────────────────────────────────
         private readonly List<ActionSO> _plan = new List<ActionSO>(PlanningConfig.MaxPlanLen);
         private int _planIndex;
@@ -128,6 +135,15 @@ namespace AIVillage.M0
             float spread = (Mathf.Abs(AgentId.GetHashCode() % 1000) / 999f) * 2f - 1f; // [-1, 1]
             Satiety = Mathf.Clamp(_cfg.InitialSatiety + spread * _cfg.InitialSatietyVariance, 0f, 100f);
             Fatigue = _cfg.InitialFatigue;
+
+            // 성격 할당 (M4-A) — 스폰 1회 고정. 배율 편차 ±10%도 이때 확정 (정체성 — 세이브 대상, ADR-M4-5)
+            Personality = _sim.PickRandomPersonality();
+            _multJitter = new[]
+            {
+                Random.Range(0.9f, 1.1f), Random.Range(0.9f, 1.1f),
+                Random.Range(0.9f, 1.1f), Random.Range(0.9f, 1.1f),
+            };
+            Debug.Log($"[VillagerAgent] {AgentId}: 성격 = {(Personality != null ? Personality.DisplayName : "없음(중립)")}");
             _motion = new MoveMotion(_cfg, AgentId);
             SetupView();
             SetupBubble();

@@ -57,6 +57,22 @@ namespace AIVillage.M0
         public bool IsWalkable(int x, int y)
             => MapBounds.ToArrayIndex(x, y, out int ax, out int ay) && _sim.Walkable[ax, ay];
 
+        /// <summary>경로 실패 진단 전용 (2026-07-16) — 통행불가 타일 개수+좌표(최대 12개) 덤프.</summary>
+        private string DumpBlockedTiles(int max = 12)
+        {
+            var sb = new System.Text.StringBuilder();
+            int n = 0;
+            MapBounds.Get(out int minX, out int maxX, out int minY, out int maxY);
+            for (int x = minX; x <= maxX; x++)
+                for (int y = minY; y <= maxY; y++)
+                    if (!IsWalkable(x, y))
+                    {
+                        n++;
+                        if (n <= max) sb.Append($"({x},{y})");
+                    }
+            return $"{n}개 {sb}";
+        }
+
         /// <summary>성격 아키타입 (M4-A). null = 중립 — M3와 동작 동일 (ADR-M4-2).</summary>
         public PersonalitySO Personality { get; private set; }
 
@@ -370,7 +386,12 @@ namespace AIVillage.M0
                     break;
 
                 default: // Unreachable — ADR-8/9: 좌표 스냅 금지, 실패를 그대로 승격
-                    AbortPlan($"경로 없음 → ({target.Value.x},{target.Value.y})");
+                    // 진단 강화 (2026-07-16): 출발/목표 통행 상태 + 전체 통행불가 타일 덤프 —
+                    // 둘 다 True인데 실패하면 유령 벽(불가 타일 과다)이나 JPS 문제로 좁혀진다
+                    AbortPlan($"경로 없음 → ({target.Value.x},{target.Value.y}) " +
+                              $"[출발 ({TileX},{TileY}) 통행={IsWalkable(TileX, TileY)}, " +
+                              $"목표 통행={IsWalkable(target.Value.x, target.Value.y)}, " +
+                              $"통행불가={DumpBlockedTiles()}]");
                     break;
             }
         }

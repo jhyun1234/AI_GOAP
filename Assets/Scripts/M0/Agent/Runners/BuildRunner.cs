@@ -31,8 +31,11 @@ namespace AIVillage.M0
                 return false;
             }
 
+            // 주민이 서 있거나 이동 중인 타일(타인 예약)도 제외 — 통행 차단 건물이 주민 위에
+            // 완공되면 JPS 출발 불가로 영구 고립 (2026-07-16 방치 관측: 경로없음 반복의 근본 원인 후보)
             bool Occupied(int x, int y)
-                => agent.Discovery.HasNodeAt(x, y) || agent.Construction.HasBuildingAt(x, y);
+                => agent.Discovery.HasNodeAt(x, y) || agent.Construction.HasBuildingAt(x, y)
+                || AIVillage.AI.TileReservationRegistry.IsReservedByOther(new Vector2Int(x, y), agent.AgentId);
 
             // 맵 경계 — MapBounds 단일 출처 (M3-F)
             MapBounds.Get(out int minX, out int maxX, out int minY, out int maxY);
@@ -134,6 +137,14 @@ namespace AIVillage.M0
         public override RunnerResult Tick(VillagerAgent agent, float dt)
         {
             if (!DurationElapsed(dt)) return RunnerResult.Running;
+
+            // 완공 순간 타일에 다른 주민이 있으면 실패 → 재계획 (매몰 방지의 두 번째 겹).
+            // 대기(Running 유지)는 금지 — 건설자가 동상이 되어 통행 정체를 누적시키고
+            // 상호 대기 데드락까지 가능 (2026-07-16 방치에서 실증). 실패는 first-class:
+            // 자원은 Complete 시점에만 차감되므로 잃는 것 없이 다음 시도가 새 자리를 찾는다.
+            if (_so.Building.BlocksMovement
+                && AIVillage.AI.TileReservationRegistry.IsReservedByOther(_buildTile, agent.AgentId))
+                return Fail($"{_so.Building.DisplayName} 건설 타일에 주민 체류 — 재계획");
 
             // 완공 위치 = Prepare에서 정한 건설 타일 (비차단은 도착 타일과 동일, 차단은 인접에서 시공)
             return agent.Construction.Complete(_so.Building, _buildTile.x, _buildTile.y)

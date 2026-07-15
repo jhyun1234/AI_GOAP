@@ -45,6 +45,16 @@ namespace AIVillage.AI
         }
 
         /// <summary>
+        /// tile이 ownerId가 아닌 다른 소유자에게 예약돼 있는지 — 읽기 전용 질의 (M4 최소 추가).
+        /// 통행 차단 건물이 주민이 서 있는 타일 위에 완공되면 그 주민은 JPS 출발 불가로
+        /// 영구히 갇힌다 — 건설 위치 회피·완공 대기(BuildRunner)가 이 질의로 방지한다.
+        /// </summary>
+        public static bool IsReservedByOther(Vector2Int tile, string ownerId)
+        {
+            return _reservations.TryGetValue(tile, out string existing) && existing != ownerId;
+        }
+
+        /// <summary>
         /// OnDestroy·사망 진입 시 호출해 ownerId의 모든 예약을 회수한다 (leak 원천 차단, ADR-T6).
         /// foreach 순회 중 직접 삭제는 InvalidOperationException 유발 — 별도 리스트로 사후 삭제.
         /// </summary>

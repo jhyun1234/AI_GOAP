@@ -124,6 +124,24 @@ namespace AIVillage.Tests.EditMode
         }
 
         [Test]
+        public void M4_Fix_BuildSite_AvoidsTilesReservedByOthers()
+        {
+            // 매몰 방지 (2026-07-16 방치 관측): 주민이 서 있는 타일 위에 차단 건물이 완공되면
+            // JPS 출발 불가로 영구 고립 — 건설 위치 후보에서 타인 예약 타일을 제외한다
+            AIVillage.AI.TileReservationRegistry.ResetAll();
+            var tile = new Vector2Int(7, 7);
+
+            Assert.IsFalse(AIVillage.AI.TileReservationRegistry.IsReservedByOther(tile, "builder"), "빈 타일");
+            Assert.IsTrue(AIVillage.AI.TileReservationRegistry.TryReserve(tile, "builder"));
+            Assert.IsFalse(AIVillage.AI.TileReservationRegistry.IsReservedByOther(tile, "builder"),
+                           "자기 예약은 제자리 건설을 막지 않는다 (기존 동작 무변경)");
+            Assert.IsTrue(AIVillage.AI.TileReservationRegistry.IsReservedByOther(tile, "rester"),
+                          "타인 예약 타일은 건설 후보 제외");
+
+            AIVillage.AI.TileReservationRegistry.ResetAll();
+        }
+
+        [Test]
         public void M4_E_PickWalkableNear_FiltersBlockedTiles()
         {
             // 반경 내 유일한 통행 가능 타일 — 랜덤이 불운해도 링 폴백이 반드시 찾는다 (결정적 성질)

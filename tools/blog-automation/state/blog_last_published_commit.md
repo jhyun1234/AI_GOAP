@@ -15,14 +15,32 @@ metadata:
 
 ## 최신 사용 커밋
 
+- `latest_commit`: `cc4602e` (유지 — 이번 회차는 회고 특집 예외, M0 커밋 구간은 별도 트랙이므로 갱신하지 않음)
+- `selected_commits_range`: `8ee845b` ~ `b175ddf` + `04f0975` (M0 GOAP 정합 재설계 대서사 — 회고 특집)
+- `cycle_date`: 2026-07-15 (원격 auto-run 13:03 KST — `blog_next_material_priority.md` ACTIVE 게이트 무조건 통과)
+- `publish_status`: PUBLISHED (Blogger published: 2026-07-15 13:40 KST)
+- `blogger_post_id`: 6764155466991758383
+- `blog_url`: https://gamedevclaude.blogspot.com/2026/07/unity-goap-24800-5977-m0.html
+- `title`: Unity GOAP 재설계: 24,800줄을 하루 만에 5,977줄로 줄인 M0 재건 개발일지
+- `labels`: 유니티, 인디게임, AI개발, GOAP
+- `local_archive`: tools/blog-automation/published/2026-07-15-unity-goap-m0-redesign.html
+  (원격 sandbox push 403 실패 → 2026-07-15 로컬에서 Blogger API GET으로 재획득해 복구.
+  검증: Buffer.concat 후 toString('utf8'), 13,826 bytes)
+- `비고`: 원격 sandbox의 `claude/state-2026-07-15T040738Z` push가 07-14에 이어 **2회 연속
+  403 실패** → MANUAL_STATE_UPDATE 경로로 로컬 수동 반영 (2026-07-15). 상세는
+  `blog_pipeline_alerts.md` 참조. 이 글로 M0 미발행 구간이 해소됨 — 남은 미발행 구간은
+  M2(생산체인)·M3(주거 기반) (BLOG_COVERAGE.md 참조).
+
+### 이전 회차 이력 (2026-07-14, M1 밀스톤 완결)
+
 - `latest_commit`: `cc4602e` (M1 밀스톤 완결 시점 — M1 개발 소재의 마지막 커밋. 이후 M2 명세 커밋들은 미소비)
 - `selected_commits_range`: M1 트랙 (여가·식량순환·명령/거부·대사변주, 2026-07-14)
 - `cycle_date`: 2026-07-14 (원격 auto-run 13:03 KST — 일일 게이트 전환 후 첫 발행)
 - `publish_status`: PUBLISHED
 - `blog_url`: https://gamedevclaude.blogspot.com/2026/07/unity-goap-ai-ai-m1.html
 - `비고`: 원격 sandbox의 claude/state-* push가 403으로 실패 → 이 항목은 로컬에서 수동
-  반영함 (2026-07-14). ⚠️ M0 재설계 대서사(24,800→5,977줄)는 이 글에서 다뤄지지 않음 —
-  `blog_next_material_priority.md`에 다음 회차 우선 소재로 지정됨.
+  반영함 (2026-07-14). M0 재설계 대서사(24,800→5,977줄)는 이 글에서 다뤄지지 않음 →
+  2026-07-15 회고 특집으로 발행 완료 (위 최신 항목).
 
 ### 이전 회차 이력 (2026-07-11, F-A 성격배분 + Satiety 반전)
 

@@ -8,6 +8,19 @@ metadata:
 
 # 블로그 파이프라인 다음 회차 우선 소재
 
+**STATUS: CONSUMED (소비 완료: 2026-07-15)** — 2026-07-15 원격 auto-run에서 이 소재로
+발행 완료. blog-planner는 이 파일을 더 이상 우선 소재로 취급하지 않는다.
+
+- 발행 결과: https://gamedevclaude.blogspot.com/2026/07/unity-goap-24800-5977-m0.html
+  (blogger_post_id: 6764155466991758383, 제목: "Unity GOAP 재설계: 24,800줄을 하루 만에
+  5,977줄로 줄인 M0 재건 개발일지")
+- latest_commit은 지정대로 갱신하지 않음 (cc4602e 유지 — 회고 특집 예외)
+- 원격 state push 403 실패로 이 마킹은 로컬 수동 반영임 (`blog_pipeline_alerts.md` 참조)
+
+---
+
+## 아래는 지정 당시 원문 (기록 보존용)
+
 **STATUS: ACTIVE (2026-07-14 지정)** — blog-planner는 다음 사이클에서 이 소재를 **최우선**으로
 집필한다. `latest_commit`(cc4602e) 이전의 소비된 커밋 범위지만, **"회고 특집"으로 예외 승인**
 — 이 이야기는 아직 블로그에 나가지 않았다.

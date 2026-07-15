@@ -410,19 +410,23 @@ namespace AIVillage.Core
                     return new Vector2Int(nx, ny);
 
                 // ── 강제 이웃 체크: 수평 이동 ──────────────────────────────────
+                // [2026-07-16 수정] 표준 JPS 규칙: 장애물이 '현재 칸(nx,ny)' 옆에 있고 그 대각
+                // 전방이 열려 있을 때 강제 이웃. 기존 코드는 '이전 칸(cx,cy)' 옆을 봐서
+                // GetSuccessors의 확장 규칙(현재 칸 기준)과 어긋났고, 점프가 장애물을 한 칸
+                // 지나 멈춘 자리에선 우회 대각선이 생성되지 않아 장애물 곁 경로가 통째로
+                // 소실됐다 (M3-C에서 통행 차단 건물이 생기며 첫 발현 — walkable-walkable
+                // Unreachable, 방치 진단 로그로 실증). M0~M3는 장애물 0개라 잠복.
                 if (dx != 0 && dy == 0)
                 {
-                    // 수평 이동 중, 위아래에 장애물 + 대각선 통과 가능 → 강제 이웃
-                    bool fUp   = !IsWalkable(cx, ny + 1, walkable) && IsWalkable(nx, ny + 1, walkable);
-                    bool fDown = !IsWalkable(cx, ny - 1, walkable) && IsWalkable(nx, ny - 1, walkable);
+                    bool fUp   = !IsWalkable(nx, ny + 1, walkable) && IsWalkable(nx + dx, ny + 1, walkable);
+                    bool fDown = !IsWalkable(nx, ny - 1, walkable) && IsWalkable(nx + dx, ny - 1, walkable);
                     if (fUp || fDown) return new Vector2Int(nx, ny);
                 }
-                // ── 강제 이웃 체크: 수직 이동 ──────────────────────────────────
+                // ── 강제 이웃 체크: 수직 이동 (위와 동일한 수정) ────────────────
                 else if (dx == 0 && dy != 0)
                 {
-                    // 수직 이동 중, 좌우에 장애물 + 대각선 통과 가능 → 강제 이웃
-                    bool fRight = !IsWalkable(nx + 1, cy, walkable) && IsWalkable(nx + 1, ny, walkable);
-                    bool fLeft  = !IsWalkable(nx - 1, cy, walkable) && IsWalkable(nx - 1, ny, walkable);
+                    bool fRight = !IsWalkable(nx + 1, ny, walkable) && IsWalkable(nx + 1, ny + dy, walkable);
+                    bool fLeft  = !IsWalkable(nx - 1, ny, walkable) && IsWalkable(nx - 1, ny + dy, walkable);
                     if (fRight || fLeft) return new Vector2Int(nx, ny);
                 }
                 // ── 대각선 이동: 수평/수직 성분 점프 시도 ─────────────────────

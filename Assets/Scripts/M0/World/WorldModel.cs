@@ -13,11 +13,14 @@ namespace AIVillage.M0
         private readonly int[] _slots = new int[SlotIds.Count];
         private readonly DiscoveryService _discovery;
         private readonly FarmService _farm;
+        private readonly SeasonService _season;
 
-        public WorldModel(DiscoveryService discovery, WorldConfigSO config, FarmService farm = null)
+        public WorldModel(DiscoveryService discovery, WorldConfigSO config, FarmService farm = null,
+                          SeasonService season = null)
         {
             _discovery = discovery;
             _farm = farm;
+            _season = season;
             if (config != null)
             {
                 _slots[(int)SlotId.WoodStock]    = config.InitialWoodStock;
@@ -77,6 +80,11 @@ namespace AIVillage.M0
             // 값은 개수 (ADR-M3-2) — 익은 밭 N개면 한 플랜에 수확 N회가 담긴다.
             slots[(int)SlotId.EmptyFarmPlot]     = _farm != null ? _farm.CountEmpty() : 0;
             slots[(int)SlotId.RipeCropAvailable] = _farm != null ? _farm.CountRipe()  : 0;
+            // 계절의 유일한 원천은 SeasonService (M6-A) — 미배선이면 "위기 없음" 중립 (99/0 = M5 동일 판정)
+            slots[(int)SlotId.DaysToCrisis] = _season != null
+                ? Mathf.CeilToInt(_season.DaysToCrisis) : (int)SeasonService.NO_CRISIS;
+            slots[(int)SlotId.CrisisActive] = _season != null && _season.Current != null
+                                              && _season.Current.IsCrisis ? 1 : 0;
             return new WorldSnapshot(slots);
         }
 

@@ -52,6 +52,9 @@ namespace AIVillage.M0
         public DiscoveryService Discovery { get; private set; }
         public ConstructionService Construction { get; private set; }
         public FarmService Farm { get; private set; }
+
+        /// <summary>계절 시계 (M6-A). WorldConfig.SeasonCycle이 비면 null = 계절 없음 (M5 동작).</summary>
+        public SeasonService Season { get; private set; }
         public PlannerGateway Planner { get; private set; }
         public GoalSelector Goals { get; private set; }
         public AgentConfigSO AgentConfig => _agentConfig;
@@ -115,7 +118,19 @@ namespace AIVillage.M0
 
             Discovery    = new DiscoveryService();
             Farm         = new FarmService(_worldConfig.FarmGrowthDays);
-            World        = new WorldModel(Discovery, _worldConfig, Farm);
+            // 계절 시계 (M6-A) — 사이클이 비면 서비스 자체를 null로 (중립 불변식, M6-T1b)
+            var season = new SeasonService(_worldConfig.SeasonCycle);
+            if (season.IsActive)
+            {
+                Season = season;
+                Season.OnSeasonChanged += s =>
+                    Debug.Log($"[M0Sim] 계절 전환 — {s.DisplayName} (Day {(int)GameTime}, 위기={s.IsCrisis})");
+            }
+            else
+            {
+                Debug.LogWarning("[M0SimulationLoop] WorldConfig.SeasonCycle 비어 있음 — 계절 없이 진행 (M5 동작).");
+            }
+            World        = new WorldModel(Discovery, _worldConfig, Farm, Season);
             Construction = new ConstructionService(World);
             Planner      = new PlannerGateway(_catalog);
             Goals        = new GoalSelector(_goals);
@@ -168,7 +183,9 @@ namespace AIVillage.M0
                 yield return wait;
 
                 float deltaGameDays = TICK_INTERVAL_SEC * _worldConfig.GameTimeScale;
-                GameTime += deltaGameDays;
+                GameTime += deltaGameDays; // 계절 배율 금지 — 겨울이 시간을 늦추면 안 된다 (ADR-M6-1)
+
+                Season?.Tick(GameTime);
 
                 Discovery.TickRegeneration(deltaGameDays);
                 Farm.TickGrowth(deltaGameDays);
@@ -182,7 +199,9 @@ namespace AIVillage.M0
                 if (day > _lastLoggedDay)
                 {
                     _lastLoggedDay = day;
-                    Debug.Log($"[M0Sim] Day {day} — Wood {World.GetStock(SlotId.WoodStock)}, " +
+                    string seasonStr = Season?.Current != null
+                        ? $"{Season.Current.DisplayName}(위기까지 {Mathf.CeilToInt(Season.DaysToCrisis)}일)" : "-";
+                    Debug.Log($"[M0Sim] Day {day} [{seasonStr}] — Wood {World.GetStock(SlotId.WoodStock)}, " +
                               $"Stone {World.GetStock(SlotId.StoneStock)}, " +
                               $"RawFood {World.GetStock(SlotId.RawFoodStock)}, " +
                               $"Cooked {World.GetStock(SlotId.CookedFoodStock)}, " +

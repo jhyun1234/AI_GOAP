@@ -28,5 +28,12 @@ namespace AIVillage.M0
         [Header("농사 (M2)")]
         [Tooltip("작물 성장 기간 (게임일). 제안치 1.5 (M2 §4) — 방치 시 사이클이 눈에 2~3회 보이는 속도.")]
         public float FarmGrowthDays = 1.5f;
+
+        [Header("계절 (M6 — ADR-M6-1: 계절이 게임에 개입하는 통로는 배율 3종뿐)")]
+        [Tooltip("계절 사이클 (배열 순서로 순환). 비면 계절 없음 — M5 동작과 완전 동일 (중립).")]
+        public SeasonSO[] SeasonCycle;
+
+        [Tooltip("위기 계절 예고 시작 (위기 N일 전부터 HUD 경보·주민 술렁임). 제안치 3 (M6 §4).")]
+        public float ForecastDays = 3f;
     }
 }

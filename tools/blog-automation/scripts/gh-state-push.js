@@ -24,9 +24,10 @@ const REPO = 'AI_GOAP';
 const BRANCH = 'main';
 const ALLOWED_PREFIX = /^tools\/blog-automation\/(state|published)\//;
 
-const token = process.env.GH_STATE_TOKEN;
+// GH_STATE_TOKEN 우선, 없으면 GH_TOKEN(공식 문서가 gh CLI용으로 안내하는 표준 이름)도 인식
+const token = process.env.GH_STATE_TOKEN || process.env.GH_TOKEN;
 if (!token) {
-  console.error('GH_STATE_TOKEN env var 없음 — API 경로 사용 불가');
+  console.error('GH_STATE_TOKEN(또는 GH_TOKEN) env var 없음 — API 경로 사용 불가');
   process.exit(2);
 }
 const message = process.argv[2] || `chore(blog): auto-run state update`;

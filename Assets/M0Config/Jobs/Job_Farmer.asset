@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1a6b22a3a704487dbcc02ad35b8eb83e, type: 3}
+  m_Name: Job_Farmer
+  m_EditorClassIdentifier:
+  DisplayName: "농부"
+  GoalBoosts:
+  - Goal: {fileID: 11400000, guid: f7b30c2d85e94a17b4c6d90a35e81f72, type: 2}
+    Boost: 30
+  - Goal: {fileID: 11400000, guid: a1d86e4f92c3450b87e2f5a60d94c318, type: 2}
+    Boost: 30
+  - Goal: {fileID: 11400000, guid: e2a75d90c4b1483fa86d93e51c07b246, type: 2}
+    Boost: 10
+  - Goal: {fileID: 11400000, guid: b6f24e8a03d9417c85b1f7a2c94d6e30, type: 2}
+    Boost: 10
+  GatherCostMult: 1
+  FarmCostMult: 0.6
+  BuildCostMult: 1
+  ExploreCostMult: 1
+  RoutineGoal: {fileID: 11400000, guid: 895badfb0c2242b29aff92ed684ddda7, type: 2}

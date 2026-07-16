@@ -147,6 +147,43 @@ namespace AIVillage.Tests.EditMode
         }
 
         [Test]
+        public void M5_T5_JobAssets_LoadAndPolicy()
+        {
+            // 직업 5종 로드 (§4 수치표) + 축 배치 검증 (M5-D)
+            JobSO Load(string name)
+            {
+                var j = AssetDatabase.LoadAssetAtPath<JobSO>($"Assets/M0Config/Jobs/{name}.asset");
+                Assert.IsNotNull(j, $"직업 에셋 없음: {name}");
+                return j;
+            }
+            JobSO farmer = Load("Job_Farmer"), lumber = Load("Job_Lumberjack"),
+                  miner  = Load("Job_Miner"),  cook   = Load("Job_Cook"),
+                  explorer = Load("Job_Explorer");
+
+            Assert.Less(farmer.FarmCostMult, 1f, "농부는 밭일 선호");
+            Assert.Greater(farmer.BoostFor(LoadGoal("Goal_Plant")), 0, "농부 심기 선점");
+            Assert.Greater(farmer.BoostFor(LoadGoal("Goal_HarvestCrop")), 0, "농부 수확 선점");
+            Assert.IsNotNull(farmer.RoutineGoal, "농부 일과 = 밭 곁 배회");
+
+            Assert.Greater(lumber.BoostFor(LoadGoal("Goal_GatherWood")), 0, "나무꾼 = goal boost가 주 차별화 (배율은 보조)");
+            Assert.Greater(miner.BoostFor(LoadGoal("Goal_GatherStone")), 0, "광부 = goal boost가 주 차별화");
+            Assert.Greater(cook.BoostFor(LoadGoal("Goal_CookAhead")), 0, "요리사 선비축 선점");
+
+            Assert.Less(explorer.ExploreCostMult, 1f, "탐험가는 탐험 선호");
+            Assert.IsNotNull(explorer.RoutineGoal, "탐험가 일과 = 지도 밝히기");
+
+            // 안전 대역 (§4): 실효 우선순위(Priority+Boost)가 명령(60)·P0(90+) 아래
+            foreach (JobSO j in new[] { farmer, lumber, miner, cook, explorer })
+                if (j.GoalBoosts != null)
+                    foreach (GoalBoost b in j.GoalBoosts)
+                    {
+                        Assert.IsNotNull(b.Goal, $"{j.name}: GoalBoosts에 빈 참조");
+                        Assert.Less(b.Goal.Priority + b.Boost, 60,
+                                    $"{j.name}→{b.Goal.name}: 실효 우선순위가 명령 대역(60) 침범");
+                    }
+        }
+
+        [Test]
         public void M5_B_CostMult_JobCombinesWithPersonality()
         {
             var catalog = AssetDatabase.LoadAssetAtPath<ActionCatalog>("Assets/M0Config/ActionCatalog.asset");

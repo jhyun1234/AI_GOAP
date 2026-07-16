@@ -117,13 +117,37 @@ namespace AIVillage.M0
         /// <summary>촌장이 지목한 노드 ("저거 캐와"의 '저거'). GatherRunner가 최우선 대상으로 삼는다.</summary>
         public ResourceNode OrderTargetNode { get; private set; }
 
-        /// <summary>명령 슬롯 정리 — 런타임 사본이면 파괴 (누수 방지). 소멸의 유일한 경로.</summary>
+        /// <summary>보상 약속 (M6-E — 에스크로 차감 완료 상태). 세이브 대상 (ADR-M4-5 목록 추가 예정).</summary>
+        public RewardSO PromisedReward => _promisedReward;
+        private RewardSO _promisedReward;
+
+        /// <summary>
+        /// 명령 슬롯 정리 — 런타임 사본이면 파괴 (누수 방지). 소멸의 유일한 경로.
+        /// 보상 약속의 소멸도 반드시 여기를 지난다 (ADR-M6-5): 미지급 약속은 에스크로 반환 —
+        /// 완수 경로만 PayReward()가 먼저 지급·null 처리 후 진입한다 (반환과 배타).
+        /// </summary>
         private void ClearOrderInstance()
         {
+            if (_promisedReward != null)
+            {
+                if (_sim != null) World.AddStock(_promisedReward.CostSlot, _promisedReward.CostAmount);
+                _promisedReward = null;
+            }
             if (_order != null && _orderIsRuntimeClone) Destroy(_order);
             _order = null;
             _orderIsRuntimeClone = false;
             OrderTargetNode = null;
+        }
+
+        /// <summary>보상 지급 — 명령 완수 지점 전용 (ADR-M6-5). 지급 후 null 처리로 반환 경로 차단.</summary>
+        private void PayReward()
+        {
+            if (_promisedReward == null) return;
+            ApplyNeedEffect(SlotId.MySatiety, EffectOp.Add, _promisedReward.SatietyGain);
+            ShowTransient(Pick(_promisedReward.PayLines));
+            Debug.Log($"[VillagerAgent] {AgentId}: 보상 지급 — {_promisedReward.DisplayName} " +
+                      $"(포만 +{_promisedReward.SatietyGain}, 비용은 수락 시 차감 완료)");
+            _promisedReward = null;
         }
         private float _idleCooldownSec;
         private int _tickCounter;
@@ -317,6 +341,7 @@ namespace AIVillage.M0
                 && GoalSelector.AllHold(_order.GoalConditions, snap))
             {
                 Debug.Log($"[VillagerAgent] {AgentId}: 명령 완수 — {_order.DisplayName}");
+                PayReward(); // 약속 이행 (M6-E) — ClearOrderInstance의 반환 경로와 배타 (ADR-M6-5)
                 ClearOrderInstance();
             }
 
@@ -573,23 +598,31 @@ namespace AIVillage.M0
         // 촌장 명령 (M1-C)
         // ─────────────────────────────────────────────────────────────────────
 
-        public enum OrderResult { Accepted, RefusedHungry, RefusedTired }
+        public enum OrderResult { Accepted, RefusedHungry, RefusedTired, FailedNoStock }
 
         /// <summary>
         /// 거부 판정의 유일한 규칙 (ADR-M1-2: 욕구 2축, 랜덤 없음) — 순수 함수라 게이트(M1-T1)가 직접 검증한다.
         /// 배고픔이 피로보다 먼저 판정된다 (둘 다면 배고픔 사유).
         /// </summary>
         public static OrderResult JudgeOrder(float satiety, float fatigue, AgentConfigSO cfg)
-            => JudgeOrder(satiety, fatigue, cfg, null);
+            => JudgeOrder(satiety, fatigue, cfg, null, null);
+
+        /// <summary>성격 오프셋 포함 거부 판정 (M4-C, 순수 — 게이트 M4-T3). p=null이면 기존과 완전 동일.</summary>
+        public static OrderResult JudgeOrder(float satiety, float fatigue, AgentConfigSO cfg, PersonalitySO p)
+            => JudgeOrder(satiety, fatigue, cfg, p, null);
 
         /// <summary>
-        /// 성격 오프셋 포함 거부 판정 (M4-C, 순수 — 게이트 M4-T3). p=null이면 기존과 완전 동일.
-        /// 성격은 문턱을 옮길 뿐 판정은 결정적 (ADR-M1-2 — 랜덤 금지, 플레이어가 학습 가능해야 협상이 성립).
+        /// 보상 오프셋 포함 최종 판정 (M6-E, 순수 — 게이트 M6-T4). r=null이면 기존과 완전 동일.
+        /// 성격·보상은 문턱을 옮길 뿐 판정은 결정적 (ADR-M1-2 계승 — 랜덤 금지,
+        /// 플레이어가 학습 가능해야 협상이 성립). 보상은 판정에만 개입, 수행에는 불개입 (ADR-M6-4).
         /// </summary>
-        public static OrderResult JudgeOrder(float satiety, float fatigue, AgentConfigSO cfg, PersonalitySO p)
+        public static OrderResult JudgeOrder(float satiety, float fatigue, AgentConfigSO cfg,
+                                             PersonalitySO p, RewardSO r)
         {
-            float satLimit = cfg.OrderRefuseSatiety + (p != null ? p.RefuseSatietyOffset : 0f);
-            float fatLimit = cfg.OrderRefuseFatigue + (p != null ? p.RefuseFatigueOffset : 0f);
+            float satLimit = cfg.OrderRefuseSatiety + (p != null ? p.RefuseSatietyOffset : 0f)
+                                                    + (r != null ? r.RefuseSatietyOffset : 0f);
+            float fatLimit = cfg.OrderRefuseFatigue + (p != null ? p.RefuseFatigueOffset : 0f)
+                                                    + (r != null ? r.RefuseFatigueOffset : 0f);
             if (satiety < satLimit) return OrderResult.RefusedHungry;
             if (fatigue > fatLimit) return OrderResult.RefusedTired;
             return OrderResult.Accepted;
@@ -602,12 +635,17 @@ namespace AIVillage.M0
         /// <summary>
         /// 명령 수신 — 거부는 수신 시점 1회, 욕구 상태 기반 판정 (ADR-M1-2, 랜덤 아님).
         /// 수락 시 goal이 개인 사다리에 합류하며, P0 인터럽트 후에도 유지되어 자동 복귀한다.
+        /// reward(M6-E): 거부 문턱 오프셋 + 수락 시 에스크로 차감. 재고 부족이면 판정 전에
+        /// FailedNoStock — 없는 것을 약속할 수 없다 (선검사 일괄, ADR-M0-8 원자성).
         /// </summary>
-        public OrderResult TryGiveOrder(GoalSO order, ResourceNode targetNode = null)
+        public OrderResult TryGiveOrder(GoalSO order, ResourceNode targetNode = null, RewardSO reward = null)
         {
             if (order == null) return OrderResult.Accepted;
 
-            OrderResult verdict = JudgeOrder(Satiety, Fatigue, _cfg, Personality);
+            if (reward != null && World.GetStock(reward.CostSlot) < reward.CostAmount)
+                return OrderResult.FailedNoStock; // 말풍선 없음 — 주민이 아니라 촌장의 실수
+
+            OrderResult verdict = JudgeOrder(Satiety, Fatigue, _cfg, Personality, reward);
             if (verdict == OrderResult.RefusedHungry)
             {
                 ShowTransient(Pick(FirstNonEmpty(Personality != null ? Personality.RefuseHungryLines : null, _cfg.RefuseHungryLines)));
@@ -621,7 +659,18 @@ namespace AIVillage.M0
                 return verdict;
             }
 
-            ClearOrderInstance(); // 기존 명령 교체 시 런타임 사본 정리
+            ClearOrderInstance(); // 기존 명령 교체 시 런타임 사본·미지급 약속 정리 (반환 경유)
+
+            // 보상 에스크로 (M6-E): 수락 확정 시점에 즉시 차감 — 완수=지급, 그 외=반환 (ADR-M6-5)
+            if (reward != null)
+            {
+                if (!World.TrySpendStock(reward.CostSlot, reward.CostAmount))
+                    return OrderResult.FailedNoStock; // 선검사 통과 후 변동 — 방어 (원자성은 TrySpend가 보장)
+                _promisedReward = reward;
+                ShowTransient(Pick(reward.PromiseLines));
+                Debug.Log($"[VillagerAgent] {AgentId}: 보상 약속 — {reward.DisplayName} " +
+                          $"({reward.CostSlot} -{reward.CostAmount} 에스크로)");
+            }
 
             // 상대 목표 해석: "지금보다 +N" — 수신 시점 절대값으로 고정한 런타임 사본 생성
             if (order.RelativeToCurrent && order.GoalConditions != null)

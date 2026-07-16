@@ -27,6 +27,9 @@ namespace AIVillage.M0
         [Tooltip("자원 타입 → 명령 goal 매핑. 매핑 없는 타입은 명령 불가 (Iron 등 M1 미지원).")]
         [SerializeField] private OrderMapping[] _orders;
 
+        [Tooltip("Shift+우클릭 명령에 거는 보상 (M6-E — 설득 수단 1호). 비면 보상 명령 불가.")]
+        [SerializeField] private RewardSO _rewardOnOrder;
+
         [Tooltip("주민 선택 픽킹 반경 (타일)")]
         [SerializeField] private float _villagerPickRadius = 0.8f;
 
@@ -77,7 +80,20 @@ namespace AIVillage.M0
                     Debug.Log($"[PlayerInput] {node.ResourceType}에 대한 명령 매핑 없음 (M1 미지원 자원).");
                     return;
                 }
-                _selected.TryGiveOrder(order, node); // 지목 노드 동봉 — 수락/거부 피드백은 주민의 말풍선·로그가 담당
+
+                // Shift+우클릭 = 보상 명령 (M6-E) — 거부당한 주민에게 "그럼 이건 어때?"
+                bool withReward = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+                RewardSO reward = withReward ? _rewardOnOrder : null;
+                if (withReward && reward == null)
+                    Debug.Log("[PlayerInput] 보상 에셋(_rewardOnOrder) 미배선 — 일반 명령으로 하달.");
+
+                // 지목 노드 동봉 — 수락/거부 피드백은 주민의 말풍선·로그가 담당
+                var result = _selected.TryGiveOrder(order, node, reward);
+                if (result == VillagerAgent.OrderResult.FailedNoStock)
+                {
+                    Debug.Log($"[PlayerInput] 보상 하달 실패 — {reward.DisplayName} 재고 부족 (약속은 재고가 담보).");
+                    M0SimulationLoop.Instance.Hud?.Notify($"보상을 걸 {reward.DisplayName} 재고가 부족합니다");
+                }
             }
         }
 

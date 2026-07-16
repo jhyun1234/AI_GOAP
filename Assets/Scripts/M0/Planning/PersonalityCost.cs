@@ -13,28 +13,38 @@ namespace AIVillage.M0
         public const int JITTER_BUILD   = 2;
         public const int JITTER_EXPLORE = 3;
 
-        /// <summary>성격+편차 → 배율 배열. 성격 null이면 null 반환 = 완전 중립 (ADR-M4-2 불변식 경로).</summary>
+        /// <summary>성격+편차 → 배율 배열 (M4 호환 진입점 — 직업 없음).</summary>
         public static float[] Build(ActionCatalog catalog, PersonalitySO p, float[] jitter)
+            => Build(catalog, p, null, jitter);
+
+        /// <summary>
+        /// 성격×직업×편차 → 배율 배열 (ADR-M5-3 — 배율 결합 지점은 여기가 유일).
+        /// 성격·직업 둘 다 null이면 null 반환 = 완전 중립 (ADR-M4-2 불변식 경로).
+        /// </summary>
+        public static float[] Build(ActionCatalog catalog, PersonalitySO p, JobSO job, float[] jitter)
         {
-            if (p == null || catalog == null || catalog.Actions == null) return null;
+            if ((p == null && job == null) || catalog == null || catalog.Actions == null) return null;
 
             var mult = new float[catalog.Actions.Length];
             for (int i = 0; i < mult.Length; i++)
-                mult[i] = MultiplierFor(catalog.Actions[i], p, jitter);
+                mult[i] = MultiplierFor(catalog.Actions[i], p, job, jitter);
             return mult;
         }
 
-        private static float MultiplierFor(ActionSO action, PersonalitySO p, float[] jitter)
+        private static float MultiplierFor(ActionSO action, PersonalitySO p, JobSO job, float[] jitter)
         {
             switch (action)
             {
-                case GatherActionSO _:  return p.GatherCostMult  * J(jitter, JITTER_GATHER);
-                case FarmActionSO _:    return p.FarmCostMult    * J(jitter, JITTER_FARM);
-                case BuildActionSO _:   return p.BuildCostMult   * J(jitter, JITTER_BUILD);
-                case ExploreActionSO _: return p.ExploreCostMult * J(jitter, JITTER_EXPLORE);
-                default:                return 1f; // Consume/Rest/Wander — 생존·여가 중립 (ADR-M4-3)
+                case GatherActionSO _:  return Mul(p != null ? p.GatherCostMult  : 1f, job != null ? job.GatherCostMult  : 1f, jitter, JITTER_GATHER);
+                case FarmActionSO _:    return Mul(p != null ? p.FarmCostMult    : 1f, job != null ? job.FarmCostMult    : 1f, jitter, JITTER_FARM);
+                case BuildActionSO _:   return Mul(p != null ? p.BuildCostMult   : 1f, job != null ? job.BuildCostMult   : 1f, jitter, JITTER_BUILD);
+                case ExploreActionSO _: return Mul(p != null ? p.ExploreCostMult : 1f, job != null ? job.ExploreCostMult : 1f, jitter, JITTER_EXPLORE);
+                default:                return 1f; // Consume/Rest/Wander — 생존·여가 중립 (ADR-M4-3·ADR-M5-3)
             }
         }
+
+        private static float Mul(float personalityMult, float jobMult, float[] jitter, int idx)
+            => personalityMult * jobMult * J(jitter, idx);
 
         private static float J(float[] jitter, int idx)
             => jitter != null && jitter.Length > idx ? jitter[idx] : 1f;

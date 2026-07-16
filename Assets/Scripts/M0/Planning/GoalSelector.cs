@@ -37,21 +37,31 @@ namespace AIVillage.M0
         /// 현재 스냅샷에서 수행할 goal을 반환한다. 할 일이 없으면 null (정상 Idle).
         /// skip: 후보 제외 판정 (에이전트의 실패 쿨다운 등) — 상위가 막히면 하위로 내려간다.
         /// extra: 사다리에 합류하는 개인 goal (촌장 명령, ADR-M1-1) — Priority 위치에 끼워 평가.
+        /// bias: 직업 실효 우선순위 보정 (ADR-M5-1) — 순위에만 개입, 발동 판정(Passes)에는 불개입.
+        ///       null이면 기존과 완전 동일 (중립 불변식, M5-S3). 어디에도 저장하지 않는다.
+        /// routine: 직업 일과 goal (ADR-M5-2) — extra와 같은 개인 주입, 씬 _goals에 넣지 않는다.
+        ///
+        /// 전수 평가 (goal ~15개, O(n)). 동률은 먼저 평가된 후보 우선(초과만 갱신) —
+        /// _goals가 Priority 내림차순 정렬본이라 기존 순회와 동일한 동률 해석이다.
         /// </summary>
-        public GoalSO Select(WorldSnapshot snap, System.Func<GoalSO, bool> skip = null, GoalSO extra = null)
+        public GoalSO Select(WorldSnapshot snap, System.Func<GoalSO, bool> skip = null,
+                             GoalSO extra = null, System.Func<GoalSO, int> bias = null,
+                             GoalSO routine = null)
         {
             if (!snap.IsValid) return null;
 
-            foreach (GoalSO goal in _goals)
+            GoalSO best = null;
+            int bestP = int.MinValue;
+            void Consider(GoalSO g)
             {
-                if (extra != null && extra.Priority > goal.Priority)
-                {
-                    if (Passes(extra, snap, skip)) return extra;
-                    extra = null; // 탈락한 extra는 재평가하지 않음
-                }
-                if (Passes(goal, snap, skip)) return goal;
+                if (g == null || !Passes(g, snap, skip)) return;
+                int p = g.Priority + (bias != null ? bias(g) : 0);
+                if (p > bestP) { bestP = p; best = g; }
             }
-            return extra != null && Passes(extra, snap, skip) ? extra : null;
+            foreach (GoalSO goal in _goals) Consider(goal);
+            Consider(extra);   // 촌장 명령 — 동률이면 씬 goal 우선 (기존 해석 유지)
+            Consider(routine); // 직업 일과 (M5-C에서 전달 시작)
+            return best;
         }
 
         private bool Passes(GoalSO goal, WorldSnapshot snap, System.Func<GoalSO, bool> skip)

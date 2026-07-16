@@ -32,7 +32,24 @@ OPEN 상태의 경보가 있으면 해당 우회 절차(MANUAL_STATE_UPDATE 등)
 - 참고: routine이 sandbox에서 커밋한 db77faf는 push 403으로 소실 — 이 항목은
   MANUAL_STATE_UPDATE 기반 로컬 재구성임.
 
-## 🔴 OPEN — 원격 sandbox state 브랜치 push 403 (3회 연속)
+## 🟢 CLOSED — 원격 sandbox state push 403 → GitHub API 직접 커밋으로 해소 (2026-07-16)
+
+- **해소 확인**: 2026-07-16 16:33 KST 수동 run(session `cse_01GuTZ7uGzNG8prQ1zcCb4rB`)에서
+  `GH_STATE_TOKEN` env var + `scripts/gh-state-push.js` API 경로로 상태 커밋 `48ea8b8`
+  (`chore(blog): auto-run state update`)이 main에 자동 반영됨 — 해소 조건 충족.
+  같은 run에서 M2+M3 글 발행도 성공 (post_id 3935987342991362953).
+- **최종 원인 요약** (아래 이력 참조): 샌드박스 GitHub 프록시는 push를 "세션의 현재 작업
+  브랜치"로만 허용하는데, routine 세션은 detached HEAD라 세션 소유 브랜치가 없음 →
+  routine에서 git push는 전 형태 불가. 해법 = git 프록시를 우회하는 REST API 직접 커밋
+  (fine-grained PAT, AI_GOAP 단독·Contents R/W).
+- **운영 주의**: PAT 만료(발급일로부터 설정 기간) 시 API 경로가 죽고 MANUAL_STATE_UPDATE
+  폴백으로 되돌아간다 — 만료 임박 알림을 받으면 재발급 후 env var 교체.
+- **관찰 (🟡 무해)**: 07-16 run에서 routine이 state 파일 외에 devlog 커밋 2건도 같은
+  토큰으로 API 커밋함 (df0dcf3, 4e03140). gh-state-push.js의 경로 제한은 스크립트 안의
+  가드일 뿐 토큰 권한은 리포 전체 Contents R/W이므로 모델이 자체 API 호출로 우회 가능.
+  devlog는 파이프라인의 정규 기록 대상이라 문제없으나, 이상 커밋이 보이면 이 지점을 의심.
+
+### 이력 (해소 전 기록)
 
 - **증상**: 원격 auto-run이 게시 성공 후 상태 커밋을 `claude/state-*` 브랜치로 push하면
   GitHub가 403으로 거부. 브랜치가 sandbox 밖으로 나오지 못해

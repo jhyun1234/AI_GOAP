@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1a6b22a3a704487dbcc02ad35b8eb83e, type: 3}
+  m_Name: Job_Carpenter
+  m_EditorClassIdentifier:
+  DisplayName: "목수"
+  GoalBoosts:
+  - Goal: {fileID: 11400000, guid: e1f83b5c92d6478a04c7e9b2f35d6a81, type: 2}
+    Boost: 20
+  - Goal: {fileID: 11400000, guid: e2a75d90c4b1483fa86d93e51c07b246, type: 2}
+    Boost: 10
+  GatherCostMult: 1
+  FarmCostMult: 1
+  BuildCostMult: 0.7
+  ExploreCostMult: 1
+  RoutineGoal: {fileID: 0}

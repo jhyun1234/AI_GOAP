@@ -76,6 +76,9 @@ namespace AIVillage.M0
         /// <summary>성격 아키타입 (M4-A). null = 중립 — M3와 동작 동일 (ADR-M4-2).</summary>
         public PersonalitySO Personality { get; private set; }
 
+        /// <summary>직업 (M5-A). null = 무직 — M4와 goal 선택 동일 (M5-S3). 세이브 대상 (ADR-M5-5).</summary>
+        public JobSO Job { get; private set; }
+
         /// <summary>배율 개체 편차 [채집, 농사, 건설, 탐험] — 스폰 1회 고정, M4-B 비용 배열 계산에 사용.</summary>
         public float[] MultJitter => _multJitter;
         private float[] _multJitter;
@@ -155,12 +158,15 @@ namespace AIVillage.M0
 
             // 성격 할당 (M4-A) — 스폰 1회 고정. 배율 편차 ±10%도 이때 확정 (정체성 — 세이브 대상, ADR-M4-5)
             Personality = _sim.PickRandomPersonality();
+            // 직업 할당 (M5-A) — 성격과 별개 축, 스폰 1회 고정 (세이브 대상, ADR-M5-5)
+            Job = _sim.PickRandomJob();
             _multJitter = new[]
             {
                 Random.Range(0.9f, 1.1f), Random.Range(0.9f, 1.1f),
                 Random.Range(0.9f, 1.1f), Random.Range(0.9f, 1.1f),
             };
-            Debug.Log($"[VillagerAgent] {AgentId}: 성격 = {(Personality != null ? Personality.DisplayName : "없음(중립)")}");
+            Debug.Log($"[VillagerAgent] {AgentId}: 성격 = {(Personality != null ? Personality.DisplayName : "없음(중립)")}"
+                      + $" / 직업 = {(Job != null ? Job.DisplayName : "무직(공용)")}");
             // 배율 배열 1회 캐시 (M4-B) — 성격 null이면 null = 중립 (RequestPlan이 무시)
             _costMult = PersonalityCost.Build(_sim.Catalog, Personality, _multJitter);
             _motion = new MoveMotion(_cfg, AgentId);

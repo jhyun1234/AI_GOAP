@@ -43,6 +43,9 @@ namespace AIVillage.M0
         [Tooltip("성격 아키타입 풀 (M4-A) — 스폰 시 랜덤 할당. 비우면 전원 성격 없음(중립, M3 동작).")]
         [SerializeField] private PersonalitySO[] _personalityPool;
 
+        [Tooltip("직업 풀 (M5-A) — 스폰 시 랜덤 할당. 비우면 전원 무직(중립, M4 동작).")]
+        [SerializeField] private JobSO[] _jobPool;
+
         public static M0SimulationLoop Instance { get; private set; }
 
         public WorldModel World { get; private set; }
@@ -75,6 +78,12 @@ namespace AIVillage.M0
         public PersonalitySO PickRandomPersonality()
             => _personalityPool != null && _personalityPool.Length > 0
                 ? _personalityPool[Random.Range(0, _personalityPool.Length)]
+                : null;
+
+        /// <summary>스폰 시 직업 랜덤 할당 (M5-A). 풀이 비면 null = 무직(중립, M5-S3 불변식 경로).</summary>
+        public JobSO PickRandomJob()
+            => _jobPool != null && _jobPool.Length > 0
+                ? _jobPool[Random.Range(0, _jobPool.Length)]
                 : null;
 
         public void RegisterAgent(VillagerAgent agent)

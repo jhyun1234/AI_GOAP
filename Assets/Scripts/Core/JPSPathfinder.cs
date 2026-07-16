@@ -370,6 +370,21 @@ namespace AIVillage.Core
 
                 var djp = Jump(cx, cy, dx, dy, gax, gay, walkable, mapSize, maxJumpSteps);
                 if (djp.x != INVALID_SENTINEL) successors.Add(djp);
+
+                // [2026-07-16 수정] 대각 이동의 강제 이웃 방향 확장 — 표준 JPS 규칙.
+                // M4에서 직선 강제 이웃만 표준형으로 고쳤고 대각은 통째로 빠져 있었다.
+                // 뒤가 막힌 대각 이동은 꺾인 대각 방향도 후계자로 넣어야 장애물 대각 쌍
+                // 사이 지그재그 경로가 살아난다 (M5 방치 실측: (7,-12)→(10,-11) Unreachable).
+                if (!IsWalkable(cx - dx, cy, walkable) && IsWalkable(cx - dx, cy + dy, walkable))
+                {
+                    var fjp = Jump(cx, cy, -dx, dy, gax, gay, walkable, mapSize, maxJumpSteps);
+                    if (fjp.x != INVALID_SENTINEL) successors.Add(fjp);
+                }
+                if (!IsWalkable(cx, cy - dy, walkable) && IsWalkable(cx + dx, cy - dy, walkable))
+                {
+                    var fjp = Jump(cx, cy, dx, -dy, gax, gay, walkable, mapSize, maxJumpSteps);
+                    if (fjp.x != INVALID_SENTINEL) successors.Add(fjp);
+                }
             }
             return successors;
         }
@@ -429,9 +444,16 @@ namespace AIVillage.Core
                     bool fLeft  = !IsWalkable(nx - 1, ny, walkable) && IsWalkable(nx - 1, ny + dy, walkable);
                     if (fRight || fLeft) return new Vector2Int(nx, ny);
                 }
-                // ── 대각선 이동: 수평/수직 성분 점프 시도 ─────────────────────
+                // ── 대각선 이동: 강제 이웃 + 수평/수직 성분 점프 시도 ─────────
                 else
                 {
+                    // [2026-07-16 수정] 대각 강제 이웃 — 표준 JPS 규칙 (직선만 고친 M4
+                    // 수정의 나머지 절반). 진행 뒤편이 막히고 그 대각 전방이 열려 있으면
+                    // 여기서 방향을 꺾어야 하므로 현재 칸이 Jump Point다.
+                    bool fA = !IsWalkable(nx - dx, ny, walkable) && IsWalkable(nx - dx, ny + dy, walkable);
+                    bool fB = !IsWalkable(nx, ny - dy, walkable) && IsWalkable(nx + dx, ny - dy, walkable);
+                    if (fA || fB) return new Vector2Int(nx, ny);
+
                     // 수평 또는 수직 방향으로 점프 포인트가 발견되면 현재 위치가 JP
                     // [13단계] mapSize와 maxJumpSteps를 재귀 호출에도 전달한다.
                     var hj = Jump(nx, ny, dx, 0,  gax, gay, walkable, mapSize, maxJumpSteps);

@@ -46,6 +46,24 @@ namespace AIVillage.Tests.EditMode
         }
 
         [Test]
+        public void JPS_G4_ZigzagThroughDiagonalGap()
+        {
+            // M5 방치 실측 (2026-07-16): 대각 쌍 (8,-12)+(9,-11)을 사이에 두고 양쪽에서
+            // walkable-walkable Unreachable — 대각 점프의 강제 이웃 검사 부재
+            // (M4는 직선만 표준형으로 수정). 우회는 대각 지그재그 또는 북측 돌아가기.
+            var w = OpenMap(new Vector2Int(8, -12), new Vector2Int(9, -11));
+
+            // 케이스 E: (7,-12) → (10,-11)
+            Assert.AreEqual(PathResultKind.PathFound,
+                            JPSPathfinder.FindPathResult(7, -12, 10, -11, w).Kind,
+                            "대각 쌍 사이 지그재그 경로가 살아야 한다");
+
+            // 케이스 D: (10,-11) → (7,-11) (반대 방향)
+            Assert.AreEqual(PathResultKind.PathFound,
+                            JPSPathfinder.FindPathResult(10, -11, 7, -11, w).Kind);
+        }
+
+        [Test]
         public void JPS_G3_OpenMapBehaviorUnchanged()
         {
             // 장애물 0개(기존 M0~M3 상태) — 회귀 방지: 직선/대각/제자리

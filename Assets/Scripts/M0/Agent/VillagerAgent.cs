@@ -231,6 +231,15 @@ namespace AIVillage.M0
             // 겨울은 더 빨리 배고프다 (M6-B) — 계절 없으면 배율 1 (중립)
             float decayMult = _sim.Season != null ? _sim.Season.SatietyDecayMult : 1f;
             Satiety = Mathf.Max(0f, Satiety - SatietyDecay(_cfg.SatietyDecayPerGameDay, decayMult, deltaGameDays));
+
+            // 굶주림 이탈 (M6-D) — 계절 분기 없음: 굶주림은 계절 무관 사실 (⚠️③).
+            // 대기 가드 금지 (M4 교훈 — 동상·데드락) — 판정은 누적 시간 하나뿐.
+            _starvingDays = NextStarvingDays(_starvingDays, Satiety, deltaGameDays);
+            if (ShouldDepart(_starvingDays, _cfg))
+            {
+                Depart();
+                return;
+            }
             _tickCounter++;
 
             // 실행 중 상위 goal 전환 (데이터 주도 — 임계값은 GoalSO 에셋에만 존재)
@@ -264,6 +273,33 @@ namespace AIVillage.M0
         /// <summary>포만 감쇠 산식의 유일한 지점 (M6-B) — 순수 함수라 게이트(M6-T2b)가 직접 검증한다.</summary>
         public static float SatietyDecay(float perGameDay, float seasonMult, float deltaGameDays)
             => perGameDay * seasonMult * deltaGameDays;
+
+        // ── 굶주림 이탈 (M6-D — 최초의 실패 상태) ─────────────────────────────
+
+        private float _starvingDays; // 포만 0 지속 누적 (게임일). 세이브 대상 (ADR-M4-5 목록 추가 예정)
+
+        /// <summary>굶주림 누적 갱신 — 포만이 조금이라도 회복되면 리셋 (순수, 게이트 M6-T3).</summary>
+        public static float NextStarvingDays(float current, float satiety, float deltaGameDays)
+            => satiety <= 0f ? current + deltaGameDays : 0f;
+
+        /// <summary>이탈 판정 (순수, 게이트 M6-T3) — 문턱은 에셋 값 (ADR-M0-2).</summary>
+        public static bool ShouldDepart(float starvingDays, AgentConfigSO cfg)
+            => starvingDays >= cfg.DepartAfterStarvingDays;
+
+        /// <summary>
+        /// 마을 이탈 — 최초의 실패 상태 (M6-D). 상태만 Dead(시뮬 종료 의미 재사용, ADR-M6-3)로
+        /// 바꾸고 지연 파괴한다. 클레임·타일·플래너·명령·보상 정리는 전부 OnDestroy 단일 경로 —
+        /// 여기서 직접 해제 금지 (두 번째 정리 경로가 된다).
+        /// </summary>
+        private void Depart()
+        {
+            Debug.LogWarning($"[VillagerAgent] {AgentId}: 굶주림 이탈 — 포만 0 지속 {_starvingDays:F2}일 " +
+                             $"(문턱 {_cfg.DepartAfterStarvingDays}일)");
+            _sim.Hud?.Notify($"{AgentId}이(가) 마을을 떠났습니다");
+            ShowTransient(Pick(_cfg.DepartLines));
+            State = AgentState.Dead;      // SimTick 차단 — 새 상태 추가 금지 (ADR-M6-3)
+            Destroy(gameObject, 2.5f);    // 마지막 대사 노출 후 소멸 (연출 상수 — ShowTransient와 동일)
+        }
 
         // ─────────────────────────────────────────────────────────────────────
         // Idle → Planning

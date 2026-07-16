@@ -86,5 +86,17 @@ namespace AIVillage.M0
         [Header("위기 예고 (M6-C — 제안치)")]
         [Tooltip("예고 기간 술렁임 확률 (액션 시작 시점마다 판정). 대사는 SeasonSO.ForecastLines.")]
         public float ForecastMoodChance = 0.15f;
+
+        [Header("굶주림 이탈 (M6-D — 최초의 실패 상태. 제안치)")]
+        [Tooltip("포만 0 상태가 이 기간(게임일) 누적되면 마을을 떠난다. " +
+                 "P0가 밥을 못 구했다는 뜻 — 겨울 비축 실패의 결과. 포만이 회복되면 누적은 리셋.")]
+        public float DepartAfterStarvingDays = 0.5f;
+
+        [Tooltip("이탈 직전 마지막 대사 (랜덤 선택)")]
+        public string[] DepartLines =
+        {
+            "더는 못 버티겠어… 미안해요.",
+            "이 마을엔 겨울을 날 음식이 없어.",
+        };
     }
 }

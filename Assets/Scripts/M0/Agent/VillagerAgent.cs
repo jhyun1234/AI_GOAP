@@ -95,6 +95,9 @@ namespace AIVillage.M0
         /// <summary>배율 개체 편차 [채집, 농사, 건설, 탐험] — 스폰 1회 고정, M4-B 비용 배열 계산에 사용.</summary>
         public float[] MultJitter => _multJitter;
         private float[] _multJitter;
+
+        // 포만 감쇠율 개체 편차 (2026-07-17 웨이브 수정) — FNV-1a 결정적, 세이브 불필요 (재계산)
+        private float _decayJitter = 1f;
         private float[] _costMult; // 카탈로그 인덱스별 성격 비용 배율 (스폰 1회 계산, null=중립)
 
         // ── 플랜 상태 ──────────────────────────────────────────────────────
@@ -188,10 +191,14 @@ namespace AIVillage.M0
                 return;
             }
             _cfg = _sim.AgentConfig;
-            // 개인 편차: 전원 동일 초기값 → 동시 배고픔 웨이브 방지 (해시 기반 결정적)
-            float spread = (Mathf.Abs(AgentId.GetHashCode() % 1000) / 999f) * 2f - 1f; // [-1, 1]
+            // 개인 편차: 전원 동일 초기값 → 동시 배고픔 웨이브 방지 (FNV-1a 결정적 —
+            // GetHashCode()%1000은 꼬리 1글자 차이 이름에서 붕괴, 2026-07-17 근본 수정)
+            float spread = StableHash.Spread(AgentId, "satiety"); // [-1, 1]
             Satiety = Mathf.Clamp(_cfg.InitialSatiety + spread * _cfg.InitialSatietyVariance, 0f, 100f);
             Fatigue = _cfg.InitialFatigue;
+            // 감쇠율 개체 편차 — 동기화(포만 0 클램프·같은 문턱 식사)가 생겨도 되돌리는 상시 힘.
+            // 편차가 없으면 감쇠율이 전원 동일이라 한 번 뭉친 웨이브가 영구 지속된다.
+            _decayJitter = 1f + StableHash.Spread(AgentId, "decay") * _cfg.SatietyDecayVariancePct;
 
             // 성격 할당 (M4-A) — 스폰 1회 고정. 배율 편차 ±10%도 이때 확정 (정체성 — 세이브 대상, ADR-M4-5)
             Personality = _sim.PickRandomPersonality();
@@ -252,8 +259,8 @@ namespace AIVillage.M0
         {
             if (State == AgentState.Dead) return;
 
-            // 겨울은 더 빨리 배고프다 (M6-B) — 계절 없으면 배율 1 (중립)
-            float decayMult = _sim.Season != null ? _sim.Season.SatietyDecayMult : 1f;
+            // 겨울은 더 빨리 배고프다 (M6-B) — 계절 없으면 배율 1 (중립). 개체 편차 곱 포함.
+            float decayMult = (_sim.Season != null ? _sim.Season.SatietyDecayMult : 1f) * _decayJitter;
             Satiety = Mathf.Max(0f, Satiety - SatietyDecay(_cfg.SatietyDecayPerGameDay, decayMult, deltaGameDays));
 
             // 굶주림 이탈 (M6-D) — 계절 분기 없음: 굶주림은 계절 무관 사실 (⚠️③).
@@ -791,7 +798,7 @@ namespace AIVillage.M0
         /// </summary>
         private void SetupView()
         {
-            float hue = Mathf.Abs(AgentId.GetHashCode() % 1000) / 1000f;
+            float hue = StableHash.Value01(AgentId, "hue"); // GetHashCode 붕괴 수정 (2026-07-17)
             Color agentColor = Color.HSVToRGB(hue, 0.7f, 1f);
 
             AgentSpriteSetSO set = _sim.SpriteSet;

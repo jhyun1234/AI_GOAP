@@ -16,7 +16,8 @@ namespace AIVillage.M0
         public MoveMotion(AgentConfigSO cfg, string agentId)
         {
             _cfg = cfg;
-            float t = (Mathf.Abs(agentId.GetHashCode() % 1000) / 999f) * 2f - 1f; // [-1, 1]
+            // FNV-1a 결정적 편차 — GetHashCode()%1000은 꼬리 1글자 차이 이름에서 붕괴 (2026-07-17 수정)
+            float t = StableHash.Spread(agentId, "speed"); // [-1, 1]
             _speedMult = 1f + t * cfg.SpeedVariancePct;
         }
 

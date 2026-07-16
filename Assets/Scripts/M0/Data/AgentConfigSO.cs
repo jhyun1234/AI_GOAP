@@ -79,6 +79,10 @@ namespace AIVillage.M0
                  "AgentId 해시 기반 결정적. 제안치 15.")]
         public float InitialSatietyVariance = 15f;
 
+        [Tooltip("포만 감쇠율 개체 편차 비율(±). 감쇠율이 전원 동일하면 한 번 뭉친 허기 웨이브가 " +
+                 "영구 지속된다 (포만 0 클램프·같은 문턱 식사가 동기화 장치). 제안치 0.1 (2026-07-17).")]
+        public float SatietyDecayVariancePct = 0.1f;
+
         [Tooltip("게임 1일당 포만감 자연 감소량. 舊 코드에는 자연 감쇠가 없었음 — " +
                  "25는 2026-07-13 기획 승인값 (초기 70 기준 약 2일마다 식사).")]
         public float SatietyDecayPerGameDay = 25f;

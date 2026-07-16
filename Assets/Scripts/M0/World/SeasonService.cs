@@ -26,6 +26,13 @@ namespace AIVillage.M0
         /// <summary>사이클이 비어 있으면 false — SimulationLoop가 서비스 자체를 null로 둔다.</summary>
         public bool IsActive => _cycle.Length > 0;
 
+        // 소비처용 null-안전 배율 (M6-B) — 첫 Tick 전이나 비활성이면 중립 1.
+        // 곱 지점은 호출부(SimulationLoop 재생·성장, VillagerAgent 포만 감쇠)다 —
+        // 서비스(Discovery/Farm)는 계절을 몰라야 한다 (명세 M6-B ⚠️①).
+        public float RegenMult        => Current != null ? Current.RegenMult        : 1f;
+        public float GrowthMult       => Current != null ? Current.GrowthMult       : 1f;
+        public float SatietyDecayMult => Current != null ? Current.SatietyDecayMult : 1f;
+
         /// <summary>계절 전환 시 1회 (첫 Tick 포함) — HUD·전환 로그 구독용.</summary>
         public event System.Action<SeasonSO> OnSeasonChanged;
 

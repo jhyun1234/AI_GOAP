@@ -187,8 +187,11 @@ namespace AIVillage.M0
 
                 Season?.Tick(GameTime);
 
-                Discovery.TickRegeneration(deltaGameDays);
-                Farm.TickGrowth(deltaGameDays);
+                // 계절 배율 (M6-B) — 서비스 시그니처 무변경, 시간 입력만 스케일 (겨울 0 = 재생·성장 정지)
+                float regenMult  = Season != null ? Season.RegenMult  : 1f;
+                float growthMult = Season != null ? Season.GrowthMult : 1f;
+                Discovery.TickRegeneration(deltaGameDays * regenMult);
+                Farm.TickGrowth(deltaGameDays * growthMult);
 
                 // 에이전트 틱 (W4) — 역순 순회: SimTick 중 파괴/해제로 리스트가 줄어도 안전
                 for (int i = _agents.Count - 1; i >= 0; i--)

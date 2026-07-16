@@ -151,6 +151,61 @@ namespace AIVillage.Tests.EditMode
             Object.DestroyImmediate(prep);
         }
 
+        // ── M6-T2: 배율 — null-안전 접근자 + 시간 입력 스케일 (겨울 = 정지) ──
+
+        [Test]
+        public void M6_T2_SeasonMults_NullSafeAndWinterValues()
+        {
+            SeasonSO mild = MakeSeason("온화", 6f, false);
+            SeasonSO winter = MakeSeason("겨울", 3f, true);
+            winter.RegenMult = 0f;
+            winter.GrowthMult = 0f;
+            winter.SatietyDecayMult = 1.5f;
+            var service = new SeasonService(new[] { mild, winter });
+
+            // 첫 Tick 전 = 중립 1 (Current null — 소비처가 안전)
+            Assert.AreEqual(1f, service.RegenMult);
+            Assert.AreEqual(1f, service.GrowthMult);
+            Assert.AreEqual(1f, service.SatietyDecayMult);
+
+            service.Tick(0f); // 온화 (에셋 기본값 1)
+            Assert.AreEqual(1f, service.RegenMult);
+
+            service.Tick(7f); // 겨울
+            Assert.AreEqual(0f, service.RegenMult, "겨울 재생 정지");
+            Assert.AreEqual(0f, service.GrowthMult, "겨울 성장 정지");
+            Assert.AreEqual(1.5f, service.SatietyDecayMult, "겨울 허기 가속");
+
+            DestroyAll(mild, winter);
+        }
+
+        [Test]
+        public void M6_T2_ScaledDelta_FreezesRegeneration()
+        {
+            // 곱 지점은 호출부 — 스케일된 delta 0이면 서비스는 재생하지 않는다 (M6-S1의 절반)
+            var discovery = new DiscoveryService();
+            var node = new AIVillage.Core.ResourceNode(
+                "gate_node", AIVillage.Core.ResourceType.RawFood, 0, 0,
+                maxAmount: 10f, regenPerDay: 3f);
+            node.CurrentAmount = 1f;
+            discovery.AddResourceNode(node);
+
+            discovery.TickRegeneration(1f * 0f); // 겨울: delta × RegenMult 0
+            Assert.AreEqual(1f, node.CurrentAmount, 1e-5f, "겨울 1일 — 잔량 불변");
+
+            discovery.TickRegeneration(1f * 1f); // 온화: 기존과 동일 증가
+            Assert.AreEqual(4f, node.CurrentAmount, 1e-5f, "온화 1일 — +3 (기존 재생 동작 유지)");
+        }
+
+        [Test]
+        public void M6_T2b_SatietyDecay_SeasonMultScales()
+        {
+            // 감쇠 산식 단일 지점 (VillagerAgent.SatietyDecay) — 25/day 기준 (2026-07-13 승인값)
+            Assert.AreEqual(25f, VillagerAgent.SatietyDecay(25f, 1f, 1f), 1e-5f, "중립 1일 = 25");
+            Assert.AreEqual(37.5f, VillagerAgent.SatietyDecay(25f, 1.5f, 1f), 1e-5f, "겨울 1일 = 1.5배");
+            Assert.AreEqual(0.0375f, VillagerAgent.SatietyDecay(25f, 1.5f, 0.001f), 1e-6f, "틱 단위 비례");
+        }
+
         [Test]
         public void M6_T1b_WiredSeason_SnapshotReflectsClock()
         {

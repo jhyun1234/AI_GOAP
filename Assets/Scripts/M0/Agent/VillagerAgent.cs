@@ -228,7 +228,9 @@ namespace AIVillage.M0
         {
             if (State == AgentState.Dead) return;
 
-            Satiety = Mathf.Max(0f, Satiety - _cfg.SatietyDecayPerGameDay * deltaGameDays);
+            // 겨울은 더 빨리 배고프다 (M6-B) — 계절 없으면 배율 1 (중립)
+            float decayMult = _sim.Season != null ? _sim.Season.SatietyDecayMult : 1f;
+            Satiety = Mathf.Max(0f, Satiety - SatietyDecay(_cfg.SatietyDecayPerGameDay, decayMult, deltaGameDays));
             _tickCounter++;
 
             // 실행 중 상위 goal 전환 (데이터 주도 — 임계값은 GoalSO 에셋에만 존재)
@@ -258,6 +260,10 @@ namespace AIVillage.M0
 
         private WorldSnapshot BuildSnapshot()
             => World.BuildSnapshot(Mathf.RoundToInt(Satiety), Mathf.RoundToInt(Fatigue));
+
+        /// <summary>포만 감쇠 산식의 유일한 지점 (M6-B) — 순수 함수라 게이트(M6-T2b)가 직접 검증한다.</summary>
+        public static float SatietyDecay(float perGameDay, float seasonMult, float deltaGameDays)
+            => perGameDay * seasonMult * deltaGameDays;
 
         // ─────────────────────────────────────────────────────────────────────
         // Idle → Planning

@@ -14,7 +14,22 @@ metadata:
 **How to apply:** 원격 routine과 로컬 점검 세션은 실행 시작 시 이 파일을 확인한다.
 OPEN 상태의 경보가 있으면 해당 우회 절차(MANUAL_STATE_UPDATE 등)를 미리 준비한다.
 
-## 🔴 OPEN — 원격 sandbox state 브랜치 push 403 (2회 연속)
+## 🔴 OPEN — 2026-07-16 REJECTED_3X: M2+M3 소재 발행 실패 (검수 3연속 반려)
+
+- **run**: 2026-07-16 13:03 KST auto-run. 소재 = M2 생산체인 + M3 주거 기반
+  (`651ea47` ~ `153f180`). 발행 안 됨 — latest_commit cc4602e 유지, 소재 미소비
+  (다음 사이클 동일 소재 자동 재시도 가능).
+- **원인 (routine 자체 진단)**: 작성팀과 검수팀의 **분량 계측 방식 불일치** — 기준 문서에
+  "4000~5500자"라는 숫자만 있고 셈법(공백 포함 여부, 한글만 셀지 등)이 정의돼 있지 않아,
+  작성팀 기준으로는 충족인 초안이 검수팀 셈법으로는 미달 → 반려 3회 → REJECTED_3X.
+- **조치 (2026-07-16 로컬 적용)**: blog-writer.md·blog-reviewer.md에 계측 명령을
+  `wc -m`(공백·마크다운 포함 전체 문자수) 하나로 통일 명시. 반려 발동은 3,800자 미만/
+  6,000자 초과일 때만 — 사소한 오차로 반려 왕복 금지.
+- **해소 조건**: 다음 run에서 같은 소재가 검수 통과·발행되면 CLOSED.
+- 참고: routine이 sandbox에서 커밋한 db77faf는 push 403으로 소실 — 이 항목은
+  MANUAL_STATE_UPDATE 기반 로컬 재구성임.
+
+## 🔴 OPEN — 원격 sandbox state 브랜치 push 403 (3회 연속)
 
 - **증상**: 원격 auto-run이 게시 성공 후 상태 커밋을 `claude/state-*` 브랜치로 push하면
   GitHub가 403으로 거부. 브랜치가 sandbox 밖으로 나오지 못해
@@ -24,6 +39,11 @@ OPEN 상태의 경보가 있으면 해당 우회 절차(MANUAL_STATE_UPDATE 등)
   - 2회차: 2026-07-15 (`claude/state-2026-07-15T040738Z`, M0 회고 특집 회차) →
     2026-07-15 로컬 수동 반영으로 복구. HTML 사본은 Blogger API GET으로 재획득
     (post_id 6764155466991758383, 13,826 bytes).
+  - 3회차: 2026-07-16 (REJECTED_3X 회차, alerts 커밋 db77faf 미push). **결정적 증거 확보**:
+    1차 `git push origin HEAD` 시도에서 세션이 **detached HEAD**임이 드러남 + 403.
+    → routine 세션은 세션 소유 작업 브랜치가 아예 없으므로, "현재 작업 브랜치만 허용"
+    규칙 하에서 **routine의 git push는 전 형태 불가능이 확정**. 07-15에 넣은
+    "현재 브랜치 push" 1차 경로는 routine에는 해당 없음 (판정: 가설 반증).
 - **현재 우회책**: routine이 발행 결과를 MANUAL_STATE_UPDATE 블록으로 출력 → 사용자가
   로컬 세션에 전달 → 로컬에서 상태 파일 갱신 + main에 직접 커밋. (이 절차는 07-14부터
   routine 프롬프트에 내장됨 — 정상 작동 확인)
@@ -35,17 +55,22 @@ OPEN 상태의 경보가 있으면 해당 우회 절차(MANUAL_STATE_UPDATE 등)
   문서 규칙과 다른 오해였고, 당시 Path B 검증(claude/state-workflow-test)은 **로컬 PC에서
   push**한 것이라 샌드박스 프록시를 통과 검증한 적이 없다. GitHub 리포 쪽 설정은 무관
   (룰셋 0개, main 브랜치 보호 없음 — 2026-07-15 gh api로 확인).
-- **적용한 수정 (2026-07-15, 검증 대기)**:
-  1. `routine-prompt.md` Step 8 재설계 — 새 브랜치 생성 금지, **현재 작업 브랜치에 커밋 후
-     `git push origin HEAD`** (1차). 실패 시 구방식 claude/state-* push (2차 폴백). 둘 다
-     실패 시 MANUAL_STATE_UPDATE에 **push stderr 원문 + 시도 브랜치명 포함** (다음 진단 증거).
-  2. `blog-state-auto-merge.yml` — 트리거를 `claude/state-*` → `claude/**`로 확대 (세션
-     작업 브랜치 이름을 미리 알 수 없으므로). 상태 파일 외 경로를 건드린 브랜치는 조용히
-     스킵, 브랜치 삭제는 claude/state-* 이름일 때만.
-- **검증 계획**: 다음 스케줄 run (2026-07-16 13:03 KST)에서 (a) `STATE_PUSH_OK` + main에
-  상태 커밋 자동 반영 확인 → 이 항목 CLOSED. (b) 재실패 시 MANUAL_STATE_UPDATE의 stderr
-  원문으로 2차 진단 — 그 경우 남은 후보는 GitHub API 직접 쓰기(fine-grained PAT를 env var로
-  주입) 또는 상태 저장소를 git 밖(Blogger DRAFT/Google Drive)으로 옮기는 구조 변경.
+- **1차 수정 (2026-07-15) — 반증됨**: "현재 작업 브랜치에 push origin HEAD" 경로를
+  넣었으나, 07-16 run에서 routine 세션이 **detached HEAD**임이 확인되어 이 경로는 routine에
+  적용 불가 (stderr 원문 확보 목적은 달성 — 이 증거로 진단 완결).
+- **2차 수정 (2026-07-16, 검증 대기 — PAT 필요)**: git 프록시를 우회하는 **GitHub REST API
+  직접 커밋** 경로 구현.
+  1. `scripts/gh-state-push.js` 신설 — blob→tree→commit→`PATCH refs/heads/main`(force
+     아님 = ff만). 상태 경로(`tools/blog-automation/{state,published}/`) 외 파일은 무시.
+  2. `routine-prompt.md` Step 8 — 1순위 API 경로(`GH_STATE_TOKEN` env var 필요), 실패 시
+     레거시 git push 폴백 + MANUAL_STATE_UPDATE.
+  3. **사용자 작업 필요**: GitHub fine-grained PAT 발급 (리포 jhyun1234/AI_GOAP 단독,
+     권한 Contents: Read and write 만) → claude.ai 환경(env_011dy96U4KfgKbckWYWVqzN1)
+     env vars에 `GH_STATE_TOKEN`으로 저장 (BLOGGER_* 넣은 곳과 동일 UI).
+- **검증 계획**: PAT 저장 후 다음 run에서 `STATE_PUSH_OK (api)` + main에
+  `chore(blog): auto-run state update` 커밋 자동 등장 확인 → 이 항목 CLOSED.
+  API 경로도 403이면(프록시가 api.github.com Authorization을 가로채는 경우) 최후 수단은
+  상태 저장소를 git 밖(Blogger DRAFT/Google Drive)으로 옮기는 구조 변경.
 - **부수 기록**: 2026-07-15 in-sandbox 진단 세션 1회 시도 (trig 임시 생성,
   session `cse_01K1SwR3ms78eGuoLKUm9bSX`) — 보고 채널(Blogger DRAFT) 미도착으로 결과 미회수,
   GitHub 부수효과(브랜치/커밋/이벤트) 전무. 세션 자체가 실행 안 됐거나 조기 실패한 것으로

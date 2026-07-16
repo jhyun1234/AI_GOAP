@@ -8,6 +8,35 @@ metadata:
 
 # 블로그 파이프라인 다음 회차 우선 소재
 
+**STATUS: CONSUMED (소비 완료: 2026-07-16)** — 2026-07-16 마스터 2차 승인 후 게시팀
+Step 7에서 이 소재로 발행 완료. blog-planner는 이 파일을 더 이상 우선 소재로 취급하지 않는다.
+
+- 발행 결과: https://gamedevclaude.blogspot.com/2026/07/unity-goap.html
+  (blogger_post_id: 3935987342991362953, 제목: "밭에서 부엌으로, 그리고 처음 생긴 집 한 채 —
+  Unity GOAP 생산체인과 마을 시뮬레이션 인디게임 개발일지")
+- 참고: 같은 날 13:03 KST auto-run에서는 검수 3연속 반려(REJECTED_3X)로 미발행이었으나,
+  작성팀·검수팀 분량 계측 기준을 `wc -m`으로 통일한 뒤 동일 소재로 재작성·재검수를 거쳐
+  이번 로컬 세션에서 마스터 1차·2차 승인 후 발행 완료. 상세는 `blog_pipeline_alerts.md`
+  및 `blog_last_published_commit.md` 참조.
+- `latest_commit`은 `blog_last_published_commit.md`에 `153f180`으로 갱신됨.
+
+---
+
+## 이전 회차 이력 (2026-07-15 소비 완료, 기록 보존용)
+
+**STATUS: CONSUMED (소비 완료: 2026-07-15)** — 2026-07-15 원격 auto-run에서 이 소재로
+발행 완료. blog-planner는 이 파일을 더 이상 우선 소재로 취급하지 않는다.
+
+- 발행 결과: https://gamedevclaude.blogspot.com/2026/07/unity-goap-24800-5977-m0.html
+  (blogger_post_id: 6764155466991758383, 제목: "Unity GOAP 재설계: 24,800줄을 하루 만에
+  5,977줄로 줄인 M0 재건 개발일지")
+- latest_commit은 지정대로 갱신하지 않음 (cc4602e 유지 — 회고 특집 예외)
+- 원격 state push 403 실패로 이 마킹은 로컬 수동 반영임 (`blog_pipeline_alerts.md` 참조)
+
+---
+
+## 아래는 지정 당시 원문 (기록 보존용, 2026-07-16 소비 완료분)
+
 **STATUS: ACTIVE (2026-07-16 사전점검 지정)** — blog-planner는 다음 사이클에서 이 소재를
 **최우선**으로 집필한다.
 
@@ -42,20 +71,7 @@ M0보다 먼저 발행"된 것과 같은 종류의 순서 역전이 한 번 더 
   `devlog/sessions/2026-07-14.md`(12:40 이후) + `devlog/sessions/2026-07-15.md`(00:10 항목).
 - **다음 소재(M4 성격 재편입, M5 직업 스펙)와 중복 금지**: 이번 글은 "생산·주거 콘텐츠"까지만,
   성격(M4)·직업(M5)은 언급하더라도 말미 예고 한 문단까지만.
-- 사용 후: 이 파일에 "소비 완료 YYYY-MM-DD" 마킹.
-
----
-
-## 이전 회차 이력 (2026-07-15 소비 완료, 기록 보존용)
-
-**STATUS: CONSUMED (소비 완료: 2026-07-15)** — 2026-07-15 원격 auto-run에서 이 소재로
-발행 완료. blog-planner는 이 파일을 더 이상 우선 소재로 취급하지 않는다.
-
-- 발행 결과: https://gamedevclaude.blogspot.com/2026/07/unity-goap-24800-5977-m0.html
-  (blogger_post_id: 6764155466991758383, 제목: "Unity GOAP 재설계: 24,800줄을 하루 만에
-  5,977줄로 줄인 M0 재건 개발일지")
-- latest_commit은 지정대로 갱신하지 않음 (cc4602e 유지 — 회고 특집 예외)
-- 원격 state push 403 실패로 이 마킹은 로컬 수동 반영임 (`blog_pipeline_alerts.md` 참조)
+- 사용 후: 이 파일에 "소비 완료 YYYY-MM-DD" 마킹. → **2026-07-16 완료** (위 최신 항목 참조).
 
 ---
 

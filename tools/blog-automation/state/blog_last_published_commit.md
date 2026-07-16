@@ -15,6 +15,25 @@ metadata:
 
 ## 최신 사용 커밋
 
+- `latest_commit`: `153f180` (M3 완료 선언 — M2 생산체인 + M3 주거 기반 소재의 마지막 커밋)
+- `selected_commits_range`: `651ea47`(M2 스펙) ~ `153f180`(M3 완료 선언)
+- `cycle_date`: 2026-07-16 (마스터 2차 승인 후 게시팀 Step 7 발행 — 전날 REJECTED_3X였던 동일
+  소재가 계측 기준 통일 후 재작성/재검수를 거쳐 이번 회차에 승인·발행됨)
+- `publish_status`: PUBLISHED (Blogger published: 2026-07-16 16:07 KST, status: LIVE)
+- `blogger_post_id`: 3935987342991362953
+- `blog_url`: https://gamedevclaude.blogspot.com/2026/07/unity-goap.html
+- `title`: 밭에서 부엌으로, 그리고 처음 생긴 집 한 채 — Unity GOAP 생산체인과 마을 시뮬레이션 인디게임 개발일지
+- `labels`: 유니티, 인디게임, AI개발, GOAP
+- `local_archive`: tools/blog-automation/published/2026-07-16-unity-goap-m2-m3-production-housing.html
+  (Blogger API 응답의 content 필드를 그대로 저장 — 실제 게시본과 바이트 단위 동일)
+- `비고`: 2026-07-16 13:03 KST auto-run에서는 작성팀·검수팀 분량 계측 기준 불일치로 검수
+  3연속 반려(REJECTED_3X, `blog_pipeline_alerts.md` 참조)되어 미발행이었으나, 계측 기준을
+  `wc -m` 하나로 통일한 뒤 동일 소재로 재작성·재검수를 거쳐 마스터 1차·2차 승인을 모두
+  통과했고 이번 로컬 세션에서 게시팀(Step 7)이 실제 발행을 완료했다. 이 글로 M2(생산체인)·
+  M3(주거 기반) 미발행 구간이 해소됨 (BLOG_COVERAGE.md 참조).
+
+### 이전 회차 이력 (2026-07-15, M0 회고 특집)
+
 - `latest_commit`: `cc4602e` (유지 — 이번 회차는 회고 특집 예외, M0 커밋 구간은 별도 트랙이므로 갱신하지 않음)
 - `selected_commits_range`: `8ee845b` ~ `b175ddf` + `04f0975` (M0 GOAP 정합 재설계 대서사 — 회고 특집)
 - `cycle_date`: 2026-07-15 (원격 auto-run 13:03 KST — `blog_next_material_priority.md` ACTIVE 게이트 무조건 통과)
@@ -29,7 +48,8 @@ metadata:
 - `비고`: 원격 sandbox의 `claude/state-2026-07-15T040738Z` push가 07-14에 이어 **2회 연속
   403 실패** → MANUAL_STATE_UPDATE 경로로 로컬 수동 반영 (2026-07-15). 상세는
   `blog_pipeline_alerts.md` 참조. 이 글로 M0 미발행 구간이 해소됨 — 남은 미발행 구간은
-  M2(생산체인)·M3(주거 기반) (BLOG_COVERAGE.md 참조).
+  M2(생산체인)·M3(주거 기반) (BLOG_COVERAGE.md 참조). → 이 M2/M3 구간은 위 최신 항목
+  (2026-07-16)에서 발행 완료됨.
 
 ### 이전 회차 이력 (2026-07-14, M1 밀스톤 완결)
 
@@ -40,7 +60,7 @@ metadata:
 - `blog_url`: https://gamedevclaude.blogspot.com/2026/07/unity-goap-ai-ai-m1.html
 - `비고`: 원격 sandbox의 claude/state-* push가 403으로 실패 → 이 항목은 로컬에서 수동
   반영함 (2026-07-14). M0 재설계 대서사(24,800→5,977줄)는 이 글에서 다뤄지지 않음 →
-  2026-07-15 회고 특집으로 발행 완료 (위 최신 항목).
+  2026-07-15 회고 특집으로 발행 완료.
 
 ### 이전 회차 이력 (2026-07-11, F-A 성격배분 + Satiety 반전)
 

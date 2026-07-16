@@ -14,18 +14,21 @@ metadata:
 **How to apply:** 원격 routine과 로컬 점검 세션은 실행 시작 시 이 파일을 확인한다.
 OPEN 상태의 경보가 있으면 해당 우회 절차(MANUAL_STATE_UPDATE 등)를 미리 준비한다.
 
-## 🔴 OPEN — 2026-07-16 REJECTED_3X: M2+M3 소재 발행 실패 (검수 3연속 반려)
+## 🟢 CLOSED — 2026-07-16 REJECTED_3X: M2+M3 소재 발행 실패 (검수 3연속 반려) → 해소
 
 - **run**: 2026-07-16 13:03 KST auto-run. 소재 = M2 생산체인 + M3 주거 기반
-  (`651ea47` ~ `153f180`). 발행 안 됨 — latest_commit cc4602e 유지, 소재 미소비
-  (다음 사이클 동일 소재 자동 재시도 가능).
+  (`651ea47` ~ `153f180`). 당시 발행 안 됨 — latest_commit cc4602e 유지, 소재 미소비.
 - **원인 (routine 자체 진단)**: 작성팀과 검수팀의 **분량 계측 방식 불일치** — 기준 문서에
   "4000~5500자"라는 숫자만 있고 셈법(공백 포함 여부, 한글만 셀지 등)이 정의돼 있지 않아,
   작성팀 기준으로는 충족인 초안이 검수팀 셈법으로는 미달 → 반려 3회 → REJECTED_3X.
 - **조치 (2026-07-16 로컬 적용)**: blog-writer.md·blog-reviewer.md에 계측 명령을
   `wc -m`(공백·마크다운 포함 전체 문자수) 하나로 통일 명시. 반려 발동은 3,800자 미만/
   6,000자 초과일 때만 — 사소한 오차로 반려 왕복 금지.
-- **해소 조건**: 다음 run에서 같은 소재가 검수 통과·발행되면 CLOSED.
+- **해소 (2026-07-16 로컬 세션)**: 계측 기준 통일 후 동일 소재로 재작성·재검수를 거쳐
+  마스터 Step 4/Step 6 승인 모두 통과, 게시팀 Step 7에서 실제 발행 완료.
+  blogger_post_id 3935987342991362953, url
+  https://gamedevclaude.blogspot.com/2026/07/unity-goap.html. 상세는
+  `blog_last_published_commit.md` 최신 항목 참조. **해소 조건 충족 → CLOSED.**
 - 참고: routine이 sandbox에서 커밋한 db77faf는 push 403으로 소실 — 이 항목은
   MANUAL_STATE_UPDATE 기반 로컬 재구성임.
 

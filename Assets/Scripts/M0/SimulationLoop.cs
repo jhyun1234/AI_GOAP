@@ -55,6 +55,9 @@ namespace AIVillage.M0
 
         /// <summary>계절 시계 (M6-A). WorldConfig.SeasonCycle이 비면 null = 계절 없음 (M5 동작).</summary>
         public SeasonService Season { get; private set; }
+
+        /// <summary>좌상단 달력·알림 HUD (M6-C). 표시 전용 — 이탈 알림(M6-D)도 여기로.</summary>
+        public SeasonHud Hud { get; private set; }
         public PlannerGateway Planner { get; private set; }
         public GoalSelector Goals { get; private set; }
         public AgentConfigSO AgentConfig => _agentConfig;
@@ -124,7 +127,10 @@ namespace AIVillage.M0
             {
                 Season = season;
                 Season.OnSeasonChanged += s =>
+                {
                     Debug.Log($"[M0Sim] 계절 전환 — {s.DisplayName} (Day {(int)GameTime}, 위기={s.IsCrisis})");
+                    Hud?.Notify($"계절이 바뀌었습니다 — {s.DisplayName}");
+                };
             }
             else
             {
@@ -172,6 +178,8 @@ namespace AIVillage.M0
             Debug.Log($"[M0Sim] 시작 — 노드 {Discovery.Nodes.Count}개, " +
                       $"Wood {World.GetStock(SlotId.WoodStock)}, RawFood {World.GetStock(SlotId.RawFoodStock)}");
 
+            Hud = new SeasonHud(transform, _bubbleFont); // 씬 배선 없음 — BuildingVisualizer 패턴 (M6-C)
+
             StartCoroutine(TickLoop());
         }
 
@@ -192,6 +200,8 @@ namespace AIVillage.M0
                 float growthMult = Season != null ? Season.GrowthMult : 1f;
                 Discovery.TickRegeneration(deltaGameDays * regenMult);
                 Farm.TickGrowth(deltaGameDays * growthMult);
+
+                Hud?.Tick(GameTime, Season, _worldConfig.ForecastDays);
 
                 // 에이전트 틱 (W4) — 역순 순회: SimTick 중 파괴/해제로 리스트가 줄어도 안전
                 for (int i = _agents.Count - 1; i >= 0; i--)

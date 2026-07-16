@@ -82,5 +82,9 @@ namespace AIVillage.M0
         [Tooltip("게임 1일당 포만감 자연 감소량. 舊 코드에는 자연 감쇠가 없었음 — " +
                  "25는 2026-07-13 기획 승인값 (초기 70 기준 약 2일마다 식사).")]
         public float SatietyDecayPerGameDay = 25f;
+
+        [Header("위기 예고 (M6-C — 제안치)")]
+        [Tooltip("예고 기간 술렁임 확률 (액션 시작 시점마다 판정). 대사는 SeasonSO.ForecastLines.")]
+        public float ForecastMoodChance = 0.15f;
     }
 }

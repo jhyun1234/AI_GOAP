@@ -37,7 +37,7 @@ namespace AIVillage.Tests.EditMode
 
             void AssertAt(float t, int expectIndex, float expectDays, string why)
             {
-                SeasonService.Compute(cycle, t, out int index, out float days);
+                SeasonService.Compute(cycle, t, out int index, out float days, out _);
                 Assert.AreEqual(expectIndex, index, $"t={t}: {why} (계절)");
                 Assert.AreEqual(expectDays, days, 1e-4f, $"t={t}: {why} (위기까지)");
             }
@@ -60,7 +60,7 @@ namespace AIVillage.Tests.EditMode
             SeasonSO autumn = MakeSeason("가을", 2f, false);
             var cycle = new[] { mild, autumn };
 
-            SeasonService.Compute(cycle, 1f, out _, out float days);
+            SeasonService.Compute(cycle, 1f, out _, out float days, out _);
             Assert.AreEqual(SeasonService.NO_CRISIS, days, "위기 없음 = NO_CRISIS(99)");
 
             DestroyAll(mild, autumn);
@@ -204,6 +204,32 @@ namespace AIVillage.Tests.EditMode
             Assert.AreEqual(25f, VillagerAgent.SatietyDecay(25f, 1f, 1f), 1e-5f, "중립 1일 = 25");
             Assert.AreEqual(37.5f, VillagerAgent.SatietyDecay(25f, 1.5f, 1f), 1e-5f, "겨울 1일 = 1.5배");
             Assert.AreEqual(0.0375f, VillagerAgent.SatietyDecay(25f, 1.5f, 0.001f), 1e-6f, "틱 단위 비례");
+        }
+
+        // ── M6-C: HUD 달력 문구 — 표시 정책 단일 지점 (순수 Compose) ─────────
+
+        [Test]
+        public void M6_C_HudCompose_ForecastAndCrisisText()
+        {
+            SeasonSO mild = MakeSeason("온화", 6f, false);
+            SeasonSO winter = MakeSeason("겨울", 3f, true);
+            var service = new SeasonService(new[] { mild, winter });
+
+            Assert.AreEqual("Day 4", SeasonHud.Compose(4.2f, null, 3f), "계절 없음 = Day만 (중립)");
+
+            service.Tick(1f); // 평시 — 겨울까지 5일 (> 예고 3일)
+            StringAssert.Contains("온화", SeasonHud.Compose(1f, service, 3f));
+            StringAssert.DoesNotContain("까지", SeasonHud.Compose(1f, service, 3f), "평시엔 카운트다운 없음");
+
+            service.Tick(4f); // 예고 구간 — 겨울까지 2일
+            StringAssert.Contains("겨울까지 2일", SeasonHud.Compose(4f, service, 3f));
+
+            service.Tick(7f); // 겨울 진행 중 — 남은 2일
+            string crisis = SeasonHud.Compose(7f, service, 3f);
+            StringAssert.Contains("겨울", crisis);
+            StringAssert.Contains("남은 2일", crisis);
+
+            DestroyAll(mild, winter);
         }
 
         [Test]

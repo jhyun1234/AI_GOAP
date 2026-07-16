@@ -23,6 +23,12 @@ namespace AIVillage.M0
         /// <summary>다음 위기 계절 시작까지 남은 게임일. 위기 진행 중 0, 위기 없으면 NO_CRISIS.</summary>
         public float DaysToCrisis { get; private set; } = NO_CRISIS;
 
+        /// <summary>현재 계절의 잔여 게임일 — HUD "겨울 (남은 N일)" 표시용 (M6-C).</summary>
+        public float DaysLeftInSeason { get; private set; }
+
+        /// <summary>다가오는(위기 중이면 현재) 위기 계절 — 예고 대사·HUD 이름의 출처. 사이클에 없으면 null.</summary>
+        public SeasonSO NextCrisis { get; private set; }
+
         /// <summary>사이클이 비어 있으면 false — SimulationLoop가 서비스 자체를 null로 둔다.</summary>
         public bool IsActive => _cycle.Length > 0;
 
@@ -50,12 +56,20 @@ namespace AIVillage.M0
         {
             if (_cycle.Length == 0) return; // 비활성 — 방어 (정상 경로는 서비스 미생성)
 
-            Compute(_cycle, gameTime, out int index, out float days);
+            Compute(_cycle, gameTime, out int index, out float days, out float left);
             DaysToCrisis = days;
+            DaysLeftInSeason = left;
             if (index != _lastIndex)
             {
                 _lastIndex = index;
                 Current = _cycle[index];
+                // 다가오는 위기 계절 (현재 포함 순방향 첫 IsCrisis) — 예고 대사의 출처
+                NextCrisis = null;
+                for (int step = 0; step < _cycle.Length; step++)
+                {
+                    SeasonSO s = _cycle[(index + step) % _cycle.Length];
+                    if (s.IsCrisis) { NextCrisis = s; break; }
+                }
                 OnSeasonChanged?.Invoke(Current);
             }
         }
@@ -66,7 +80,8 @@ namespace AIVillage.M0
         /// 사이클에 위기가 없으면 NO_CRISIS.
         /// </summary>
         public static void Compute(SeasonSO[] cycle, float gameTime,
-                                   out int seasonIndex, out float daysToCrisis)
+                                   out int seasonIndex, out float daysToCrisis,
+                                   out float daysLeftInSeason)
         {
             float total = 0f;
             for (int i = 0; i < cycle.Length; i++) total += cycle[i].DurationDays;
@@ -88,6 +103,8 @@ namespace AIVillage.M0
                 acc += cycle[i].DurationDays;
             }
 
+            daysLeftInSeason = seasonStart + cycle[seasonIndex].DurationDays - phase;
+
             if (cycle[seasonIndex].IsCrisis)
             {
                 daysToCrisis = 0f;
@@ -95,7 +112,7 @@ namespace AIVillage.M0
             }
 
             // 현재 계절 잔여 + 이후 비위기 계절들 (사이클 1바퀴 순방향 탐색)
-            float dist = seasonStart + cycle[seasonIndex].DurationDays - phase;
+            float dist = daysLeftInSeason;
             for (int step = 1; step <= cycle.Length; step++)
             {
                 SeasonSO next = cycle[(seasonIndex + step) % cycle.Length];

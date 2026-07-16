@@ -382,6 +382,14 @@ namespace AIVillage.M0
                 && Random.value < Personality.MoodLineChance)
                 ShowTransient(Pick(Personality.MoodLines));
 
+            // 위기 예고 술렁임 (M6-C) — 혼잣말과 같은 통로. 예고 구간(위기 전)에만, 위기 중은 제외.
+            // 대사·확률 전부 에셋 값 (SeasonSO.ForecastLines / AgentConfig.ForecastMoodChance).
+            if (_sim.Season != null && _sim.Season.NextCrisis != null
+                && _sim.Season.DaysToCrisis > 0f
+                && _sim.Season.DaysToCrisis <= _sim.WorldConfig.ForecastDays
+                && Random.value < _cfg.ForecastMoodChance)
+                ShowTransient(Pick(_sim.Season.NextCrisis.ForecastLines));
+
             _runner = action.CreateRunner(this);
 
             if (!_runner.Prepare(this))

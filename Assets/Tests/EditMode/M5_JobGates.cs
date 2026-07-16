@@ -113,6 +113,40 @@ namespace AIVillage.Tests.EditMode
         }
 
         [Test]
+        public void M5_T4_RoutineGoal_PriorityBand()
+        {
+            // 일과 대역 (ADR-M5-2): 여가(1) < 일과(2) < 공용 노동(8+) — "할 일 없을 때"만 잡힌다
+            GoalSO leisure = LoadGoal("Goal_Leisure");
+            GoalSO wood    = LoadGoal("Goal_GatherWood");
+            var routine = AssetDatabase.LoadAssetAtPath<GoalSO>("Assets/M0Config/Goals/Goal_Routine_Farmer.asset");
+            var explorerRoutine = AssetDatabase.LoadAssetAtPath<GoalSO>("Assets/M0Config/Goals/Goal_Routine_Explorer.asset");
+            Assert.IsNotNull(routine); Assert.IsNotNull(explorerRoutine);
+
+            // 에셋 정책: P2, 조건 비움("항상 미달성" 특례 — 여가와 동일), 풀 비어있지 않음
+            foreach (GoalSO r in new[] { routine, explorerRoutine })
+            {
+                Assert.AreEqual(2, r.Priority, $"{r.name}: 일과 대역 P2");
+                Assert.IsTrue(r.TriggerConditions == null || r.TriggerConditions.Length == 0);
+                Assert.IsTrue(r.GoalConditions == null || r.GoalConditions.Length == 0);
+                Assert.IsTrue(r.DirectActionPool != null && r.DirectActionPool.Length > 0,
+                              $"{r.name}: 직접 실행 풀 필수 (플래너 미경유)");
+            }
+
+            var selector = new GoalSelector(new[] { leisure, wood });
+
+            // 다른 goal 전부 만족/미발동 → routine이 여가(P1)를 이긴다
+            WorldSnapshot idle = Snap((SlotId.MySatiety, 80), (SlotId.WoodStock, 50), (SlotId.CampfireBuilt, 1));
+            Assert.AreSame(leisure, selector.Select(idle), "무직: routine 후보 없음 — 기존 여가 동작");
+            Assert.AreSame(routine, selector.Select(idle, null, null, null, routine),
+                           "한가할 때 일과 > 여가 (P2 > P1)");
+
+            // 공용 노동 발동 시 일과 밀림 (P2 < 8+)
+            WorldSnapshot work = Snap((SlotId.MySatiety, 80), (SlotId.WoodStock, 5), (SlotId.CampfireBuilt, 1));
+            Assert.AreSame(wood, selector.Select(work, null, null, null, routine),
+                           "노동 발동 시 일과는 밀린다 — 씬 사다리 위의 보정일 뿐 (ADR-M5-4)");
+        }
+
+        [Test]
         public void M5_B_CostMult_JobCombinesWithPersonality()
         {
             var catalog = AssetDatabase.LoadAssetAtPath<ActionCatalog>("Assets/M0Config/ActionCatalog.asset");

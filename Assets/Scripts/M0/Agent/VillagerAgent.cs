@@ -83,6 +83,10 @@ namespace AIVillage.M0
         // 무직이면 null = Select가 기존과 완전 동일 경로 (중립 불변식).
         private System.Func<GoalSO, int> _jobBias;
 
+        // 직업 일과 goal (M5-C, ADR-M5-2) — 개인 사다리 주입, 씬 _goals에 넣지 않는다.
+        // 무직·일과 없는 직업이면 null = 기존 여가 동작.
+        private GoalSO _routine;
+
         /// <summary>실효 우선순위 = 에셋 Priority + 직업 보정. 선택(Select)과 전환 비교가
         /// 같은 진리를 쓰기 위한 유일한 계산 지점 (ADR-M5-6).</summary>
         private int EffectivePriority(GoalSO g)
@@ -177,6 +181,7 @@ namespace AIVillage.M0
             Debug.Log($"[VillagerAgent] {AgentId}: 성격 = {(Personality != null ? Personality.DisplayName : "없음(중립)")}"
                       + $" / 직업 = {(Job != null ? Job.DisplayName : "무직(공용)")}");
             _jobBias = Job != null ? (System.Func<GoalSO, int>)Job.BoostFor : null;
+            _routine = Job != null ? Job.RoutineGoal : null;
             // 배율 배열 1회 캐시 (M4-B) — 성격·직업 둘 다 null이면 null = 중립 (RequestPlan이 무시)
             _costMult = PersonalityCost.Build(_sim.Catalog, Personality, Job, _multJitter);
             _motion = new MoveMotion(_cfg, AgentId);
@@ -232,7 +237,7 @@ namespace AIVillage.M0
             {
                 // 쿨다운 필터를 Idle 선택과 동일하게 적용 — 방금 실패한 goal이 전환 대상으로
                 // 재등장해 중단↔재시작 폭주(0.5초 주기)를 일으키는 것을 방지
-                GoalSO now = _sim.Goals.Select(BuildSnapshot(), IsGoalCoolingDown, _order, _jobBias);
+                GoalSO now = _sim.Goals.Select(BuildSnapshot(), IsGoalCoolingDown, _order, _jobBias, _routine);
                 if (now != null && _goal != null && now != _goal
                     && EffectivePriority(now) > EffectivePriority(_goal))
                 {
@@ -273,7 +278,7 @@ namespace AIVillage.M0
                 ClearOrderInstance();
             }
 
-            _goal = _sim.Goals.Select(snap, IsGoalCoolingDown, _order, _jobBias);
+            _goal = _sim.Goals.Select(snap, IsGoalCoolingDown, _order, _jobBias, _routine);
             if (_goal == null)
             {
                 _idleCooldownSec = 0.5f; // 할 일 없음 — 정상 Idle

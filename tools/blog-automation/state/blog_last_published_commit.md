@@ -15,6 +15,19 @@ metadata:
 
 ## 최신 사용 커밋
 
+- `latest_commit`: `862de3b` (docs(m4) M4 완료 선언 — 성공 기준 S1~S7 충족)
+- `selected_commits_range`: `b982090`(spec(m4) M4 주민의 성격 실행명세서) ~ `862de3b`(docs(m4) M4 완료 선언)
+- `cycle_date`: 2026-07-17 (마스터 2차 승인 후 게시팀 Step 7 발행)
+- `publish_status`: PUBLISHED (Blogger published: 2026-07-17 KST, status: LIVE)
+- `blogger_post_id`: 6809679934191538669
+- `blog_url`: https://gamedevclaude.blogspot.com/2026/07/unity-goap_0950458123.html
+- `title`: 주민이 처음으로 "다른 사람"으로 보인 날 — Unity GOAP 성격 시스템 인디게임 개발일지
+- `labels`: Unity GOAP, 인디게임 개발일지, GOAP 성격 시스템
+- `local_archive`: tools/blog-automation/published/2026-07-17-unity-goap-m4-personality.md
+- `비고`: M4 성격 시스템 소재(b982090~862de3b, 11커밋). PersonalitySO 스키마·비용 배율·명령 거부·혼잣말·5번째 아키타입 + JPS 강제 이웃 버그 수정 포함. 이 글로 M4 미발행 구간 해소.
+
+### 이전 회차 이력 (2026-07-16, M2+M3 생산체인+주거 기반)
+
 - `latest_commit`: `153f180` (M3 완료 선언 — M2 생산체인 + M3 주거 기반 소재의 마지막 커밋)
 - `selected_commits_range`: `651ea47`(M2 스펙) ~ `153f180`(M3 완료 선언)
 - `cycle_date`: 2026-07-16 (마스터 2차 승인 후 게시팀 Step 7 발행 — 전날 REJECTED_3X였던 동일

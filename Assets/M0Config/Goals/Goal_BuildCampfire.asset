@@ -25,3 +25,4 @@ MonoBehaviour:
   - Slot: 6
     Op: 0
     Value: 1
+  MaxWorkers: 1

@@ -58,6 +58,9 @@ namespace AIVillage.M0
 
         /// <summary>좌상단 달력·알림 HUD (M6-C). 표시 전용 — 이탈 알림(M6-D)도 여기로.</summary>
         public SeasonHud Hud { get; private set; }
+
+        /// <summary>주민 상호대화 (M7-C). 표현 전용 — Chatters가 비면 스스로 중립 (M6 동작).</summary>
+        public ChatterService Chatter { get; private set; }
         public PlannerGateway Planner { get; private set; }
         public GoalSelector Goals { get; private set; }
         public AgentConfigSO AgentConfig => _agentConfig;
@@ -140,6 +143,7 @@ namespace AIVillage.M0
             Construction = new ConstructionService(World);
             Planner      = new PlannerGateway(_catalog);
             Goals        = new GoalSelector(_goals);
+            Chatter      = new ChatterService(_worldConfig, _agentConfig); // M7-C — 표현 전용 (ADR-M7-1)
 
             _visualizer = new BuildingVisualizer(transform);
             Construction.OnCompleted += (b, x, y) => _visualizer.Spawn(b, x, y);
@@ -206,6 +210,8 @@ namespace AIVillage.M0
                 // 에이전트 틱 (W4) — 역순 순회: SimTick 중 파괴/해제로 리스트가 줄어도 안전
                 for (int i = _agents.Count - 1; i >= 0; i--)
                     _agents[i].SimTick(TICK_INTERVAL_SEC, deltaGameDays);
+
+                Chatter.Tick(Time.time, _agents); // M7-C — 주기·쿨다운은 실시간 초 기준
 
                 // 하루 경계 로그 — W3 관측용 (Play 검증 지표)
                 int day = (int)GameTime;

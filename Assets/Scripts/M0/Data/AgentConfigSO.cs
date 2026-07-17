@@ -42,6 +42,10 @@ namespace AIVillage.M0
         [Tooltip("명령 수행 중 말풍선 프리픽스 (TMP 리치 텍스트 허용)")]
         public string OrderBubblePrefix = "<color=#FF8A65>[명령]</color> ";
 
+        [Header("상호대화 연출 (M7-C — 제안치)")]
+        [Tooltip("응수 지연(초) — 발화 말풍선 뒤 '대화처럼' 보이는 간격 (ADR-M7-4).")]
+        public float ReplyDelaySec = 1.2f;
+
         [Header("이름표 (M7-A — 전부 제안치)")]
         [Tooltip("머리 아래 오프셋 (월드 유닛, 음수 = 발밑)")]
         public float NameTagOffsetY = -0.55f;

@@ -268,6 +268,14 @@ namespace AIVillage.M0
                 if (State == AgentState.Idle) _bubble?.Clear();
                 else _bubble?.ShowPlan(_plan, _planIndex, OrderPrefix());
             }
+
+            // 지연 응수 발화 (M7-C) — 표현 전용, 걸음은 멈추지 않는다
+            if (_delayedShowAt > 0f && Time.time >= _delayedShowAt)
+            {
+                _delayedShowAt = 0f;
+                ShowTransient(_delayedLine);
+                _delayedLine = null;
+            }
         }
 
         // ─────────────────────────────────────────────────────────────────────
@@ -750,11 +758,24 @@ namespace AIVillage.M0
                 AbortPlan("명령 취소 (자율 복귀)", warn: false, cooldown: false);
         }
 
-        private void ShowTransient(string line)
+        /// <summary>임시 대사 표시의 유일한 통로 — ChatterService(M7)도 여기를 쓴다 (ADR-M7-4).</summary>
+        public void ShowTransient(string line)
         {
             if (string.IsNullOrEmpty(line)) return;
             _bubble?.ShowText(line);
             _transientTextUntil = Time.time + 2.5f; // 대사 노출 시간 (연출 상수)
+        }
+
+        // 지연 응수 (M7-C) — 발화 말풍선 뒤 ReplyDelaySec 간격으로 "대화처럼" (ADR-M7-4)
+        private string _delayedLine;
+        private float _delayedShowAt;
+
+        /// <summary>지연 표시 — ChatterService의 응수 전용. 새 요청이 이전 대기분을 덮는다.</summary>
+        public void ShowTransientDelayed(string line, float delaySec)
+        {
+            if (string.IsNullOrEmpty(line)) return;
+            _delayedLine = line;
+            _delayedShowAt = Time.time + delaySec;
         }
 
         private static string Pick(string[] lines)

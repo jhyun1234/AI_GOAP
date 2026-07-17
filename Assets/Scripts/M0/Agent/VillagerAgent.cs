@@ -250,6 +250,7 @@ namespace AIVillage.M0
         {
             if (_goal != null && _sim != null) _sim.Goals.Release(_goal); // 파괴 시 클레임 잠김 방지
             ClearOrderInstance();
+            ClearRequestInstance(); // 부탁 사본 정리 (M8-D) — 진행 기록은 UnregisterAgent가 정리
             _runner?.Cleanup(this);
             if (_pending != null && _sim != null) _sim.Planner.Cancel(_pending);
             TileReservationRegistry.ReleaseAllBy(AgentId);
@@ -311,7 +312,7 @@ namespace AIVillage.M0
             {
                 // 쿨다운 필터를 Idle 선택과 동일하게 적용 — 방금 실패한 goal이 전환 대상으로
                 // 재등장해 중단↔재시작 폭주(0.5초 주기)를 일으키는 것을 방지
-                GoalSO now = _sim.Goals.Select(BuildSnapshot(), IsGoalCoolingDown, _order, _goalBias, _routine);
+                GoalSO now = _sim.Goals.Select(BuildSnapshot(), IsGoalCoolingDown, _order, _goalBias, _routine, _request);
                 if (now != null && _goal != null && now != _goal
                     && EffectivePriority(now) > EffectivePriority(_goal))
                 {
@@ -330,7 +331,8 @@ namespace AIVillage.M0
             }
         }
 
-        private WorldSnapshot BuildSnapshot()
+        /// <summary>플래닝 스냅샷 — RequestService(M8-D)의 의뢰인 조건 판정도 이걸 쓴다 (같은 언어).</summary>
+        public WorldSnapshot BuildSnapshot()
             => World.BuildSnapshot(Mathf.RoundToInt(Satiety), Mathf.RoundToInt(Fatigue),
                 _sim.Ownership.TryGetOwned(AgentId, SlotId.HouseCount, out _)); // MyHasHome (M8-C)
 
@@ -408,7 +410,16 @@ namespace AIVillage.M0
                 ClearOrderInstance();
             }
 
-            _goal = _sim.Goals.Select(snap, IsGoalCoolingDown, _order, _goalBias, _routine);
+            // 부탁 완수 판정 (M8-D) — 명령과 같은 패턴. 통지 후 소멸 (관계 델타·소유 배정은 RequestService)
+            if (_request != null && _request.GoalConditions != null && _request.GoalConditions.Length > 0
+                && GoalSelector.AllHold(_request.GoalConditions, snap))
+            {
+                Debug.Log($"[VillagerAgent] {AgentId}: 부탁 완수 — {_request.DisplayName}");
+                _sim.Requests?.NotifyFulfilled(AgentId);
+                ClearRequestInstance();
+            }
+
+            _goal = _sim.Goals.Select(snap, IsGoalCoolingDown, _order, _goalBias, _routine, _request);
             if (_goal == null)
             {
                 _idleCooldownSec = 0.5f; // 할 일 없음 — 정상 Idle
@@ -742,23 +753,7 @@ namespace AIVillage.M0
             }
 
             // 상대 목표 해석: "지금보다 +N" — 수신 시점 절대값으로 고정한 런타임 사본 생성
-            if (order.RelativeToCurrent && order.GoalConditions != null)
-            {
-                WorldSnapshot snap = BuildSnapshot();
-                GoalSO resolved = Instantiate(order);
-                resolved.name = order.name; // 로그·비교 가독성 (에셋은 무변경)
-                resolved.RelativeToCurrent = false;
-                for (int i = 0; i < resolved.GoalConditions.Length; i++)
-                    resolved.GoalConditions[i].Value = snap.Get(resolved.GoalConditions[i].Slot)
-                                                       + order.GoalConditions[i].Value;
-                _order = resolved;
-                _orderIsRuntimeClone = true;
-            }
-            else
-            {
-                _order = order;
-                _orderIsRuntimeClone = false;
-            }
+            _order = ResolveRelativeGoal(order, out _orderIsRuntimeClone);
             OrderTargetNode = targetNode;
             _goalRetryAt.Remove(_order); // 새 명령은 과거 실패 쿨다운을 잊는다
 
@@ -775,6 +770,85 @@ namespace AIVillage.M0
             }
             Debug.Log($"[VillagerAgent] {AgentId}: 명령 수락 — {order.DisplayName}");
             return OrderResult.Accepted;
+        }
+
+        /// <summary>
+        /// 상대 목표 해석 공용 헬퍼 (M1-C · M8-D) — RelativeToCurrent면 수신 시점 절대값으로
+        /// 고정한 런타임 사본을 만든다 (에셋 무변경). isClone이면 소멸 시 Destroy 필수.
+        /// </summary>
+        private GoalSO ResolveRelativeGoal(GoalSO goal, out bool isClone)
+        {
+            if (goal.RelativeToCurrent && goal.GoalConditions != null)
+            {
+                WorldSnapshot snap = BuildSnapshot();
+                GoalSO resolved = Instantiate(goal);
+                resolved.name = goal.name; // 로그·비교 가독성 (에셋은 무변경)
+                resolved.RelativeToCurrent = false;
+                for (int i = 0; i < resolved.GoalConditions.Length; i++)
+                    resolved.GoalConditions[i].Value = snap.Get(resolved.GoalConditions[i].Slot)
+                                                       + goal.GoalConditions[i].Value;
+                isClone = true;
+                return resolved;
+            }
+            isClone = false;
+            return goal;
+        }
+
+        // ─────────────────────────────────────────────────────────────────────
+        // 주민 부탁 (M8-D, ADR-M8-4: _order와 대칭 — 개인 사다리의 또 한 칸)
+        // ─────────────────────────────────────────────────────────────────────
+
+        public enum RequestResult { Accepted, RefusedBusy, RefusedHungry, RefusedTired, RefusedLowAffinity }
+
+        private GoalSO _request;
+        private bool _requestIsRuntimeClone;
+
+        /// <summary>수락한 부탁 goal (읽기 전용). null = 부탁 없음.</summary>
+        public GoalSO CurrentRequest => _request;
+
+        /// <summary>
+        /// 부탁 판정의 유일한 규칙 (순수 — 게이트 M8-T2). 순서 = 바쁨→배고픔→피로→친밀
+        /// (몸이 먼저, 마음이 마지막 — ADR-M8-2). 배고픔·피로 문턱은 촌장 명령(JudgeOrder)과
+        /// 동일 규칙 재사용 — 부탁이라고 몸의 사정이 달라지지 않는다. 친밀만 부탁 고유 축.
+        /// 랜덤 금지 — 플레이어가 학습 가능해야 협상이 성립 (ADR-M1-2 계승).
+        /// </summary>
+        public static RequestResult JudgeRequest(bool busy, float satiety, float fatigue,
+                                                 int affinityTowardRequester, AgentConfigSO cfg,
+                                                 PersonalitySO p, RequestSO r)
+        {
+            if (busy) return RequestResult.RefusedBusy;
+            OrderResult body = JudgeOrder(satiety, fatigue, cfg, p, null);
+            if (body == OrderResult.RefusedHungry) return RequestResult.RefusedHungry;
+            if (body == OrderResult.RefusedTired) return RequestResult.RefusedTired;
+            if (r != null && affinityTowardRequester < r.RefuseAffinityBelow)
+                return RequestResult.RefusedLowAffinity;
+            return RequestResult.Accepted;
+        }
+
+        /// <summary>
+        /// 부탁 수신 (RequestService 전용) — 수락 시 InjectGoal이 개인 사다리에 합류한다
+        /// (ADR-M8-4: 새 실행 경로 없음, Select의 request 칸). 말풍선·관계 델타·사유 로그는
+        /// 호출자(RequestService)가 수행 (ADR-M8-5의 단일 지점).
+        /// </summary>
+        public RequestResult TryGiveRequest(RequestSO r, string requesterId)
+        {
+            if (r == null || r.InjectGoal == null) return RequestResult.RefusedBusy; // 방어 — 에셋 오류
+            RequestResult verdict = JudgeRequest(_request != null, Satiety, Fatigue,
+                _sim.Relationship.AffinityOf(AgentId, requesterId), _cfg, Personality, r);
+            if (verdict != RequestResult.Accepted) return verdict;
+
+            _request = ResolveRelativeGoal(r.InjectGoal, out _requestIsRuntimeClone);
+            _goalRetryAt.Remove(_request); // 새 부탁은 과거 실패 쿨다운을 잊는다 (명령과 동일)
+            if (State == AgentState.Idle) _idleCooldownSec = 0f; // 즉시 재평가 (반응성)
+            return RequestResult.Accepted;
+        }
+
+        /// <summary>부탁 슬롯 정리 — 런타임 사본이면 파괴 (누수 방지). 소멸의 유일한 경로.</summary>
+        private void ClearRequestInstance()
+        {
+            if (_request != null && _requestIsRuntimeClone) Destroy(_request);
+            _request = null;
+            _requestIsRuntimeClone = false;
         }
 
         /// <summary>명령 취소 (주민 우클릭). 수행 중이었다면 즉시 자율 복귀.</summary>

@@ -40,13 +40,15 @@ namespace AIVillage.M0
         /// bias: 직업 실효 우선순위 보정 (ADR-M5-1) — 순위에만 개입, 발동 판정(Passes)에는 불개입.
         ///       null이면 기존과 완전 동일 (중립 불변식, M5-S3). 어디에도 저장하지 않는다.
         /// routine: 직업 일과 goal (ADR-M5-2) — extra와 같은 개인 주입, 씬 _goals에 넣지 않는다.
+        /// request: 수락한 주민 부탁 goal (ADR-M8-4) — 같은 개인 주입. extra보다 뒤에 평가되므로
+        ///          동률이면 촌장 명령 우선 (초과만 갱신 규칙이 보장).
         ///
         /// 전수 평가 (goal ~15개, O(n)). 동률은 먼저 평가된 후보 우선(초과만 갱신) —
         /// _goals가 Priority 내림차순 정렬본이라 기존 순회와 동일한 동률 해석이다.
         /// </summary>
         public GoalSO Select(WorldSnapshot snap, System.Func<GoalSO, bool> skip = null,
                              GoalSO extra = null, System.Func<GoalSO, int> bias = null,
-                             GoalSO routine = null)
+                             GoalSO routine = null, GoalSO request = null)
         {
             if (!snap.IsValid) return null;
 
@@ -61,6 +63,7 @@ namespace AIVillage.M0
             foreach (GoalSO goal in _goals) Consider(goal);
             Consider(extra);   // 촌장 명령 — 동률이면 씬 goal 우선 (기존 해석 유지)
             Consider(routine); // 직업 일과 (M5-C에서 전달 시작)
+            Consider(request); // 주민 부탁 (M8-D) — 동률이면 명령·일과 우선
             return best;
         }
 

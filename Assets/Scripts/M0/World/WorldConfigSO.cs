@@ -58,5 +58,15 @@ namespace AIVillage.M0
 
         [Tooltip("무주 건물 자동 클레임 패스 주기(초, 실시간) — M8-C. 제안치 10.")]
         public float OwnershipClaimIntervalSec = 10f;
+
+        [Header("부탁 (M8-D — ADR-M8-7: 부탁 목록의 집. 전부 제안치)")]
+        [Tooltip("부탁 상황 에셋 목록. 비면 부탁 없음 (중립 — M7 동작).")]
+        public RequestSO[] Requests;
+
+        [Tooltip("부탁 짝 스캔 주기(초, 실시간) — 단일 지점 주기 틱, 한 주기 1건. 제안치 5.")]
+        public float RequestIntervalSec = 5f;
+
+        [Tooltip("의뢰인 개인 쿨다운(초, 실시간) — 거절당하면 한동안 다시 조르지 않는다. 제안치 90.")]
+        public float RequestCooldownSec = 90f;
     }
 }

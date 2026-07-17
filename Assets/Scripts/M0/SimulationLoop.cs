@@ -67,6 +67,9 @@ namespace AIVillage.M0
 
         /// <summary>건물 소유 (M8-C). 쓰기는 Assign/ReleaseBy만 (ADR-M8-3). 세이브 대상.</summary>
         public OwnershipService Ownership { get; private set; }
+
+        /// <summary>주민 부탁 (M8-D). Requests가 비면 스스로 중립 (M7 동작).</summary>
+        public RequestService Requests { get; private set; }
         public PlannerGateway Planner { get; private set; }
         public GoalSelector Goals { get; private set; }
         public AgentConfigSO AgentConfig => _agentConfig;
@@ -114,6 +117,7 @@ namespace AIVillage.M0
             _agents.Remove(agent);
             Relationship?.ReleaseBy(agent.AgentId); // 이탈 시 관계 기록 정리 (M8-A)
             Ownership?.ReleaseBy(agent.AgentId);    // 이탈 시 소유 해제 — 빈집 (M8-C)
+            Requests?.ReleaseBy(agent.AgentId);     // 이탈 시 진행 부탁 정리 (M8-D — 유령 유예 방지)
         }
 
         private void Awake()
@@ -157,6 +161,8 @@ namespace AIVillage.M0
             Chatter      = new ChatterService(_worldConfig, _agentConfig); // M7-C — 표현 전용 (ADR-M7-1)
             Relationship = new RelationshipService();
             Ownership    = new OwnershipService(); // M8-C — 소유 축
+            Requests     = new RequestService(_worldConfig, _agentConfig, Relationship,
+                                              Ownership, Construction, _agents); // M8-D — 부탁 선반
             // 대화 → 관계 축적의 유일한 배선 (M8-A, ADR-M8-1) — 본체는 ApplyChat (게이트 대상)
             Chatter.OnChatted += (c, speaker, target) => Relationship.ApplyChat(c, speaker.AgentId, target.AgentId);
 
@@ -228,6 +234,7 @@ namespace AIVillage.M0
                     _agents[i].SimTick(TICK_INTERVAL_SEC, deltaGameDays);
 
                 Chatter.Tick(Time.time, _agents); // M7-C — 주기·쿨다운은 실시간 초 기준
+                Requests.Tick(Time.time, _agents); // M8-D — 부탁 스캔 (한 주기 1건)
 
                 // 무주 건물 클레임 패스 (M8-C) — 무소유 주민 ↔ 무주 집을 최근접 배정
                 if (Time.time >= _nextClaimAt)
@@ -241,9 +248,9 @@ namespace AIVillage.M0
                         if (Ownership.TryGetOwned(a.AgentId, SlotId.HouseCount, out _)) continue;
                         _claimBuf.Add((a.AgentId, new Vector2Int(a.TileX, a.TileY)));
                     }
-                    bool requestInFlight = false; // M8-D에서 RequestService 진행 상태로 대체 (부탁자 우선권)
+                    // 집을 배정하는 부탁 진행 중이면 유예 — 부탁자 우선권 (M8-D)
                     Ownership.ClaimPass(_claimBuf, Construction.BuiltTilesOf(SlotId.HouseCount),
-                                        SlotId.HouseCount, requestInFlight);
+                                        SlotId.HouseCount, Requests.AnyInFlightGranting(SlotId.HouseCount));
                 }
 
                 // 하루 경계 로그 — W3 관측용 (Play 검증 지표)

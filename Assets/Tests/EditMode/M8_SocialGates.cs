@@ -10,6 +10,11 @@ namespace AIVillage.Tests.EditMode
     /// </summary>
     public class M8_SocialGates
     {
+        private static void DestroyAll(params Object[] objs)
+        {
+            foreach (Object o in objs) Object.DestroyImmediate(o);
+        }
+
         // ── M8-T1: 관계 축적 (ADR-M8-1 — 쓰기 단일 지점의 계약) ────────────────
 
         [Test]
@@ -158,6 +163,118 @@ namespace AIVillage.Tests.EditMode
 
             own.ClaimPass(candidates, built, SlotId.HouseCount, requestInFlight: false);
             Assert.IsTrue(own.TryGetOwned("A", SlotId.HouseCount, out _), "부탁 종료 후 재개");
+        }
+
+        // ── M8-T2: 부탁 판정 (ADR-M8-2 — 결정적, 바쁨→배고픔→피로→친밀) ────────
+
+        private static GoalSO MakeGoal(string name, int priority)
+        {
+            var g = ScriptableObject.CreateInstance<GoalSO>();
+            g.name = name;
+            g.DisplayName = name;
+            g.Priority = priority;
+            return g;
+        }
+
+        private static WorldSnapshot Snap()
+            => new WorldSnapshot(new int[PlanningConfig.TotalSlots]);
+
+        [Test]
+        public void M8_T2_JudgeRequest_ReasonOrder()
+        {
+            var cfg = ScriptableObject.CreateInstance<AgentConfigSO>();
+            var r = ScriptableObject.CreateInstance<RequestSO>();
+            r.RefuseAffinityBelow = -10;
+            float satLimit = cfg.OrderRefuseSatiety;
+            float fatLimit = cfg.OrderRefuseFatigue;
+
+            // 전부 걸리는 입력 — 사유는 바쁨 → 배고픔 → 피로 → 친밀 순으로 하나씩 벗겨진다
+            Assert.AreEqual(VillagerAgent.RequestResult.RefusedBusy,
+                VillagerAgent.JudgeRequest(true, satLimit - 1f, fatLimit + 1f, -50, cfg, null, r),
+                "바쁨이 최우선 사유");
+            Assert.AreEqual(VillagerAgent.RequestResult.RefusedHungry,
+                VillagerAgent.JudgeRequest(false, satLimit - 1f, fatLimit + 1f, -50, cfg, null, r),
+                "배고픔이 피로·친밀에 우선");
+            Assert.AreEqual(VillagerAgent.RequestResult.RefusedTired,
+                VillagerAgent.JudgeRequest(false, 100f, fatLimit + 1f, -50, cfg, null, r),
+                "피로가 친밀에 우선");
+            Assert.AreEqual(VillagerAgent.RequestResult.RefusedLowAffinity,
+                VillagerAgent.JudgeRequest(false, 100f, 0f, -50, cfg, null, r),
+                "몸이 멀쩡하면 마음이 판정");
+            Assert.AreEqual(VillagerAgent.RequestResult.Accepted,
+                VillagerAgent.JudgeRequest(false, 100f, 0f, 0, cfg, null, r), "전부 통과 — 수락");
+
+            DestroyAll(cfg, r);
+        }
+
+        [Test]
+        public void M8_T2_JudgeRequest_AffinityBoundary()
+        {
+            var cfg = ScriptableObject.CreateInstance<AgentConfigSO>();
+            var r = ScriptableObject.CreateInstance<RequestSO>();
+            r.RefuseAffinityBelow = -10;
+
+            Assert.AreEqual(VillagerAgent.RequestResult.Accepted,
+                VillagerAgent.JudgeRequest(false, 100f, 0f, -10, cfg, null, r),
+                "경계값 -10은 수락 ('미만'만 거절)");
+            Assert.AreEqual(VillagerAgent.RequestResult.RefusedLowAffinity,
+                VillagerAgent.JudgeRequest(false, 100f, 0f, -11, cfg, null, r), "-11은 거절");
+
+            DestroyAll(cfg, r);
+        }
+
+        [Test]
+        public void M8_T2_JudgeRequest_BodyThresholdsMatchJudgeOrder()
+        {
+            // 배고픔·피로 문턱은 촌장 명령과 동일 규칙 (성격 오프셋 포함) — 이원화 금지의 계약
+            var cfg = ScriptableObject.CreateInstance<AgentConfigSO>();
+            var p = ScriptableObject.CreateInstance<PersonalitySO>();
+            p.RefuseSatietyOffset = 10f;
+            var r = ScriptableObject.CreateInstance<RequestSO>();
+            float shifted = cfg.OrderRefuseSatiety + 10f;
+
+            Assert.AreEqual(VillagerAgent.OrderResult.RefusedHungry,
+                VillagerAgent.JudgeOrder(shifted - 1f, 0f, cfg, p), "명령: 오프셋 문턱 미만 거부");
+            Assert.AreEqual(VillagerAgent.RequestResult.RefusedHungry,
+                VillagerAgent.JudgeRequest(false, shifted - 1f, 0f, 0, cfg, p, r), "부탁: 같은 문턱");
+            Assert.AreEqual(VillagerAgent.RequestResult.Accepted,
+                VillagerAgent.JudgeRequest(false, shifted, 0f, 0, cfg, p, r), "부탁: 경계값 수락도 동일");
+
+            DestroyAll(cfg, p, r);
+        }
+
+        [Test]
+        public void M8_T2_JudgeRequest_Deterministic100x()
+        {
+            var cfg = ScriptableObject.CreateInstance<AgentConfigSO>();
+            var r = ScriptableObject.CreateInstance<RequestSO>();
+            VillagerAgent.RequestResult first =
+                VillagerAgent.JudgeRequest(false, 50f, 50f, -3, cfg, null, r);
+            for (int i = 0; i < 100; i++)
+                Assert.AreEqual(first,
+                    VillagerAgent.JudgeRequest(false, 50f, 50f, -3, cfg, null, r),
+                    "동일 입력 = 동일 판정 (랜덤 0 — ADR-M8-2)");
+            DestroyAll(cfg, r);
+        }
+
+        [Test]
+        public void M8_T2_Select_RequestJoinsLadder_OrderWinsTie()
+        {
+            var selector = new GoalSelector(new GoalSO[0]);
+            GoalSO order = MakeGoal("명령", 10);
+            GoalSO request = MakeGoal("부탁", 10);
+
+            Assert.AreSame(order, selector.Select(Snap(), null, order, null, null, request),
+                "동률이면 명령 우선 (평가 순서 — ADR-M8-4)");
+
+            GoalSO bigRequest = MakeGoal("급한 부탁", 11);
+            Assert.AreSame(bigRequest, selector.Select(Snap(), null, order, null, null, bigRequest),
+                "우선순위 높은 부탁은 명령을 이긴다 (사다리 경쟁)");
+
+            Assert.AreSame(order, selector.Select(Snap(), null, order, null, null, null),
+                "request null = 기존 동작과 완전 동일 (중립 불변식)");
+
+            DestroyAll(order, request, bigRequest);
         }
 
         // ── M8-T1: 대화 이벤트 → 관계 배선 (ChatterSO 델타 필드의 계약) ─────────

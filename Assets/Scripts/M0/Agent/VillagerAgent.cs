@@ -267,12 +267,26 @@ namespace AIVillage.M0
             _animator?.Tick(Time.deltaTime,
                 State == AgentState.Moving && _hasNextReserved && !chatting, _lastDir);
 
-            // 임시 문구(거부 대사) 만료 처리 — 실행 중이면 다음 ShowPlan이 자연 복원
+            // 임시 문구(거부 대사) 만료 처리 — 실행 중이면 침묵 여운 뒤 플랜 복원
+            // (2026-07-18 사용자 지시: 대사 직후 '다음 행동' 노란 문구가 바로 튀지 않게)
             if (_transientTextUntil > 0f && Time.time >= _transientTextUntil)
             {
                 _transientTextUntil = 0f;
                 if (State == AgentState.Idle) _bubble?.Clear();
-                else _bubble?.ShowPlan(_plan, _planIndex, OrderPrefix());
+                else if (_cfg.PlanResumeDelaySec > 0f)
+                {
+                    _bubble?.Clear();
+                    _planResumeAt = Time.time + _cfg.PlanResumeDelaySec;
+                }
+                else _bubble?.ShowPlan(_plan, _planIndex, OrderPrefix()); // 0 = 기존 즉시 복원
+            }
+
+            // 예약된 플랜 복원 — 그 사이 새 대사가 시작됐으면 양보 (그 대사의 만료가 다시 예약한다)
+            if (_planResumeAt > 0f && Time.time >= _planResumeAt)
+            {
+                _planResumeAt = 0f;
+                if (!BubbleShowingLine && State != AgentState.Idle)
+                    _bubble?.ShowPlan(_plan, _planIndex, OrderPrefix());
             }
 
             // 지연 응수 발화 (M7-C) — 표현 전용, 걸음은 멈추지 않는다
@@ -513,8 +527,9 @@ namespace AIVillage.M0
 
         private void StartNextAction()
         {
-            // 갱신 단일 지점: 적재·전환·완료 모두 여기 경유. 단 대사 노출 중엔 유예 — Update 만료 복원
-            if (!BubbleShowingLine)
+            // 갱신 단일 지점: 적재·전환·완료 모두 여기 경유. 단 대사 노출 중·침묵 여운 중엔 유예 —
+            // Update의 만료·예약 복원 경로가 이어받는다 (여운을 액션 전환이 자르면 지시 무효)
+            if (!BubbleShowingLine && _planResumeAt <= 0f)
                 _bubble?.ShowPlan(_plan, _planIndex, OrderPrefix());
 
             if (_planIndex >= _plan.Count)
@@ -931,6 +946,7 @@ namespace AIVillage.M0
         // 지연 응수 (M7-C) — 발화 말풍선 뒤 ReplyDelaySec 간격으로 "대화처럼" (ADR-M7-4)
         private string _delayedLine;
         private float _delayedShowAt;
+        private float _planResumeAt; // 대사 만료 후 플랜 말풍선 복원 예약 시각 (0 = 예약 없음)
 
         /// <summary>
         /// 지연 표시 — ChatterService의 응수 전용. 새 요청이 이전 대기분을 덮는다.

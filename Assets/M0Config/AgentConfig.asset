@@ -25,6 +25,7 @@ MonoBehaviour:
   TransientLineSec: 4
   ReplyDelaySec: 2.5
   ChatPauseSec: 8
+  PlanResumeDelaySec: 3
   PlanningTimeoutSec: 3
   GoalRetryCooldownSec: 3
   InitialSatiety: 70

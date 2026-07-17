@@ -53,6 +53,11 @@ namespace AIVillage.M0
                  "0이면 멈춤 없이 지나가며 대화 (M7 초기 동작). 2026-07-17 사용자 결정으로 도입.")]
         public float ChatPauseSec = 8f;
 
+        [Tooltip("임시 대사(혼잣말·대화·거부) 만료 후 플랜 말풍선 복원까지의 침묵(초). " +
+                 "0이면 만료 즉시 복원 (기존 동작). 대사 직후 '다음 행동' 문구가 바로 튀지 " +
+                 "않게 하는 여운 — 제안치 3 (2026-07-18 사용자 지시).")]
+        public float PlanResumeDelaySec = 3f;
+
         [Header("이름표 (M7-A — 전부 제안치)")]
         [Tooltip("머리 아래 오프셋 (월드 유닛, 음수 = 발밑)")]
         public float NameTagOffsetY = -0.55f;

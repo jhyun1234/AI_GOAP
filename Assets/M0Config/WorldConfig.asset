@@ -34,3 +34,7 @@ MonoBehaviour:
   BuddyThreshold: 20
   GrudgeThreshold: -20
   OwnershipClaimIntervalSec: 10
+  Requests:
+  - {fileID: 11400000, guid: 34af30806cdc45afbd0a0f59baf4d853, type: 2}
+  RequestIntervalSec: 5
+  RequestCooldownSec: 90

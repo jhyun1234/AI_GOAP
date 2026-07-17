@@ -1,5 +1,6 @@
 using AIVillage.M0;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 
 namespace AIVillage.Tests.EditMode
@@ -106,6 +107,40 @@ namespace AIVillage.Tests.EditMode
             Assert.IsFalse(svc.IsCoolingDown("B", 130f), "상대도 경과 후 가능");
 
             DestroyAll(world, agentCfg);
+        }
+
+        // ── M7-T3: 에셋 정책 (M7-D — 대화 에셋 2종의 데이터 완결성) ────────────
+
+        private static ChatterSO LoadChatter(string name)
+        {
+            var c = AssetDatabase.LoadAssetAtPath<ChatterSO>($"Assets/M0Config/Chatters/{name}.asset");
+            Assert.IsNotNull(c, $"{name}.asset 로드 실패");
+            return c;
+        }
+
+        [Test]
+        public void M7_T3_AssetPolicy_BothChattersComplete()
+        {
+            foreach (string name in new[] { "Chatter_WorkVsIdle", "Chatter_PrepVsIdle" })
+            {
+                ChatterSO c = LoadChatter(name);
+                Assert.GreaterOrEqual(c.SpeakLines.Length, 3, $"{name}: SpeakLines ≥ 3");
+                Assert.GreaterOrEqual(c.DefaultReplyLines.Length, 1, $"{name}: 기본 응수 필수 (빈칸 폴백처)");
+
+                int mapped = 0;
+                foreach (ChatterSO.PersonalityReply r in c.PersonalityReplies)
+                    if (r.Personality != null && r.Lines != null && r.Lines.Length > 0) mapped++;
+                Assert.GreaterOrEqual(mapped, 3, $"{name}: 성격별 응수 ≥ 3성격 (M7-S4의 근거)");
+            }
+        }
+
+        [Test]
+        public void M7_T3_AssetPolicy_PrepVsIdleFiltersWinterPrep()
+        {
+            ChatterSO prep = LoadChatter("Chatter_PrepVsIdle");
+            var winterPrep = AssetDatabase.LoadAssetAtPath<GoalSO>("Assets/M0Config/Goals/Goal_WinterPrep.asset");
+            Assert.IsNotNull(winterPrep, "Goal_WinterPrep.asset 로드 실패");
+            Assert.AreSame(winterPrep, prep.SpeakerGoal, "비축 잔소리는 겨울 비축 goal 수행 중에만");
         }
     }
 }

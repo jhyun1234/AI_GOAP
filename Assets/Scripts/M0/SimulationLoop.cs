@@ -163,7 +163,7 @@ namespace AIVillage.M0
             Ownership    = new OwnershipService(); // M8-C — 소유 축
             Requests     = new RequestService(_worldConfig, _agentConfig, Relationship,
                                               Ownership, Construction, _agents,
-                                              Chatter); // M8-D — 부탁 선반 (대화 쿨다운 공유)
+                                              Chatter, World); // M8-D — 부탁 선반 (대화 쿨다운·보상 스톡)
             // 대화 → 관계 축적의 유일한 배선 (M8-A, ADR-M8-1) — 본체는 ApplyChat (게이트 대상)
             Chatter.OnChatted += (c, speaker, target) => Relationship.ApplyChat(c, speaker.AgentId, target.AgentId);
 
@@ -204,8 +204,8 @@ namespace AIVillage.M0
             Debug.Log($"[M0Sim] 시작 — 노드 {Discovery.Nodes.Count}개, " +
                       $"Wood {World.GetStock(SlotId.WoodStock)}, RawFood {World.GetStock(SlotId.RawFoodStock)}");
 
-            // 씬 배선 없음 — BuildingVisualizer 패턴 (M6-C). 관계·소유 참조는 표기 전용 (M8-B/C)
-            Hud = new SeasonHud(transform, _bubbleFont, Relationship, _worldConfig, Ownership);
+            // 씬 배선 없음 — BuildingVisualizer 패턴 (M6-C). 관계·소유·부탁 참조는 표기 전용 (M8-B/C/후속)
+            Hud = new SeasonHud(transform, _bubbleFont, Relationship, _worldConfig, Ownership, Requests);
 
             StartCoroutine(TickLoop());
         }

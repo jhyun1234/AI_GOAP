@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: Request_BuildMyHouse
   m_EditorClassIdentifier:
   DisplayName: "집 부탁"
+  TaskLabel: "집 지어주기"
   RequesterConditions:
   - Slot: 17
     Op: 0
@@ -26,6 +27,9 @@ MonoBehaviour:
   AcceptDelta: 5
   FulfillDelta: 15
   RefusedDelta: -5
+  RewardCostSlot: 10
+  RewardCostAmount: 1
+  RewardSatietyGain: 30
   AskLines:
   - "집 좀 지어줄 수 있어?"
   - "나도 내 집이 있었으면 좋겠는데... 부탁해도 될까?"
@@ -44,3 +48,10 @@ MonoBehaviour:
   FulfillLines:
   - "다 지었어. 잘 살아!"
   - "약속한 집이야. 튼튼하게 지었어"
+  - "네 집 완성됐어! 보러 와"
+  RewardLines:
+  - "고생했어! 밥은 내가 대접할게"
+  - "정말 고마워, 이거 먹고 가!"
+  ThanksLines:
+  - "정말 고마워... 지금은 줄 게 없네"
+  - "이 은혜는 꼭 갚을게"

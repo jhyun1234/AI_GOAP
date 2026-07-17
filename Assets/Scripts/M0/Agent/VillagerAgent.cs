@@ -410,13 +410,14 @@ namespace AIVillage.M0
                 ClearOrderInstance();
             }
 
-            // 부탁 완수 판정 (M8-D) — 명령과 같은 패턴. 통지 후 소멸 (관계 델타·소유 배정은 RequestService)
+            // 부탁 완수 판정 (M8-D) — 명령과 같은 패턴. 반드시 정리 후 통지 —
+            // NotifyFulfilled가 보고 심부름을 새 _request로 주입하므로 (역순이면 심부름이 파괴됨)
             if (_request != null && _request.GoalConditions != null && _request.GoalConditions.Length > 0
                 && GoalSelector.AllHold(_request.GoalConditions, snap))
             {
                 Debug.Log($"[VillagerAgent] {AgentId}: 부탁 완수 — {_request.DisplayName}");
-                _sim.Requests?.NotifyFulfilled(AgentId);
                 ClearRequestInstance();
+                _sim.Requests?.NotifyFulfilled(AgentId);
             }
 
             _goal = _sim.Goals.Select(snap, IsGoalCoolingDown, _order, _goalBias, _routine, _request);
@@ -849,7 +850,44 @@ namespace AIVillage.M0
             if (_request != null && _requestIsRuntimeClone) Destroy(_request);
             _request = null;
             _requestIsRuntimeClone = false;
+            VisitTargetAgentId = null;
         }
+
+        // ── 완공 보고 심부름 (M8 후속 — "다 지었다고 알리러 가기") ────────────────
+
+        /// <summary>방문 심부름의 대상 주민 ID (VisitRunner가 읽는다). null = 심부름 없음.</summary>
+        public string VisitTargetAgentId { get; private set; }
+
+        /// <summary>방문 대상 조회 — 이탈(Dead)·소멸이면 null (러너가 실패로 승격).</summary>
+        public VillagerAgent FindVisitTarget()
+        {
+            if (string.IsNullOrEmpty(VisitTargetAgentId)) return null;
+            foreach (VillagerAgent a in _sim.Agents)
+                if (a != null && a.State != AgentState.Dead && a.AgentId == VisitTargetAgentId)
+                    return a;
+            return null;
+        }
+
+        /// <summary>
+        /// 보고 심부름 부여 (RequestService 전용) — 부탁 슬롯 재사용 (ADR-M8-4: 새 실행 경로 없음).
+        /// 심부름 goal은 GoalConditions가 비어 완수 판정을 타지 않는다 — 소멸은 PlayReport/타임아웃.
+        /// </summary>
+        public void GiveReportErrand(GoalSO errand, string targetAgentId)
+        {
+            if (errand == null || string.IsNullOrEmpty(targetAgentId)) return;
+            ClearRequestInstance(); // 방어 — 기존 슬롯 정리 후 (완수 경로에선 이미 비어 있음)
+            _request = errand;
+            _requestIsRuntimeClone = false;
+            VisitTargetAgentId = targetAgentId;
+            _goalRetryAt.Remove(errand);
+            if (State == AgentState.Idle) _idleCooldownSec = 0f;
+        }
+
+        /// <summary>방문 도착 통지 (VisitRunner 전용) — 장면·보상·심부름 정리는 RequestService.</summary>
+        public void CompleteVisit() => _sim.Requests?.PlayReport(this);
+
+        /// <summary>심부름 회수 (RequestService 전용 — 보고 완료·타임아웃·의뢰인 이탈).</summary>
+        public void ClearRequestErrand() => ClearRequestInstance();
 
         /// <summary>명령 취소 (주민 우클릭). 수행 중이었다면 즉시 자율 복귀.</summary>
         public void CancelOrder()

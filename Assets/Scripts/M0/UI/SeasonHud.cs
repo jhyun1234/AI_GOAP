@@ -21,18 +21,20 @@ namespace AIVillage.M0
         private VillagerAgent _selected;
         private string _lastSelectedLine;
 
-        // 관계·소유 표기 (M8-B/C) — 읽기 전용 참조. null이면 미표기 (중립 — M7 표시와 동일)
+        // 관계·소유·부탁 표기 (M8-B/C/후속) — 읽기 전용 참조. null이면 미표기 (중립 — M7 표시와 동일)
         private readonly RelationshipService _relationship;
         private readonly WorldConfigSO _worldCfg;
         private readonly OwnershipService _ownership;
+        private readonly RequestService _requests;
 
         public SeasonHud(Transform parent, TMP_FontAsset font,
                          RelationshipService relationship = null, WorldConfigSO worldCfg = null,
-                         OwnershipService ownership = null)
+                         OwnershipService ownership = null, RequestService requests = null)
         {
             _relationship = relationship;
             _worldCfg = worldCfg;
             _ownership = ownership;
+            _requests = requests;
             var root = new GameObject("SeasonHud");
             root.transform.SetParent(parent, false);
             var canvas = root.AddComponent<Canvas>();
@@ -107,7 +109,7 @@ namespace AIVillage.M0
                 return;
             }
 
-            string line = ComposeSelected(_selected, _relationship, _worldCfg, _ownership);
+            string line = ComposeSelected(_selected, _relationship, _worldCfg, _ownership, _requests);
             if (line != _lastSelectedLine)
             {
                 _lastSelectedLine = line;
@@ -122,13 +124,18 @@ namespace AIVillage.M0
         /// 문턱 미만/이상이 없으면 표기 없음 (M7 표시와 동일 — 중립).
         /// </summary>
         public static string ComposeSelected(VillagerAgent a, RelationshipService rel = null,
-                                             WorldConfigSO cfg = null, OwnershipService own = null)
+                                             WorldConfigSO cfg = null, OwnershipService own = null,
+                                             RequestService requests = null)
         {
             string line =
                 $"{a.ShortName} — 성격 {(a.Personality != null ? a.Personality.DisplayName : "없음")}" +
                 $" · 직업 {(a.Job != null ? a.Job.DisplayName : "무직")}" +
                 $" · 포만 {Mathf.RoundToInt(a.Satiety)} · 피로 {Mathf.RoundToInt(a.Fatigue)}" +
                 $" · 지금: {(a.CurrentGoal != null ? a.CurrentGoal.DisplayName : "쉬는 중")}";
+
+            // 수락한 부탁 표기 (M8 후속) — "부탁: A의 집 지어주기". 진행 중(수락~완수)에만
+            if (requests != null && requests.TryGetAssignment(a.AgentId, out string reqId, out string task))
+                line += $" · <color=#7EC8FF>부탁: {ToShortName(reqId)}의 {task}</color>";
 
             // 집 표기 (M8-C) — 표시 정책: 집(HouseCount)만. 다른 소유 슬롯이 생기면 여기 확장
             if (own != null)

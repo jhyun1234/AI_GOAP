@@ -14,6 +14,13 @@ namespace AIVillage.M0
         [Tooltip("상황 표시명 (로그용, 예: 집 부탁)")]
         public string DisplayName;
 
+        [Tooltip("정보줄 할 일 표기 (예: 집 지어주기 → 'A의 집 지어주기'). 비면 DisplayName 사용")]
+        public string TaskLabel;
+
+        /// <summary>정보줄 라벨 — TaskLabel 우선, 비면 DisplayName (중립 경로).</summary>
+        public string TaskLabelOrDefault
+            => string.IsNullOrEmpty(TaskLabel) ? DisplayName : TaskLabel;
+
         [Tooltip("의뢰인 성립 조건 (스냅샷 대역 — 예: MyHasHome == 0). 비면 항상 성립 (남용 주의)")]
         public SlotCondition[] RequesterConditions;
 
@@ -47,6 +54,16 @@ namespace AIVillage.M0
         [Tooltip("거절 시 의뢰인→대상 (서운함 — 음수)")]
         public int RefusedDelta = -5;
 
+        [Header("주민 간 보상 (M8 후속 — 완공 보고 장면에서 의뢰인이 대접. 0 = 보상 없음, 중립)")]
+        [Tooltip("보고 시점에 마을 스톡에서 차감할 슬롯 (개인 소유가 없으므로 공용 스톡 — 밥 대접)")]
+        public SlotId RewardCostSlot = SlotId.CookedFoodStock;
+
+        [Tooltip("차감량. 0이면 보상 없음 (감사 대사만). 보고 시점 재고 부족이면 지급 생략 + 감사 대사")]
+        public int RewardCostAmount;
+
+        [Tooltip("수행자가 받는 포만 (RewardSO.SatietyGain과 동일 개념)")]
+        public int RewardSatietyGain = 30;
+
         [Header("대사 (배고픔·피로 거절은 성격 RefuseLines 재사용 — 이중 기입 금지)")]
         public string[] AskLines;
         public string[] AcceptLines;
@@ -54,12 +71,20 @@ namespace AIVillage.M0
         public string[] RefuseLowAffinityLines;
         public string[] FulfillLines;
 
+        [Tooltip("보고 장면에서 의뢰인의 보상 대사 (지급 성공 시)")]
+        public string[] RewardLines;
+
+        [Tooltip("보고 장면에서 의뢰인의 감사 대사 (보상 없음/재고 부족 시)")]
+        public string[] ThanksLines;
+
         private void OnValidate()
         {
             if (GrantOwnership && !SlotIds.IsNumeric(OwnershipSlot))
                 Debug.LogError($"[RequestSO] {name}: OwnershipSlot({OwnershipSlot})은 수량형(수치) 슬롯이어야 합니다.", this);
             if (InjectGoal == null)
                 Debug.LogWarning($"[RequestSO] {name}: InjectGoal이 비어 있음 — 성립해도 아무 일도 일어나지 않습니다.", this);
+            if (RewardCostAmount > 0 && !SlotIds.IsStock(RewardCostSlot))
+                Debug.LogError($"[RequestSO] {name}: RewardCostSlot({RewardCostSlot})은 스톡 슬롯이어야 합니다.", this);
         }
     }
 }

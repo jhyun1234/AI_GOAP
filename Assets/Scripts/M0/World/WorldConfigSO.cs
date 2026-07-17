@@ -68,5 +68,11 @@ namespace AIVillage.M0
 
         [Tooltip("의뢰인 개인 쿨다운(초, 실시간) — 거절당하면 한동안 다시 조르지 않는다. 제안치 90.")]
         public float RequestCooldownSec = 90f;
+
+        [Tooltip("완공 보고 심부름 goal (M8 후속 — 의뢰인 곁까지 걸어가 알림). 비면 그 자리 발화 (중립).")]
+        public GoalSO ReportErrandGoal;
+
+        [Tooltip("보고 심부름 마감(초, 실시간) — 의뢰인을 못 만나면 회수. 제안치 60.")]
+        public float ReportTimeoutSec = 60f;
     }
 }

@@ -18,6 +18,7 @@ namespace AIVillage.M0
         private readonly OwnershipService _ownership;
         private readonly ConstructionService _construction;
         private readonly ChatterService _chatter; // 대화 쿨다운 공유 — 장면 연쇄 방지 (2026-07-17 피드백)
+        private readonly WorldModel _worldModel;  // 주민 간 보상의 스톡 차감 (M8 후속 — TrySpendStock만)
         private readonly IReadOnlyList<VillagerAgent> _agents; // SimulationLoop 소유 리스트 (살아있는 참조)
 
         private float _nextScanAt;
@@ -26,11 +27,15 @@ namespace AIVillage.M0
         // 진행 중 부탁 (수락~완수): 수락자 ID → (부탁, 의뢰인 ID). 세이브 대상 (ADR-M0-10)
         private readonly Dictionary<string, (RequestSO so, string requesterId)> _inFlight =
             new Dictionary<string, (RequestSO, string)>(4);
+        // 완공 보고 대기 (완수~보고 장면): 수행자 ID → (부탁, 의뢰인 ID, 마감). 저장 불필요 — 로드 후 소멸 (연출)
+        private readonly Dictionary<string, (RequestSO so, string requesterId, float deadline)> _pendingReports =
+            new Dictionary<string, (RequestSO, string, float)>(4);
         private readonly List<VillagerAgent> _scratch = new List<VillagerAgent>(16);
 
         public RequestService(WorldConfigSO world, AgentConfigSO agentCfg, RelationshipService relationship,
                               OwnershipService ownership, ConstructionService construction,
-                              IReadOnlyList<VillagerAgent> agents, ChatterService chatter = null)
+                              IReadOnlyList<VillagerAgent> agents, ChatterService chatter = null,
+                              WorldModel worldModel = null)
         {
             _world = world;
             _agentCfg = agentCfg;
@@ -39,6 +44,21 @@ namespace AIVillage.M0
             _construction = construction;
             _agents = agents;
             _chatter = chatter;
+            _worldModel = worldModel;
+        }
+
+        /// <summary>정보줄용 (M8 후속) — agentId가 수락해 진행 중인 부탁의 (의뢰인, 할 일 라벨).</summary>
+        public bool TryGetAssignment(string agentId, out string requesterId, out string taskLabel)
+        {
+            if (_inFlight.TryGetValue(agentId, out (RequestSO so, string requesterId) rec))
+            {
+                requesterId = rec.requesterId;
+                taskLabel = rec.so.TaskLabelOrDefault;
+                return true;
+            }
+            requesterId = null;
+            taskLabel = null;
+            return false;
         }
 
         /// <summary>이 슬롯을 배정하는 부탁이 진행 중인가 — 클레임 패스 유예 질의 (부탁자 우선권, M8-C ⚠️②).</summary>
@@ -63,6 +83,8 @@ namespace AIVillage.M0
         /// </summary>
         public void Tick(float nowSec, IReadOnlyList<VillagerAgent> agents)
         {
+            TickReportTimeouts(nowSec); // 보고 심부름 마감 감시 — 대상 소실 시 무한 재시도 차단
+
             if (_world.Requests == null || _world.Requests.Length == 0) return; // 중립 — 부탁 없음
             if (nowSec < _nextScanAt) return;
             _nextScanAt = nowSec + _world.RequestIntervalSec;
@@ -176,7 +198,8 @@ namespace AIVillage.M0
 
         /// <summary>
         /// 부탁 완수 통지 — 수락자의 _request 완수 지점(VillagerAgent)이 호출. 쌍방 신뢰 델타 +
-        /// 소유 배정(GrantOwnership이면 부탁자에게 최근접 무주 건물) + 완수 대사.
+        /// 소유 배정(GrantOwnership이면 부탁자에게 최근접 무주 건물)은 즉시, 완수 대사·보상은
+        /// 보고 심부름(의뢰인 곁까지 걸어가 알림 — 2026-07-17 사용자 요청)으로 미룬다.
         /// </summary>
         public void NotifyFulfilled(string builderId)
         {
@@ -188,9 +211,9 @@ namespace AIVillage.M0
 
             if (rec.so.GrantOwnership)
             {
-                VillagerAgent requester = FindAgent(rec.requesterId);
-                int fx = requester != null ? requester.TileX : 0;
-                int fy = requester != null ? requester.TileY : 0;
+                VillagerAgent owner = FindAgent(rec.requesterId);
+                int fx = owner != null ? owner.TileX : 0;
+                int fy = owner != null ? owner.TileY : 0;
                 int best = int.MaxValue;
                 Vector2Int bestTile = default;
                 bool found = false;
@@ -205,12 +228,81 @@ namespace AIVillage.M0
                 else Debug.LogWarning($"[Request] {rec.so.DisplayName} 완수 — 무주 건물이 없어 배정 생략 " +
                                       $"(클레임 패스가 선배정했는지 확인)");
             }
-
-            FindAgent(builderId)?.ShowTransient(Pick(rec.so.FulfillLines));
             Debug.Log($"[Request] {builderId}: {rec.so.DisplayName} 완수 — 의뢰인 {rec.requesterId}");
+
+            // 보고 심부름 — 심부름 goal 미배선이거나 의뢰인이 없으면 그 자리 발화 (중립 폴백)
+            VillagerAgent builder = FindAgent(builderId);
+            VillagerAgent requester = FindAgent(rec.requesterId);
+            if (_world.ReportErrandGoal == null || builder == null || requester == null)
+            {
+                builder?.ShowTransient(Pick(rec.so.FulfillLines));
+                return;
+            }
+            builder.GiveReportErrand(_world.ReportErrandGoal, rec.requesterId);
+            _pendingReports[builderId] = (rec.so, rec.requesterId, Time.time + _world.ReportTimeoutSec);
         }
 
-        /// <summary>이탈 정리 — 그 주민이 수락자든 의뢰인이든 진행 기록 제거 (유령 유예 방지).</summary>
+        /// <summary>
+        /// 완공 보고 장면 (M8 후속) — VisitRunner 도착 통지가 호출. 수행자 완수 대사 →
+        /// 의뢰인 보상/감사 대사 (지연 응수). 보상 = 공용 스톡 차감 + 수행자 포만 (밥 대접 —
+        /// 개인 인벤토리 없음). 재고 부족이면 지급 생략 + 감사 대사 (로그로 구분).
+        /// </summary>
+        public void PlayReport(VillagerAgent builder)
+        {
+            if (builder == null) return;
+            if (!_pendingReports.TryGetValue(builder.AgentId, out (RequestSO so, string requesterId, float deadline) rec))
+            {
+                builder.ClearRequestErrand(); // 기록 없음 (의뢰인 이탈 등) — 심부름만 회수
+                return;
+            }
+            _pendingReports.Remove(builder.AgentId);
+
+            builder.ShowTransient(Pick(rec.so.FulfillLines));
+            VillagerAgent requester = FindAgent(rec.requesterId);
+            if (requester != null)
+            {
+                builder.FaceForChat(requester.transform.position, _agentCfg.ChatPauseSec);
+                requester.FaceForChat(builder.transform.position, _agentCfg.ChatPauseSec);
+
+                bool paid = rec.so.RewardCostAmount > 0 && _worldModel != null
+                            && _worldModel.TrySpendStock(rec.so.RewardCostSlot, rec.so.RewardCostAmount);
+                if (paid)
+                {
+                    builder.ApplyNeedEffect(SlotId.MySatiety, EffectOp.Add, rec.so.RewardSatietyGain);
+                    requester.ShowTransientDelayed(Pick(FirstNonEmpty(rec.so.RewardLines, rec.so.ThanksLines)),
+                                                   _agentCfg.ReplyDelaySec);
+                    Debug.Log($"[Request] 보상 — {rec.requesterId}→{builder.AgentId}: " +
+                              $"{rec.so.RewardCostSlot} -{rec.so.RewardCostAmount}, 포만 +{rec.so.RewardSatietyGain}");
+                }
+                else
+                {
+                    requester.ShowTransientDelayed(Pick(rec.so.ThanksLines), _agentCfg.ReplyDelaySec);
+                    if (rec.so.RewardCostAmount > 0)
+                        Debug.Log($"[Request] 보상 생략 — {rec.so.RewardCostSlot} 재고 부족 (감사 대사만)");
+                }
+                _chatter?.RecordChat(builder.AgentId, requester.AgentId, Time.time); // 보고 장면도 대화
+            }
+            Debug.Log($"[Request] {builder.AgentId}: {rec.so.DisplayName} 보고 완료 → {rec.requesterId}");
+            builder.ClearRequestErrand();
+        }
+
+        /// <summary>보고 심부름 타임아웃 — 마감 초과분 회수 (의뢰인 소실·경로 실패 반복 대비).</summary>
+        private void TickReportTimeouts(float nowSec)
+        {
+            if (_pendingReports.Count == 0) return;
+            _keysToRemove.Clear();
+            foreach (KeyValuePair<string, (RequestSO so, string requesterId, float deadline)> kv in _pendingReports)
+                if (nowSec >= kv.Value.deadline)
+                    _keysToRemove.Add(kv.Key);
+            foreach (string key in _keysToRemove)
+            {
+                _pendingReports.Remove(key);
+                FindAgent(key)?.ClearRequestErrand();
+                Debug.Log($"[Request] 보고 타임아웃 — {key} 심부름 회수 (의뢰인을 만나지 못함)");
+            }
+        }
+
+        /// <summary>이탈 정리 — 그 주민이 수락자든 의뢰인이든 진행·보고 기록 제거 (유령 유예 방지).</summary>
         public void ReleaseBy(string agentId)
         {
             _keysToRemove.Clear();
@@ -219,6 +311,16 @@ namespace AIVillage.M0
                     _keysToRemove.Add(kv.Key);
             foreach (string key in _keysToRemove)
                 _inFlight.Remove(key);
+
+            _keysToRemove.Clear();
+            foreach (KeyValuePair<string, (RequestSO so, string requesterId, float deadline)> kv in _pendingReports)
+                if (kv.Key == agentId || kv.Value.requesterId == agentId)
+                    _keysToRemove.Add(kv.Key);
+            foreach (string key in _keysToRemove)
+            {
+                _pendingReports.Remove(key);
+                if (key != agentId) FindAgent(key)?.ClearRequestErrand(); // 의뢰인 이탈 → 수행자 심부름 회수
+            }
         }
 
         private VillagerAgent FindAgent(string agentId)

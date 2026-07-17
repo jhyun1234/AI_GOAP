@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: Request_CookForMe
   m_EditorClassIdentifier:
   DisplayName: "요리 부탁"
+  TaskLabel: "요리해 주기"
   RequesterConditions:
   - Slot: 2
     Op: 2
@@ -40,6 +41,10 @@ MonoBehaviour:
   RefuseLowAffinityLines:
   - "네 밥은 네가 지어"
   - "너한테 해줄 밥은 없어"
+  RewardCostAmount: 0
   FulfillLines:
   - "밥 됐어! 따뜻할 때 먹어"
   - "요리 다 됐다, 와서 먹어"
+  ThanksLines:
+  - "고마워, 잘 먹을게!"
+  - "덕분에 살았어"

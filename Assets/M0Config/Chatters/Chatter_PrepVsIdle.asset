@@ -1,0 +1,35 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 175743ff7b964f319b635978b0d3934e, type: 3}
+  m_Name: Chatter_PrepVsIdle
+  m_EditorClassIdentifier:
+  DisplayName: "비축 잔소리"
+  SpeakerGoal: {fileID: 11400000, guid: 0fd7741aeb03452b871f58e57e4c4233, type: 2}
+  MinSpeakerGoalPriority: 8
+  MaxTargetGoalPriority: 2
+  RadiusTiles: 4
+  SpeakLines:
+  - "일도 안 하면서 밥은 먹고 싶어??"
+  - "겨울 오면 네 몫은 없을 줄 알아!"
+  - "그 밥이 어디서 나오는 줄은 알아?"
+  DefaultReplyLines:
+  - "어… 지금 하려고 했어"
+  PersonalityReplies:
+  - Personality: {fileID: 11400000, guid: d3a96c4e05f3472b18e0c27a53f9b4a6, type: 2}
+    Lines:
+    - "흥, 내 방식대로 할 거야"
+  - Personality: {fileID: 11400000, guid: c2f85b3d94e2461a07d9b16f42e8a395, type: 2}
+    Lines:
+    - "아, 미안해요… 지금 갈게요"
+  - Personality: {fileID: 11400000, guid: a2e63c8f75b4491d06c9d34a81f5e7b2, type: 2}
+    Lines:
+    - "상관하지 마세요"

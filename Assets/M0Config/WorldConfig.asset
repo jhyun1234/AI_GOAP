@@ -24,3 +24,9 @@ MonoBehaviour:
   - {fileID: 11400000, guid: b1fe294e4d424ad4a029a40ee0e79cf9, type: 2}
   - {fileID: 11400000, guid: 050728de4ded48e3ab557819f75696bd, type: 2}
   ForecastDays: 3
+  Chatters:
+  - {fileID: 11400000, guid: 7c9ae1ce31904ed4b315800dff15c14f, type: 2}
+  - {fileID: 11400000, guid: 48ccea3142fe4a859a1bedc03c7df6b0, type: 2}
+  ChatterIntervalSec: 5
+  ChatterChance: 0.5
+  ChatterCooldownSec: 30

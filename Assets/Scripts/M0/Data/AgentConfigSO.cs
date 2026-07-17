@@ -42,6 +42,13 @@ namespace AIVillage.M0
         [Tooltip("명령 수행 중 말풍선 프리픽스 (TMP 리치 텍스트 허용)")]
         public string OrderBubblePrefix = "<color=#FF8A65>[명령]</color> ";
 
+        [Header("이름표 (M7-A — 전부 제안치)")]
+        [Tooltip("머리 아래 오프셋 (월드 유닛, 음수 = 발밑)")]
+        public float NameTagOffsetY = -0.55f;
+
+        [Tooltip("이름표 WorldSpace TMP 폰트 크기")]
+        public float NameTagFontSize = 1.6f;
+
         [Header("플래닝")]
         [Tooltip("플랜 요청 타임아웃(초). 舊 PLANNING_TIMEOUT_SEC 3.0 이관.")]
         public float PlanningTimeoutSec = 3f;

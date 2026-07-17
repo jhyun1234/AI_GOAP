@@ -34,6 +34,9 @@ namespace AIVillage.M0
 
         public AgentState State { get; private set; } = AgentState.Idle;
         public string AgentId { get; private set; }
+
+        /// <summary>표시용 짧은 이름 (M7-A) — "M0_Villager_A" → "A". 이름표·정보줄이 쓴다.</summary>
+        public string ShortName { get; private set; }
         public int TileX { get; private set; }
         public int TileY { get; private set; }
         public float Satiety { get; private set; }
@@ -180,6 +183,7 @@ namespace AIVillage.M0
         private MoveMotion _motion;
         private AgentAnimator _animator;
         private PlanBubble _bubble;
+        private NameTag _nameTag;
         private Vector2 _lastDir = Vector2.down;
 
         // ─────────────────────────────────────────────────────────────────────
@@ -189,6 +193,8 @@ namespace AIVillage.M0
         private void Awake()
         {
             AgentId = name;
+            int sep = AgentId.LastIndexOf('_');
+            ShortName = sep >= 0 && sep < AgentId.Length - 1 ? AgentId.Substring(sep + 1) : AgentId;
             // 씬 배치 위치 → 논리 타일 정합 (舊 Awake sync fix 계승 — Brain=(0,0) 몰림 방지)
             TileX = Mathf.RoundToInt(transform.position.x);
             TileY = Mathf.RoundToInt(transform.position.y);
@@ -847,6 +853,9 @@ namespace AIVillage.M0
         private void SetupBubble()
         {
             _bubble = new PlanBubble(transform, _sim.BubbleFont, _cfg);
+            // 상시 이름표 (M7-A) — 직업만 표기, 무직은 이름만 (ADR-M7-5)
+            _nameTag = new NameTag(transform, _sim.BubbleFont, _cfg,
+                Job != null ? $"{ShortName} · {Job.DisplayName}" : ShortName);
         }
     }
 }

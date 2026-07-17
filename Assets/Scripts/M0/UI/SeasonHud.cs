@@ -15,8 +15,11 @@ namespace AIVillage.M0
 
         private readonly TMP_Text _calendar;
         private readonly TMP_Text _notice;
+        private readonly TMP_Text _selectedInfo;
         private float _noticeUntil;
         private string _lastCalendar;
+        private VillagerAgent _selected;
+        private string _lastSelectedLine;
 
         public SeasonHud(Transform parent, TMP_FontAsset font)
         {
@@ -29,6 +32,8 @@ namespace AIVillage.M0
             _calendar = MakeText(root.transform, "Calendar", font, new Vector2(12f, -10f), 30f);
             _notice   = MakeText(root.transform, "Notice",   font, new Vector2(12f, -48f), 24f);
             _notice.text = "";
+            _selectedInfo = MakeText(root.transform, "SelectedInfo", font, new Vector2(12f, -86f), 24f);
+            _selectedInfo.text = "";
         }
 
         private static TMP_Text MakeText(Transform parent, string name, TMP_FontAsset font,
@@ -64,7 +69,51 @@ namespace AIVillage.M0
                 _noticeUntil = 0f;
                 _notice.text = "";
             }
+
+            TickSelected();
         }
+
+        /// <summary>주민 선택/해제 (M7-A) — PlayerInputController가 호출 (null = 해제).</summary>
+        public void SetSelected(VillagerAgent agent)
+        {
+            _selected = agent;
+            TickSelected(); // 다음 틱을 기다리지 않고 즉시 반영 (선택 반응성)
+        }
+
+        /// <summary>
+        /// 선택 정보줄 폴링 (M7-A) — 파괴(이탈)된 주민은 자동 해제. 문자열은 값이 바뀔 때만
+        /// 재할당 (달력과 동일 패턴). 표기는 플레이어 언어만 — 내부값(EffectivePriority 등) 노출 금지.
+        /// </summary>
+        private void TickSelected()
+        {
+            if (_selected == null) // Unity 파괴 비교 포함 — 이탈한 주민 자동 소거
+            {
+                _selected = null;
+                if (_lastSelectedLine != "")
+                {
+                    _lastSelectedLine = "";
+                    _selectedInfo.text = "";
+                }
+                return;
+            }
+
+            string line = ComposeSelected(_selected);
+            if (line != _lastSelectedLine)
+            {
+                _lastSelectedLine = line;
+                _selectedInfo.text = line;
+            }
+        }
+
+        /// <summary>
+        /// 정보줄 문구 조립 — 성격·직업을 구분 표기해 이름 혼동을 해소 (ADR-M7-5의 짝).
+        /// 예: "A — 성격 고집쟁이 · 직업 농부 · 포만 45 · 피로 60 · 지금: 겨울 비축"
+        /// </summary>
+        public static string ComposeSelected(VillagerAgent a)
+            => $"{a.ShortName} — 성격 {(a.Personality != null ? a.Personality.DisplayName : "없음")}" +
+               $" · 직업 {(a.Job != null ? a.Job.DisplayName : "무직")}" +
+               $" · 포만 {Mathf.RoundToInt(a.Satiety)} · 피로 {Mathf.RoundToInt(a.Fatigue)}" +
+               $" · 지금: {(a.CurrentGoal != null ? a.CurrentGoal.DisplayName : "쉬는 중")}";
 
         /// <summary>
         /// 달력 문구 조립 — 표시 정책의 단일 지점, 순수 함수 (EditMode 게이트 대상).

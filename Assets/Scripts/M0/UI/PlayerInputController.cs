@@ -161,6 +161,7 @@ namespace AIVillage.M0
             _ring.transform.SetParent(agent.transform, worldPositionStays: false);
             _ring.transform.localPosition = Vector3.zero;
             _ring.SetActive(true);
+            M0SimulationLoop.Instance.Hud?.SetSelected(agent); // 정보줄 표시 (M7-A)
         }
 
         private void Deselect()
@@ -171,6 +172,7 @@ namespace AIVillage.M0
                 _ring.transform.SetParent(null);
                 _ring.SetActive(false);
             }
+            M0SimulationLoop.Instance.Hud?.SetSelected(null); // 정보줄 소거 (M7-A)
         }
     }
 }

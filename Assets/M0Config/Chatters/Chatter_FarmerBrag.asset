@@ -16,7 +16,7 @@ MonoBehaviour:
   SpeakerGoal: {fileID: 11400000, guid: a1d86e4f92c3450b87e2f5a60d94c318, type: 2}
   MinSpeakerGoalPriority: 8
   MaxTargetGoalPriority: 2
-  RadiusTiles: 4
+  RadiusTiles: 2
   SpeakLines:
   - "이 작물 좀 봐, 실하지?"
   - "올해 농사 대풍이야!"

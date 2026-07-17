@@ -16,7 +16,7 @@ MonoBehaviour:
   SpeakerGoal: {fileID: 0}
   MinSpeakerGoalPriority: 8
   MaxTargetGoalPriority: 2
-  RadiusTiles: 4
+  RadiusTiles: 2
   SpeakLines:
   - "너는 왜 일을 안 해?!"
   - "나만 바쁜 거야, 지금?"

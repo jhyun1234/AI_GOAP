@@ -46,6 +46,10 @@ namespace AIVillage.M0
         [Tooltip("응수 지연(초) — 발화 말풍선 뒤 '대화처럼' 보이는 간격 (ADR-M7-4).")]
         public float ReplyDelaySec = 1.2f;
 
+        [Tooltip("대화 중 멈춰서 마주보는 시간(초) — 발화~응수 장면 전체(지연 1.2+노출 2.5)를 덮는 값. " +
+                 "0이면 멈춤 없이 지나가며 대화 (M7 초기 동작). 2026-07-17 사용자 결정으로 도입.")]
+        public float ChatPauseSec = 4f;
+
         [Header("이름표 (M7-A — 전부 제안치)")]
         [Tooltip("머리 아래 오프셋 (월드 유닛, 음수 = 발밑)")]
         public float NameTagOffsetY = -0.55f;

@@ -100,6 +100,9 @@ namespace AIVillage.M0
         {
             speaker.ShowTransient(Pick(c.SpeakLines));
             target.ShowTransientDelayed(Pick(c.RepliesFor(target.Personality)), _agentCfg.ReplyDelaySec);
+            // 멈춰서 마주보기 (2026-07-17 사용자 결정) — 표현 계층만, ChatPauseSec 0이면 무효
+            speaker.FaceForChat(target.transform.position, _agentCfg.ChatPauseSec);
+            target.FaceForChat(speaker.transform.position, _agentCfg.ChatPauseSec);
             RecordChat(speaker.AgentId, target.AgentId, nowSec);
             Debug.Log($"[Chatter] {speaker.AgentId}→{target.AgentId}: {c.DisplayName}"); // S3 카운트 근거
         }

@@ -258,8 +258,13 @@ namespace AIVillage.M0
 
         private void Update()
         {
-            if (State == AgentState.Moving) TickMoving(Time.deltaTime);
-            _animator?.Tick(Time.deltaTime, State == AgentState.Moving && _hasNextReserved, _lastDir);
+            // 대화 중 정지·마주보기 (M7 후속) — 이동 보간과 걷기 애니메이션만 잠근다
+            bool chatting = Time.time < _chatPauseUntil;
+            if (chatting) _lastDir = _chatFaceDir;
+
+            if (State == AgentState.Moving && !chatting) TickMoving(Time.deltaTime);
+            _animator?.Tick(Time.deltaTime,
+                State == AgentState.Moving && _hasNextReserved && !chatting, _lastDir);
 
             // 임시 문구(거부 대사) 만료 처리 — 실행 중이면 다음 ShowPlan이 자연 복원
             if (_transientTextUntil > 0f && Time.time >= _transientTextUntil)
@@ -776,6 +781,21 @@ namespace AIVillage.M0
             if (string.IsNullOrEmpty(line)) return;
             _delayedLine = line;
             _delayedShowAt = Time.time + delaySec;
+        }
+
+        // 대화 연출: 멈춰서 마주보기 (2026-07-17 사용자 결정 — ADR-M7 오해위험① '멈춤 없음' 개정).
+        // 표현 계층만 잠근다: Update의 이동 보간·애니메이션만 정지, SimTick(욕구·러너·goal 전환)은
+        // 그대로 — 시뮬 상태 쓰기 0은 유지 (ADR-M7-1의 본질).
+        private float _chatPauseUntil;
+        private Vector2 _chatFaceDir;
+
+        /// <summary>대화 상대를 바라보며 잠시 멈춘다 — ChatterService 전용. pauseSec 0이면 멈춤 없음.</summary>
+        public void FaceForChat(Vector2 towardWorldPos, float pauseSec)
+        {
+            Vector2 d = towardWorldPos - (Vector2)transform.position;
+            if (d.sqrMagnitude > 1e-4f) _chatFaceDir = d.normalized;
+            else _chatFaceDir = _lastDir;
+            _chatPauseUntil = Time.time + pauseSec;
         }
 
         private static string Pick(string[] lines)

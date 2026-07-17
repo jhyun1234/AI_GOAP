@@ -387,7 +387,7 @@ namespace AIVillage.M0
             _sim.Hud?.Notify($"{AgentId}이(가) 마을을 떠났습니다");
             ShowTransient(Pick(_cfg.DepartLines));
             State = AgentState.Dead;      // SimTick 차단 — 새 상태 추가 금지 (ADR-M6-3)
-            Destroy(gameObject, 2.5f);    // 마지막 대사 노출 후 소멸 (연출 상수 — ShowTransient와 동일)
+            Destroy(gameObject, _cfg.TransientLineSec); // 마지막 대사 노출 후 소멸 (ShowTransient와 동일 에셋 값)
         }
 
         // ─────────────────────────────────────────────────────────────────────
@@ -866,7 +866,7 @@ namespace AIVillage.M0
         {
             if (string.IsNullOrEmpty(line)) return;
             _bubble?.ShowText(line);
-            _transientTextUntil = Time.time + 2.5f; // 대사 노출 시간 (연출 상수)
+            _transientTextUntil = Time.time + _cfg.TransientLineSec; // 노출 시간 = 에셋 (M8 후속 승격)
         }
 
         // 지연 응수 (M7-C) — 발화 말풍선 뒤 ReplyDelaySec 간격으로 "대화처럼" (ADR-M7-4)

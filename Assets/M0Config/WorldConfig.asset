@@ -30,7 +30,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: d18b5562234b475cbf76a07ef7d80900, type: 2}
   ChatterIntervalSec: 5
   ChatterChance: 0.5
-  ChatterCooldownSec: 30
+  ChatterCooldownSec: 45
   BuddyThreshold: 20
   GrudgeThreshold: -20
   OwnershipClaimIntervalSec: 10

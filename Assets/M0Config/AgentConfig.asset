@@ -22,6 +22,9 @@ MonoBehaviour:
   BubbleWidth: 6
   BubbleCurrentColor: {r: 1, g: 0.83, b: 0.31, a: 1}
   OrderBubblePrefix: "<color=#FF8A65>[명령]</color> "
+  TransientLineSec: 4
+  ReplyDelaySec: 2.5
+  ChatPauseSec: 8
   PlanningTimeoutSec: 3
   GoalRetryCooldownSec: 3
   InitialSatiety: 70

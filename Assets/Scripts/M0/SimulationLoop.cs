@@ -162,7 +162,8 @@ namespace AIVillage.M0
             Relationship = new RelationshipService();
             Ownership    = new OwnershipService(); // M8-C — 소유 축
             Requests     = new RequestService(_worldConfig, _agentConfig, Relationship,
-                                              Ownership, Construction, _agents); // M8-D — 부탁 선반
+                                              Ownership, Construction, _agents,
+                                              Chatter); // M8-D — 부탁 선반 (대화 쿨다운 공유)
             // 대화 → 관계 축적의 유일한 배선 (M8-A, ADR-M8-1) — 본체는 ApplyChat (게이트 대상)
             Chatter.OnChatted += (c, speaker, target) => Relationship.ApplyChat(c, speaker.AgentId, target.AgentId);
 

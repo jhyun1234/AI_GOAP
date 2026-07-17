@@ -17,6 +17,7 @@ namespace AIVillage.M0
         private readonly RelationshipService _relationship;
         private readonly OwnershipService _ownership;
         private readonly ConstructionService _construction;
+        private readonly ChatterService _chatter; // 대화 쿨다운 공유 — 장면 연쇄 방지 (2026-07-17 피드백)
         private readonly IReadOnlyList<VillagerAgent> _agents; // SimulationLoop 소유 리스트 (살아있는 참조)
 
         private float _nextScanAt;
@@ -29,7 +30,7 @@ namespace AIVillage.M0
 
         public RequestService(WorldConfigSO world, AgentConfigSO agentCfg, RelationshipService relationship,
                               OwnershipService ownership, ConstructionService construction,
-                              IReadOnlyList<VillagerAgent> agents)
+                              IReadOnlyList<VillagerAgent> agents, ChatterService chatter = null)
         {
             _world = world;
             _agentCfg = agentCfg;
@@ -37,6 +38,7 @@ namespace AIVillage.M0
             _ownership = ownership;
             _construction = construction;
             _agents = agents;
+            _chatter = chatter;
         }
 
         /// <summary>이 슬롯을 배정하는 부탁이 진행 중인가 — 클레임 패스 유예 질의 (부탁자 우선권, M8-C ⚠️②).</summary>
@@ -82,6 +84,8 @@ namespace AIVillage.M0
             {
                 if (IsRequesterCoolingDown(requester.AgentId, nowSec)) continue;
                 if (HasInFlightFrom(requester.AgentId)) continue; // 이미 걸어 둔 부탁 완수 대기
+                // 대화 직후 주민은 부탁 장면도 쉼 — 장면이 연달아 붙으면 읽을 수 없다 (공용 쿨다운)
+                if (_chatter != null && _chatter.IsCoolingDown(requester.AgentId, nowSec)) continue;
 
                 WorldSnapshot snap = requester.BuildSnapshot();
                 foreach (RequestSO r in _world.Requests)
@@ -92,6 +96,7 @@ namespace AIVillage.M0
                     foreach (VillagerAgent target in _scratch)
                     {
                         if (target == requester) continue;
+                        if (_chatter != null && _chatter.IsCoolingDown(target.AgentId, nowSec)) continue;
                         if (r.TargetJob != null && target.Job != r.TargetJob) continue; // 참조 매핑 (ADR-M0-1)
                         int dist = Mathf.Abs(requester.TileX - target.TileX)
                                  + Mathf.Abs(requester.TileY - target.TileY);
@@ -122,6 +127,9 @@ namespace AIVillage.M0
             target.ShowTransientDelayed(Pick(ReplyLinesFor(r, target, verdict)), _agentCfg.ReplyDelaySec);
 
             _requesterCooldownUntil[requester.AgentId] = nowSec + _world.RequestCooldownSec;
+            // 부탁 장면도 대화다 — 참여자 둘을 대화 쿨다운에 등록해 직후의 잔소리 연쇄를 막는다
+            // (2026-07-17 Play 피드백: 부탁 거절 직후 같은 목수에게 '왜 일 안 해' 발화 → 장면 겹침)
+            _chatter?.RecordChat(requester.AgentId, target.AgentId, nowSec);
 
             if (verdict == VillagerAgent.RequestResult.Accepted)
             {

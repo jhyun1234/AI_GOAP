@@ -42,13 +42,16 @@ namespace AIVillage.M0
         [Tooltip("명령 수행 중 말풍선 프리픽스 (TMP 리치 텍스트 허용)")]
         public string OrderBubblePrefix = "<color=#FF8A65>[명령]</color> ";
 
-        [Header("상호대화 연출 (M7-C — 제안치)")]
-        [Tooltip("응수 지연(초) — 발화 말풍선 뒤 '대화처럼' 보이는 간격 (ADR-M7-4).")]
-        public float ReplyDelaySec = 1.2f;
+        [Header("상호대화 연출 (M7-C — 제안치. 2026-07-17 사용자 피드백으로 전체 상향: 너무 빨라 읽기 힘듦)")]
+        [Tooltip("임시 대사(혼잣말·거부·대화) 말풍선 노출 시간(초). 舊 하드코딩 2.5의 에셋 승격 (M8 후속).")]
+        public float TransientLineSec = 4f;
 
-        [Tooltip("대화 중 멈춰서 마주보는 시간(초) — 발화~응수 장면 전체(지연 1.2+노출 2.5)를 덮는 값. " +
+        [Tooltip("응수 지연(초) — 발화 말풍선 뒤 '대화처럼' 보이는 간격 (ADR-M7-4).")]
+        public float ReplyDelaySec = 2.5f;
+
+        [Tooltip("대화 중 멈춰서 마주보는 시간(초) — 발화~응수 장면 전체(지연+노출)를 덮는 값. " +
                  "0이면 멈춤 없이 지나가며 대화 (M7 초기 동작). 2026-07-17 사용자 결정으로 도입.")]
-        public float ChatPauseSec = 4f;
+        public float ChatPauseSec = 8f;
 
         [Header("이름표 (M7-A — 전부 제안치)")]
         [Tooltip("머리 아래 오프셋 (월드 유닛, 음수 = 발밑)")]

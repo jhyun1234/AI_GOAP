@@ -64,14 +64,26 @@ namespace AIVillage.M0
         {
             if (priority != null)
                 foreach (SlotId slot in priority)
-                {
-                    if (_builtTiles.TryGetValue(slot, out tile)) return true;              // 단일형
-                    if (TryGetNearestBuiltTile(slot, fromX, fromY, out tile)) return true; // 수량형
-                }
+                    if (TryGetAnchorTileForSlot(slot, fromX, fromY, out tile)) return true;
 
             tile = default;
             return false;
         }
+
+        /// <summary>슬롯 1개의 앵커 조회 (M8-C 분리) — VillagerAgent.ResolveAnchor가 소유 확인과
+        /// 끼워 순회할 수 있게. 단일형이면 그 위치, 수량형이면 최근접 완공 위치.</summary>
+        public bool TryGetAnchorTileForSlot(SlotId slot, int fromX, int fromY, out Vector2Int tile)
+        {
+            if (_builtTiles.TryGetValue(slot, out tile)) return true;              // 단일형
+            if (TryGetNearestBuiltTile(slot, fromX, fromY, out tile)) return true; // 수량형
+            return false;
+        }
+
+        private static readonly List<Vector2Int> EMPTY_TILES = new List<Vector2Int>();
+
+        /// <summary>수량형 건물의 완공 타일 목록 (읽기 전용) — 소유 클레임 패스(M8-C) 질의.</summary>
+        public IReadOnlyList<Vector2Int> BuiltTilesOf(SlotId countSlot)
+            => _builtTileLists.TryGetValue(countSlot, out List<Vector2Int> list) ? list : EMPTY_TILES;
 
         public ConstructionService(WorldModel world)
         {

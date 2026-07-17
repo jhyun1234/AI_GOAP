@@ -60,7 +60,7 @@ namespace AIVillage.M0
         /// 플래닝용 read-only 스냅샷 생성. 발견 플래그는 "잔량 있는 발견 노드 존재 여부"다
         /// (근접이 아님 — 노드까지의 이동은 W4 러너 담당).
         /// </summary>
-        public WorldSnapshot BuildSnapshot(int satiety, int fatigue)
+        public WorldSnapshot BuildSnapshot(int satiety, int fatigue, bool hasHome = false)
         {
             var slots = new int[PlanningConfig.TotalSlots];
 
@@ -72,6 +72,7 @@ namespace AIVillage.M0
             // 파생 슬롯만 덮어쓰기 — 각 원천이 유일한 출처
             slots[(int)SlotId.MySatiety] = satiety; // 에이전트 개인 소유
             slots[(int)SlotId.MyFatigue] = fatigue;
+            slots[(int)SlotId.MyHasHome] = hasHome ? 1 : 0; // 원천 = OwnershipService (M8-C)
             slots[(int)SlotId.NearDiscoveredWood]  = Discovered(ResourceType.Wood);   // DiscoveryService
             slots[(int)SlotId.NearDiscoveredFood]  = Discovered(ResourceType.RawFood);
             slots[(int)SlotId.NearDiscoveredStone] = Discovered(ResourceType.Stone);

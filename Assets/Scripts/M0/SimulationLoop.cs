@@ -64,6 +64,9 @@ namespace AIVillage.M0
 
         /// <summary>주민 관계 (M8-A). 쓰기 원천은 대화 이벤트·부탁 결과뿐 (ADR-M8-1).</summary>
         public RelationshipService Relationship { get; private set; }
+
+        /// <summary>건물 소유 (M8-C). 쓰기는 Assign/ReleaseBy만 (ADR-M8-3). 세이브 대상.</summary>
+        public OwnershipService Ownership { get; private set; }
         public PlannerGateway Planner { get; private set; }
         public GoalSelector Goals { get; private set; }
         public AgentConfigSO AgentConfig => _agentConfig;
@@ -81,6 +84,8 @@ namespace AIVillage.M0
         private BuildingVisualizer _visualizer;
         private FarmPlotView _farmView;
         private int _lastLoggedDay = -1;
+        private float _nextClaimAt; // 소유 클레임 패스 주기 (M8-C)
+        private readonly List<(string id, Vector2Int pos)> _claimBuf = new List<(string, Vector2Int)>(16);
         private readonly List<VillagerAgent> _agents = new List<VillagerAgent>(8);
 
         /// <summary>등록된 주민 목록 (PlayerInputController 픽킹용, 읽기 전용).</summary>
@@ -108,6 +113,7 @@ namespace AIVillage.M0
             if (agent == null) return;
             _agents.Remove(agent);
             Relationship?.ReleaseBy(agent.AgentId); // 이탈 시 관계 기록 정리 (M8-A)
+            Ownership?.ReleaseBy(agent.AgentId);    // 이탈 시 소유 해제 — 빈집 (M8-C)
         }
 
         private void Awake()
@@ -150,6 +156,7 @@ namespace AIVillage.M0
             Goals        = new GoalSelector(_goals);
             Chatter      = new ChatterService(_worldConfig, _agentConfig); // M7-C — 표현 전용 (ADR-M7-1)
             Relationship = new RelationshipService();
+            Ownership    = new OwnershipService(); // M8-C — 소유 축
             // 대화 → 관계 축적의 유일한 배선 (M8-A, ADR-M8-1) — 본체는 ApplyChat (게이트 대상)
             Chatter.OnChatted += (c, speaker, target) => Relationship.ApplyChat(c, speaker.AgentId, target.AgentId);
 
@@ -190,8 +197,8 @@ namespace AIVillage.M0
             Debug.Log($"[M0Sim] 시작 — 노드 {Discovery.Nodes.Count}개, " +
                       $"Wood {World.GetStock(SlotId.WoodStock)}, RawFood {World.GetStock(SlotId.RawFoodStock)}");
 
-            // 씬 배선 없음 — BuildingVisualizer 패턴 (M6-C). 관계 참조는 표기 전용 (M8-B)
-            Hud = new SeasonHud(transform, _bubbleFont, Relationship, _worldConfig);
+            // 씬 배선 없음 — BuildingVisualizer 패턴 (M6-C). 관계·소유 참조는 표기 전용 (M8-B/C)
+            Hud = new SeasonHud(transform, _bubbleFont, Relationship, _worldConfig, Ownership);
 
             StartCoroutine(TickLoop());
         }
@@ -221,6 +228,23 @@ namespace AIVillage.M0
                     _agents[i].SimTick(TICK_INTERVAL_SEC, deltaGameDays);
 
                 Chatter.Tick(Time.time, _agents); // M7-C — 주기·쿨다운은 실시간 초 기준
+
+                // 무주 건물 클레임 패스 (M8-C) — 무소유 주민 ↔ 무주 집을 최근접 배정
+                if (Time.time >= _nextClaimAt)
+                {
+                    _nextClaimAt = Time.time + _worldConfig.OwnershipClaimIntervalSec;
+                    _claimBuf.Clear();
+                    for (int i = 0; i < _agents.Count; i++)
+                    {
+                        VillagerAgent a = _agents[i];
+                        if (a == null || a.State == AgentState.Dead) continue;
+                        if (Ownership.TryGetOwned(a.AgentId, SlotId.HouseCount, out _)) continue;
+                        _claimBuf.Add((a.AgentId, new Vector2Int(a.TileX, a.TileY)));
+                    }
+                    bool requestInFlight = false; // M8-D에서 RequestService 진행 상태로 대체 (부탁자 우선권)
+                    Ownership.ClaimPass(_claimBuf, Construction.BuiltTilesOf(SlotId.HouseCount),
+                                        SlotId.HouseCount, requestInFlight);
+                }
 
                 // 하루 경계 로그 — W3 관측용 (Play 검증 지표)
                 int day = (int)GameTime;

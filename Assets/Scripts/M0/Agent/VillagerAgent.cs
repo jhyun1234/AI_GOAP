@@ -331,7 +331,25 @@ namespace AIVillage.M0
         }
 
         private WorldSnapshot BuildSnapshot()
-            => World.BuildSnapshot(Mathf.RoundToInt(Satiety), Mathf.RoundToInt(Fatigue));
+            => World.BuildSnapshot(Mathf.RoundToInt(Satiety), Mathf.RoundToInt(Fatigue),
+                _sim.Ownership.TryGetOwned(AgentId, SlotId.HouseCount, out _)); // MyHasHome (M8-C)
+
+        /// <summary>
+        /// 앵커 조회 단일 창구 (M8-C) — 러너는 이 메서드만 쓴다. 슬롯 순회마다 내 소유 건물이
+        /// 있으면 그 타일 우선 ("내 집" — 남의 집 최근접보다 앞선다), 없으면 기존 완공 조회.
+        /// 소유 기록이 없으면 M7 동작과 완전 동일 (중립 불변식).
+        /// </summary>
+        public bool ResolveAnchor(SlotId[] priority, out Vector2Int tile)
+        {
+            if (priority != null)
+                foreach (SlotId slot in priority)
+                {
+                    if (_sim.Ownership.TryGetOwned(AgentId, slot, out tile)) return true;
+                    if (Construction.TryGetAnchorTileForSlot(slot, TileX, TileY, out tile)) return true;
+                }
+            tile = default;
+            return false;
+        }
 
         /// <summary>포만 감쇠 산식의 유일한 지점 (M6-B) — 순수 함수라 게이트(M6-T2b)가 직접 검증한다.</summary>
         public static float SatietyDecay(float perGameDay, float seasonMult, float deltaGameDays)

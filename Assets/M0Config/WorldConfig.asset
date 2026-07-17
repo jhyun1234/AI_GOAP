@@ -33,3 +33,4 @@ MonoBehaviour:
   ChatterCooldownSec: 30
   BuddyThreshold: 20
   GrudgeThreshold: -20
+  OwnershipClaimIntervalSec: 10

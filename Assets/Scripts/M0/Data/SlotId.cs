@@ -38,11 +38,14 @@ namespace AIVillage.M0
         // ── M6 확장 (기존 인덱스 뒤에만 추가 — 에셋 호환 유지) ─────────────
         DaysToCrisis      = 15, // 수치형 — 다음 위기 계절까지 일수(올림). 위기 중 0, 계절/위기 없으면 99 (SeasonService.NO_CRISIS)
         CrisisActive      = 16, // 논리형 — 위기 계절 진행 중
+
+        // ── M8 확장 (기존 인덱스 뒤에만 추가 — 에셋 호환 유지) ─────────────
+        MyHasHome         = 17, // 논리형 — 내 소유 집 존재 (OwnershipService가 유일한 원천, M8-C)
     }
 
     public static class SlotIds
     {
-        public const int Count = 17;
+        public const int Count = 18;
 
         /// <summary>전역 스톡 슬롯 여부 — EffectApplier/러너가 공유하는 유일한 판정.</summary>
         public static bool IsStock(SlotId slot)

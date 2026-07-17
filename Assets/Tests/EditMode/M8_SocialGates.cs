@@ -87,6 +87,79 @@ namespace AIVillage.Tests.EditMode
             Assert.AreEqual(30, rel.AffinityOf("A", "C"), "무관한 관계는 보존");
         }
 
+        // ── M8-T3: 소유 축 (ADR-M8-3 — 타일 신원·단일 쓰기·클레임 패스) ─────────
+
+        [Test]
+        public void M8_T3_Assign_RoundTripAndOnePerAgent()
+        {
+            var own = new OwnershipService();
+            var t1 = new Vector2Int(3, 4);
+            var t2 = new Vector2Int(5, 6);
+
+            Assert.IsFalse(own.TryGetOwned("A", SlotId.HouseCount, out _), "배정 전 — 무소유");
+
+            own.Assign(t1, SlotId.HouseCount, "A", "테스트");
+            Assert.IsTrue(own.TryGetOwned("A", SlotId.HouseCount, out Vector2Int got));
+            Assert.AreEqual(t1, got, "배정 왕복");
+            Assert.IsTrue(own.IsOwned(t1));
+
+            own.Assign(t2, SlotId.HouseCount, "A", "테스트"); // 1인 1채 — 두 번째 배정 무시
+            own.TryGetOwned("A", SlotId.HouseCount, out got);
+            Assert.AreEqual(t1, got, "1인 1채 — 첫 배정 유지");
+            Assert.IsFalse(own.IsOwned(t2), "두 번째 집은 무주로 남는다");
+
+            own.Assign(t1, SlotId.HouseCount, "B", "테스트"); // 이미 주인 있는 집 — 무시
+            own.TryGetOwned("A", SlotId.HouseCount, out got);
+            Assert.AreEqual(t1, got, "선점 소유 유지");
+            Assert.IsFalse(own.TryGetOwned("B", SlotId.HouseCount, out _), "가로채기 불가");
+        }
+
+        [Test]
+        public void M8_T3_ReleaseBy_MakesVacantAndReclaimable()
+        {
+            var own = new OwnershipService();
+            var t1 = new Vector2Int(3, 4);
+            own.Assign(t1, SlotId.HouseCount, "A", "테스트");
+
+            own.ReleaseBy("A");
+            Assert.IsFalse(own.IsOwned(t1), "이탈 — 빈집");
+
+            own.Assign(t1, SlotId.HouseCount, "B", "테스트");
+            Assert.IsTrue(own.TryGetOwned("B", SlotId.HouseCount, out _), "빈집 재배정 가능");
+        }
+
+        [Test]
+        public void M8_T3_ClaimPass_NearestWithoutCrossing()
+        {
+            var own = new OwnershipService();
+            var houseNear = new Vector2Int(1, 0);  // A(0,0) 최근접
+            var houseFar = new Vector2Int(10, 0);  // B(9,0) 최근접
+            var candidates = new (string, Vector2Int)[] { ("A", new Vector2Int(0, 0)), ("B", new Vector2Int(9, 0)) };
+            var built = new[] { houseNear, houseFar };
+
+            own.ClaimPass(candidates, built, SlotId.HouseCount, requestInFlight: false);
+
+            own.TryGetOwned("A", SlotId.HouseCount, out Vector2Int homeA);
+            own.TryGetOwned("B", SlotId.HouseCount, out Vector2Int homeB);
+            Assert.AreEqual(houseNear, homeA, "A는 가까운 집");
+            Assert.AreEqual(houseFar, homeB, "B는 가까운 집 — 교차 배정 없음");
+        }
+
+        [Test]
+        public void M8_T3_ClaimPass_DeferredWhileRequestInFlight()
+        {
+            var own = new OwnershipService();
+            var candidates = new (string, Vector2Int)[] { ("A", new Vector2Int(0, 0)) };
+            var built = new[] { new Vector2Int(1, 0) };
+
+            own.ClaimPass(candidates, built, SlotId.HouseCount, requestInFlight: true);
+            Assert.IsFalse(own.TryGetOwned("A", SlotId.HouseCount, out _),
+                "부탁 진행 중 — 클레임 유예 (부탁자 우선권)");
+
+            own.ClaimPass(candidates, built, SlotId.HouseCount, requestInFlight: false);
+            Assert.IsTrue(own.TryGetOwned("A", SlotId.HouseCount, out _), "부탁 종료 후 재개");
+        }
+
         // ── M8-T1: 대화 이벤트 → 관계 배선 (ChatterSO 델타 필드의 계약) ─────────
 
         [Test]

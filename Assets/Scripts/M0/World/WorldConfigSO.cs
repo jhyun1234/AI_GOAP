@@ -56,9 +56,6 @@ namespace AIVillage.M0
         [Tooltip("원한 문턱 — 친밀도가 이 미만이면 원한 (정보줄 표기·거절 판정 기준선). 제안치 -20.")]
         public int GrudgeThreshold = -20;
 
-        [Tooltip("무주 건물 자동 클레임 패스 주기(초, 실시간) — M8-C. 제안치 10.")]
-        public float OwnershipClaimIntervalSec = 10f;
-
         [Header("부탁 (M8-D — ADR-M8-7: 부탁 목록의 집. 전부 제안치)")]
         [Tooltip("부탁 상황 에셋 목록. 비면 부탁 없음 (중립 — M7 동작).")]
         public RequestSO[] Requests;

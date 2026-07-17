@@ -129,41 +129,12 @@ namespace AIVillage.Tests.EditMode
             own.ReleaseBy("A");
             Assert.IsFalse(own.IsOwned(t1), "이탈 — 빈집");
 
-            own.Assign(t1, SlotId.HouseCount, "B", "테스트");
+            own.Assign(t1, SlotId.HouseCount, "B", "테스트"); // 부탁 완수 경로가 빈집을 재배정할 수 있다
             Assert.IsTrue(own.TryGetOwned("B", SlotId.HouseCount, out _), "빈집 재배정 가능");
         }
 
-        [Test]
-        public void M8_T3_ClaimPass_NearestWithoutCrossing()
-        {
-            var own = new OwnershipService();
-            var houseNear = new Vector2Int(1, 0);  // A(0,0) 최근접
-            var houseFar = new Vector2Int(10, 0);  // B(9,0) 최근접
-            var candidates = new (string, Vector2Int)[] { ("A", new Vector2Int(0, 0)), ("B", new Vector2Int(9, 0)) };
-            var built = new[] { houseNear, houseFar };
-
-            own.ClaimPass(candidates, built, SlotId.HouseCount, requestInFlight: false);
-
-            own.TryGetOwned("A", SlotId.HouseCount, out Vector2Int homeA);
-            own.TryGetOwned("B", SlotId.HouseCount, out Vector2Int homeB);
-            Assert.AreEqual(houseNear, homeA, "A는 가까운 집");
-            Assert.AreEqual(houseFar, homeB, "B는 가까운 집 — 교차 배정 없음");
-        }
-
-        [Test]
-        public void M8_T3_ClaimPass_DeferredWhileRequestInFlight()
-        {
-            var own = new OwnershipService();
-            var candidates = new (string, Vector2Int)[] { ("A", new Vector2Int(0, 0)) };
-            var built = new[] { new Vector2Int(1, 0) };
-
-            own.ClaimPass(candidates, built, SlotId.HouseCount, requestInFlight: true);
-            Assert.IsFalse(own.TryGetOwned("A", SlotId.HouseCount, out _),
-                "부탁 진행 중 — 클레임 유예 (부탁자 우선권)");
-
-            own.ClaimPass(candidates, built, SlotId.HouseCount, requestInFlight: false);
-            Assert.IsTrue(own.TryGetOwned("A", SlotId.HouseCount, out _), "부탁 종료 후 재개");
-        }
+        // ClaimPass 게이트 2종은 자동 클레임 폐기(2026-07-18 사용자 결정 — 배정 경로는 부탁
+        // 완수뿐)와 함께 삭제됨. 빈집 재활용 정책이 생기면 그때 새 게이트와 함께.
 
         // ── M8-T2: 부탁 판정 (ADR-M8-2 — 결정적, 바쁨→배고픔→피로→친밀) ────────
 

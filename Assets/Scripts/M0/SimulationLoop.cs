@@ -87,8 +87,6 @@ namespace AIVillage.M0
         private BuildingVisualizer _visualizer;
         private FarmPlotView _farmView;
         private int _lastLoggedDay = -1;
-        private float _nextClaimAt; // 소유 클레임 패스 주기 (M8-C)
-        private readonly List<(string id, Vector2Int pos)> _claimBuf = new List<(string, Vector2Int)>(16);
         private readonly List<VillagerAgent> _agents = new List<VillagerAgent>(8);
 
         /// <summary>등록된 주민 목록 (PlayerInputController 픽킹용, 읽기 전용).</summary>
@@ -236,23 +234,8 @@ namespace AIVillage.M0
 
                 Chatter.Tick(Time.time, _agents); // M7-C — 주기·쿨다운은 실시간 초 기준
                 Requests.Tick(Time.time, _agents); // M8-D — 부탁 스캔 (한 주기 1건)
-
-                // 무주 건물 클레임 패스 (M8-C) — 무소유 주민 ↔ 무주 집을 최근접 배정
-                if (Time.time >= _nextClaimAt)
-                {
-                    _nextClaimAt = Time.time + _worldConfig.OwnershipClaimIntervalSec;
-                    _claimBuf.Clear();
-                    for (int i = 0; i < _agents.Count; i++)
-                    {
-                        VillagerAgent a = _agents[i];
-                        if (a == null || a.State == AgentState.Dead) continue;
-                        if (Ownership.TryGetOwned(a.AgentId, SlotId.HouseCount, out _)) continue;
-                        _claimBuf.Add((a.AgentId, new Vector2Int(a.TileX, a.TileY)));
-                    }
-                    // 집을 배정하는 부탁 진행 중이면 유예 — 부탁자 우선권 (M8-D)
-                    Ownership.ClaimPass(_claimBuf, Construction.BuiltTilesOf(SlotId.HouseCount),
-                                        SlotId.HouseCount, Requests.AnyInFlightGranting(SlotId.HouseCount));
-                }
+                // 소유 배정은 부탁 완수(RequestService.NotifyFulfilled)가 유일한 경로 —
+                // 자동 클레임 패스는 폐기 (2026-07-18 사용자 결정: 부탁 없이 집이 생기면 안 된다)
 
                 // 하루 경계 로그 — W3 관측용 (Play 검증 지표)
                 int day = (int)GameTime;

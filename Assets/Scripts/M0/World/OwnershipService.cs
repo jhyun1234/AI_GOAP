@@ -69,33 +69,9 @@ namespace AIVillage.M0
             }
         }
 
-        /// <summary>
-        /// 주기 클레임 패스 (M8-C) — 무주 완공 건물 ↔ 무소유 주민을 최근접 배정 (순수 입력 —
-        /// 게이트 M8-T3). requestInFlight면 그 회차 전체 유예 — 부탁으로 짓는 중인 건물을
-        /// 다른 주민이 가로채지 않는다 (부탁자 우선권, 명세 ⚠️②).
-        /// candidates = 그 슬롯을 소유하지 않은 주민 (호출자가 필터) — 순서대로 탐욕 배정.
-        /// </summary>
-        public void ClaimPass(IReadOnlyList<(string id, Vector2Int pos)> candidates,
-                              IReadOnlyList<Vector2Int> builtTiles, SlotId slot, bool requestInFlight)
-        {
-            if (requestInFlight || candidates == null || builtTiles == null) return;
-
-            foreach ((string id, Vector2Int pos) c in candidates)
-            {
-                if (TryGetOwned(c.id, slot, out _)) continue; // 방어 — 호출자 필터 누락 대비
-                int best = int.MaxValue;
-                Vector2Int bestTile = default;
-                bool found = false;
-                foreach (Vector2Int t in builtTiles)
-                {
-                    if (IsOwned(t)) continue;
-                    int dx = t.x - c.pos.x, dy = t.y - c.pos.y;
-                    int d = dx * dx + dy * dy;
-                    if (d < best) { best = d; bestTile = t; found = true; }
-                }
-                if (found) Assign(bestTile, slot, c.id, "무주택 클레임");
-            }
-        }
+        // 자동 클레임 패스는 폐기 (2026-07-18 사용자 결정) — 배정 경로는 부탁 완수
+        // (RequestService.NotifyFulfilled → Assign)뿐이다. 부탁 없이 집이 생기면 안 된다.
+        // 이탈 빈집은 빈집으로 남는다 (재활용 정책은 추후 결정 — 명세 관찰 항목).
 
         private readonly List<Vector2Int> _tilesToRemove = new List<Vector2Int>(4);
     }

@@ -68,14 +68,6 @@ namespace AIVillage.M0
         public static bool ShouldStiffReward(PersonalitySO p, int affinityTowardBuilder)
             => p != null && affinityTowardBuilder < p.SkipRewardBelowAffinity;
 
-        /// <summary>이 슬롯을 배정하는 부탁이 진행 중인가 — 클레임 패스 유예 질의 (부탁자 우선권, M8-C ⚠️②).</summary>
-        public bool AnyInFlightGranting(SlotId slot)
-        {
-            foreach (KeyValuePair<string, (RequestSO so, string requesterId, bool prepaid)> kv in _inFlight)
-                if (kv.Value.so.GrantOwnership && kv.Value.so.OwnershipSlot == slot) return true;
-            return false;
-        }
-
         /// <summary>agentId가 의뢰인으로 걸어 둔 진행 중 부탁이 있는가 — 중복 부탁 방지.</summary>
         public bool HasInFlightFrom(string requesterId)
         {
@@ -245,8 +237,7 @@ namespace AIVillage.M0
                     if (d < best) { best = d; bestTile = t; found = true; }
                 }
                 if (found) _ownership.Assign(bestTile, rec.so.OwnershipSlot, rec.requesterId, "부탁 완수");
-                else Debug.LogWarning($"[Request] {rec.so.DisplayName} 완수 — 무주 건물이 없어 배정 생략 " +
-                                      $"(클레임 패스가 선배정했는지 확인)");
+                else Debug.LogWarning($"[Request] {rec.so.DisplayName} 완수 — 무주 건물이 없어 배정 생략");
             }
             Debug.Log($"[Request] {builderId}: {rec.so.DisplayName} 완수 — 의뢰인 {rec.requesterId}");
 

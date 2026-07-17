@@ -1,6 +1,7 @@
 using AIVillage.Core.GOAP;
 using AIVillage.M0;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 
 namespace AIVillage.Tests.EditMode
@@ -204,6 +205,57 @@ namespace AIVillage.Tests.EditMode
             Assert.AreEqual(25f, VillagerAgent.SatietyDecay(25f, 1f, 1f), 1e-5f, "중립 1일 = 25");
             Assert.AreEqual(37.5f, VillagerAgent.SatietyDecay(25f, 1.5f, 1f), 1e-5f, "겨울 1일 = 1.5배");
             Assert.AreEqual(0.0375f, VillagerAgent.SatietyDecay(25f, 1.5f, 0.001f), 1e-6f, "틱 단위 비례");
+        }
+
+        // ── M6-T5: 성격 위기 대응 분화 — 동시 돌입(전원 같은 판단)을 흩는다 ──
+
+        [Test]
+        public void M6_T5_BuildGoalBias_CombinesJobAndPersonality()
+        {
+            var goal = ScriptableObject.CreateInstance<GoalSO>();
+
+            Assert.IsNull(VillagerAgent.BuildGoalBias(null, null), "둘 다 없음 = null (중립 불변식)");
+
+            var job = ScriptableObject.CreateInstance<JobSO>();
+            job.GoalBoosts = new[] { new GoalBoost { Goal = goal, Boost = 30 } };
+            Assert.AreEqual(30, VillagerAgent.BuildGoalBias(job, null)(goal), "직업만 = M5 동작 유지");
+
+            var p = ScriptableObject.CreateInstance<PersonalitySO>();
+            p.GoalBoosts = new[] { new GoalBoost { Goal = goal, Boost = -25 } };
+            Assert.AreEqual(-25, VillagerAgent.BuildGoalBias(null, p)(goal), "성격만");
+            Assert.AreEqual(5, VillagerAgent.BuildGoalBias(job, p)(goal), "직업+성격 합산");
+
+            var other = ScriptableObject.CreateInstance<GoalSO>();
+            Assert.AreEqual(0, VillagerAgent.BuildGoalBias(job, p)(other), "미등록 goal은 0");
+
+            DestroyAll(other, p, job, goal);
+        }
+
+        [Test]
+        public void M6_T5_PersonalityAssets_CrisisResponseDiverges()
+        {
+            // 성격 5종의 겨울 비축 실효 우선순위가 갈려야 한다 — 전원 같으면 동시 돌입 재발
+            GoalSO prep = AssetDatabase.LoadAssetAtPath<GoalSO>("Assets/M0Config/Goals/Goal_WinterPrep.asset");
+            Assert.IsNotNull(prep);
+
+            string[] names = { "Docile", "Stubborn", "Farmer", "Wanderer", "Prickly" };
+            var distinct = new System.Collections.Generic.HashSet<int>();
+            bool anyNegative = false;
+            foreach (string n in names)
+            {
+                var p = AssetDatabase.LoadAssetAtPath<PersonalitySO>(
+                    $"Assets/M0Config/Personalities/Personality_{n}.asset");
+                Assert.IsNotNull(p, $"성격 에셋 없음: {n}");
+                int boost = p.BoostFor(prep);
+                distinct.Add(boost);
+                if (boost < 0) anyNegative = true;
+                Assert.Less(prep.Priority + boost, 60,
+                            $"{n}: 비축 실효 우선순위가 명령 대역(60) 침범 (M5-T5 안전 대역)");
+                Assert.Greater(prep.Priority + boost, 2,
+                               $"{n}: 비축이 일과(2) 아래로 추락 — goal이 죽는다");
+            }
+            Assert.GreaterOrEqual(distinct.Count, 3, "위기 대응이 최소 3갈래로 갈려야 함 (분화 정책)");
+            Assert.IsTrue(anyNegative, "위기를 미루는 성격(고집쟁이류)이 최소 1명 있어야 함");
         }
 
         // ── M6-C: HUD 달력 문구 — 표시 정책 단일 지점 (순수 Compose) ─────────

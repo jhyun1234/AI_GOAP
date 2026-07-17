@@ -13,13 +13,15 @@ namespace AIVillage.Tests.EditMode
         [Test]
         public void M6_T3_NextStarvingDays_AccumulatesAndResets()
         {
-            // 포만 0 = 누적 (경계 0 포함 — 감쇠가 0 클램프라 정확히 0에 머문다)
-            Assert.AreEqual(0.1f, VillagerAgent.NextStarvingDays(0f, 0f, 0.1f), 1e-5f, "굶주림 시작");
-            Assert.AreEqual(0.4f, VillagerAgent.NextStarvingDays(0.3f, 0f, 0.1f), 1e-5f, "누적");
+            // 문턱(10) 미만 = 누적 — 절벽(포만 정확히 0)이 아니라 계단 (2026-07-17 관측 대응:
+            // P0가 20에서 먹으므로 10 밑 지속 = 그 개인이 식량 경쟁에서 계속 밀린다는 뜻)
+            const float BELOW = 10f;
+            Assert.AreEqual(0.1f, VillagerAgent.NextStarvingDays(0f, 0f, BELOW, 0.1f), 1e-5f, "완전 기아 누적");
+            Assert.AreEqual(0.4f, VillagerAgent.NextStarvingDays(0.3f, 9.9f, BELOW, 0.1f), 1e-5f, "문턱 바로 아래도 누적");
 
-            // 포만이 조금이라도 회복되면 리셋 — "한 끼"가 카운트다운을 되돌린다
-            Assert.AreEqual(0f, VillagerAgent.NextStarvingDays(0.45f, 5f, 0.1f), "회복 = 리셋");
-            Assert.AreEqual(0f, VillagerAgent.NextStarvingDays(0.45f, 0.01f, 0.1f), "미세 회복도 리셋");
+            // 문턱 위로 회복되면 리셋 — "한 끼"가 카운트다운을 되돌린다
+            Assert.AreEqual(0f, VillagerAgent.NextStarvingDays(0.45f, 10f, BELOW, 0.1f), "문턱 경계 = 리셋 (미만만 굶주림)");
+            Assert.AreEqual(0f, VillagerAgent.NextStarvingDays(0.45f, 50f, BELOW, 0.1f), "회복 = 리셋");
         }
 
         [Test]

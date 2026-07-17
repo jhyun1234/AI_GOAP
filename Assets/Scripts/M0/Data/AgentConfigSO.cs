@@ -92,8 +92,13 @@ namespace AIVillage.M0
         public float ForecastMoodChance = 0.15f;
 
         [Header("굶주림 이탈 (M6-D — 최초의 실패 상태. 제안치)")]
-        [Tooltip("포만 0 상태가 이 기간(게임일) 누적되면 마을을 떠난다. " +
-                 "P0가 밥을 못 구했다는 뜻 — 겨울 비축 실패의 결과. 포만이 회복되면 누적은 리셋.")]
+        [Tooltip("포만이 이 값 미만이면 '굶주림' 누적 시작. P0 발동선(20)보다 아래 — 음식이 있으면 " +
+                 "P0가 먼저 먹으므로, 이 밑에 머문다는 건 그 개인이 식량 경쟁에서 계속 밀린다는 뜻. " +
+                 "0이 아니라 문턱인 이유: 절벽(전멸 아니면 무사)이 아니라 계단(약한 개인부터)을 만들기 위해.")]
+        public float StarvingBelowSatiety = 10f;
+
+        [Tooltip("굶주림 상태가 이 기간(게임일) 누적되면 마을을 떠난다. " +
+                 "겨울 비축 실패의 결과. 포만이 문턱 위로 회복되면 누적은 리셋.")]
         public float DepartAfterStarvingDays = 0.5f;
 
         [Tooltip("이탈 직전 마지막 대사 (랜덤 선택)")]

@@ -19,6 +19,9 @@ MonoBehaviour:
   FarmCostMult: 1
   BuildCostMult: 1
   ExploreCostMult: 1
+  GoalBoosts:
+  - Goal: {fileID: 11400000, guid: 0fd7741aeb03452b871f58e57e4c4233, type: 2}
+    Boost: -10
   MoodLines:
   - "말 걸지 마세요"
   - "...뭘 봐요?"

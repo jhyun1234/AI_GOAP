@@ -27,6 +27,21 @@ namespace AIVillage.M0
         public float BuildCostMult = 1f;
         public float ExploreCostMult = 1f;
 
+        [Header("goal 실효 우선순위 보정 (M6 후속 — 직업 GoalBoosts와 합산, ADR-M5-1 주입 패턴)")]
+        [Tooltip("성격이 특정 goal을 더/덜 중요하게 여긴다 — 위기 대응이 성격따라 갈리는 축. " +
+                 "예: 고집쟁이 겨울비축 -25(내 일이 우선), 농사꾼 +15(선제 비축). " +
+                 "동시 돌입(전역 트리거 = 전원 같은 판단)을 흩는 장치이기도 하다.")]
+        public GoalBoost[] GoalBoosts;
+
+        /// <summary>이 성격의 goal 보정치 — JobSO.BoostFor와 동일 규약 (참조 동일성, 미등록 0).</summary>
+        public int BoostFor(GoalSO goal)
+        {
+            if (GoalBoosts != null)
+                for (int i = 0; i < GoalBoosts.Length; i++)
+                    if (GoalBoosts[i].Goal == goal) return GoalBoosts[i].Boost;
+            return 0;
+        }
+
         [Header("대사 (비면 기본 대사 사용 — 중립 경로)")]
         [Tooltip("혼잣말 풀 — 액션 문구 대신 MoodLineChance 확률로 표시 (M4-D)")]
         public string[] MoodLines;

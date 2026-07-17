@@ -79,9 +79,22 @@ namespace AIVillage.M0
         /// <summary>직업 (M5-A). null = 무직 — M4와 goal 선택 동일 (M5-S3). 세이브 대상 (ADR-M5-5).</summary>
         public JobSO Job { get; private set; }
 
-        // 직업 실효 우선순위 보정 (M5-B, ADR-M5-1) — 스폰 1회 캐시 (틱마다 델리게이트 할당 방지).
-        // 무직이면 null = Select가 기존과 완전 동일 경로 (중립 불변식).
-        private System.Func<GoalSO, int> _jobBias;
+        // goal 실효 우선순위 보정 (M5-B 직업 + M6 후속 성격 합산, ADR-M5-1) — 스폰 1회 캐시.
+        // 둘 다 null이면 null = Select가 기존과 완전 동일 경로 (중립 불변식).
+        private System.Func<GoalSO, int> _goalBias;
+
+        /// <summary>
+        /// 직업+성격 goal 보정 결합의 유일한 지점 (순수 — 게이트 M6-T5). 둘 다 null = null (중립).
+        /// 성격 보정이 위기 대응을 가른다: 같은 트리거를 봐도 실효 우선순위가 달라
+        /// 돌입 시점·참여 여부가 성격따라 흩어진다 (2026-07-17 "동시 돌입 = AI티" 대응).
+        /// </summary>
+        public static System.Func<GoalSO, int> BuildGoalBias(JobSO job, PersonalitySO personality)
+        {
+            if (job == null && personality == null) return null;
+            if (personality == null) return job.BoostFor;
+            if (job == null) return personality.BoostFor;
+            return g => job.BoostFor(g) + personality.BoostFor(g);
+        }
 
         // 직업 일과 goal (M5-C, ADR-M5-2) — 개인 사다리 주입, 씬 _goals에 넣지 않는다.
         // 무직·일과 없는 직업이면 null = 기존 여가 동작.
@@ -90,7 +103,7 @@ namespace AIVillage.M0
         /// <summary>실효 우선순위 = 에셋 Priority + 직업 보정. 선택(Select)과 전환 비교가
         /// 같은 진리를 쓰기 위한 유일한 계산 지점 (ADR-M5-6).</summary>
         private int EffectivePriority(GoalSO g)
-            => g.Priority + (_jobBias != null ? _jobBias(g) : 0);
+            => g.Priority + (_goalBias != null ? _goalBias(g) : 0);
 
         /// <summary>배율 개체 편차 [채집, 농사, 건설, 탐험] — 스폰 1회 고정, M4-B 비용 배열 계산에 사용.</summary>
         public float[] MultJitter => _multJitter;
@@ -211,7 +224,7 @@ namespace AIVillage.M0
             };
             Debug.Log($"[VillagerAgent] {AgentId}: 성격 = {(Personality != null ? Personality.DisplayName : "없음(중립)")}"
                       + $" / 직업 = {(Job != null ? Job.DisplayName : "무직(공용)")}");
-            _jobBias = Job != null ? (System.Func<GoalSO, int>)Job.BoostFor : null;
+            _goalBias = BuildGoalBias(Job, Personality); // 직업+성격 합산 (M6 후속, ADR-M5-6 동일 인자 유지)
             _routine = Job != null ? Job.RoutineGoal : null;
             // 배율 배열 1회 캐시 (M4-B) — 성격·직업 둘 다 null이면 null = 중립 (RequestPlan이 무시)
             _costMult = PersonalityCost.Build(_sim.Catalog, Personality, Job, _multJitter);
@@ -265,7 +278,7 @@ namespace AIVillage.M0
 
             // 굶주림 이탈 (M6-D) — 계절 분기 없음: 굶주림은 계절 무관 사실 (⚠️③).
             // 대기 가드 금지 (M4 교훈 — 동상·데드락) — 판정은 누적 시간 하나뿐.
-            _starvingDays = NextStarvingDays(_starvingDays, Satiety, deltaGameDays);
+            _starvingDays = NextStarvingDays(_starvingDays, Satiety, _cfg.StarvingBelowSatiety, deltaGameDays);
             if (ShouldDepart(_starvingDays, _cfg))
             {
                 Depart();
@@ -279,7 +292,7 @@ namespace AIVillage.M0
             {
                 // 쿨다운 필터를 Idle 선택과 동일하게 적용 — 방금 실패한 goal이 전환 대상으로
                 // 재등장해 중단↔재시작 폭주(0.5초 주기)를 일으키는 것을 방지
-                GoalSO now = _sim.Goals.Select(BuildSnapshot(), IsGoalCoolingDown, _order, _jobBias, _routine);
+                GoalSO now = _sim.Goals.Select(BuildSnapshot(), IsGoalCoolingDown, _order, _goalBias, _routine);
                 if (now != null && _goal != null && now != _goal
                     && EffectivePriority(now) > EffectivePriority(_goal))
                 {
@@ -309,9 +322,14 @@ namespace AIVillage.M0
 
         private float _starvingDays; // 포만 0 지속 누적 (게임일). 세이브 대상 (ADR-M4-5 목록 추가 예정)
 
-        /// <summary>굶주림 누적 갱신 — 포만이 조금이라도 회복되면 리셋 (순수, 게이트 M6-T3).</summary>
-        public static float NextStarvingDays(float current, float satiety, float deltaGameDays)
-            => satiety <= 0f ? current + deltaGameDays : 0f;
+        /// <summary>
+        /// 굶주림 누적 갱신 — 문턱 위로 회복되면 리셋 (순수, 게이트 M6-T3).
+        /// 문턱은 0이 아니라 에셋 값(StarvingBelowSatiety) — "전멸 아니면 무사"의 절벽 구조를
+        /// "경쟁에서 밀리는 개인부터"의 계단으로 (2026-07-17 관측 대응).
+        /// </summary>
+        public static float NextStarvingDays(float current, float satiety, float starvingBelow,
+                                             float deltaGameDays)
+            => satiety < starvingBelow ? current + deltaGameDays : 0f;
 
         /// <summary>이탈 판정 (순수, 게이트 M6-T3) — 문턱은 에셋 값 (ADR-M0-2).</summary>
         public static bool ShouldDepart(float starvingDays, AgentConfigSO cfg)
@@ -324,8 +342,9 @@ namespace AIVillage.M0
         /// </summary>
         private void Depart()
         {
-            Debug.LogWarning($"[VillagerAgent] {AgentId}: 굶주림 이탈 — 포만 0 지속 {_starvingDays:F2}일 " +
-                             $"(문턱 {_cfg.DepartAfterStarvingDays}일)");
+            Debug.LogWarning($"[VillagerAgent] {AgentId}: 굶주림 이탈 — 포만 {Satiety:F0} " +
+                             $"(< {_cfg.StarvingBelowSatiety}) 지속 {_starvingDays:F2}일 " +
+                             $"(이탈 문턱 {_cfg.DepartAfterStarvingDays}일)");
             _sim.Hud?.Notify($"{AgentId}이(가) 마을을 떠났습니다");
             ShowTransient(Pick(_cfg.DepartLines));
             State = AgentState.Dead;      // SimTick 차단 — 새 상태 추가 금지 (ADR-M6-3)
@@ -352,7 +371,7 @@ namespace AIVillage.M0
                 ClearOrderInstance();
             }
 
-            _goal = _sim.Goals.Select(snap, IsGoalCoolingDown, _order, _jobBias, _routine);
+            _goal = _sim.Goals.Select(snap, IsGoalCoolingDown, _order, _goalBias, _routine);
             if (_goal == null)
             {
                 _idleCooldownSec = 0.5f; // 할 일 없음 — 정상 Idle

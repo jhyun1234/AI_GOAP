@@ -1,0 +1,45 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 82223cb9257b4086a4ad8987f8822d45, type: 3}
+  m_Name: Request_CookForMe
+  m_EditorClassIdentifier:
+  DisplayName: "요리 부탁"
+  RequesterConditions:
+  - Slot: 2
+    Op: 2
+    Value: 40
+  - Slot: 10
+    Op: 2
+    Value: 2
+  TargetJob: {fileID: 11400000, guid: 8729aa72b5e641c88f8a3e509d6a697b, type: 2}
+  InjectGoal: {fileID: 11400000, guid: d6530e3c5313469e9fccd32f5e1dd182, type: 2}
+  RadiusTiles: 6
+  RefuseAffinityBelow: -10
+  GrantOwnership: 0
+  OwnershipSlot: 0
+  AcceptDelta: 5
+  FulfillDelta: 15
+  RefusedDelta: -5
+  AskLines:
+  - "배고파 죽겠어... 밥 좀 해줄 수 있어?"
+  - "곳간에 먹을 게 없더라. 요리 좀 부탁해"
+  AcceptLines:
+  - "알았어, 불 피워 둘게"
+  - "그 얼굴 보니 안 되겠네. 금방 해줄게"
+  RefuseBusyLines:
+  - "지금 다른 부탁을 받았어"
+  RefuseLowAffinityLines:
+  - "네 밥은 네가 지어"
+  - "너한테 해줄 밥은 없어"
+  FulfillLines:
+  - "밥 됐어! 따뜻할 때 먹어"
+  - "요리 다 됐다, 와서 먹어"

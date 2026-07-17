@@ -469,9 +469,15 @@ namespace AIVillage.M0
 
         private string OrderPrefix() => _goal != null && _goal == _order ? _cfg.OrderBubblePrefix : null;
 
+        /// <summary>대사 노출·응수 대기 중인가 — 이 동안 플랜 갱신이 말풍선을 덮지 않는다
+        /// (2026-07-17: 액션 전환이 대화 대사를 조기에 자르던 문제. 만료 시 Update가 플랜 문구 복원).</summary>
+        private bool BubbleShowingLine => Time.time < _transientTextUntil || _delayedShowAt > 0f;
+
         private void StartNextAction()
         {
-            _bubble?.ShowPlan(_plan, _planIndex, OrderPrefix()); // 갱신 단일 지점: 적재·전환·완료 모두 여기 경유
+            // 갱신 단일 지점: 적재·전환·완료 모두 여기 경유. 단 대사 노출 중엔 유예 — Update 만료 복원
+            if (!BubbleShowingLine)
+                _bubble?.ShowPlan(_plan, _planIndex, OrderPrefix());
 
             if (_planIndex >= _plan.Count)
             {
@@ -775,12 +781,17 @@ namespace AIVillage.M0
         private string _delayedLine;
         private float _delayedShowAt;
 
-        /// <summary>지연 표시 — ChatterService의 응수 전용. 새 요청이 이전 대기분을 덮는다.</summary>
+        /// <summary>
+        /// 지연 표시 — ChatterService의 응수 전용. 새 요청이 이전 대기분을 덮는다.
+        /// 대기 중엔 말풍선을 비운다 — 기존 혼잣말("따뜻하다...")이 즉답처럼 보이는 것 방지
+        /// (2026-07-17 관측: 잔소리 직후 여가 문구가 남아 대화가 어색). 듣는 사이 = 침묵.
+        /// </summary>
         public void ShowTransientDelayed(string line, float delaySec)
         {
             if (string.IsNullOrEmpty(line)) return;
             _delayedLine = line;
             _delayedShowAt = Time.time + delaySec;
+            _bubble?.Clear();
         }
 
         // 대화 연출: 멈춰서 마주보기 (2026-07-17 사용자 결정 — ADR-M7 오해위험① '멈춤 없음' 개정).

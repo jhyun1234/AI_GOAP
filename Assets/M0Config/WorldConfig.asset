@@ -31,3 +31,5 @@ MonoBehaviour:
   ChatterIntervalSec: 5
   ChatterChance: 0.5
   ChatterCooldownSec: 30
+  BuddyThreshold: 20
+  GrudgeThreshold: -20

@@ -21,8 +21,15 @@ namespace AIVillage.M0
         private VillagerAgent _selected;
         private string _lastSelectedLine;
 
-        public SeasonHud(Transform parent, TMP_FontAsset font)
+        // 관계 표기 (M8-B) — 읽기 전용 참조. null이면 관계 미표기 (중립 — M7 표시와 동일)
+        private readonly RelationshipService _relationship;
+        private readonly WorldConfigSO _worldCfg;
+
+        public SeasonHud(Transform parent, TMP_FontAsset font,
+                         RelationshipService relationship = null, WorldConfigSO worldCfg = null)
         {
+            _relationship = relationship;
+            _worldCfg = worldCfg;
             var root = new GameObject("SeasonHud");
             root.transform.SetParent(parent, false);
             var canvas = root.AddComponent<Canvas>();
@@ -97,7 +104,7 @@ namespace AIVillage.M0
                 return;
             }
 
-            string line = ComposeSelected(_selected);
+            string line = ComposeSelected(_selected, _relationship, _worldCfg);
             if (line != _lastSelectedLine)
             {
                 _lastSelectedLine = line;
@@ -107,13 +114,35 @@ namespace AIVillage.M0
 
         /// <summary>
         /// 정보줄 문구 조립 — 성격·직업을 구분 표기해 이름 혼동을 해소 (ADR-M7-5의 짝).
-        /// 예: "A — 성격 고집쟁이 · 직업 농부 · 포만 45 · 피로 60 · 지금: 겨울 비축"
+        /// 예: "A — 성격 고집쟁이 · 직업 농부 · 포만 45 · 피로 60 · 지금: 겨울 비축 · 원한 C"
+        /// 관계(M8-B)는 극단 1명씩만 — 정보줄은 한 줄이다 (전체 목록 UI 금지, 명세 §7).
+        /// 문턱 미만/이상이 없으면 표기 없음 (M7 표시와 동일 — 중립).
         /// </summary>
-        public static string ComposeSelected(VillagerAgent a)
-            => $"{a.ShortName} — 성격 {(a.Personality != null ? a.Personality.DisplayName : "없음")}" +
-               $" · 직업 {(a.Job != null ? a.Job.DisplayName : "무직")}" +
-               $" · 포만 {Mathf.RoundToInt(a.Satiety)} · 피로 {Mathf.RoundToInt(a.Fatigue)}" +
-               $" · 지금: {(a.CurrentGoal != null ? a.CurrentGoal.DisplayName : "쉬는 중")}";
+        public static string ComposeSelected(VillagerAgent a, RelationshipService rel = null,
+                                             WorldConfigSO cfg = null)
+        {
+            string line =
+                $"{a.ShortName} — 성격 {(a.Personality != null ? a.Personality.DisplayName : "없음")}" +
+                $" · 직업 {(a.Job != null ? a.Job.DisplayName : "무직")}" +
+                $" · 포만 {Mathf.RoundToInt(a.Satiety)} · 피로 {Mathf.RoundToInt(a.Fatigue)}" +
+                $" · 지금: {(a.CurrentGoal != null ? a.CurrentGoal.DisplayName : "쉬는 중")}";
+
+            if (rel != null && cfg != null)
+            {
+                if (rel.TryGetExtreme(a.AgentId, buddy: true, cfg.BuddyThreshold, out string buddy))
+                    line += $" · 단짝 {ToShortName(buddy)}";
+                if (rel.TryGetExtreme(a.AgentId, buddy: false, cfg.GrudgeThreshold, out string grudge))
+                    line += $" · <color=#FF8A65>원한 {ToShortName(grudge)}</color>";
+            }
+            return line;
+        }
+
+        /// <summary>AgentId → 표시명 ("M0_Villager_A" → "A") — VillagerAgent.ShortName과 동일 규칙.</summary>
+        private static string ToShortName(string agentId)
+        {
+            int sep = agentId.LastIndexOf('_');
+            return sep >= 0 && sep < agentId.Length - 1 ? agentId.Substring(sep + 1) : agentId;
+        }
 
         /// <summary>
         /// 달력 문구 조립 — 표시 정책의 단일 지점, 순수 함수 (EditMode 게이트 대상).

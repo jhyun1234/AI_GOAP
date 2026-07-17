@@ -190,7 +190,8 @@ namespace AIVillage.M0
             Debug.Log($"[M0Sim] 시작 — 노드 {Discovery.Nodes.Count}개, " +
                       $"Wood {World.GetStock(SlotId.WoodStock)}, RawFood {World.GetStock(SlotId.RawFoodStock)}");
 
-            Hud = new SeasonHud(transform, _bubbleFont); // 씬 배선 없음 — BuildingVisualizer 패턴 (M6-C)
+            // 씬 배선 없음 — BuildingVisualizer 패턴 (M6-C). 관계 참조는 표기 전용 (M8-B)
+            Hud = new SeasonHud(transform, _bubbleFont, Relationship, _worldConfig);
 
             StartCoroutine(TickLoop());
         }

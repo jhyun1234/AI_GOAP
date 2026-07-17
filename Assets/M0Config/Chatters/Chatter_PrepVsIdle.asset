@@ -17,6 +17,8 @@ MonoBehaviour:
   MinSpeakerGoalPriority: 8
   MaxTargetGoalPriority: 2
   RadiusTiles: 2
+  SpeakerToTargetDelta: -2
+  TargetToSpeakerDelta: -3
   SpeakLines:
   - "일도 안 하면서 밥은 먹고 싶어??"
   - "겨울 오면 네 몫은 없을 줄 알아!"

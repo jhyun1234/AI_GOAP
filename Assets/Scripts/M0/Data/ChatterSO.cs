@@ -26,6 +26,13 @@ namespace AIVillage.M0
         [Tooltip("성립 반경 (타일, 맨해튼 거리)")]
         public int RadiusTiles = 4;
 
+        [Header("관계 영향 (M8-A — 대화가 관계에 남기는 흔적. 0 = 중립, M7 동작과 동일)")]
+        [Tooltip("발화 시 화자→상대 친밀도 변화 (잔소리 -2 류). 적용은 RelationshipService 구독 — ADR-M8-1")]
+        public int SpeakerToTargetDelta;
+
+        [Tooltip("발화 시 상대→화자 친밀도 변화 (잔소리 들은 쪽이 더 미워한다 -3 류)")]
+        public int TargetToSpeakerDelta;
+
         [Tooltip("발화 대사 (랜덤 선택)")]
         public string[] SpeakLines;
 

@@ -17,6 +17,8 @@ MonoBehaviour:
   MinSpeakerGoalPriority: 8
   MaxTargetGoalPriority: 2
   RadiusTiles: 2
+  SpeakerToTargetDelta: 1
+  TargetToSpeakerDelta: 1
   SpeakLines:
   - "이 작물 좀 봐, 실하지?"
   - "올해 농사 대풍이야!"

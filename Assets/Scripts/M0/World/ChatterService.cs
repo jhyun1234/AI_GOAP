@@ -12,6 +12,10 @@ namespace AIVillage.M0
     /// </summary>
     public sealed class ChatterService
     {
+        /// <summary>발화 알림 (상황, 화자, 상대) — M8-A. 이 서비스는 구독자를 모른다 (ADR-M8-1:
+        /// 관계 축적은 RelationshipService가 구독으로 수행 — 여기에 시뮬 참조가 생기면 반려).</summary>
+        public event System.Action<ChatterSO, VillagerAgent, VillagerAgent> OnChatted;
+
         private readonly WorldConfigSO _world;
         private readonly AgentConfigSO _agentCfg;
 
@@ -105,6 +109,7 @@ namespace AIVillage.M0
             target.FaceForChat(speaker.transform.position, _agentCfg.ChatPauseSec);
             RecordChat(speaker.AgentId, target.AgentId, nowSec);
             Debug.Log($"[Chatter] {speaker.AgentId}→{target.AgentId}: {c.DisplayName}"); // S3 카운트 근거
+            OnChatted?.Invoke(c, speaker, target); // M8-A — 관계 축이 구독 (ADR-M8-1)
         }
 
         private static string Pick(string[] lines)

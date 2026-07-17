@@ -61,6 +61,9 @@ namespace AIVillage.M0
 
         /// <summary>주민 상호대화 (M7-C). 표현 전용 — Chatters가 비면 스스로 중립 (M6 동작).</summary>
         public ChatterService Chatter { get; private set; }
+
+        /// <summary>주민 관계 (M8-A). 쓰기 원천은 대화 이벤트·부탁 결과뿐 (ADR-M8-1).</summary>
+        public RelationshipService Relationship { get; private set; }
         public PlannerGateway Planner { get; private set; }
         public GoalSelector Goals { get; private set; }
         public AgentConfigSO AgentConfig => _agentConfig;
@@ -102,7 +105,9 @@ namespace AIVillage.M0
 
         public void UnregisterAgent(VillagerAgent agent)
         {
+            if (agent == null) return;
             _agents.Remove(agent);
+            Relationship?.ReleaseBy(agent.AgentId); // 이탈 시 관계 기록 정리 (M8-A)
         }
 
         private void Awake()
@@ -144,6 +149,9 @@ namespace AIVillage.M0
             Planner      = new PlannerGateway(_catalog);
             Goals        = new GoalSelector(_goals);
             Chatter      = new ChatterService(_worldConfig, _agentConfig); // M7-C — 표현 전용 (ADR-M7-1)
+            Relationship = new RelationshipService();
+            // 대화 → 관계 축적의 유일한 배선 (M8-A, ADR-M8-1) — 본체는 ApplyChat (게이트 대상)
+            Chatter.OnChatted += (c, speaker, target) => Relationship.ApplyChat(c, speaker.AgentId, target.AgentId);
 
             _visualizer = new BuildingVisualizer(transform);
             Construction.OnCompleted += (b, x, y) => _visualizer.Spawn(b, x, y);

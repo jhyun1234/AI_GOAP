@@ -503,6 +503,14 @@ namespace AIVillage.M0
         /// (2026-07-17: 액션 전환이 대화 대사를 조기에 자르던 문제. 만료 시 Update가 플랜 문구 복원).</summary>
         private bool BubbleShowingLine => Time.time < _transientTextUntil || _delayedShowAt > 0f;
 
+        /// <summary>
+        /// 대화 장면 참여 중인가 — 마주보기 정지 중이거나 응수 대기 중 (M8 후속).
+        /// 이 동안 장식성 발화(혼잣말·예고 술렁임)를 억제한다 — SimTick은 대화 중에도 돌므로
+        /// 새 액션 시작이 대화 말풍선을 덮던 문제 (2026-07-18 Play 피드백: 보고 대화 중 혼잣말).
+        /// 거부·이탈 등 사건성 대사는 억제하지 않는다 — 장식만 침묵.
+        /// </summary>
+        private bool InConversation => Time.time < _chatPauseUntil || _delayedShowAt > 0f;
+
         private void StartNextAction()
         {
             // 갱신 단일 지점: 적재·전환·완료 모두 여기 경유. 단 대사 노출 중엔 유예 — Update 만료 복원
@@ -520,13 +528,16 @@ namespace AIVillage.M0
 
             // 성격 혼잣말 (M4-D) — 표현 전용, 확률·문구 전부 에셋 값. 비면 표시 없음 (중립 경로).
             // ShowTransient가 잠시 덮고 다음 갱신에서 플랜 문구로 복귀 — 거부 대사와 같은 통로.
-            if (Personality != null && Personality.MoodLines != null && Personality.MoodLines.Length > 0
+            // 대화 장면 중엔 침묵 (InConversation — 대화 흐름 보호, 2026-07-18)
+            if (!InConversation
+                && Personality != null && Personality.MoodLines != null && Personality.MoodLines.Length > 0
                 && Random.value < Personality.MoodLineChance)
                 ShowTransient(Pick(Personality.MoodLines));
 
             // 위기 예고 술렁임 (M6-C) — 혼잣말과 같은 통로. 예고 구간(위기 전)에만, 위기 중은 제외.
             // 대사·확률 전부 에셋 값 (SeasonSO.ForecastLines / AgentConfig.ForecastMoodChance).
-            if (_sim.Season != null && _sim.Season.NextCrisis != null
+            if (!InConversation
+                && _sim.Season != null && _sim.Season.NextCrisis != null
                 && _sim.Season.DaysToCrisis > 0f
                 && _sim.Season.DaysToCrisis <= _sim.WorldConfig.ForecastDays
                 && Random.value < _cfg.ForecastMoodChance)

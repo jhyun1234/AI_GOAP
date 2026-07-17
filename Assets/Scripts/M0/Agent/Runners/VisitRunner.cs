@@ -37,6 +37,17 @@ namespace AIVillage.M0
         public override RunnerResult Tick(VillagerAgent agent, float dt)
         {
             if (!DurationElapsed(dt)) return RunnerResult.Running;
+
+            // 도착 재검사 (2026-07-18 Play 피드백: 걷는 사이 대상이 이동 → 원거리 보고).
+            // 반경 밖이면 통지 없이 조용히 종료 — 심부름이 남아 있어 다음 선택에서 새 위치로
+            // 재추적하고, 영영 못 따라잡으면 ReportTimeoutSec이 회수한다 (실패 아님 — 쿨다운·경고 0).
+            VillagerAgent target = agent.FindVisitTarget();
+            if (target != null)
+            {
+                int dist = Mathf.Abs(agent.TileX - target.TileX) + Mathf.Abs(agent.TileY - target.TileY);
+                if (dist > _so.ArriveRadiusTiles) return RunnerResult.Succeeded;
+            }
+
             if (!_arrivedNotified)
             {
                 _arrivedNotified = true;

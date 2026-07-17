@@ -27,6 +27,7 @@ MonoBehaviour:
   Chatters:
   - {fileID: 11400000, guid: 7c9ae1ce31904ed4b315800dff15c14f, type: 2}
   - {fileID: 11400000, guid: 48ccea3142fe4a859a1bedc03c7df6b0, type: 2}
+  - {fileID: 11400000, guid: d18b5562234b475cbf76a07ef7d80900, type: 2}
   ChatterIntervalSec: 5
   ChatterChance: 0.5
   ChatterCooldownSec: 30

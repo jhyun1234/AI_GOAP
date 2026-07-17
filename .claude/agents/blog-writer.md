@@ -2,7 +2,7 @@
 name: blog-writer
 description: "블로그 자동화 파이프라인 작성팀(Step 2). 기획팀이 선정한 소재(git 커밋 + memory 요약)를 받아 승인된 톤의 한국어 개발일지 초안을 작성. 소재 선정 판단 없이 집필만 담당. Docs/블로그_자동화_수익화_기획서.md 4.3장 참조."
 tools: Read, Write
-model: sonnet
+model: opus
 color: green
 memory: project
 ---

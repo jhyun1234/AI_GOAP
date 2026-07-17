@@ -13,11 +13,11 @@ MonoBehaviour:
   m_Name: Season_Winter
   m_EditorClassIdentifier:
   DisplayName: "겨울"
-  DurationDays: 3
+  DurationDays: 4
   IsCrisis: 1
   RegenMult: 0
   GrowthMult: 0
-  SatietyDecayMult: 1.5
+  SatietyDecayMult: 1.75
   ForecastLines:
   - "겨울이 오고 있어..."
   - "먹을 걸 모아둬야 할 텐데."

@@ -24,7 +24,7 @@ MonoBehaviour:
   GoalConditions:
   - Slot: 10
     Op: 1
-    Value: 10
+    Value: 20
   DirectActionPool: []
   RelativeToCurrent: 0
-  MaxWorkers: 2
+  MaxWorkers: 3

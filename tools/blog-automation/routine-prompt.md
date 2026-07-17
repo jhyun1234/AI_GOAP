@@ -76,6 +76,10 @@ blog-master, blog-publisher). Agent 도구로 이 순서대로 호출.
      사본 저장.
    - 이번에 소비한 `state/blog_next_material_priority.md`가 있으면 "소비 완료 YYYY-MM-DD"
      마커로 초기화(다음 사이클 중복 방지).
+   - **기획팀 브리프에 `deferred_milestones`가 있으면** (미발행 밀스톤이 더 남아 있다는
+     뜻 — 한 회차 = 한 밀스톤 규칙), 그중 **첫 번째 밀스톤을
+     `state/blog_next_material_priority.md`에 STATUS: ACTIVE로 새로 지정**한다 (커밋 범위와
+     1차 소스 세션 로그 명시). 다음 회차가 순서대로 이어 쓰게 하는 장치다.
 
 8. **상태 커밋 + push (orchestrator가 직접 실행, 서브에이전트 아님)** — publisher 성공 후
    상태 파일 변경을 리포에 반영한다.

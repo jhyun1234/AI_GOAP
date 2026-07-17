@@ -17,6 +17,8 @@ MonoBehaviour:
   - "주변을 둘러보자"
   - "저쪽엔 뭐가 있으려나?"
   - "새 땅을 찾아봐야지"
+  - "발길 닿는 데까지 가보자"
+  - "머릿속에 지도를 그려야지"
   BaseCost: 15
   DurationSec: 0
   Preconditions: []

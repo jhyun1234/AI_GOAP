@@ -17,6 +17,8 @@ MonoBehaviour:
   - "작물을 거두자"
   - "풍년이다, 풍년!"
   - "잘 익었네"
+  - "한 아름 가득이다"
+  - "땀 흘린 보람이 있네"
   BaseCost: 8
   DurationSec: 2
   Preconditions:

@@ -17,6 +17,8 @@ MonoBehaviour:
   - "모닥불을 짓자"
   - "여기가 불자리로 좋겠어"
   - "이제 불을 피워볼까"
+  - "불씨야 잘 붙어라"
+  - "밤이 덜 춥겠네"
   BaseCost: 20
   DurationSec: 4
   Preconditions: []

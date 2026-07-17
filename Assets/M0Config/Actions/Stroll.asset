@@ -17,6 +17,8 @@ MonoBehaviour:
   - "마을을 둘러보자"
   - "산책이나 할까"
   - "오늘 날씨 좋네"
+  - "마을이 제법 커졌단 말이지"
+  - "콧바람 좀 쐬자"
   BaseCost: 1
   DurationSec: 4
   Preconditions: []

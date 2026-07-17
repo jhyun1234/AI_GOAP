@@ -17,6 +17,8 @@ MonoBehaviour:
   - "돌을 캐자"
   - "단단한 놈이네"
   - "곡괭이질 좀 해볼까"
+  - "불꽃이 다 튀네"
+  - "허리야, 버텨라"
   BaseCost: 12
   DurationSec: 3
   Preconditions:

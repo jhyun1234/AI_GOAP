@@ -17,6 +17,8 @@ MonoBehaviour:
   - "밭을 일구자"
   - "흙냄새가 좋은데"
   - "여기가 농사짓기 좋겠어"
+  - "돌부터 골라내야지"
+  - "첫 삽이 반이다"
   BaseCost: 15
   DurationSec: 3
   Preconditions: []

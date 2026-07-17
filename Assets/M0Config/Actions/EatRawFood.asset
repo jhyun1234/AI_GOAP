@@ -17,6 +17,8 @@ MonoBehaviour:
   - "열매라도 먹자"
   - "우물우물..."
   - "배부터 채우자"
+  - "시큼하네, 그래도 먹자"
+  - "씨는 뱉어야지"
   BaseCost: 8
   DurationSec: 2
   Preconditions:

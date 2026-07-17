@@ -21,15 +21,25 @@ MonoBehaviour:
   - "너는 왜 일을 안 해?!"
   - "나만 바쁜 거야, 지금?"
   - "손 좀 보태라!"
+  - "놀 거면 밥도 굶든가!"
+  - "그 손은 장식이야?"
   DefaultReplyLines:
   - "어… 지금 하려고 했어"
+  - "금방 하려던 참이었어, 진짜야"
+  - "쉬는 것도 일이라고..."
   PersonalityReplies:
   - Personality: {fileID: 11400000, guid: d3a96c4e05f3472b18e0c27a53f9b4a6, type: 2}
     Lines:
     - "흥, 내 방식대로 할 거야"
+    - "내가 알아서 한다니까"
+    - "네 일이나 잘하시지"
   - Personality: {fileID: 11400000, guid: c2f85b3d94e2461a07d9b16f42e8a395, type: 2}
     Lines:
     - "아, 미안해요… 지금 갈게요"
+    - "헤헤... 들켰네요"
+    - "죄송해요, 바로 움직일게요!"
   - Personality: {fileID: 11400000, guid: a2e63c8f75b4491d06c9d34a81f5e7b2, type: 2}
     Lines:
     - "상관하지 마세요"
+    - "...듣고 있었어요"
+    - "재촉하면 더 하기 싫어져요"

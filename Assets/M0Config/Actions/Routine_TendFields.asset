@@ -17,6 +17,8 @@ MonoBehaviour:
   - "밭을 둘러보자"
   - "작물은 잘 크고 있나"
   - "흙 상태가 좋군"
+  - "벌레는 없나 보자"
+  - "잡초는 그때그때 뽑아줘야지"
   BaseCost: 1
   DurationSec: 4
   Preconditions: []

@@ -17,6 +17,8 @@ MonoBehaviour:
   - "열매를 따자"
   - "잘 익은 것만 골라야지"
   - "덤불을 뒤져보자"
+  - "가시 조심, 가시"
+  - "새들이 좀 남겨놨으려나"
   BaseCost: 10
   DurationSec: 2
   Preconditions:

@@ -17,6 +17,8 @@ MonoBehaviour:
   - "좀 쉬어야겠어"
   - "다리가 후들거려..."
   - "잠깐만 앉자"
+  - "하늘 한번 보고 가자"
+  - "땅바닥도 생각보다 편하네"
   BaseCost: 12
   DurationSec: 4
   Preconditions: []

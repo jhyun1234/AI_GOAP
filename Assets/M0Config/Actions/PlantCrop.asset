@@ -17,6 +17,8 @@ MonoBehaviour:
   - "씨앗을 심자"
   - "무럭무럭 자라라"
   - "곧 싹이 트겠지"
+  - "줄 맞춰 심어야 예쁘지"
+  - "물은 하늘이 주겠지"
   BaseCost: 8
   DurationSec: 2
   Preconditions:

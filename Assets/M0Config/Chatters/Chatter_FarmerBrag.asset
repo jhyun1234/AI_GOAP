@@ -21,15 +21,25 @@ MonoBehaviour:
   - "이 작물 좀 봐, 실하지?"
   - "올해 농사 대풍이야!"
   - "내 손을 거치면 다 이렇게 된다니까"
+  - "이런 건 아무나 못 키워"
+  - "장에 내다 팔아도 되겠어"
   DefaultReplyLines:
   - "오, 좋아 보이네"
+  - "부지런하긴 하다니까"
+  - "나도 하나 줘 봐"
   PersonalityReplies:
   - Personality: {fileID: 11400000, guid: d3a96c4e05f3472b18e0c27a53f9b4a6, type: 2}
     Lines:
     - "쳇, 그 정도는 나도 해"
+    - "운이 좋았겠지"
+    - "흥, 내 밭이 더 클걸"
   - Personality: {fileID: 11400000, guid: c2f85b3d94e2461a07d9b16f42e8a395, type: 2}
     Lines:
     - "우와, 정말 대단해요!"
+    - "비결 좀 알려주세요!"
+    - "보기만 해도 배불러요"
   - Personality: {fileID: 11400000, guid: a2e63c8f75b4491d06c9d34a81f5e7b2, type: 2}
     Lines:
     - "...네, 잘하셨네요"
+    - "...자랑이 심하시네요"
+    - "네네, 대단하세요"

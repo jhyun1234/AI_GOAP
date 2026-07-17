@@ -21,15 +21,25 @@ MonoBehaviour:
   - "일도 안 하면서 밥은 먹고 싶어??"
   - "겨울 오면 네 몫은 없을 줄 알아!"
   - "그 밥이 어디서 나오는 줄은 알아?"
+  - "겨울은 기다려주지 않아!"
+  - "곳간 빌 때 후회하지 마!"
   DefaultReplyLines:
   - "어… 지금 하려고 했어"
+  - "아직 시간 있잖아..."
+  - "알았어, 알았다고"
   PersonalityReplies:
   - Personality: {fileID: 11400000, guid: d3a96c4e05f3472b18e0c27a53f9b4a6, type: 2}
     Lines:
     - "흥, 내 방식대로 할 거야"
+    - "겨울쯤 내가 알아서 나"
+    - "잔소리로 곳간이 차든?"
   - Personality: {fileID: 11400000, guid: c2f85b3d94e2461a07d9b16f42e8a395, type: 2}
     Lines:
     - "아, 미안해요… 지금 갈게요"
+    - "맞아요, 서둘러야죠..."
+    - "죄송해요, 저도 보탤게요!"
   - Personality: {fileID: 11400000, guid: a2e63c8f75b4491d06c9d34a81f5e7b2, type: 2}
     Lines:
     - "상관하지 마세요"
+    - "제 몫은 제가 챙겨요"
+    - "...알고 있어요, 겨울"

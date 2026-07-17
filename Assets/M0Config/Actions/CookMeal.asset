@@ -17,6 +17,8 @@ MonoBehaviour:
   - "찌개라도 끓여볼까"
   - "맛있는 냄새가 나겠지"
   - "요리하는 시간이 좋아"
+  - "간이 딱 맞아야 할 텐데"
+  - "오늘 솜씨 좀 볼까"
   BaseCost: 6
   DurationSec: 3
   Preconditions:

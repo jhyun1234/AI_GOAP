@@ -17,6 +17,8 @@ MonoBehaviour:
   - "모닥불 곁에서 쉬자"
   - "불멍이 최고야"
   - "따뜻하다..."
+  - "장작 타는 소리 좋다"
+  - "몸이 노곤노곤해지네"
   BaseCost: 1
   DurationSec: 4
   Preconditions: []

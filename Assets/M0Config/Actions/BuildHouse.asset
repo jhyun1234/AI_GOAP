@@ -17,6 +17,8 @@ MonoBehaviour:
   - "집을 짓자"
   - "내 집 마련의 꿈"
   - "튼튼하게 지어야지"
+  - "지붕만 얹으면 끝이야"
+  - "비바람은 이제 안녕이지"
   BaseCost: 15
   DurationSec: 5
   Preconditions: []

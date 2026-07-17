@@ -17,6 +17,8 @@ MonoBehaviour:
   - "따뜻한 밥을 먹자"
   - "김이 모락모락~"
   - "역시 요리한 게 최고야"
+  - "잘 먹겠습니다!"
+  - "속이 든든해지네"
   BaseCost: 5
   DurationSec: 2
   Preconditions:

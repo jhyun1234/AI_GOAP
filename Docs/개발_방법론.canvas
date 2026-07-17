@@ -1,0 +1,55 @@
+{
+  "nodes": [
+    { "id": "req", "type": "text", "text": "## 요구 접수", "x": 0, "y": 0, "width": 300, "height": 70 },
+    { "id": "kind", "type": "text", "text": "**새 기능 · 밀스톤?**", "x": 0, "y": 150, "width": 300, "height": 80, "color": "2" },
+    { "id": "direct", "type": "text", "text": "### 스킬 없이 직접\n즉석 버그 · 소규모 리팩터\n(M1 근본진단 필수)", "x": -380, "y": 150, "width": 300, "height": 100 },
+    { "id": "explore", "type": "text", "text": "### 탐색\n\"플레이어가 보는 것\" 한 문단\n+ 넓히기 분류 ①선반위 / ②새선반\n둘 다 못 쓰면 → 보류·질문 (M8)", "x": 0, "y": 310, "width": 300, "height": 120 },
+    { "id": "specwrite", "type": "text", "text": "### spec-write\n성공기준(숫자) · ADR · 커밋분할\n스코프가드 · ⚠️오해위험\nDoD `- [ ]` · 재미검증절", "x": 0, "y": 510, "width": 300, "height": 120 },
+    { "id": "impl", "type": "text", "text": "### spec-implement\nADR · ⚠️ 먼저 읽기\n→ DoD 하나씩 수행 `- [x]`", "x": 0, "y": 710, "width": 300, "height": 100 },
+    { "id": "check4", "type": "text", "text": "**커밋 전 체크 4종**\n컴파일 · 게이트 green · 에셋 GUID · leak 0", "x": 0, "y": 870, "width": 300, "height": 80 },
+    { "id": "selfrev", "type": "text", "text": "### M5 자가 재검토\n🔴 즉시수정 / 🟡 관찰(발현조건)", "x": 0, "y": 1010, "width": 300, "height": 90, "color": "1" },
+    { "id": "review", "type": "text", "text": "### spec-review\n판정표 ✅⚠️❌ · 심각도 🔴🟠🟡\n\"게임이 잘 진행되는가\"", "x": 0, "y": 1190, "width": 300, "height": 100, "color": "6" },
+    { "id": "play", "type": "text", "text": "## 사용자 Play 검증", "x": 0, "y": 1370, "width": 300, "height": 70, "color": "3" },
+    { "id": "root", "type": "text", "text": "### M1 근본 진단\n(피드백은 패치 아닌 진단으로)", "x": -400, "y": 1370, "width": 320, "height": 80 },
+    { "id": "devlog", "type": "text", "text": "### devlog 커밋·푸시\n블로그 파이프라인 1차 소재", "x": 0, "y": 1520, "width": 300, "height": 90 },
+    { "id": "mem", "type": "text", "text": "### memory 갱신\nMEMORY.md START HERE + project 노트\n= 다음 세션의 진입점", "x": 0, "y": 1680, "width": 300, "height": 100 },
+
+    { "id": "g_ns", "type": "group", "label": "북극성 (상위 기준)", "x": 500, "y": -80, "width": 360, "height": 360 },
+    { "id": "n1", "type": "text", "text": "**N1 · 재미 우선**\n회상 테스트 · \"방치가 안락하면 실패\"", "x": 520, "y": 0, "width": 320, "height": 70, "color": "4" },
+    { "id": "n2", "type": "text", "text": "**N2 · 넓혀지는 개발**\n에셋 1개 · .cs 0 · 넓히기 분류", "x": 520, "y": 95, "width": 320, "height": 70, "color": "4" },
+    { "id": "n3", "type": "text", "text": "**N3 · 명세 선행**\n명세 = 코드의 원본, 1항목 1커밋", "x": 520, "y": 190, "width": 320, "height": 70, "color": "4" },
+
+    { "id": "g_mech", "type": "group", "label": "사고 메커니즘 (판단이 갈릴 때)", "x": 500, "y": 360, "width": 360, "height": 620 },
+    { "id": "m1", "type": "text", "text": "M1 근본원인 우선 — 증상 패치 금지", "x": 520, "y": 420, "width": 320, "height": 58, "color": "5" },
+    { "id": "m2", "type": "text", "text": "M2 단일 쓰기 지점 — 두 번째 경로=설계오류", "x": 520, "y": 490, "width": 320, "height": 58, "color": "5" },
+    { "id": "m3", "type": "text", "text": "M3 ADR 선(先)확정 — 판단을 미리 못 박음", "x": 520, "y": 560, "width": 320, "height": 58, "color": "5" },
+    { "id": "m4", "type": "text", "text": "M4 2회 오해 → ADR/게이트 승격", "x": 520, "y": 630, "width": 320, "height": 58, "color": "5" },
+    { "id": "m5", "type": "text", "text": "M5 자가 재검토 — 보고 전 5관점 심문", "x": 520, "y": 700, "width": 320, "height": 58, "color": "5" },
+    { "id": "m6", "type": "text", "text": "M6 수치 비(非)발명 — 원본 지목 or 승인", "x": 520, "y": 770, "width": 320, "height": 58, "color": "5" },
+    { "id": "m7", "type": "text", "text": "M7 관찰항목 🟡 — 알지만 지금 안 고침", "x": 520, "y": 840, "width": 320, "height": 58, "color": "5" },
+    { "id": "m8", "type": "text", "text": "M8 데이터기반 선택지 + 추천", "x": 520, "y": 910, "width": 320, "height": 58, "color": "5" },
+
+    { "id": "doc", "type": "file", "file": "Docs/개발_방법론_명세서.md", "x": -440, "y": 1560, "width": 400, "height": 300 }
+  ],
+  "edges": [
+    { "id": "e1", "fromNode": "req", "fromSide": "bottom", "toNode": "kind", "toSide": "top" },
+    { "id": "e2", "fromNode": "kind", "fromSide": "left", "toNode": "direct", "toSide": "right", "label": "즉석 버그" },
+    { "id": "e3", "fromNode": "kind", "fromSide": "bottom", "toNode": "explore", "toSide": "top", "label": "새 기능" },
+    { "id": "e4", "fromNode": "explore", "fromSide": "bottom", "toNode": "specwrite", "toSide": "top" },
+    { "id": "e5", "fromNode": "specwrite", "fromSide": "bottom", "toNode": "impl", "toSide": "top" },
+    { "id": "e6", "fromNode": "impl", "fromSide": "bottom", "toNode": "check4", "toSide": "top" },
+    { "id": "e7", "fromNode": "check4", "fromSide": "bottom", "toNode": "selfrev", "toSide": "top" },
+    { "id": "e8", "fromNode": "direct", "fromSide": "bottom", "toNode": "selfrev", "toSide": "left" },
+    { "id": "e9", "fromNode": "selfrev", "fromSide": "bottom", "toNode": "review", "toSide": "top" },
+    { "id": "e10", "fromNode": "review", "fromSide": "bottom", "toNode": "play", "toSide": "top" },
+    { "id": "e11", "fromNode": "play", "fromSide": "left", "toNode": "root", "toSide": "right", "label": "피드백" },
+    { "id": "e12", "fromNode": "root", "fromSide": "top", "toNode": "kind", "toSide": "left" },
+    { "id": "e13", "fromNode": "play", "fromSide": "bottom", "toNode": "devlog", "toSide": "top", "label": "통과" },
+    { "id": "e14", "fromNode": "devlog", "fromSide": "bottom", "toNode": "mem", "toSide": "top" },
+    { "id": "e15", "fromNode": "n1", "fromSide": "left", "toNode": "explore", "toSide": "right", "label": "재미" },
+    { "id": "e16", "fromNode": "n2", "fromSide": "left", "toNode": "explore", "toSide": "right", "label": "넓히기" },
+    { "id": "e17", "fromNode": "n3", "fromSide": "left", "toNode": "specwrite", "toSide": "right", "label": "명세 선행" },
+    { "id": "e18", "fromNode": "m1", "fromSide": "left", "toNode": "root", "toSide": "right" },
+    { "id": "e19", "fromNode": "m5", "fromSide": "left", "toNode": "selfrev", "toSide": "right" }
+  ]
+}

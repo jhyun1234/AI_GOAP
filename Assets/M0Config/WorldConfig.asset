@@ -21,5 +21,6 @@ MonoBehaviour:
   BaseDiscoverRadius: 12
   SeasonCycle:
   - {fileID: 11400000, guid: 08815e16bf29421cb320cab0ea5b2db0, type: 2}
+  - {fileID: 11400000, guid: b1fe294e4d424ad4a029a40ee0e79cf9, type: 2}
   - {fileID: 11400000, guid: 050728de4ded48e3ab557819f75696bd, type: 2}
   ForecastDays: 3

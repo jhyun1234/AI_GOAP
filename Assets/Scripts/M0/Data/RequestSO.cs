@@ -54,6 +54,9 @@ namespace AIVillage.M0
         [Tooltip("거절 시 의뢰인→대상 (서운함 — 음수)")]
         public int RefusedDelta = -5;
 
+        [Tooltip("보상을 떼먹혔을 때 수행자→의뢰인 (원한 재료 — 음수. ADR-보상1의 결과)")]
+        public int StiffedDelta = -10;
+
         [Header("주민 간 보상 (M8 후속 — 완공 보고 장면에서 의뢰인이 대접. 0 = 보상 없음, 중립)")]
         [Tooltip("보고 시점에 마을 스톡에서 차감할 슬롯 (개인 소유가 없으므로 공용 스톡 — 밥 대접)")]
         public SlotId RewardCostSlot = SlotId.CookedFoodStock;
@@ -76,6 +79,9 @@ namespace AIVillage.M0
 
         [Tooltip("보고 장면에서 의뢰인의 감사 대사 (보상 없음/재고 부족 시)")]
         public string[] ThanksLines;
+
+        [Tooltip("선불 거절 대사 (M8 보완 — 선불 성격 수행자가 보상 재고 없음/보상 0 부탁을 거절)")]
+        public string[] RefuseNoRewardLines;
 
         private void OnValidate()
         {

@@ -42,7 +42,21 @@ namespace AIVillage.M0
             return 0;
         }
 
+        [Header("보상 태도 (M8 보완 — 주민 간 보상. 기본값 = 중립: 안 떼먹고 후불 수용)")]
+        [Tooltip("의뢰인일 때: 수행자에 대한 친밀도가 이 미만이면 보상을 떼먹는다 (ADR-보상1 — " +
+                 "결정적, 랜덤 금지). 기본 -100 = 친밀도 하한이라 판정 성립 불가 (절대 안 떼먹음). " +
+                 "주의: 수락 +5·완수 +15 델타가 판정보다 먼저 쌓인다 — 거래 자체가 +20이므로 " +
+                 "문턱은 그 위에 잡을 것. 제안치: 고집쟁이 25(초면 떼먹음), 새침이 30(꽤 친해야 지급).")]
+        public int SkipRewardBelowAffinity = -100;
+
+        [Tooltip("수행자일 때: 보상 선불을 요구한다 (ADR-보상2 — 수락 시 즉시 지급, 재고 없으면 " +
+                 "거절). 보상 없는 부탁은 항상 거절 (ADR-보상4). 선불 = 확실하지만 깐깐.")]
+        public bool DemandsRewardUpfront;
+
         [Header("대사 (비면 기본 대사 사용 — 중립 경로)")]
+        [Tooltip("보상 떼먹기 대사 오버라이드 (비면 AgentConfig 기본) — 예: 보상?! 하.. 내가 생각 해볼게~")]
+        public string[] StiffRewardLines;
+
         [Tooltip("혼잣말 풀 — 액션 문구 대신 MoodLineChance 확률로 표시 (M4-D)")]
         public string[] MoodLines;
 

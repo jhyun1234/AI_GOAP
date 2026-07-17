@@ -244,6 +244,56 @@ namespace AIVillage.Tests.EditMode
         }
 
         [Test]
+        public void M8_T2_JudgeRequest_UpfrontDemand()
+        {
+            // 선불 요구 (ADR-보상2·보상4) — 판정 순서는 친밀 뒤 (몸→마음→조건)
+            var cfg = ScriptableObject.CreateInstance<AgentConfigSO>();
+            var r = ScriptableObject.CreateInstance<RequestSO>();
+            r.RefuseAffinityBelow = -10;
+            var upfront = ScriptableObject.CreateInstance<PersonalitySO>();
+            upfront.DemandsRewardUpfront = true;
+
+            Assert.AreEqual(VillagerAgent.RequestResult.RefusedNoReward,
+                VillagerAgent.JudgeRequest(false, 100f, 0f, 0, cfg, upfront, r, upfrontAvailable: false),
+                "선불 성격 + 지급 불가 = 거절(선불)");
+            Assert.AreEqual(VillagerAgent.RequestResult.Accepted,
+                VillagerAgent.JudgeRequest(false, 100f, 0f, 0, cfg, upfront, r, upfrontAvailable: true),
+                "선불 성격 + 지급 가능 = 수락");
+            Assert.AreEqual(VillagerAgent.RequestResult.RefusedLowAffinity,
+                VillagerAgent.JudgeRequest(false, 100f, 0f, -50, cfg, upfront, r, upfrontAvailable: false),
+                "친밀이 선불보다 먼저 판정 (사유 순서)");
+
+            // 중립 불변식 (S4): 기본 성격·p null은 upfrontAvailable 무관 수락
+            var neutral = ScriptableObject.CreateInstance<PersonalitySO>();
+            Assert.AreEqual(VillagerAgent.RequestResult.Accepted,
+                VillagerAgent.JudgeRequest(false, 100f, 0f, 0, cfg, neutral, r, upfrontAvailable: false),
+                "기본 성격 = 후불 수용 (5ce720e 동작 동일)");
+            Assert.AreEqual(VillagerAgent.RequestResult.Accepted,
+                VillagerAgent.JudgeRequest(false, 100f, 0f, 0, cfg, null, r, upfrontAvailable: false),
+                "성격 없음 = 후불 수용");
+
+            DestroyAll(cfg, r, upfront, neutral);
+        }
+
+        [Test]
+        public void M8_T2_ShouldStiffReward_BoundaryAndNeutral()
+        {
+            // 떼먹기 판정 (ADR-보상1) — 결정적, 문턱 '미만'만 떼먹음
+            var stingy = ScriptableObject.CreateInstance<PersonalitySO>();
+            stingy.SkipRewardBelowAffinity = 5;
+
+            Assert.IsFalse(RequestService.ShouldStiffReward(stingy, 5), "경계값 5 = 지급 ('미만'만 떼먹음)");
+            Assert.IsTrue(RequestService.ShouldStiffReward(stingy, 4), "4 = 떼먹음");
+
+            var neutral = ScriptableObject.CreateInstance<PersonalitySO>();
+            Assert.IsFalse(RequestService.ShouldStiffReward(neutral, -100),
+                "기본값 -100 = 친밀 하한에서도 지급 (중립 불변식 — 절대 안 떼먹음)");
+            Assert.IsFalse(RequestService.ShouldStiffReward(null, -100), "성격 없음 = 지급");
+
+            DestroyAll(stingy, neutral);
+        }
+
+        [Test]
         public void M8_T2_JudgeRequest_Deterministic100x()
         {
             var cfg = ScriptableObject.CreateInstance<AgentConfigSO>();

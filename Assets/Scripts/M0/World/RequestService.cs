@@ -24,12 +24,12 @@ namespace AIVillage.M0
         private float _nextScanAt;
         // 의뢰인 개인 쿨다운 — 거절당하면 한동안 다시 조르지 않는다 (수락 시에도 기록 — 중복 방지 이중화)
         private readonly Dictionary<string, float> _requesterCooldownUntil = new Dictionary<string, float>(16);
-        // 진행 중 부탁 (수락~완수): 수락자 ID → (부탁, 의뢰인 ID). 세이브 대상 (ADR-M0-10)
-        private readonly Dictionary<string, (RequestSO so, string requesterId)> _inFlight =
-            new Dictionary<string, (RequestSO, string)>(4);
-        // 완공 보고 대기 (완수~보고 장면): 수행자 ID → (부탁, 의뢰인 ID, 마감). 저장 불필요 — 로드 후 소멸 (연출)
-        private readonly Dictionary<string, (RequestSO so, string requesterId, float deadline)> _pendingReports =
-            new Dictionary<string, (RequestSO, string, float)>(4);
+        // 진행 중 부탁 (수락~완수): 수락자 ID → (부탁, 의뢰인 ID, 선불 완료 여부). 세이브 대상 (ADR-M0-10)
+        private readonly Dictionary<string, (RequestSO so, string requesterId, bool prepaid)> _inFlight =
+            new Dictionary<string, (RequestSO, string, bool)>(4);
+        // 완공 보고 대기 (완수~보고 장면): 수행자 ID → (부탁, 의뢰인 ID, 선불 여부, 마감). 저장 불필요 — 로드 후 소멸 (연출)
+        private readonly Dictionary<string, (RequestSO so, string requesterId, bool prepaid, float deadline)> _pendingReports =
+            new Dictionary<string, (RequestSO, string, bool, float)>(4);
         private readonly List<VillagerAgent> _scratch = new List<VillagerAgent>(16);
 
         public RequestService(WorldConfigSO world, AgentConfigSO agentCfg, RelationshipService relationship,
@@ -50,7 +50,7 @@ namespace AIVillage.M0
         /// <summary>정보줄용 (M8 후속) — agentId가 수락해 진행 중인 부탁의 (의뢰인, 할 일 라벨).</summary>
         public bool TryGetAssignment(string agentId, out string requesterId, out string taskLabel)
         {
-            if (_inFlight.TryGetValue(agentId, out (RequestSO so, string requesterId) rec))
+            if (_inFlight.TryGetValue(agentId, out (RequestSO so, string requesterId, bool prepaid) rec))
             {
                 requesterId = rec.requesterId;
                 taskLabel = rec.so.TaskLabelOrDefault;
@@ -61,10 +61,17 @@ namespace AIVillage.M0
             return false;
         }
 
+        /// <summary>
+        /// 떼먹기 판정 (순수 — 게이트 대상, ADR-보상1): 의뢰인 성격의 친밀 문턱 미만이면 떼먹음.
+        /// 랜덤 금지 — 관계 표기로 예측 가능. p null·기본값 -100 = 판정 성립 불가 (절대 안 떼먹음).
+        /// </summary>
+        public static bool ShouldStiffReward(PersonalitySO p, int affinityTowardBuilder)
+            => p != null && affinityTowardBuilder < p.SkipRewardBelowAffinity;
+
         /// <summary>이 슬롯을 배정하는 부탁이 진행 중인가 — 클레임 패스 유예 질의 (부탁자 우선권, M8-C ⚠️②).</summary>
         public bool AnyInFlightGranting(SlotId slot)
         {
-            foreach (KeyValuePair<string, (RequestSO so, string requesterId)> kv in _inFlight)
+            foreach (KeyValuePair<string, (RequestSO so, string requesterId, bool prepaid)> kv in _inFlight)
                 if (kv.Value.so.GrantOwnership && kv.Value.so.OwnershipSlot == slot) return true;
             return false;
         }
@@ -72,7 +79,7 @@ namespace AIVillage.M0
         /// <summary>agentId가 의뢰인으로 걸어 둔 진행 중 부탁이 있는가 — 중복 부탁 방지.</summary>
         public bool HasInFlightFrom(string requesterId)
         {
-            foreach (KeyValuePair<string, (RequestSO so, string requesterId)> kv in _inFlight)
+            foreach (KeyValuePair<string, (RequestSO so, string requesterId, bool prepaid)> kv in _inFlight)
                 if (kv.Value.requesterId == requesterId) return true;
             return false;
         }
@@ -157,7 +164,18 @@ namespace AIVillage.M0
             {
                 _relationship.AddAffinity(requester.AgentId, target.AgentId, r.AcceptDelta,
                                           $"{r.DisplayName} 수락");
-                _inFlight[target.AgentId] = (r, requester.AgentId);
+                // 선불 성격 (ADR-보상2): 수락 즉시 지급 — 판정(가용성 검사)과 같은 틱이라 안전.
+                // 선불 완료 부탁은 보고 장면에서 지급·떼먹기 판정 없음 (prepaid — 이중 지급 차단)
+                bool prepaid = target.Personality != null && target.Personality.DemandsRewardUpfront
+                               && r.RewardCostAmount > 0 && _worldModel != null
+                               && _worldModel.TrySpendStock(r.RewardCostSlot, r.RewardCostAmount);
+                if (prepaid)
+                {
+                    target.ApplyNeedEffect(SlotId.MySatiety, EffectOp.Add, r.RewardSatietyGain);
+                    Debug.Log($"[Request] 선불 — {requester.AgentId}→{target.AgentId}: " +
+                              $"{r.RewardCostSlot} -{r.RewardCostAmount}, 포만 +{r.RewardSatietyGain}");
+                }
+                _inFlight[target.AgentId] = (r, requester.AgentId, prepaid);
             }
             else
             {
@@ -175,6 +193,7 @@ namespace AIVillage.M0
                 case VillagerAgent.RequestResult.Accepted:           return r.AcceptLines;
                 case VillagerAgent.RequestResult.RefusedBusy:        return r.RefuseBusyLines;
                 case VillagerAgent.RequestResult.RefusedLowAffinity: return r.RefuseLowAffinityLines;
+                case VillagerAgent.RequestResult.RefusedNoReward:    return r.RefuseNoRewardLines;
                 case VillagerAgent.RequestResult.RefusedHungry:
                     return FirstNonEmpty(target.Personality != null ? target.Personality.RefuseHungryLines : null,
                                          _agentCfg.RefuseHungryLines);
@@ -192,6 +211,7 @@ namespace AIVillage.M0
                 case VillagerAgent.RequestResult.RefusedBusy:        return "거절(바쁨)";
                 case VillagerAgent.RequestResult.RefusedHungry:      return "거절(배고픔)";
                 case VillagerAgent.RequestResult.RefusedTired:       return "거절(피로)";
+                case VillagerAgent.RequestResult.RefusedNoReward:    return "거절(선불)";
                 default:                                             return "거절(원한)";
             }
         }
@@ -203,7 +223,7 @@ namespace AIVillage.M0
         /// </summary>
         public void NotifyFulfilled(string builderId)
         {
-            if (!_inFlight.TryGetValue(builderId, out (RequestSO so, string requesterId) rec)) return;
+            if (!_inFlight.TryGetValue(builderId, out (RequestSO so, string requesterId, bool prepaid) rec)) return;
             _inFlight.Remove(builderId);
 
             _relationship.AddAffinity(rec.requesterId, builderId, rec.so.FulfillDelta, $"{rec.so.DisplayName} 완수");
@@ -239,7 +259,7 @@ namespace AIVillage.M0
                 return;
             }
             builder.GiveReportErrand(_world.ReportErrandGoal, rec.requesterId);
-            _pendingReports[builderId] = (rec.so, rec.requesterId, Time.time + _world.ReportTimeoutSec);
+            _pendingReports[builderId] = (rec.so, rec.requesterId, rec.prepaid, Time.time + _world.ReportTimeoutSec);
         }
 
         /// <summary>
@@ -250,7 +270,8 @@ namespace AIVillage.M0
         public void PlayReport(VillagerAgent builder)
         {
             if (builder == null) return;
-            if (!_pendingReports.TryGetValue(builder.AgentId, out (RequestSO so, string requesterId, float deadline) rec))
+            if (!_pendingReports.TryGetValue(builder.AgentId,
+                    out (RequestSO so, string requesterId, bool prepaid, float deadline) rec))
             {
                 builder.ClearRequestErrand(); // 기록 없음 (의뢰인 이탈 등) — 심부름만 회수
                 return;
@@ -264,9 +285,25 @@ namespace AIVillage.M0
                 builder.FaceForChat(requester.transform.position, _agentCfg.ChatPauseSec);
                 requester.FaceForChat(builder.transform.position, _agentCfg.ChatPauseSec);
 
-                bool paid = rec.so.RewardCostAmount > 0 && _worldModel != null
-                            && _worldModel.TrySpendStock(rec.so.RewardCostSlot, rec.so.RewardCostAmount);
-                if (paid)
+                // 응수 분기: 보상 없음/선불 완료 → 감사 / 떼먹는 성격+낮은 친밀 → 떼먹기 (ADR-보상1)
+                // / 그 외 → 지급 시도 (재고 부족이면 감사)
+                if (rec.so.RewardCostAmount <= 0 || rec.prepaid)
+                {
+                    requester.ShowTransientDelayed(Pick(rec.so.ThanksLines), _agentCfg.ReplyDelaySec);
+                }
+                else if (ShouldStiffReward(requester.Personality,
+                                           _relationship.AffinityOf(rec.requesterId, builder.AgentId)))
+                {
+                    requester.ShowTransientDelayed(
+                        Pick(FirstNonEmpty(requester.Personality.StiffRewardLines, _agentCfg.StiffRewardLines)),
+                        _agentCfg.ReplyDelaySec);
+                    _relationship.AddAffinity(builder.AgentId, rec.requesterId, rec.so.StiffedDelta,
+                                              $"{rec.so.DisplayName} 보상 떼먹음");
+                    Debug.Log($"[Request] 보상 떼먹음 — {rec.requesterId} " +
+                              $"(수행자 {builder.AgentId} 관계 {rec.so.StiffedDelta})");
+                }
+                else if (_worldModel != null
+                         && _worldModel.TrySpendStock(rec.so.RewardCostSlot, rec.so.RewardCostAmount))
                 {
                     builder.ApplyNeedEffect(SlotId.MySatiety, EffectOp.Add, rec.so.RewardSatietyGain);
                     requester.ShowTransientDelayed(Pick(FirstNonEmpty(rec.so.RewardLines, rec.so.ThanksLines)),
@@ -277,8 +314,7 @@ namespace AIVillage.M0
                 else
                 {
                     requester.ShowTransientDelayed(Pick(rec.so.ThanksLines), _agentCfg.ReplyDelaySec);
-                    if (rec.so.RewardCostAmount > 0)
-                        Debug.Log($"[Request] 보상 생략 — {rec.so.RewardCostSlot} 재고 부족 (감사 대사만)");
+                    Debug.Log($"[Request] 보상 생략 — {rec.so.RewardCostSlot} 재고 부족 (감사 대사만)");
                 }
                 _chatter?.RecordChat(builder.AgentId, requester.AgentId, Time.time); // 보고 장면도 대화
             }
@@ -291,7 +327,7 @@ namespace AIVillage.M0
         {
             if (_pendingReports.Count == 0) return;
             _keysToRemove.Clear();
-            foreach (KeyValuePair<string, (RequestSO so, string requesterId, float deadline)> kv in _pendingReports)
+            foreach (KeyValuePair<string, (RequestSO so, string requesterId, bool prepaid, float deadline)> kv in _pendingReports)
                 if (nowSec >= kv.Value.deadline)
                     _keysToRemove.Add(kv.Key);
             foreach (string key in _keysToRemove)
@@ -306,14 +342,14 @@ namespace AIVillage.M0
         public void ReleaseBy(string agentId)
         {
             _keysToRemove.Clear();
-            foreach (KeyValuePair<string, (RequestSO so, string requesterId)> kv in _inFlight)
+            foreach (KeyValuePair<string, (RequestSO so, string requesterId, bool prepaid)> kv in _inFlight)
                 if (kv.Key == agentId || kv.Value.requesterId == agentId)
                     _keysToRemove.Add(kv.Key);
             foreach (string key in _keysToRemove)
                 _inFlight.Remove(key);
 
             _keysToRemove.Clear();
-            foreach (KeyValuePair<string, (RequestSO so, string requesterId, float deadline)> kv in _pendingReports)
+            foreach (KeyValuePair<string, (RequestSO so, string requesterId, bool prepaid, float deadline)> kv in _pendingReports)
                 if (kv.Key == agentId || kv.Value.requesterId == agentId)
                     _keysToRemove.Add(kv.Key);
             foreach (string key in _keysToRemove)

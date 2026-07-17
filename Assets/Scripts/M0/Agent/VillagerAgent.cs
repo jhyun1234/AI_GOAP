@@ -799,7 +799,7 @@ namespace AIVillage.M0
         // 주민 부탁 (M8-D, ADR-M8-4: _order와 대칭 — 개인 사다리의 또 한 칸)
         // ─────────────────────────────────────────────────────────────────────
 
-        public enum RequestResult { Accepted, RefusedBusy, RefusedHungry, RefusedTired, RefusedLowAffinity }
+        public enum RequestResult { Accepted, RefusedBusy, RefusedHungry, RefusedTired, RefusedLowAffinity, RefusedNoReward }
 
         private GoalSO _request;
         private bool _requestIsRuntimeClone;
@@ -808,14 +808,17 @@ namespace AIVillage.M0
         public GoalSO CurrentRequest => _request;
 
         /// <summary>
-        /// 부탁 판정의 유일한 규칙 (순수 — 게이트 M8-T2). 순서 = 바쁨→배고픔→피로→친밀
-        /// (몸이 먼저, 마음이 마지막 — ADR-M8-2). 배고픔·피로 문턱은 촌장 명령(JudgeOrder)과
-        /// 동일 규칙 재사용 — 부탁이라고 몸의 사정이 달라지지 않는다. 친밀만 부탁 고유 축.
+        /// 부탁 판정의 유일한 규칙 (순수 — 게이트 M8-T2). 순서 = 바쁨→배고픔→피로→친밀→선불
+        /// (몸 → 마음 → 조건 — ADR-M8-2·ADR-보상2). 배고픔·피로 문턱은 촌장 명령(JudgeOrder)과
+        /// 동일 규칙 재사용 — 부탁이라고 몸의 사정이 달라지지 않는다.
+        /// upfrontAvailable = 선불 지급 가능 여부 (보상 있음 + 재고 충분 — 호출자가 계산).
+        /// 선불 성격은 불가 시 거절, 보상 0 부탁도 여기로 (ADR-보상4 — 공짜로는 안 한다).
         /// 랜덤 금지 — 플레이어가 학습 가능해야 협상이 성립 (ADR-M1-2 계승).
         /// </summary>
         public static RequestResult JudgeRequest(bool busy, float satiety, float fatigue,
                                                  int affinityTowardRequester, AgentConfigSO cfg,
-                                                 PersonalitySO p, RequestSO r)
+                                                 PersonalitySO p, RequestSO r,
+                                                 bool upfrontAvailable = false)
         {
             if (busy) return RequestResult.RefusedBusy;
             OrderResult body = JudgeOrder(satiety, fatigue, cfg, p, null);
@@ -823,6 +826,8 @@ namespace AIVillage.M0
             if (body == OrderResult.RefusedTired) return RequestResult.RefusedTired;
             if (r != null && affinityTowardRequester < r.RefuseAffinityBelow)
                 return RequestResult.RefusedLowAffinity;
+            if (p != null && p.DemandsRewardUpfront && !upfrontAvailable)
+                return RequestResult.RefusedNoReward;
             return RequestResult.Accepted;
         }
 
@@ -834,8 +839,13 @@ namespace AIVillage.M0
         public RequestResult TryGiveRequest(RequestSO r, string requesterId)
         {
             if (r == null || r.InjectGoal == null) return RequestResult.RefusedBusy; // 방어 — 에셋 오류
+            // 선불 가용성 (ADR-보상2) — 보상이 있고 지금 재고가 충분해야. 판정과 차감이 같은
+            // 시뮬 틱이라 검사~지급 사이 경쟁 없음 (지급은 RequestService.Ask 수락 경로)
+            bool upfrontAvailable = r.RewardCostAmount > 0
+                                    && World.GetStock(r.RewardCostSlot) >= r.RewardCostAmount;
             RequestResult verdict = JudgeRequest(_request != null, Satiety, Fatigue,
-                _sim.Relationship.AffinityOf(AgentId, requesterId), _cfg, Personality, r);
+                _sim.Relationship.AffinityOf(AgentId, requesterId), _cfg, Personality, r,
+                upfrontAvailable);
             if (verdict != RequestResult.Accepted) return verdict;
 
             _request = ResolveRelativeGoal(r.InjectGoal, out _requestIsRuntimeClone);

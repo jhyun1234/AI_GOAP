@@ -22,6 +22,12 @@ MonoBehaviour:
   GoalBoosts:
   - Goal: {fileID: 11400000, guid: 0fd7741aeb03452b871f58e57e4c4233, type: 2}
     Boost: -25
+  SkipRewardBelowAffinity: 25
+  DemandsRewardUpfront: 1
+  StiffRewardLines:
+  - "보상? 흥, 나중에 생각해 보지"
+  - "일 다 끝난 마당에 무슨 보상이야"
+  - "받은 셈 치라고"
   MoodLines:
   - "내 방식대로 할 거야"
   - "잔소리는 사양이야"

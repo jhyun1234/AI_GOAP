@@ -48,3 +48,6 @@ MonoBehaviour:
   ThanksLines:
   - "고마워, 잘 먹을게!"
   - "덕분에 살았어"
+  RefuseNoRewardLines:
+  - "공짜로 해달라는 거야?"
+  - "요리도 품삯이 있는 법이야"

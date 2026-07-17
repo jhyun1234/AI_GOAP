@@ -89,6 +89,13 @@ namespace AIVillage.M0
             "조금만 쉬었다 하면 안 될까요...",
         };
 
+        [Tooltip("보상 떼먹기 기본 대사 (M8 보완) — 성격 StiffRewardLines가 비면 사용 (RefuseLines 패턴)")]
+        public string[] StiffRewardLines =
+        {
+            "아 맞다, 보상... 다음에 줄게.",
+            "보상은 나중에 얘기하자.",
+        };
+
         [Header("욕구 (초기값은 舊 VillagerBrain 기본값 이관)")]
         public float InitialSatiety = 70f;
         public float InitialFatigue = 20f;

@@ -55,3 +55,7 @@ MonoBehaviour:
   ThanksLines:
   - "정말 고마워... 지금은 줄 게 없네"
   - "이 은혜는 꼭 갚을게"
+  RefuseNoRewardLines:
+  - "빈손으로 부탁하는 거야?"
+  - "선불 없이는 안 해"
+  - "보상부터 준비해 와"

@@ -22,6 +22,12 @@ MonoBehaviour:
   GoalBoosts:
   - Goal: {fileID: 11400000, guid: 0fd7741aeb03452b871f58e57e4c4233, type: 2}
     Boost: -10
+  SkipRewardBelowAffinity: 30
+  DemandsRewardUpfront: 1
+  StiffRewardLines:
+  - "보상?! 하.. 내가 생각 해볼게~"
+  - "...보상 얘기를 왜 지금 해요?"
+  - "기억해 둘게요. 기억만요"
   MoodLines:
   - "말 걸지 마세요"
   - "...뭘 봐요?"

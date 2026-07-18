@@ -170,5 +170,25 @@ namespace AIVillage.Tests.EditMode
             Assert.IsNull(sel.Select(snap),
                 "정원 참 → 두 번째 주민 제외 (⚠② — 사본을 _goal에 넣으면 매번 새 키라 무력화될 경로)");
         }
+
+        // ── M9-I: HUD 식량 일수 표기 (표현, 중립 불변식) ─────────────────────────
+
+        [Test]
+        public void M9_I_Compose_FoodSuffix_NeutralWhenUnwired_RedWhenLow()
+        {
+            // 미배선(99) = 표기 없음 (기존 달력과 diff 0 — M6 게이트 불변)
+            Assert.AreEqual("Day 4", SeasonHud.Compose(4.2f, null, 3f),
+                "3-arg 기존 호출 = 식량 표기 없음");
+            Assert.AreEqual("Day 4", SeasonHud.Compose(4.2f, null, 3f, WorldModel.NO_ESTIMATE),
+                "99(중립) = 표기 없음");
+
+            // 배선 값 표기 + ≤2일치 붉은 강조
+            StringAssert.Contains("식량 5일치", SeasonHud.Compose(4.2f, null, 3f, 5));
+            string low = SeasonHud.Compose(4.2f, null, 3f, 2);
+            StringAssert.Contains("식량 2일치", low);
+            StringAssert.Contains("FF6B6B", low, "2일치 이하 붉은 강조");
+            StringAssert.DoesNotContain("FF6B6B", SeasonHud.Compose(4.2f, null, 3f, 3),
+                "3일치는 강조 없음");
+        }
     }
 }

@@ -66,10 +66,12 @@ namespace AIVillage.M0
             return text;
         }
 
-        /// <summary>SimulationLoop 틱마다 호출 — 문자열은 값이 바뀔 때만 재조립 (GC 절약).</summary>
-        public void Tick(float gameTime, SeasonService season, float forecastDays)
+        /// <summary>SimulationLoop 틱마다 호출 — 문자열은 값이 바뀔 때만 재조립 (GC 절약).
+        /// foodDaysLeft는 WorldModel.EstimateFoodDaysLeft() 단일 창구 값 (M9-I — HUD 자체 재계산 금지).</summary>
+        public void Tick(float gameTime, SeasonService season, float forecastDays,
+                         int foodDaysLeft = WorldModel.NO_ESTIMATE)
         {
-            string line = Compose(gameTime, season, forecastDays);
+            string line = Compose(gameTime, season, forecastDays, foodDaysLeft);
             if (line != _lastCalendar)
             {
                 _lastCalendar = line;
@@ -162,20 +164,32 @@ namespace AIVillage.M0
         /// <summary>
         /// 달력 문구 조립 — 표시 정책의 단일 지점, 순수 함수 (EditMode 게이트 대상).
         /// 평시 "Day N · 계절" / 예고 "…겨울까지 N일"(주황) / 위기 "…겨울 (남은 N일)"(하늘).
+        /// 뒤에 "식량 N일치"(M9-I) — 99(중립)면 생략, 2일치 이하는 붉은 강조.
         /// </summary>
-        public static string Compose(float gameTime, SeasonService season, float forecastDays)
+        public static string Compose(float gameTime, SeasonService season, float forecastDays,
+                                     int foodDaysLeft = WorldModel.NO_ESTIMATE)
         {
             int day = (int)gameTime;
-            if (season == null || season.Current == null) return $"Day {day}";
+            string food = FoodSuffix(foodDaysLeft);
+            if (season == null || season.Current == null) return $"Day {day}{food}";
 
             SeasonSO cur = season.Current;
             if (cur.IsCrisis)
                 return $"Day {day} · <color=#7EC8FF>{cur.DisplayName}</color> " +
-                       $"(남은 {Mathf.CeilToInt(season.DaysLeftInSeason)}일)";
+                       $"(남은 {Mathf.CeilToInt(season.DaysLeftInSeason)}일){food}";
             if (season.NextCrisis != null && season.DaysToCrisis <= forecastDays)
                 return $"Day {day} · {cur.DisplayName} · <color=#FF8A65>" +
-                       $"{season.NextCrisis.DisplayName}까지 {Mathf.CeilToInt(season.DaysToCrisis)}일</color>";
-            return $"Day {day} · {cur.DisplayName}";
+                       $"{season.NextCrisis.DisplayName}까지 {Mathf.CeilToInt(season.DaysToCrisis)}일</color>{food}";
+            return $"Day {day} · {cur.DisplayName}{food}";
+        }
+
+        /// <summary>식량 일수 접미사 (M9-I, 표현 전용) — 중립(99)이면 빈 문자열, ≤2일치는 붉은 강조.</summary>
+        private static string FoodSuffix(int foodDaysLeft)
+        {
+            if (foodDaysLeft >= WorldModel.NO_ESTIMATE) return ""; // 미배선·풍족 = 표기 없음 (중립)
+            return foodDaysLeft <= 2
+                ? $" · <color=#FF6B6B>식량 {foodDaysLeft}일치</color>"
+                : $" · 식량 {foodDaysLeft}일치";
         }
 
         /// <summary>이벤트 알림 1줄 (계절 전환·주민 이탈 등) — 최신 1건만, NOTIFY_SEC 후 소거.</summary>

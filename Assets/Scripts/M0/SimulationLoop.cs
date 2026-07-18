@@ -295,7 +295,7 @@ namespace AIVillage.M0
                     Disaster.Tick(Season.Current, daysIntoSeason, Season.SeasonOrdinal);
                 }
 
-                Hud?.Tick(GameTime, Season, _worldConfig.ForecastDays);
+                Hud?.Tick(GameTime, Season, _worldConfig.ForecastDays, World.EstimateFoodDaysLeft());
 
                 // 에이전트 틱 (W4) — 역순 순회: SimTick 중 파괴/해제로 리스트가 줄어도 안전
                 for (int i = _agents.Count - 1; i >= 0; i--)

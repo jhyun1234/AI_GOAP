@@ -59,8 +59,21 @@ memory: project
    (3장 민감정보 필터).
 6. **스킵 판단**: 딥다이브 후보도 없고 주간 요약할 세션 로그도 1~2줄뿐이면 `skip: true`.
    억지로 소재를 만들지 않는다 — 애드센스 저품질 정책 리스크가 소재 부족보다 크다.
-7. **SEO 방향 결정**: "인디게임 개발일지", "Unity GOAP AI" 등 5장의 틈새 키워드 전략에
-   맞춰, 각 후보 포스트에 어울리는 키워드 방향을 1~2개 제시한다.
+7. **SEO 방향 결정 (2026-07-18 개정 — 3층 키워드 + 유입 극대화)**: 기획서 5장 3번의
+   3층 키워드 전략에 맞춰, 각 후보 포스트에 **어느 층인지 명시하고** 키워드 방향을 1~2개
+   제시한다.
+   - **🟢 A층(초저경쟁·발판)**: `Unity GOAP 구현`, `Burst Job A* 길찾기`, `Unity JPS 길찾기`,
+     `Unity 타일 예약 시스템`, `Unity NoSolutionFound 원인`, `ScriptableObject 데이터 주도 설계`
+   - **🟡 B층(유입 주력)**: `Unity AI 구현`, `Unity 길찾기 알고리즘`, `게임 AI 알고리즘 정리`,
+     `Unity 최적화 Burst Job`, `Unity Fog of War 구현`
+   - **🔵 C층(트렌드·메타·차별화, 가장 무게)**: `Claude Code 게임 개발`,
+     `AI 에이전트로 개발일지 자동화`, `AI 페어 프로그래밍 후기`, `Claude로 유니티 코딩`
+   소재가 "AI와 함께 푼 장면"·자동화·설계 결정을 담고 있으면 **C층을 우선** 배정한다
+   (볼륨·차별화·상승세를 동시에 가진 층). 순수 알고리즘 구현이면 A/B층을 배정한다.
+   가능하면 같은 주제의 이전 발행글(`published/`·`BLOG_COVERAGE.md`)을 찾아
+   `internal_link_hint:`로 브리프에 남겨 토픽 클러스터 내부 링크를 유도한다.
+   **억지 양산 금지**: 소재가 얇으면 A층 저볼륨 키워드를 채우려 무리하게 쓰지 말고 6번
+   스킵 판단을 우선한다.
 
 ## 출력 형식 (작성팀에게 넘기는 브리프)
 
@@ -77,7 +90,9 @@ deep_dive_posts:
       - <hash>: <커밋 메시지 1줄 요약>
     checklist_hits: [<적용된 체크리스트 항목 1~4>]
     narrative_angle: <스토리 한 문장>
+    seo_layer: <A|B|C>            # 기획서 5장 3번 3층 키워드 전략
     seo_keywords: [<키워드1>, <키워드2>]
+    internal_link_hint: <같은 주제 이전 발행글 경로/제목, 없으면 생략>  # 토픽 클러스터 내부 링크용
 weekly_summary:
   session_refs:
     - devlog/sessions/YYYY-MM-DD.md#<HH:MM 요약>

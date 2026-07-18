@@ -28,6 +28,9 @@ MonoBehaviour:
   Disasters:
   - {fileID: 11400000, guid: 8f2b4d6a1c3e5079b8d2f4a6c1e3b5d7, type: 2}
   - {fileID: 11400000, guid: 2c7e9a4f6b1d3850a9c2e4f7b3d6a1c8, type: 2}
+  FoodSources:
+  - {fileID: 11400000, guid: b2e8f4a6c1d94073a8e5f6b2d90c4a38, type: 2}
+  - {fileID: 11400000, guid: 42a0aaccf8874c8a8dd0efab36d42543, type: 2}
   Chatters:
   - {fileID: 11400000, guid: 7c9ae1ce31904ed4b315800dff15c14f, type: 2}
   - {fileID: 11400000, guid: 48ccea3142fe4a859a1bedc03c7df6b0, type: 2}

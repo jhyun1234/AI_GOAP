@@ -18,13 +18,16 @@ MonoBehaviour:
   - Slot: 6
     Op: 0
     Value: 1
+  - Slot: 19
+    Op: 2
+    Value: 2
   - Slot: 1
     Op: 1
-    Value: 6
+    Value: 3
   GoalConditions:
   - Slot: 10
     Op: 1
-    Value: 6
+    Value: 2
   DirectActionPool: []
-  RelativeToCurrent: 0
+  RelativeToCurrent: 1
   MaxWorkers: 1

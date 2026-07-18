@@ -573,7 +573,8 @@ namespace AIVillage.M0
                 return;
             }
 
-            PathResult path = JPSPathfinder.FindPathResult(TileX, TileY, target.Value.x, target.Value.y, _sim.Walkable);
+            // 경로 탐색 창구 경유 (2026-07-18) — 알고리즘·지형표현은 IPathfinder 뒤에서 흡수.
+            PathResult path = _sim.Pathfinder.FindPath(TileX, TileY, target.Value.x, target.Value.y);
             switch (path.Kind)
             {
                 case PathResultKind.AlreadyThere:
@@ -889,7 +890,10 @@ namespace AIVillage.M0
             VisitTargetAgentId = null;
         }
 
-        // ── 완공 보고 심부름 (M8 후속 — "다 지었다고 알리러 가기") ────────────────
+        // ── [DEPRECATED 2026-07-18 — 조각 Y] 완공 보고 심부름 (M8 후속 — "알리러 가기") ────────
+        // 보고가 "쫓아가기"에서 "마주치면 정산"(RequestService.TickRewardSettlement)으로 바뀌며 휴면.
+        // GiveReportErrand는 더 이상 호출되지 않아 아래 전부 죽은 경로. 후속 정리 대상
+        // (Docs/퀘스트보드_및_보고심부름정리_후속.md).
 
         /// <summary>방문 심부름의 대상 주민 ID (VisitRunner가 읽는다). null = 심부름 없음.</summary>
         public string VisitTargetAgentId { get; private set; }

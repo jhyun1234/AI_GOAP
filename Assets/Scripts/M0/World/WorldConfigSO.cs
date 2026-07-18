@@ -66,10 +66,17 @@ namespace AIVillage.M0
         [Tooltip("의뢰인 개인 쿨다운(초, 실시간) — 거절당하면 한동안 다시 조르지 않는다. 제안치 90.")]
         public float RequestCooldownSec = 90f;
 
-        [Tooltip("완공 보고 심부름 goal (M8 후속 — 의뢰인 곁까지 걸어가 알림). 비면 그 자리 발화 (중립).")]
+        [Tooltip("보상 정산 반경(타일, 맨해튼) — 조각 Y: 목수와 의뢰인이 이 안에서 마주치면 보상 지급. " +
+                 "쫓아가지 않고 자연스러운 근접에서 정산. 제안치 3~4.")]
+        public int RewardSettleRadiusTiles = 3;
+
+        // [DEPRECATED 2026-07-18] 조각 Y로 보고 심부름(쫓아가기) → 마주치면 정산으로 교체됨.
+        // 아래 둘은 더 이상 참조되지 않는다(휴면). 관련 에셋(ReportErrand goal·VisitAction) 정리는
+        // 후속 작업 — Docs/퀘스트보드_및_보고심부름정리_후속.md 참조.
+        [Tooltip("[DEPRECATED — 조각 Y로 대체, 미사용] 완공 보고 심부름 goal.")]
         public GoalSO ReportErrandGoal;
 
-        [Tooltip("보고 심부름 마감(초, 실시간) — 의뢰인을 못 만나면 회수. 제안치 60.")]
+        [Tooltip("[DEPRECATED — 조각 Y로 대체, 미사용] 보고 심부름 마감 초.")]
         public float ReportTimeoutSec = 60f;
     }
 }

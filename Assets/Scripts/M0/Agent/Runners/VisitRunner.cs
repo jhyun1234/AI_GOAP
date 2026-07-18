@@ -3,8 +3,10 @@ using UnityEngine;
 namespace AIVillage.M0
 {
     /// <summary>
+    /// [DEPRECATED 2026-07-18 — 조각 Y] 보고가 "마주치면 정산"으로 바뀌며 휴면 (더 이상 실행 경로 없음).
+    /// VisitActionSO와 함께 후속 정리 대상 (Docs/퀘스트보드_및_보고심부름정리_후속.md).
+    ///
     /// 방문 러너 (M8 후속): 지정 주민 곁까지 이동 → DurationSec 머무름 → 도착 통지.
-    /// 대상이 사라졌으면(이탈) 실패 — 심부름 자체의 정리는 RequestService 타임아웃이 담당.
     /// </summary>
     public sealed class VisitRunner : ActionRunnerBase
     {

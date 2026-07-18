@@ -84,6 +84,10 @@ namespace AIVillage.M0
         /// <summary>JPS용 통행 가능 배열 (배열 인덱스 기준, MapConfig 크기). M0는 장애물 없음 — 전부 true.</summary>
         public bool[,] Walkable { get; private set; }
 
+        /// <summary>경로 탐색 창구 (2026-07-18) — 이동 계층은 이 인터페이스로만 경로를 구한다.
+        /// 알고리즘 교체(A*/HPA*)·가중치 지형은 이 뒤에서 흡수한다 (Docs/ADR_경로탐색_확장경계.md).</summary>
+        public IPathfinder Pathfinder { get; private set; }
+
         private BuildingVisualizer _visualizer;
         private FarmPlotView _farmView;
         private int _lastLoggedDay = -1;
@@ -187,6 +191,10 @@ namespace AIVillage.M0
             for (int x = 0; x < mapSize; x++)
                 for (int y = 0; y < mapSize; y++)
                     Walkable[x, y] = true;
+
+            // 경로 탐색 창구 — Walkable을 지연 조회하는 JPS 어댑터로 초기화한다.
+            // 후반 A*/HPA* 교체는 이 한 줄만 바꾼다 (Docs/ADR_경로탐색_확장경계.md).
+            Pathfinder = new JpsPathfinder(() => Walkable);
         }
 
         private void Start()

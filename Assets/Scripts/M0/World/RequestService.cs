@@ -27,9 +27,11 @@ namespace AIVillage.M0
         // 진행 중 부탁 (수락~완수): 수락자 ID → (부탁, 의뢰인 ID, 선불 완료 여부). 세이브 대상 (ADR-M0-10)
         private readonly Dictionary<string, (RequestSO so, string requesterId, bool prepaid)> _inFlight =
             new Dictionary<string, (RequestSO, string, bool)>(4);
-        // 완공 보고 대기 (완수~보고 장면): 수행자 ID → (부탁, 의뢰인 ID, 선불 여부, 마감). 저장 불필요 — 로드 후 소멸 (연출)
-        private readonly Dictionary<string, (RequestSO so, string requesterId, bool prepaid, float deadline)> _pendingReports =
-            new Dictionary<string, (RequestSO, string, bool, float)>(4);
+        // 보상 미정산 빚 (조각 Y, 2026-07-18): 수행자 ID → (부탁, 의뢰인 ID, 선불 여부).
+        // 일 완수 순간 기록되고, 수행자와 의뢰인이 자연스럽게 마주치면(TickRewardSettlement) 정산·소멸한다.
+        // 쫓아가지 않으므로 타임아웃 소실 없음 — 정리는 이탈(ReleaseBy)뿐. 저장 불필요(연출·로드 후 소멸).
+        private readonly Dictionary<string, (RequestSO so, string requesterId, bool prepaid)> _pendingReports =
+            new Dictionary<string, (RequestSO, string, bool)>(4);
         private readonly List<VillagerAgent> _scratch = new List<VillagerAgent>(16);
 
         public RequestService(WorldConfigSO world, AgentConfigSO agentCfg, RelationshipService relationship,
@@ -82,7 +84,7 @@ namespace AIVillage.M0
         /// </summary>
         public void Tick(float nowSec, IReadOnlyList<VillagerAgent> agents)
         {
-            TickReportTimeouts(nowSec); // 보고 심부름 마감 감시 — 대상 소실 시 무한 재시도 차단
+            TickRewardSettlement(nowSec); // 보상 빚 정산 — 목수·의뢰인이 마주치면 지급 (조각 Y)
 
             if (_world.Requests == null || _world.Requests.Length == 0) return; // 중립 — 부탁 없음
             if (nowSec < _nextScanAt) return;
@@ -241,32 +243,30 @@ namespace AIVillage.M0
             }
             Debug.Log($"[Request] {builderId}: {rec.so.DisplayName} 완수 — 의뢰인 {rec.requesterId}");
 
-            // 보고 심부름 — 심부름 goal 미배선이거나 의뢰인이 없으면 그 자리 발화 (중립 폴백)
+            // 보상 빚 기록 (조각 Y) — 목수는 쫓아가지 않는다. 의뢰인과 자연스럽게 마주치는 순간
+            // TickRewardSettlement가 정산 장면(PlayReport)을 재생한다. 타임아웃 소실 없음.
+            // 의뢰인이 이미 없으면(이탈) 정산 상대가 없으니 완수 혼잣말만 하고 빚은 기록하지 않는다.
             VillagerAgent builder = FindAgent(builderId);
             VillagerAgent requester = FindAgent(rec.requesterId);
-            if (_world.ReportErrandGoal == null || builder == null || requester == null)
+            if (builder == null || requester == null)
             {
                 builder?.ShowTransient(Pick(rec.so.FulfillLines));
                 return;
             }
-            builder.GiveReportErrand(_world.ReportErrandGoal, rec.requesterId);
-            _pendingReports[builderId] = (rec.so, rec.requesterId, rec.prepaid, Time.time + _world.ReportTimeoutSec);
+            _pendingReports[builderId] = (rec.so, rec.requesterId, rec.prepaid);
         }
 
         /// <summary>
-        /// 완공 보고 장면 (M8 후속) — VisitRunner 도착 통지가 호출. 수행자 완수 대사 →
-        /// 의뢰인 보상/감사 대사 (지연 응수). 보상 = 공용 스톡 차감 + 수행자 포만 (밥 대접 —
-        /// 개인 인벤토리 없음). 재고 부족이면 지급 생략 + 감사 대사 (로그로 구분).
+        /// 보상 정산 장면 (조각 Y) — TickRewardSettlement가 목수·의뢰인이 마주쳤을 때 호출.
+        /// 수행자 완수 대사 → 의뢰인 보상/감사 대사 (지연 응수). 보상 = 공용 스톡 차감 + 수행자
+        /// 포만 (밥 대접 — 개인 인벤토리 없음). 재고 부족이면 지급 생략 + 감사 대사 (로그로 구분).
         /// </summary>
         public void PlayReport(VillagerAgent builder)
         {
             if (builder == null) return;
             if (!_pendingReports.TryGetValue(builder.AgentId,
-                    out (RequestSO so, string requesterId, bool prepaid, float deadline) rec))
-            {
-                builder.ClearRequestErrand(); // 기록 없음 (의뢰인 이탈 등) — 심부름만 회수
-                return;
-            }
+                    out (RequestSO so, string requesterId, bool prepaid) rec))
+                return; // 정산할 빚 없음
             _pendingReports.Remove(builder.AgentId);
 
             builder.ShowTransient(Pick(rec.so.FulfillLines));
@@ -309,23 +309,33 @@ namespace AIVillage.M0
                 }
                 _chatter?.RecordChat(builder.AgentId, requester.AgentId, Time.time); // 보고 장면도 대화
             }
-            Debug.Log($"[Request] {builder.AgentId}: {rec.so.DisplayName} 보고 완료 → {rec.requesterId}");
-            builder.ClearRequestErrand();
+            Debug.Log($"[Request] {builder.AgentId}: {rec.so.DisplayName} 보상 정산 → {rec.requesterId}");
         }
 
-        /// <summary>보고 심부름 타임아웃 — 마감 초과분 회수 (의뢰인 소실·경로 실패 반복 대비).</summary>
-        private void TickReportTimeouts(float nowSec)
+        /// <summary>
+        /// 보상 빚 정산 (조각 Y) — 목수와 의뢰인이 정산 반경 안에서 마주치면 그 자리에서 지급.
+        /// 쫓아가지 않으므로 추격 수렴 문제가 없고, 못 만나도 빚은 남는다(소실 없음). 한 틱 1건
+        /// (장면 겹침 방지, 매칭 규약과 동일). 대화 쿨다운 중인 쌍은 다음 기회로 미룬다.
+        /// </summary>
+        private void TickRewardSettlement(float nowSec)
         {
             if (_pendingReports.Count == 0) return;
-            _keysToRemove.Clear();
-            foreach (KeyValuePair<string, (RequestSO so, string requesterId, bool prepaid, float deadline)> kv in _pendingReports)
-                if (nowSec >= kv.Value.deadline)
-                    _keysToRemove.Add(kv.Key);
-            foreach (string key in _keysToRemove)
+            foreach (KeyValuePair<string, (RequestSO so, string requesterId, bool prepaid)> kv in _pendingReports)
             {
-                _pendingReports.Remove(key);
-                FindAgent(key)?.ClearRequestErrand();
-                Debug.Log($"[Request] 보고 타임아웃 — {key} 심부름 회수 (의뢰인을 만나지 못함)");
+                VillagerAgent builder   = FindAgent(kv.Key);
+                VillagerAgent requester = FindAgent(kv.Value.requesterId);
+                if (builder == null || requester == null) continue;        // 이탈은 ReleaseBy가 정리
+                if (builder.State == AgentState.Dead || requester.State == AgentState.Dead) continue;
+                // 장면 연쇄 방지 — 둘 중 하나라도 대화 쿨다운이면 다음 기회에 정산
+                if (_chatter != null && (_chatter.IsCoolingDown(kv.Key, nowSec)
+                                         || _chatter.IsCoolingDown(requester.AgentId, nowSec))) continue;
+
+                int dist = Mathf.Abs(builder.TileX - requester.TileX)
+                         + Mathf.Abs(builder.TileY - requester.TileY);
+                if (dist > _world.RewardSettleRadiusTiles) continue;
+
+                PlayReport(builder); // 정산 장면 + 지급 — _pendingReports에서 제거됨
+                return;              // 한 틱 1건 (직후 return이라 딕셔너리 수정 후 순회 없음 → 안전)
             }
         }
 
@@ -340,14 +350,11 @@ namespace AIVillage.M0
                 _inFlight.Remove(key);
 
             _keysToRemove.Clear();
-            foreach (KeyValuePair<string, (RequestSO so, string requesterId, bool prepaid, float deadline)> kv in _pendingReports)
+            foreach (KeyValuePair<string, (RequestSO so, string requesterId, bool prepaid)> kv in _pendingReports)
                 if (kv.Key == agentId || kv.Value.requesterId == agentId)
                     _keysToRemove.Add(kv.Key);
             foreach (string key in _keysToRemove)
-            {
-                _pendingReports.Remove(key);
-                if (key != agentId) FindAgent(key)?.ClearRequestErrand(); // 의뢰인 이탈 → 수행자 심부름 회수
-            }
+                _pendingReports.Remove(key); // 목수든 의뢰인이든 이탈 → 정산 불가, 빚 소멸
         }
 
         private VillagerAgent FindAgent(string agentId)

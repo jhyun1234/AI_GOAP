@@ -15,6 +15,26 @@ metadata:
 
 ## 최신 사용 커밋
 
+- `latest_commit`: `87d7d7f` (feat(m5) M5-E 목수 리허설 — 직업 추가 = 에셋 1개 + 씬 풀 등록, .cs 0개)
+- `selected_commits_range`: `fd6b1db`(feat(m5) M5-A JobSO 스키마·스폰 할당) ~ `87d7d7f`(feat(m5) M5-E 목수 리허설)
+- `cycle_date`: 2026-07-18 (마스터 1차·2차 승인 후 게시팀 Step 7 발행)
+- `publish_status`: PUBLISHED (Blogger published: 2026-07-18 KST, status: LIVE)
+- `blogger_post_id`: 2221417024528752034
+- `blog_url`: https://gamedevclaude.blogspot.com/2026/07/unity-goap-ai.html
+- `title`: 인디게임 개발일지: Unity GOAP AI 직업 시스템 — 농부는 밭 곁을 떠나지 않고, 탐험가는 지도 밖으로 사라진다
+- `labels`: Unity GOAP AI, 인디게임 개발일지, 게임 AI 프로그래밍, GOAP 직업 시스템
+- `local_archive`: tools/blog-automation/published/2026-07-18-unity-goap-m5-job-schedule.html
+  (Blogger API 응답의 content 필드를 그대로 저장 — 실제 게시본과 바이트 단위 동일, 14,466 bytes)
+- `비고`: M5 직업과 일과 소재(fd6b1db~87d7d7f, 5커밋+JPS 대각 강제 이웃 수정 eac0907 포함).
+  JobSO 스키마·실효 우선순위 결합(ADR-M5-6, 사용자 승인 하 방향 전환)·일과 주입(농부 밭
+  배회·탐험가 지도 밝히기)·직업 에셋 5종·6번째 직업(목수) 코드 0줄 리허설 + 같은 세션에서
+  발견된 JPS 대각선 길찾기 버그(M4 수정 c03d461의 반쪽 봉합을 뒤늦게 발견)까지 포함.
+  게시 중 게시팀 운영 실수로 동일 글이 한 번 더 게시(post_id 4412536271596111356,
+  url .../unity-goap-ai_01703797100.html)됐다가 Blogger API DELETE(HTTP 204)로 즉시
+  삭제·정리됨 — 최종 라이브 글은 위 post_id 하나만 남음. 이 글로 M5 미발행 구간 해소.
+
+### 이전 회차 이력 (2026-07-17, M4 성격 시스템)
+
 - `latest_commit`: `862de3b` (docs(m4) M4 완료 선언 — 성공 기준 S1~S7 충족)
 - `selected_commits_range`: `b982090`(spec(m4) M4 주민의 성격 실행명세서) ~ `862de3b`(docs(m4) M4 완료 선언)
 - `cycle_date`: 2026-07-17 (마스터 2차 승인 후 게시팀 Step 7 발행)

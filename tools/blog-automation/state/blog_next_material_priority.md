@@ -8,8 +8,16 @@ metadata:
 
 # 블로그 파이프라인 다음 회차 우선 소재
 
-**STATUS: ACTIVE (2026-07-17 사후점검 지정)** — blog-planner는 다음 사이클에서 이 소재를
-**최우선**으로 집필한다.
+**STATUS: CONSUMED (소비 완료: 2026-07-18)** — 2026-07-18 마스터 1차·2차 승인 후
+게시팀 Step 7에서 이 소재로 발행 완료. blog-planner는 이 파일을 더 이상 우선 소재로
+취급하지 않는다.
+
+- 발행 결과: https://gamedevclaude.blogspot.com/2026/07/unity-goap-ai.html
+  (blogger_post_id: 2221417024528752034, 제목: "인디게임 개발일지: Unity GOAP AI 직업
+  시스템 — 농부는 밭 곁을 떠나지 않고, 탐험가는 지도 밖으로 사라진다")
+- `latest_commit`은 `blog_last_published_commit.md`에 `87d7d7f`로 갱신됨.
+
+(아래는 지정 당시 원문 — 기록 보존용)
 
 **Fact (사후점검 판단 근거):** 오늘(2026-07-17) 13:03 자동 발행이 M4(성격 시스템,
 `b982090`~`862de3b`)를 소재로 정상 발행했다(13:36 KST LIVE, blogger_post_id

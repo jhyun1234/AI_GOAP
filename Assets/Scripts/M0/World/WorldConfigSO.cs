@@ -40,6 +40,12 @@ namespace AIVillage.M0
         [Tooltip("재해 에셋 목록 (DisasterSO). 비면 재해 없음 — M8 동작과 완전 동일 (중립 불변식).")]
         public DisasterSO[] Disasters;
 
+        [Header("식량 수지 (M9-G — ADR-M9-10: 식량 가치의 유일한 출처는 소비 액션)")]
+        [Tooltip("식량 소비 액션 목록 (EatCookedFood·EatRawFood 등). FoodDaysLeft 계산이 이 액션들의 " +
+                 "효과(스톡 SubClamp0 + MySatiety Add)에서 1개당 포만을 파생한다 — 가치 이중 기입 금지. " +
+                 "비면 FoodDaysLeft 항상 99 (중립 — 기존 동작과 완전 동일).")]
+        public ConsumeActionSO[] FoodSources;
+
         [Header("상호대화 (M7 — ADR-M7-6: 대화 목록의 집. 전부 제안치)")]
         [Tooltip("대화 상황 에셋 목록. 비면 상호대화 없음 (중립 — M6 동작).")]
         public ChatterSO[] Chatters;

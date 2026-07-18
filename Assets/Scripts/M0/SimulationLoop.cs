@@ -184,7 +184,9 @@ namespace AIVillage.M0
             {
                 Debug.LogWarning("[M0SimulationLoop] WorldConfig.SeasonCycle 비어 있음 — 계절 없이 진행 (M5 동작).");
             }
-            World        = new WorldModel(Discovery, _worldConfig, Farm, Season);
+            // 식량 수지 (M9-G) — 인원은 provider(호출 시점 실인원, Dead 제외), 가치표는 config.FoodSources에서 파생
+            World        = new WorldModel(Discovery, _worldConfig, Farm, Season,
+                                         () => _agents.Count, _agentConfig);
             Construction = new ConstructionService(World);
             Zones        = new ZoneService(); // M9-A — 배치 결정자 (군집 휴리스틱 대체, ADR-M9-1)
             Planner      = new PlannerGateway(_catalog);

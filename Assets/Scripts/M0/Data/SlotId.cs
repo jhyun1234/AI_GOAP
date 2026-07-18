@@ -44,11 +44,12 @@ namespace AIVillage.M0
 
         // ── M9 확장 (기존 인덱스 뒤에만 추가 — 에셋 호환 유지) ─────────────
         IrrigationBuilt   = 18, // 논리형 — 관개수로 완공 (재해 저항 슬롯, M9-D). 예산 52칸 중 19 사용.
+        FoodDaysLeft      = 19, // 수치형 — 남은 식량 일수(내림). 파생 슬롯(WorldModel 산출, 트리거 전용 ADR-M9-9). 예산 52칸 중 20.
     }
 
     public static class SlotIds
     {
-        public const int Count = 19;
+        public const int Count = 20;
 
         /// <summary>전역 스톡 슬롯 여부 — EffectApplier/러너가 공유하는 유일한 판정.</summary>
         public static bool IsStock(SlotId slot)
@@ -64,7 +65,8 @@ namespace AIVillage.M0
             || slot == SlotId.MySatiety || slot == SlotId.MyFatigue
             || slot == SlotId.StoneStock
             || slot == SlotId.CookedFoodStock || slot == SlotId.FarmPlotCount
-            || slot == SlotId.HouseCount || slot == SlotId.DaysToCrisis;
+            || slot == SlotId.HouseCount || slot == SlotId.DaysToCrisis
+            || slot == SlotId.FoodDaysLeft;
 
         /// <summary>자원 타입 → 스톡 슬롯. M0 미지원 타입이면 null (Iron/Copper/Silver는 M1).</summary>
         public static SlotId? StockOf(ResourceType type)

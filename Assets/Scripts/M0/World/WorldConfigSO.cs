@@ -36,6 +36,10 @@ namespace AIVillage.M0
         [Tooltip("위기 계절 예고 시작 (위기 N일 전부터 HUD 경보·주민 술렁임). 제안치 3 (M6 §4).")]
         public float ForecastDays = 3f;
 
+        [Header("재해 (M9-C — ADR-M9-4: 재해 목록의 집. 계절 참조로 발동)")]
+        [Tooltip("재해 에셋 목록 (DisasterSO). 비면 재해 없음 — M8 동작과 완전 동일 (중립 불변식).")]
+        public DisasterSO[] Disasters;
+
         [Header("상호대화 (M7 — ADR-M7-6: 대화 목록의 집. 전부 제안치)")]
         [Tooltip("대화 상황 에셋 목록. 비면 상호대화 없음 (중립 — M6 동작).")]
         public ChatterSO[] Chatters;

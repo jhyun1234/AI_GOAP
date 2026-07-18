@@ -15,7 +15,12 @@ namespace AIVillage.M0
         public const float NO_CRISIS = 99f;
 
         private readonly SeasonSO[] _cycle; // null 제거 복사본
+        private readonly float _totalDays;  // 사이클 총 게임일 (서수 계산용 캐시)
         private int _lastIndex = -1;
+
+        /// <summary>계절 서수 (M9-C) — 사이클 누적 인덱스 (cyclesElapsed × 계절수 + 현재 인덱스).
+        /// 같은 계절이라도 사이클마다 값이 달라 재해 "계절당 1회 발동" 판정·희생 시드의 유일 키가 된다.</summary>
+        public int SeasonOrdinal { get; private set; }
 
         /// <summary>현재 계절. 첫 Tick 전이나 비활성 서비스면 null — 소비처는 null = 중립(배율 1) 처리.</summary>
         public SeasonSO Current { get; private set; }
@@ -49,6 +54,7 @@ namespace AIVillage.M0
                 foreach (SeasonSO s in cycle)
                     if (s != null) list.Add(s);
             _cycle = list.ToArray();
+            foreach (SeasonSO s in _cycle) _totalDays += s.DurationDays;
         }
 
         /// <summary>SimulationLoop 틱마다 호출 — 결과 캐시, 계절이 바뀌면 이벤트 1회.</summary>
@@ -59,6 +65,9 @@ namespace AIVillage.M0
             Compute(_cycle, gameTime, out int index, out float days, out float left);
             DaysToCrisis = days;
             DaysLeftInSeason = left;
+            // 서수 = 누적 사이클 × 계절수 + 현재 인덱스 (M9-C). gameTime 단조 증가라 단조 증가.
+            int cyclesElapsed = _totalDays > 0f ? Mathf.FloorToInt(gameTime / _totalDays) : 0;
+            SeasonOrdinal = cyclesElapsed * _cycle.Length + index;
             if (index != _lastIndex)
             {
                 _lastIndex = index;

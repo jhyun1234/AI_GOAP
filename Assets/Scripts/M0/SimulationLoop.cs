@@ -73,6 +73,9 @@ namespace AIVillage.M0
 
         /// <summary>주민 부탁 (M8-D). Requests가 비면 스스로 중립 (M7 동작).</summary>
         public RequestService Requests { get; private set; }
+
+        /// <summary>재해 (M9-C). Disasters가 비면 서비스 null = 재해 없음 (중립 불변식, M8 동작).</summary>
+        public DisasterService Disaster { get; private set; }
         public PlannerGateway Planner { get; private set; }
         public GoalSelector Goals { get; private set; }
         public AgentConfigSO AgentConfig => _agentConfig;
@@ -126,6 +129,27 @@ namespace AIVillage.M0
             Requests?.ReleaseBy(agent.AgentId);     // 이탈 시 진행 부탁 정리 (M8-D — 유령 유예 방지)
         }
 
+        /// <summary>재해 반응 대사 (M9-C, 표현 전용) — 밭 구역 앵커 최근접 최대 2명이 StrikeLines를
+        /// 내뱉는다. 릴레이 아님(마주보기·응수 없음). 결정성 불요라 Random 허용 (소실은 결정적, 대사는 표현).</summary>
+        private void ShowStrikeLines(DisasterSO d)
+        {
+            if (d.StrikeLines == null || d.StrikeLines.Length == 0 || _agents.Count == 0) return;
+            if (!Zones.TryGetZone(SlotId.FarmPlotCount, out Vector2Int anchor, out _)) return;
+
+            VillagerAgent a1 = null, a2 = null;
+            int d1 = int.MaxValue, d2 = int.MaxValue;
+            foreach (VillagerAgent a in _agents)
+            {
+                if (a == null || a.State == AgentState.Dead) continue;
+                int dx = a.TileX - anchor.x, dy = a.TileY - anchor.y;
+                int dist = dx * dx + dy * dy;
+                if (dist < d1) { d2 = d1; a2 = a1; d1 = dist; a1 = a; }
+                else if (dist < d2) { d2 = dist; a2 = a; }
+            }
+            a1?.ShowTransient(d.StrikeLines[Random.Range(0, d.StrikeLines.Length)]);
+            a2?.ShowTransient(d.StrikeLines[Random.Range(0, d.StrikeLines.Length)]);
+        }
+
         private void Awake()
         {
             if (Instance != null && Instance != this)
@@ -173,6 +197,18 @@ namespace AIVillage.M0
                                               Chatter, World); // M8-D — 부탁 선반 (대화 쿨다운·보상 스톡)
             // 대화 → 관계 축적의 유일한 배선 (M8-A, ADR-M8-1) — 본체는 ApplyChat (게이트 대상)
             Chatter.OnChatted += (c, speaker, target) => Relationship.ApplyChat(c, speaker.AgentId, target.AgentId);
+
+            // 재해 (M9-C) — Disasters가 비면 서비스 null (중립 불변식, SeasonService 패턴).
+            // 파괴는 ADR-M9-3의 문(Farm/Construction)을 지난다 — 서비스가 직접 State를 쓰지 않는다.
+            if (_worldConfig.Disasters != null && _worldConfig.Disasters.Length > 0)
+            {
+                Disaster = new DisasterService(_worldConfig.Disasters, Farm, Construction, World);
+                Disaster.OnStruck += (d, n) =>
+                {
+                    Hud?.Notify($"{d.DisplayName}! {n}개 소실");
+                    ShowStrikeLines(d); // 근처 주민 반응 대사 (표현 전용, 릴레이 아님)
+                };
+            }
 
             _visualizer = new BuildingVisualizer(transform);
             Construction.OnCompleted += (b, x, y) => _visualizer.Spawn(b, x, y);
@@ -249,6 +285,13 @@ namespace AIVillage.M0
                 float growthMult = Season != null ? Season.GrowthMult : 1f;
                 Discovery.TickRegeneration(deltaGameDays * regenMult);
                 Farm.TickGrowth(deltaGameDays * growthMult);
+
+                // 재해 발동 검사 (M9-C) — 계절 위상(경과일·서수)을 넘겨준다. 서비스가 null이면 무동작.
+                if (Disaster != null && Season?.Current != null)
+                {
+                    float daysIntoSeason = Season.Current.DurationDays - Season.DaysLeftInSeason;
+                    Disaster.Tick(Season.Current, daysIntoSeason, Season.SeasonOrdinal);
+                }
 
                 Hud?.Tick(GameTime, Season, _worldConfig.ForecastDays);
 

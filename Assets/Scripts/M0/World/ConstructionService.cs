@@ -23,6 +23,10 @@ namespace AIVillage.M0
         /// <summary>완공 후처리 (building, tileX, tileY). M0SimulationLoop가 시각 스폰을 구독한다.</summary>
         public event Action<BuildingSO, int, int> OnCompleted;
 
+        /// <summary>수량형 건물 제거 알림 (countSlot, tileX, tileY) — M9-B. 시각 파괴(BuildingVisualizer)·
+        /// FarmService.RemovePlot가 구독한다 (완공 OnCompleted와 대칭, ADR-M9-3 소멸 경로 단일성).</summary>
+        public event Action<SlotId, int, int> OnRemoved;
+
         /// <summary>완공된 건물의 타일 위치. 미완공이면 false.</summary>
         public bool TryGetBuiltTile(SlotId flagSlot, out Vector2Int tile)
             => _builtTiles.TryGetValue(flagSlot, out tile);
@@ -142,6 +146,24 @@ namespace AIVillage.M0
             OnCompleted?.Invoke(building, tileX, tileY);
 
             Debug.Log($"[ConstructionService] {building.DisplayName} 완공 @ ({tileX}, {tileY})");
+            return true;
+        }
+
+        /// <summary>
+        /// 수량형 건물 제거 (M9-B, ADR-M9-3 소멸의 문 — 완공 Complete와 대칭). 목록에서 해당 타일을
+        /// 빼고 CountSlot을 -1 (스톡 쓰기 단일 지점 = WorldModel, ADR-M0-3). 목록·카운트 정합은
+        /// 원자적: 목록에 없으면 아무 것도 바꾸지 않고 false (이중 제거 방지). 단일형 제거는 이번에
+        /// 없다 (§7 — 집 파괴는 별도 명세). 성공 시 OnRemoved 발화.
+        /// </summary>
+        public bool RemoveCountableAt(SlotId countSlot, int tileX, int tileY)
+        {
+            if (!_builtTileLists.TryGetValue(countSlot, out List<Vector2Int> list)
+                || !list.Remove(new Vector2Int(tileX, tileY)))
+                return false; // 목록에 없음 — 이중 제거·미완공 타일 방어
+
+            _world.TrySpendStock(countSlot, 1); // 목록에 있었으므로 카운트 ≥ 1 보장
+            OnRemoved?.Invoke(countSlot, tileX, tileY);
+            Debug.Log($"[ConstructionService] {countSlot} 제거 @ ({tileX}, {tileY}) — 남은 {_world.GetStock(countSlot)}");
             return true;
         }
     }

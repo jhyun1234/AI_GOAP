@@ -176,6 +176,12 @@ namespace AIVillage.M0
 
             _visualizer = new BuildingVisualizer(transform);
             Construction.OnCompleted += (b, x, y) => _visualizer.Spawn(b, x, y);
+            Construction.OnRemoved += (slot, x, y) => _visualizer.Remove(slot, x, y); // M9-B 시각 파괴
+            // 밭 시설 소실 → FarmService.RemovePlot (RemovePlot의 유일한 호출 경로, ADR-M9-3 대칭)
+            Construction.OnRemoved += (slot, x, y) =>
+            {
+                if (slot == SlotId.FarmPlotCount) Farm.RemovePlot(x, y);
+            };
             // 구역 확정 = 첫 완공 (M9-A, ADR-M9-2) — NotifyBuilt가 첫 완공만 앵커로 잡는다
             Construction.OnCompleted += (b, x, y) => Zones.NotifyBuilt(b, x, y);
             // 구역 테두리 (표현 전용) — 확정 순간 앵커 둘레에 외곽선

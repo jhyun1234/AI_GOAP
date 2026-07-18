@@ -39,6 +39,10 @@ namespace AIVillage.M0
         /// <summary>상태 전이 알림 — M2-D FarmPlotView가 구독한다 (진행도 폴링 금지).</summary>
         public event Action<FarmPlot> OnPlotStateChanged;
 
+        /// <summary>밭 시설 소실 알림 (M9-B) — FarmPlotView가 오버레이 GameObject를 파괴한다.
+        /// 상태 전이(OnPlotStateChanged)가 아니라 소멸이라 별도 이벤트 (사전 키 잔류 = 누수, ⚠️②).</summary>
+        public event Action<FarmPlot> OnPlotRemoved;
+
         public IReadOnlyList<FarmPlot> Plots => _plots;
 
         public FarmService(float growthDays)
@@ -107,24 +111,60 @@ namespace AIVillage.M0
             return best;
         }
 
-        /// <summary>심기 — Empty에서만 성공. 상태 전이의 유일한 문 (러너가 직접 State를 쓰지 않는다).</summary>
+        /// <summary>심기 — Empty에서만 성공. 상태 전이의 유일한 문 (러너가 직접 State를 쓰지 않는다).
+        /// 제거된 플롯(_plots 밖 참조)은 거부 — 유령 심기 방지 (M9-B ⚠️①, ADR-M0-7 실패 first-class).</summary>
         public bool TryPlant(FarmPlot p)
         {
-            if (p == null || p.State != FarmState.Empty) return false;
+            if (p == null || p.State != FarmState.Empty || !_plots.Contains(p)) return false;
             p.State = FarmState.Growing;
             p.Growth = 0f;
             OnPlotStateChanged?.Invoke(p);
             return true;
         }
 
-        /// <summary>수확 — Ripe에서만 성공. 밭은 빈 상태로 복귀. 스톡 증가는 EffectApplier 몫 (수치 단일 출처).</summary>
+        /// <summary>수확 — Ripe에서만 성공. 밭은 빈 상태로 복귀. 스톡 증가는 EffectApplier 몫 (수치 단일 출처).
+        /// 제거된 플롯은 거부 — 러너가 들고 있던 참조로 유령 수확 불가 (M9-B ⚠️①).</summary>
         public bool TryHarvest(FarmPlot p)
         {
-            if (p == null || p.State != FarmState.Ripe) return false;
+            if (p == null || p.State != FarmState.Ripe || !_plots.Contains(p)) return false;
             p.State = FarmState.Empty;
             p.Growth = 0f;
             OnPlotStateChanged?.Invoke(p);
             return true;
+        }
+
+        /// <summary>
+        /// 작물 소실 (M9-B, ADR-M9-3의 네 번째 문) — Growing·Ripe → Empty. 시설(밭)은 남아
+        /// 재파종 가능. 점유도 해제 (소실된 작물을 붙잡고 있던 주민 놓아줌). 재해가 부르는 유일한
+        /// 작물 파괴 경로 — DisasterService가 State를 직접 쓰지 않고 반드시 이 문을 지난다 (M9-C ⚠️④).
+        /// </summary>
+        public bool BlightCrop(FarmPlot p)
+        {
+            if (p == null || p.State == FarmState.Empty || !_plots.Contains(p)) return false;
+            p.State = FarmState.Empty;
+            p.Growth = 0f;
+            p.Release();
+            OnPlotStateChanged?.Invoke(p); // 뷰는 기존 이벤트로 오버레이 → 빈 흙 (공짜 갱신)
+            return true;
+        }
+
+        /// <summary>
+        /// 밭 시설 소실 (M9-B, ADR-M9-3의 다섯 번째 문) — 목록 제거 + 소멸 알림. 등록(RegisterPlot)과
+        /// 대칭. 유일한 호출처 = ConstructionService.OnRemoved 구독 (SimulationLoop 배선) — 다른
+        /// 경로가 _plots를 지우면 반려. 제거 후 그 FarmPlot 참조는 TryPlant/TryHarvest에서 전부 false.
+        /// </summary>
+        public bool RemovePlot(int tileX, int tileY)
+        {
+            for (int i = 0; i < _plots.Count; i++)
+            {
+                FarmPlot p = _plots[i];
+                if (p.Tile.x != tileX || p.Tile.y != tileY) continue;
+                _plots.RemoveAt(i);
+                p.Release();
+                OnPlotRemoved?.Invoke(p);
+                return true;
+            }
+            return false;
         }
     }
 }

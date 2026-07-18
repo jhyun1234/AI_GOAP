@@ -27,6 +27,16 @@ namespace AIVillage.M0
             _parent = parent;
             _sprites = sprites;
             farm.OnPlotStateChanged += Refresh;
+            farm.OnPlotRemoved += Remove; // M9-B — 밭 시설 소실 시 작물 오버레이 파괴
+        }
+
+        /// <summary>밭 시설 소실 (M9-B) — 상태 전이가 아니라 소멸이라 오버레이 GameObject 자체를
+        /// 파괴하고 사전 키를 제거한다 (⚠️② 사전 키 잔류 = 누수).</summary>
+        private void Remove(FarmPlot plot)
+        {
+            if (!_overlays.TryGetValue(plot, out SpriteRenderer sr)) return;
+            _overlays.Remove(plot);
+            if (sr != null) Object.Destroy(sr.gameObject);
         }
 
         private void Refresh(FarmPlot plot)

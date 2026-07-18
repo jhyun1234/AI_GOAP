@@ -208,43 +208,22 @@ namespace AIVillage.Tests.EditMode
             };
             bool Occ(int x, int y) => occupiedTiles.Contains(new Vector2Int(x, y));
 
-            Assert.IsTrue(BuildRunner.TryFindFreeTileNear(Occ, 0, 0, -50, 49, -50, 49, out Vector2Int tile));
+            Assert.IsTrue(BuildRunner.TryFindFreeTileNear(Occ, 0, 0, -50, 49, -50, 49, 3, out Vector2Int tile));
             Assert.IsFalse(occupiedTiles.Contains(tile), "점유 타일 회피");
             Assert.AreEqual(1, Mathf.Max(Mathf.Abs(tile.x), Mathf.Abs(tile.y)), "반경 1 링에 빈 타일 존재 → 최근접 링 선택");
 
             // 반경 3 내 전부 점유면 false (러너는 Fail — 좌표 스냅 없음)
-            Assert.IsFalse(BuildRunner.TryFindFreeTileNear((x, y) => true, 0, 0, -50, 49, -50, 49, out _));
+            Assert.IsFalse(BuildRunner.TryFindFreeTileNear((x, y) => true, 0, 0, -50, 49, -50, 49, 3, out _));
 
             // 맵 경계 밖은 후보에서 제외
-            Assert.IsTrue(BuildRunner.TryFindFreeTileNear((x, y) => false, -50, -50, -50, 49, -50, 49, out Vector2Int corner));
+            Assert.IsTrue(BuildRunner.TryFindFreeTileNear((x, y) => false, -50, -50, -50, 49, -50, 49, 3, out Vector2Int corner));
             Assert.GreaterOrEqual(corner.x, -50);
             Assert.GreaterOrEqual(corner.y, -50);
         }
 
-        [Test]
-        public void M2_Fix_BuildSite_ClustersWithSameKind()
-        {
-            // "밭은 밭 옆에" — 동종 건물이 있으면 그 인접 링에 배치 (상식적 자율, 사용자 결정 2026-07-14)
-            bool OneFarm(int x, int y) => x == 10 && y == 10;
-            Assert.IsTrue(BuildRunner.TryPickBuildTile(OneFarm, true, new Vector2Int(10, 10),
-                new Vector2Int(0, 0), -50, 49, -50, 49, out Vector2Int tile, out bool move));
-            Assert.IsTrue(move);
-            Assert.AreEqual(1, Mathf.Max(Mathf.Abs(tile.x - 10), Mathf.Abs(tile.y - 10)),
-                            "동종 건물 인접 링에 배치");
-
-            // 군집 없으면 기존 동작 무변경: 비점유 제자리
-            Assert.IsTrue(BuildRunner.TryPickBuildTile((x, y) => false, false, default,
-                new Vector2Int(3, 3), -50, 49, -50, 49, out tile, out move));
-            Assert.IsFalse(move);
-            Assert.AreEqual(new Vector2Int(3, 3), tile);
-
-            // 군집 곁 포화(반경 3) → 현재 위치 폴백 (밭 N+1개째가 막히지 않는다)
-            bool NearTenFull(int x, int y) => Mathf.Max(Mathf.Abs(x - 10), Mathf.Abs(y - 10)) <= 3;
-            Assert.IsTrue(BuildRunner.TryPickBuildTile(NearTenFull, true, new Vector2Int(10, 10),
-                new Vector2Int(0, 0), -50, 49, -50, 49, out tile, out move));
-            Assert.IsFalse(move);
-            Assert.AreEqual(new Vector2Int(0, 0), tile);
-        }
+        // [삭제 2026-07-18 — M9-A] M2_Fix_BuildSite_ClustersWithSameKind:
+        //   군집 휴리스틱(동종 건물 곁 배치)은 ZoneService(구역)로 대체됐다 (ADR-M9-1 — 배치
+        //   결정자 단일화). 구역 기반 배치 검증은 M9_SpaceGates.M9_T1_*로 이관.
 
         [Test]
         public void M2_E_P0Goals_SkipFailureCooldown()

@@ -40,17 +40,21 @@ namespace AIVillage.M0
             // 맵 경계 — MapBounds 단일 출처 (M3-F)
             MapBounds.Get(out int minX, out int maxX, out int minY, out int maxY);
 
-            // 군집 앵커: 동종 수량형 건물이 이미 있으면 그 곁부터 — "밭은 밭 옆에" (상식적 자율)
-            Vector2Int cluster = default;
-            bool hasCluster = _so.Building.IsCountable
-                && agent.Construction.TryGetNearestBuiltTile(
-                       _so.Building.CountSlot, agent.TileX, agent.TileY, out cluster);
+            // 구역 (M9-A, ADR-M9-1) — 수량형 건물 배치의 유일한 결정자. 군집 휴리스틱은 삭제됐다.
+            // 확정 구역이 있으면 그 반경 안에만 짓는다 (만원이면 실패 = 보이는 소프트 상한).
+            // 미확정(첫 완공 전)·ZoneRadius 0이면 hasZone=false → 기존 제자리 경로 그대로.
+            Vector2Int zoneAnchor = default;
+            int zoneRadius = 0;
+            bool hasZone = _so.Building.IsCountable && _so.Building.ZoneRadius > 0
+                && agent.Zones.TryGetZone(_so.Building.CountSlot, out zoneAnchor, out zoneRadius);
 
-            if (!TryPickBuildTile(Occupied, hasCluster, cluster,
+            if (!TryPickBuildTile(Occupied, hasZone, zoneAnchor, zoneRadius,
                     new Vector2Int(agent.TileX, agent.TileY), minX, maxX, minY, maxY,
                     out _buildTile, out bool needMove))
             {
-                FailReason = $"{_so.Building.DisplayName}: 주변 {SEARCH_RADIUS}칸 내 건설 가능한 빈 타일 없음";
+                FailReason = hasZone
+                    ? $"{_so.Building.DisplayName}: 농경지 구역(반경 {zoneRadius}) 만원 — 빈 타일 없음"
+                    : $"{_so.Building.DisplayName}: 주변 {SEARCH_RADIUS}칸 내 건설 가능한 빈 타일 없음";
                 return false;
             }
 
@@ -76,23 +80,30 @@ namespace AIVillage.M0
             int minX, int maxX, int minY, int maxY, out Vector2Int standTile)
         {
             bool Blocked(int x, int y) => (x == buildTile.x && y == buildTile.y) || occupied(x, y);
-            return TryFindFreeTileNear(Blocked, buildTile.x, buildTile.y, minX, maxX, minY, maxY, out standTile);
+            return TryFindFreeTileNear(Blocked, buildTile.x, buildTile.y, minX, maxX, minY, maxY, SEARCH_RADIUS, out standTile);
         }
 
         /// <summary>
-        /// 건설 타일 결정 (순수 함수 — EditMode 게이트 대상):
-        /// ① 군집 앵커(동종 건물) 곁 빈 타일 → ② 현재 타일 비점유면 제자리 →
-        /// ③ 현재 위치 곁 빈 타일 → ④ 실패 (좌표 스냅 없이 재계획).
+        /// 건설 타일 결정 (순수 함수 — EditMode 게이트 대상, ADR-M9-1):
+        /// ① 구역 확정: 앵커 중심 반경 zoneRadius 링에서만 빈 타일 (만원이면 실패 — 구역이
+        ///    소프트 상한 역할을 하므로 구역 밖 폴백 금지) →
+        /// ② 구역 미확정(ZoneRadius 0 or 첫 완공 전): 현재 타일 비점유면 제자리 →
+        /// ③ 현재 위치 곁 빈 타일 (그 완공이 앵커가 된다) → ④ 실패 (좌표 스냅 없이 재계획).
         /// </summary>
         public static bool TryPickBuildTile(System.Func<int, int, bool> occupied,
-            bool hasClusterAnchor, Vector2Int clusterAnchor, Vector2Int agentTile,
+            bool hasZone, Vector2Int zoneAnchor, int zoneRadius, Vector2Int agentTile,
             int minX, int maxX, int minY, int maxY, out Vector2Int tile, out bool needMove)
         {
-            if (hasClusterAnchor
-                && TryFindFreeTileNear(occupied, clusterAnchor.x, clusterAnchor.y, minX, maxX, minY, maxY, out tile))
+            if (hasZone)
             {
-                needMove = true;
-                return true;
+                // 구역 밖 건설 금지 = 소프트 상한 (M9-A ⚠️②: 만원을 곁 확장으로 우회하면 상한이 무너진다)
+                if (TryFindFreeTileNear(occupied, zoneAnchor.x, zoneAnchor.y, minX, maxX, minY, maxY, zoneRadius, out tile))
+                {
+                    needMove = true;
+                    return true;
+                }
+                needMove = false;
+                return false;
             }
             if (!occupied(agentTile.x, agentTile.y))
             {
@@ -100,7 +111,7 @@ namespace AIVillage.M0
                 needMove = false;
                 return true;
             }
-            if (TryFindFreeTileNear(occupied, agentTile.x, agentTile.y, minX, maxX, minY, maxY, out tile))
+            if (TryFindFreeTileNear(occupied, agentTile.x, agentTile.y, minX, maxX, minY, maxY, SEARCH_RADIUS, out tile))
             {
                 needMove = true;
                 return true;
@@ -110,12 +121,13 @@ namespace AIVillage.M0
         }
 
         /// <summary>
-        /// 중심 기준 링 순회(반경 1→3)로 첫 비점유 타일 탐색. 순수 함수 — EditMode 게이트 대상.
+        /// 중심 기준 링 순회(반경 1→maxRadius)로 첫 비점유 타일 탐색. 순수 함수 — EditMode 게이트 대상.
+        /// maxRadius는 구역 반경(M9-A)이나 SEARCH_RADIUS(제자리 곁 탐색)를 받는다.
         /// </summary>
         public static bool TryFindFreeTileNear(System.Func<int, int, bool> occupied,
-            int cx, int cy, int minX, int maxX, int minY, int maxY, out Vector2Int tile)
+            int cx, int cy, int minX, int maxX, int minY, int maxY, int maxRadius, out Vector2Int tile)
         {
-            for (int r = 1; r <= SEARCH_RADIUS; r++)
+            for (int r = 1; r <= maxRadius; r++)
             {
                 for (int dy = -r; dy <= r; dy++)
                 {

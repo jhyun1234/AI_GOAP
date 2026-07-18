@@ -51,6 +51,9 @@ namespace AIVillage.M0
         public WorldModel World { get; private set; }
         public DiscoveryService Discovery { get; private set; }
         public ConstructionService Construction { get; private set; }
+
+        /// <summary>구역 배치 결정자 (M9-A) — 수량형 건물의 앵커·반경. 첫 완공이 앵커 (ADR-M9-2).</summary>
+        public ZoneService Zones { get; private set; }
         public FarmService Farm { get; private set; }
 
         /// <summary>계절 시계 (M6-A). WorldConfig.SeasonCycle이 비면 null = 계절 없음 (M5 동작).</summary>
@@ -89,6 +92,7 @@ namespace AIVillage.M0
         public IPathfinder Pathfinder { get; private set; }
 
         private BuildingVisualizer _visualizer;
+        private ZoneBorderView _zoneBorderView;
         private FarmPlotView _farmView;
         private int _lastLoggedDay = -1;
         private readonly List<VillagerAgent> _agents = new List<VillagerAgent>(8);
@@ -158,6 +162,7 @@ namespace AIVillage.M0
             }
             World        = new WorldModel(Discovery, _worldConfig, Farm, Season);
             Construction = new ConstructionService(World);
+            Zones        = new ZoneService(); // M9-A — 배치 결정자 (군집 휴리스틱 대체, ADR-M9-1)
             Planner      = new PlannerGateway(_catalog);
             Goals        = new GoalSelector(_goals);
             Chatter      = new ChatterService(_worldConfig, _agentConfig); // M7-C — 표현 전용 (ADR-M7-1)
@@ -171,6 +176,11 @@ namespace AIVillage.M0
 
             _visualizer = new BuildingVisualizer(transform);
             Construction.OnCompleted += (b, x, y) => _visualizer.Spawn(b, x, y);
+            // 구역 확정 = 첫 완공 (M9-A, ADR-M9-2) — NotifyBuilt가 첫 완공만 앵커로 잡는다
+            Construction.OnCompleted += (b, x, y) => Zones.NotifyBuilt(b, x, y);
+            // 구역 테두리 (표현 전용) — 확정 순간 앵커 둘레에 외곽선
+            _zoneBorderView = new ZoneBorderView(transform);
+            Zones.OnZoneEstablished += (slot, anchor, radius) => _zoneBorderView.Draw(slot, anchor, radius);
             // 밭 완공 → FarmService 등록 (RegisterPlot의 유일한 호출 경로, ADR-M2-4)
             Construction.OnCompleted += (b, x, y) =>
             {

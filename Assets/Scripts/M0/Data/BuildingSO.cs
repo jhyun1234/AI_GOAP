@@ -39,6 +39,11 @@ namespace AIVillage.M0
                  "차단 건물은 건설자가 인접 타일에서 짓는다.")]
         public bool BlocksMovement;
 
+        [Tooltip("구역 반경 (M9-A, ADR-M9-1). 0 = 구역 없음(기존 제자리+링 탐색). " +
+                 ">0이면 첫 완공 타일이 앵커가 되고 이후 완공은 앵커 반경 내에만 배치된다 " +
+                 "(수량형 전용 — 보이는 소프트 상한). 예: FarmPlot 3 = 7×7 농경지.")]
+        public int ZoneRadius;
+
         [Tooltip("완공 시 스폰할 프리팹. 비우면 MarkerSprite → 원형 마커 순으로 폴백.")]
         public GameObject Prefab;
 
@@ -59,6 +64,9 @@ namespace AIVillage.M0
             // 수량형 카운트는 수치 슬롯에만 — 논리형에 설정하는 실수 방어 (명세 M2-A ⚠️)
             if (IsCountable && !SlotIds.IsNumeric(CountSlot))
                 Debug.LogError($"[BuildingSO] {name}: CountSlot({CountSlot})은 수치형 슬롯이어야 합니다.", this);
+            // 구역은 수량형 전용 — 단일형에 반경을 주면 배치 결정자가 없다 (M9-A ⚠️)
+            if (!IsCountable && ZoneRadius > 0)
+                Debug.LogWarning($"[BuildingSO] {name}: ZoneRadius({ZoneRadius})는 수량형(IsCountable) 건물에만 적용됩니다 — 무시됨.", this);
         }
     }
 }

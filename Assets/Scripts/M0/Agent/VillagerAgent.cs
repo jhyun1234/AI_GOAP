@@ -53,6 +53,7 @@ namespace AIVillage.M0
         public WorldModel World => _sim.World;
         public DiscoveryService Discovery => _sim.Discovery;
         public ConstructionService Construction => _sim.Construction;
+        public ZoneService Zones => _sim.Zones; // 구역 배치 결정자 (M9-A)
         public FarmService Farm => _sim.Farm;
         public WorldConfigSO WorldConfig => _sim.WorldConfig;
 

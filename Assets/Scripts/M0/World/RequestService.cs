@@ -269,7 +269,11 @@ namespace AIVillage.M0
                 return; // 정산할 빚 없음
             _pendingReports.Remove(builder.AgentId);
 
-            builder.ShowTransient(Pick(rec.so.FulfillLines));
+            // 목수 완수 대사도 지연 경로로 (2026-07-18 버그 수정): 즉시 ShowTransient는 정산
+            // 순간(마주침=이동 중단)의 AbortPlan.Clear에 지워져 목수만 침묵하고 의뢰인 감사만
+            // 남았다. 의뢰인 응수와 동일하게 clear-후-표시라 그 Clear를 비껴간다. 0f = 곧바로
+            // (의뢰인 ReplyDelaySec보다 먼저 = "목수 먼저, 의뢰인 응수" 순서 보존).
+            builder.ShowTransientDelayed(Pick(rec.so.FulfillLines), 0f);
             VillagerAgent requester = FindAgent(rec.requesterId);
             if (requester != null)
             {

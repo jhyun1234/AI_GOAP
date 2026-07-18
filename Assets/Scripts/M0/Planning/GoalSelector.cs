@@ -72,8 +72,12 @@ namespace AIVillage.M0
             if (IsFull(goal)) return false;                                // 정원 초과 (ADR-M3-4)
             if (skip != null && skip(goal)) return false;                  // 쿨다운 등 제외
             if (!AllHold(goal.TriggerConditions, snap)) return false;      // 미발동
-            if (goal.GoalConditions != null && goal.GoalConditions.Length > 0
-                && AllHold(goal.GoalConditions, snap)) return false;       // 이미 달성 → 스킵
+            // 이미 달성 → 스킵. 단 상대 goal(RelativeToCurrent)은 면제 (ADR-M9-12): 원본
+            // GoalConditions는 증분값(+2)이라 AllHold가 절대값으로 오독하면 대부분 "이미 달성"
+            // 스킵돼 펌프가 영영 안 돈다. 발동 판정은 트리거가 전담한다.
+            if (!goal.RelativeToCurrent
+                && goal.GoalConditions != null && goal.GoalConditions.Length > 0
+                && AllHold(goal.GoalConditions, snap)) return false;
             return true;
         }
 

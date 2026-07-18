@@ -103,5 +103,72 @@ namespace AIVillage.Tests.EditMode
             Assert.AreEqual(5, world.BuildSnapshot(50, 50).Get(SlotId.FoodDaysLeft), "배선 스냅샷 = 5일치");
             Assert.AreEqual(5, world.EstimateFoodDaysLeft(), "HUD 창구도 같은 값 (판정 단일)");
         }
+
+        // ── M9-T6: RelativeToCurrent 씬 goal 확장 (펌프 순환의 전제) ──────────────
+
+        /// <summary>펌프형 상대 goal — 트리거 FoodDaysLeft≤2, 목표 Cooked+2(증분), MaxWorkers 1.</summary>
+        private static GoalSO PumpGoal(bool relative)
+        {
+            var g = ScriptableObject.CreateInstance<GoalSO>();
+            g.DisplayName = relative ? "상대비축" : "절대비축";
+            g.Priority = 18;
+            g.TriggerConditions = new[]
+            {
+                new SlotCondition { Slot = SlotId.FoodDaysLeft, Op = CompareOp.LessOrEqual, Value = 2 },
+            };
+            g.GoalConditions = new[]
+            {
+                new SlotCondition { Slot = SlotId.CookedFoodStock, Op = CompareOp.GreaterOrEqual, Value = 2 },
+            };
+            g.RelativeToCurrent = relative;
+            g.MaxWorkers = 1;
+            return g;
+        }
+
+        private static WorldSnapshot Snap(int foodDaysLeft, int cooked)
+        {
+            var slots = new int[PlanningConfig.TotalSlots];
+            slots[(int)SlotId.FoodDaysLeft] = foodDaysLeft;
+            slots[(int)SlotId.CookedFoodStock] = cooked;
+            return new WorldSnapshot(slots);
+        }
+
+        [Test]
+        public void M9_T6_RelativeSceneGoal_ExemptFromAlreadySatisfied_AbsoluteSkips()
+        {
+            GoalSO rel = PumpGoal(relative: true);
+            GoalSO abs = PumpGoal(relative: false);
+            // 트리거 발동(FoodDaysLeft 1) + 절대 판정이면 "Cooked 5 ≥ 2 이미 달성"
+            WorldSnapshot snap = Snap(foodDaysLeft: 1, cooked: 5);
+
+            Assert.AreSame(rel, new GoalSelector(new[] { rel }).Select(snap),
+                "상대 goal은 '이미 달성' 면제 → 후보 통과 (⚠①, 가장 그럴듯한 실패 모드)");
+            Assert.IsNull(new GoalSelector(new[] { abs }).Select(snap),
+                "절대 goal은 이미 달성으로 스킵 — 기존 동작 diff 0 (중립 불변식)");
+        }
+
+        [Test]
+        public void M9_T6_RelativeSceneGoal_TriggerStillGates_PumpTerminates()
+        {
+            GoalSO rel = PumpGoal(relative: true);
+            // 트리거 불발(FoodDaysLeft 5 > 2) — 실물 식량이 늘어 트리거를 벗어난 상태
+            Assert.IsNull(new GoalSelector(new[] { rel }).Select(Snap(foodDaysLeft: 5, cooked: 5)),
+                "트리거 불발 = 후보 제외 (펌프 종결 — 무한 재발동 없음)");
+        }
+
+        [Test]
+        public void M9_T6_RelativeSceneGoal_QuotaPreserved_ClaimKeyIsOriginal()
+        {
+            GoalSO rel = PumpGoal(relative: true); // MaxWorkers 1
+            var sel = new GoalSelector(new[] { rel });
+            WorldSnapshot snap = Snap(foodDaysLeft: 1, cooked: 5);
+
+            GoalSO first = sel.Select(snap);
+            Assert.AreSame(rel, first, "첫 주민 선택 = 원본 에셋");
+            sel.Claim(first); // VillagerAgent가 _goal=원본으로 클레임하는 것의 근거
+            Assert.IsTrue(sel.IsFull(rel), "MaxWorkers 1 정원 참");
+            Assert.IsNull(sel.Select(snap),
+                "정원 참 → 두 번째 주민 제외 (⚠② — 사본을 _goal에 넣으면 매번 새 키라 무력화될 경로)");
+        }
     }
 }

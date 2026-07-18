@@ -121,6 +121,10 @@ namespace AIVillage.M0
         private readonly List<ActionSO> _plan = new List<ActionSO>(PlanningConfig.MaxPlanLen);
         private int _planIndex;
         private GoalSO _goal;
+        // 상대 씬 goal(M9-H, ADR-M9-12)의 플래너 입력 전용 사본. _goal에는 원본을 유지한다 —
+        // Claim/IsFull/_goalRetryAt이 _goal을 키로 쓰므로 사본을 넣으면 MaxWorkers 정원이 무력화된다.
+        // 수명 = 플랜 1회 (ToIdle·OnDestroy에서 Destroy).
+        private GoalSO _planGoalClone;
         private bool _directGoal; // DirectActionPool goal 여부 (완료 로그 억제용)
         private PlannerGateway.PendingPlan _pending;
         private IActionRunner _runner;
@@ -252,6 +256,7 @@ namespace AIVillage.M0
             if (_goal != null && _sim != null) _sim.Goals.Release(_goal); // 파괴 시 클레임 잠김 방지
             ClearOrderInstance();
             ClearRequestInstance(); // 부탁 사본 정리 (M8-D) — 진행 기록은 UnregisterAgent가 정리
+            ClearPlanGoalClone();   // 상대 씬 goal 플래너 사본 정리 (M9-H)
             _runner?.Cleanup(this);
             if (_pending != null && _sim != null) _sim.Planner.Cancel(_pending);
             TileReservationRegistry.ReleaseAllBy(AgentId);
@@ -456,7 +461,16 @@ namespace AIVillage.M0
             }
             _directGoal = false;
 
-            _pending = _sim.Planner.RequestPlan(snap, _goal, _costMult);
+            // 상대 씬 goal(M9-H): 플래너 입력은 선택 시점 절대값 사본, _goal은 원본 유지.
+            // _order·_request는 수신 시점에 이미 해석돼 RelativeToCurrent=false이므로 여기 안 걸린다.
+            GoalSO planGoal = _goal;
+            if (_goal.RelativeToCurrent)
+            {
+                planGoal = ResolveRelativeGoal(_goal, out bool cloned);
+                if (cloned) _planGoalClone = planGoal; // 수명 = 이 플랜 (ToIdle에서 Destroy)
+            }
+
+            _pending = _sim.Planner.RequestPlan(snap, planGoal, _costMult);
             if (_pending == null)
             {
                 ToIdle(1f); // 클레임 해제 경유 (ADR-M3-4 누수 방지) — 舊 단순 쿨다운과 동작 동일
@@ -882,6 +896,13 @@ namespace AIVillage.M0
             return RequestResult.Accepted;
         }
 
+        /// <summary>상대 씬 goal 플래너 사본 파괴 (M9-H) — 수명 = 플랜 1회. 소멸의 유일한 경로.</summary>
+        private void ClearPlanGoalClone()
+        {
+            if (_planGoalClone != null) Destroy(_planGoalClone);
+            _planGoalClone = null;
+        }
+
         /// <summary>부탁 슬롯 정리 — 런타임 사본이면 파괴 (누수 방지). 소멸의 유일한 경로.</summary>
         private void ClearRequestInstance()
         {
@@ -1015,6 +1036,7 @@ namespace AIVillage.M0
                 _sim.Goals.Release(_goal);
                 _goal = null;
             }
+            ClearPlanGoalClone(); // M9-H — 플래너 입력 사본 파괴 (수명 = 플랜 1회)
             State = AgentState.Idle;
             _idleCooldownSec = cooldownSec;
         }

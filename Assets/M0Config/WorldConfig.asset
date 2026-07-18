@@ -21,9 +21,13 @@ MonoBehaviour:
   BaseDiscoverRadius: 12
   SeasonCycle:
   - {fileID: 11400000, guid: 08815e16bf29421cb320cab0ea5b2db0, type: 2}
+  - {fileID: 11400000, guid: 5a1c9e3d7b2f4a86c0d1e9f3a7b5c8d2, type: 2}
   - {fileID: 11400000, guid: b1fe294e4d424ad4a029a40ee0e79cf9, type: 2}
   - {fileID: 11400000, guid: 050728de4ded48e3ab557819f75696bd, type: 2}
   ForecastDays: 3
+  Disasters:
+  - {fileID: 11400000, guid: 8f2b4d6a1c3e5079b8d2f4a6c1e3b5d7, type: 2}
+  - {fileID: 11400000, guid: 2c7e9a4f6b1d3850a9c2e4f7b3d6a1c8, type: 2}
   Chatters:
   - {fileID: 11400000, guid: 7c9ae1ce31904ed4b315800dff15c14f, type: 2}
   - {fileID: 11400000, guid: 48ccea3142fe4a859a1bedc03c7df6b0, type: 2}

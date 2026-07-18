@@ -41,11 +41,14 @@ namespace AIVillage.M0
 
         // ── M8 확장 (기존 인덱스 뒤에만 추가 — 에셋 호환 유지) ─────────────
         MyHasHome         = 17, // 논리형 — 내 소유 집 존재 (OwnershipService가 유일한 원천, M8-C)
+
+        // ── M9 확장 (기존 인덱스 뒤에만 추가 — 에셋 호환 유지) ─────────────
+        IrrigationBuilt   = 18, // 논리형 — 관개수로 완공 (재해 저항 슬롯, M9-D). 예산 52칸 중 19 사용.
     }
 
     public static class SlotIds
     {
-        public const int Count = 18;
+        public const int Count = 19;
 
         /// <summary>전역 스톡 슬롯 여부 — EffectApplier/러너가 공유하는 유일한 판정.</summary>
         public static bool IsStock(SlotId slot)

@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ac650d4317ee413eaed31b2e75c34290, type: 3}
+  m_Name: BuildIrrigation
+  m_EditorClassIdentifier:
+  DisplayName: "관개수로를 놓자"
+  BubbleLines:
+  - "관개수로를 놓자"
+  - "물길을 내야 밭이 산다"
+  - "가뭄 대비는 미리 해둬야지"
+  - "여름 볕이 오기 전에"
+  - "물만 있으면 폭염도 버틴다"
+  BaseCost: 20
+  DurationSec: 4
+  Preconditions: []
+  Effects: []
+  Building: {fileID: 11400000, guid: 4d8a2f6c9b3e175028a1c4e7f9b2d5a6, type: 2}

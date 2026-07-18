@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9e1c4a7d3b6f4c8e2a5d9b1f7c3e6a05, type: 3}
+  m_Name: Disaster_ColdSnap
+  m_EditorClassIdentifier:
+  DisplayName: "한파"
+  Season: {fileID: 11400000, guid: 050728de4ded48e3ab557819f75696bd, type: 2}
+  OffsetDays: 1.5
+  TargetCrops: 0
+  BaseLossPct: 0.25
+  PerTargetPct: 0.03
+  MaxLossPct: 0.6
+  UseResistance: 0
+  ResistanceSlot: 0
+  ResistMult: 0.5
+  StrikeLines:
+  - "밭이 얼어붙었어!"
+  - "이 추위에 흙이 다 갈라졌어."
+  - "봄에 다시 일궈야겠네..."
+  - "서리가 밭을 망쳐놨어!"

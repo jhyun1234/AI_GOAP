@@ -10,12 +10,18 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 030583d177004eba84f6de826f7fe8b7, type: 3}
-  m_Name: Season_Mild
+  m_Name: Season_Summer
   m_EditorClassIdentifier:
-  DisplayName: "온화"
+  DisplayName: "여름"
   DurationDays: 3
-  IsCrisis: 0
+  IsCrisis: 1
   RegenMult: 1
   GrowthMult: 1
   SatietyDecayMult: 1
-  ForecastLines: []
+  ForecastLines:
+  - "올여름 볕이 심상치 않아."
+  - "냇물이 벌써 줄었어."
+  - "이런 더위는 처음이야."
+  - "밭이 바싹 말라가는데."
+  - "하늘만 쳐다보게 되네."
+  - "작물이 버텨줘야 할 텐데..."

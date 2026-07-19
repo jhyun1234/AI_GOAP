@@ -130,6 +130,7 @@ namespace AIVillage.M0
         private IActionRunner _runner;
         // 실패 goal 재시도 쿨다운 — 공회전(실패→즉시 재선택) 방지, 그동안 하위 goal로
         private readonly Dictionary<GoalSO, float> _goalRetryAt = new Dictionary<GoalSO, float>();
+        private string _lastAbortReason; // 진단(2026-07-19) — 마지막 플랜 중단 사유 (이탈 덤프용)
 
         // ── 촌장 명령 (M1-C, ADR-M1-1: 상태머신이 아니라 사다리의 한 칸) ──
         private GoalSO _order;
@@ -401,6 +402,27 @@ namespace AIVillage.M0
         /// </summary>
         private void Depart()
         {
+            // ── 이탈 진단 (2026-07-19) — 식량이 있는데 굶어 죽는 원인 추적 ──────────────
+            // 죽는 순간 전체 상황을 한 줄에 덤프한다: 지금 goal 재선택이 P0 배고픔(우선100)을
+            // 반환하는지, 마지막 플랜이 먹기였는지, 창고에 식량이 있었는지, 왜 마지막에 멈췄는지.
+            //   · 재선택≠P0인데 포만<10  → goal 선택/트리거 정합 버그
+            //   · 재선택=P0·plan=[Eat…]  → 먹기 실행 실패 (마지막중단 사유가 원인)
+            //   · 창고 Cooked/Raw=0       → 실제 식량 고갈 (밸런스, 접근 아님)
+            string plan = _plan.Count > 0 ? Join(_plan.ToArray()) : "(비어있음)";
+            string reselect = "?";
+            if (_sim != null)
+            {
+                GoalSO now = _sim.Goals.Select(BuildSnapshot(), IsGoalCoolingDown,
+                                               _order, _goalBias, _routine, _request);
+                reselect = now != null ? now.name : "null";
+            }
+            bool cf = Construction.TryGetAnchorTileForSlot(SlotId.CampfireBuilt, TileX, TileY, out Vector2Int cft);
+            Debug.LogWarning($"[이탈진단] {AgentId} @({TileX},{TileY}) 포만{Satiety:F1} 피로{Fatigue:F1} " +
+                             $"지속{_starvingDays:F2}일 | 상태={State} goal={(_goal != null ? _goal.name : "null")} " +
+                             $"plan=[{plan}]@{_planIndex} | 지금재선택→{reselect} | " +
+                             $"창고 Cooked{World.GetStock(SlotId.CookedFoodStock)} Raw{World.GetStock(SlotId.RawFoodStock)} " +
+                             $"| 모닥불{(cf ? $"({cft.x},{cft.y})" : "없음")} | 마지막중단={_lastAbortReason ?? "-"}");
+
             Debug.LogWarning($"[VillagerAgent] {AgentId}: 굶주림 이탈 — 포만 {Satiety:F0} " +
                              $"(< {_cfg.StarvingBelowSatiety}) 지속 {_starvingDays:F2}일 " +
                              $"(이탈 문턱 {_cfg.DepartAfterStarvingDays}일)");
@@ -1011,6 +1033,7 @@ namespace AIVillage.M0
         /// </summary>
         private void AbortPlan(string reason, bool warn = true, bool cooldown = true)
         {
+            _lastAbortReason = reason; // 진단 — 이탈 덤프가 "마지막에 왜 멈췄나"를 보여준다
             string msg = $"[VillagerAgent] {AgentId}: 플랜 중단 — {reason} (goal={(_goal != null ? _goal.name : "?")})";
             if (warn) Debug.LogWarning(msg); else Debug.Log(msg);
             if (ShouldRecordFailureCooldown(_goal, cooldown)) _goalRetryAt[_goal] = Time.time + _cfg.GoalRetryCooldownSec;

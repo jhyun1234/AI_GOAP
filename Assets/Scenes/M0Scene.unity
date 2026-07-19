@@ -649,6 +649,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 8729aa72b5e641c88f8a3e509d6a697b, type: 2}
   - {fileID: 11400000, guid: fa059dde74744ce4bf5d001b01420102, type: 2}
   - {fileID: 11400000, guid: fda218a4d94842849b31a189131a4926, type: 2}
+  _farmMeetingChatter: {fileID: 11400000, guid: f42058ea3dc34d6fa7af6e43a0f204be, type: 2}
 --- !u!1 &800
 GameObject:
   m_ObjectHideFlags: 0

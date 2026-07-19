@@ -46,6 +46,9 @@ namespace AIVillage.M0
         [Tooltip("직업 풀 (M5-A) — 스폰 시 랜덤 할당. 비우면 전원 무직(중립, M4 동작).")]
         [SerializeField] private JobSO[] _jobPool;
 
+        [Tooltip("농부 회의 연출 (M9-E) — 구역 확정 순간 완공자+근처 주민 릴레이. 비우면 회의 없음(중립).")]
+        [SerializeField] private ChatterSO _farmMeetingChatter;
+
         public static M0SimulationLoop Instance { get; private set; }
 
         public WorldModel World { get; private set; }
@@ -150,6 +153,42 @@ namespace AIVillage.M0
             a2?.ShowTransient(d.StrikeLines[Random.Range(0, d.StrikeLines.Length)]);
         }
 
+        // 농부 회의 청중 버퍼 (M9-E) — 프레임 재사용, 할당 0
+        private readonly List<VillagerAgent> _meetingListeners = new List<VillagerAgent>(8);
+
+        /// <summary>농부 회의 연출 (M9-E, 표현 전용 — ADR-M9-2) — 구역 확정 순간 앵커 최근접(완공자
+        /// 근사)이 외치고 반경 radius+2 내 주민이 릴레이 응수한다. 회의는 확정을 중계할 뿐 앵커를
+        /// 정하지 않는다 (⚠️③). 밭 구역만 대상 — 주거 구역엔 회의 없음.</summary>
+        private void ShowFarmMeeting(SlotId slot, Vector2Int anchor, int radius)
+        {
+            if (slot != SlotId.FarmPlotCount || _farmMeetingChatter == null || _agents.Count == 0) return;
+
+            // 화자 = 앵커 최근접 생존 주민 (첫 밭을 막 완공한 농부의 근사)
+            VillagerAgent speaker = null;
+            int best = int.MaxValue;
+            foreach (VillagerAgent a in _agents)
+            {
+                if (a == null || a.State == AgentState.Dead) continue;
+                int dx = a.TileX - anchor.x, dy = a.TileY - anchor.y;
+                int d = dx * dx + dy * dy;
+                if (d < best) { best = d; speaker = a; }
+            }
+            if (speaker == null) return;
+
+            // 청중 = 반경 radius+2 내 주민 (화자 제외), MaxExtraListeners 상한
+            _meetingListeners.Clear();
+            int rr = radius + 2;
+            foreach (VillagerAgent a in _agents)
+            {
+                if (_meetingListeners.Count >= _farmMeetingChatter.MaxExtraListeners) break;
+                if (a == null || a == speaker || a.State == AgentState.Dead) continue;
+                if (Mathf.Abs(a.TileX - anchor.x) > rr || Mathf.Abs(a.TileY - anchor.y) > rr) continue;
+                _meetingListeners.Add(a);
+            }
+            if (_meetingListeners.Count == 0) return; // 근처에 아무도 없으면 회의 없음 (혼잣말 방지)
+            Chatter.FireScene(_farmMeetingChatter, speaker, _meetingListeners, Time.time);
+        }
+
         private void Awake()
         {
             if (Instance != null && Instance != this)
@@ -225,6 +264,8 @@ namespace AIVillage.M0
             // 구역 테두리 (표현 전용) — 확정 순간 앵커 둘레에 외곽선
             _zoneBorderView = new ZoneBorderView(transform);
             Zones.OnZoneEstablished += (slot, anchor, radius) => _zoneBorderView.Draw(slot, anchor, radius);
+            // 구역 확정 → 농부 회의 연출 (M9-E, ADR-M9-2 표현 전용 — 앵커 확정을 회의가 중계할 뿐)
+            Zones.OnZoneEstablished += (slot, anchor, radius) => ShowFarmMeeting(slot, anchor, radius);
             // 밭 완공 → FarmService 등록 (RegisterPlot의 유일한 호출 경로, ADR-M2-4)
             Construction.OnCompleted += (b, x, y) =>
             {

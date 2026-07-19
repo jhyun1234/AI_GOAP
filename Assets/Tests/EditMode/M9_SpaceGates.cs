@@ -230,5 +230,54 @@ namespace AIVillage.Tests.EditMode
             Assert.AreEqual(0, farm.Plots.Count, "RemovePlot 연쇄 — 밭 시설도 제거");
             Assert.AreEqual(0, farm.CountEmpty());
         }
+
+        // ── M9-T4: N명 대화 릴레이 + 정지 상한 (순수 헬퍼) ──────────────────────────
+
+        [Test]
+        public void M9_T4_RelayDelay_IncrementsPerResponder()
+        {
+            // i번째 응답자 = ReplyDelaySec × (1+i) — 상대 1×, 청중 2×·3× (한 명씩 이어지는 릴레이)
+            Assert.AreEqual(2.5f, ChatterService.RelayDelay(2.5f, 0), 1e-4f, "상대 = 1×");
+            Assert.AreEqual(5.0f, ChatterService.RelayDelay(2.5f, 1), 1e-4f, "청중1 = 2×");
+            Assert.AreEqual(7.5f, ChatterService.RelayDelay(2.5f, 2), 1e-4f, "청중2 = 3×");
+        }
+
+        [Test]
+        public void M9_T4_PauserCount_CappedAtMaxAndNeutralAtOneToOne()
+        {
+            Assert.AreEqual(0, ChatterService.PauserCount(0), "응답자 0 = 대화 아님 → 정지 0");
+            Assert.AreEqual(2, ChatterService.PauserCount(1), "1:1 = 화자+상대 2 (중립 불변식 = 기존 동작)");
+            Assert.AreEqual(3, ChatterService.PauserCount(2), "화자+청중 = 3 (상한)");
+            Assert.AreEqual(3, ChatterService.PauserCount(3), "상한 클램프");
+            Assert.AreEqual(3, ChatterService.PauserCount(10), "청중 아무리 많아도 정지 ≤ 3 (ADR-M9-7)");
+            Assert.AreEqual(3, ChatterService.MAX_CHAT_PAUSERS, "상수 = 3");
+        }
+
+        [Test]
+        public void M9_T4_CollectEligible_RespectsCapAndOrder()
+        {
+            var outIdx = new System.Collections.Generic.List<int>();
+
+            // 후보 6명 전원 자격 → 상한 3까지만 앞에서부터
+            ChatterService.CollectEligible(6, 3, _ => true, outIdx);
+            Assert.AreEqual(3, outIdx.Count, "MaxExtraListeners 초과 미수집");
+            CollectionAssert.AreEqual(new[] { 0, 1, 2 }, outIdx, "앞에서부터 채운다");
+
+            // 홀수 인덱스만 자격 → 자격자만, 상한 내
+            ChatterService.CollectEligible(6, 2, i => i % 2 == 1, outIdx);
+            CollectionAssert.AreEqual(new[] { 1, 3 }, outIdx, "자격 통과분만 상한까지");
+        }
+
+        [Test]
+        public void M9_T4_MaxZero_IsNeutral_NoListeners()
+        {
+            var outIdx = new System.Collections.Generic.List<int>();
+            // MaxExtraListeners 0 = 청중 미수집 → 응답자 = 상대뿐 (기존 1:1 Fire와 동일 경로)
+            ChatterService.CollectEligible(5, 0, _ => true, outIdx);
+            Assert.AreEqual(0, outIdx.Count, "max 0 → 청중 없음 (중립 불변식)");
+            // 그때 정지 인원·릴레이 지연도 기존 1:1과 동일
+            Assert.AreEqual(2, ChatterService.PauserCount(1), "상대뿐이면 정지 2 = 기존");
+            Assert.AreEqual(2.5f, ChatterService.RelayDelay(2.5f, 0), 1e-4f, "상대 지연 = 기존 ReplyDelaySec");
+        }
     }
 }

@@ -1,0 +1,36 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 175743ff7b964f319b635978b0d3934e, type: 3}
+  m_Name: Chatter_FarmMeeting
+  m_EditorClassIdentifier:
+  DisplayName: "농부 회의"
+  SpeakerGoal: {fileID: 0}
+  MinSpeakerGoalPriority: 8
+  MaxTargetGoalPriority: 2
+  RadiusTiles: 4
+  MaxExtraListeners: 3
+  SpeakerToTargetDelta: 0
+  TargetToSpeakerDelta: 0
+  SpeakLines:
+  - "밭은 여기다 모으자!"
+  - "앞으로 밭은 전부 여기야"
+  - "여기가 우리 농사 자리다"
+  DefaultReplyLines:
+  - "좋아, 여기가 좋겠어"
+  - "물도 가깝고"
+  - "트여 있고 햇볕도 잘 들어"
+  PersonalityReplies:
+  - Personality: {fileID: 11400000, guid: d3a96c4e05f3472b18e0c27a53f9b4a6, type: 2}
+    Lines:
+    - "흥, 내 맘엔 안 들지만"
+    - "쳇, 어차피 상관없어"
+    - "맘대로 해, 난 몰라"

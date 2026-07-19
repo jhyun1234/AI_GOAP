@@ -31,7 +31,7 @@ MonoBehaviour:
     Value: 1
   - Slot: 2
     Op: 1
-    Value: 50
+    Value: 35
   EatAtAnchor: 1
   AnchorPriority:
   - 6

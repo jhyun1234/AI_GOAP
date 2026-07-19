@@ -15,6 +15,29 @@ metadata:
 
 ## 최신 사용 커밋
 
+- `latest_commit`: `7c0dd7f` (feat(personality) 성격이 위기 대응을 가른다 — GoalBoosts 축 + 이탈 계단화)
+- `selected_commits_range`: `aa795e6`(spec(m6) M6 실행명세서) ~ `7c0dd7f`(feat(personality) 성격이 위기 대응을 가른다) — 12커밋(M6-A~F 8개 세부 항목 + 위기감 재조정 + 개체 편차 붕괴 수정 포함, 기획팀 브리프 `01_planner_brief.md`에서 지정 문서 범위(`aa795e6`~`80cac26`)를 `a0e318b`·`7c0dd7f`(같은 세션의 M6 결말부)까지 보정)
+- `cycle_date`: 2026-07-19 (마스터 1차·2차 승인 후 게시팀 Step 7 발행)
+- `publish_status`: PUBLISHED (Blogger published: 2026-07-19 04:30 UTC / 2026-07-18 21:30 PDT, status: LIVE)
+- `blogger_post_id`: 4301273701134180743
+- `blog_url`: https://gamedevclaude.blogspot.com/2026/07/claude-code-unity-0.html
+- `title`: 인디게임 개발일지: Claude Code와 만든 Unity 계절 시스템 구현 — 기술은 만점인데 재미는 0점이었다
+- `labels`: AI 페어 프로그래밍 후기, Claude Code 게임 개발, Unity 계절 시스템 구현, Unity GOAP 게임 밸런싱
+- `local_archive`: tools/blog-automation/published/2026-07-19-unity-goap-m6-season-winter-crisis.html
+  (Blogger API 응답의 content 필드를 Buffer.concat 후 toString('utf8')로 재획득해 저장 —
+  게시 직후 별도 GET으로 재조회한 값과 원본 제출본을 diff/md5 대조해 완전 동일함을 확인,
+  13,856 bytes)
+- `비고`: M6 예고된 겨울과 설득 소재(aa795e6~7c0dd7f). 계절 선반(SeasonSO/SeasonService)·
+  겨울 효과(배율 곱 지점 2곳)·달력 HUD 예고·굶주림 이탈(이 게임 최초의 실패 상태)·보상
+  재설득(에스크로 방식, 이 게임 최초의 협상 수단)·가을 리허설(.cs 0)까지 M6-A~F 전 항목+
+  완료 직후 실측에서 "겨울 수지 2배 잉여"를 발견해 즉시 재조정(겨울 3→4일, 감쇠 1.75배,
+  주민 5→10명)한 위기감 재조정(a0e318b)·성격별 위기 대응 분화(GoalBoosts, 7c0dd7f)까지
+  포함. 같은 세션에서 발견된 "개체 편차 붕괴" 버그(주민 5명의 초기 포만이 문자열 해시
+  충돌로 81.6~81.7에 뭉치던 것을 FNV-1a로 근본 수정, 44b7538)도 다룸. 이 글로 M6 미발행
+  구간 해소.
+
+### 이전 회차 이력 (2026-07-18, M5 직업과 일과)
+
 - `latest_commit`: `87d7d7f` (feat(m5) M5-E 목수 리허설 — 직업 추가 = 에셋 1개 + 씬 풀 등록, .cs 0개)
 - `selected_commits_range`: `fd6b1db`(feat(m5) M5-A JobSO 스키마·스폰 할당) ~ `87d7d7f`(feat(m5) M5-E 목수 리허설)
 - `cycle_date`: 2026-07-18 (마스터 1차·2차 승인 후 게시팀 Step 7 발행)

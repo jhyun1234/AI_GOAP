@@ -10,15 +10,15 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 94822823cdc34b08a9e9902f17790132, type: 3}
-  m_Name: CookMeal
+  m_Name: CookMealScarce
   m_EditorClassIdentifier:
-  DisplayName: "찌개라도 끓여볼까"
+  DisplayName: "재료가 없어 멀겋게"
   BubbleLines:
-  - "찌개라도 끓여볼까"
-  - "맛있는 냄새가 나겠지"
-  - "요리하는 시간이 좋아"
-  - "간이 딱 맞아야 할 텐데"
-  - "오늘 솜씨 좀 볼까"
+  - "재료가 이것뿐이라..."
+  - "멀겋게라도 끓여야지"
+  - "이 철엔 이만해도 감지덕지야"
+  - "양을 늘리려면 물을 더 붓는 수밖에"
+  - "다들 나눠 먹으려면 이렇게라도"
   BaseCost: 6
   DurationSec: 3
   Preconditions:
@@ -27,14 +27,14 @@ MonoBehaviour:
     Value: 1
   - Slot: 1
     Op: 1
-    Value: 3
+    Value: 5
   - Slot: 16
     Op: 0
-    Value: 0
+    Value: 1
   Effects:
   - Slot: 1
     Op: 2
-    Value: 3
+    Value: 5
   - Slot: 10
     Op: 1
     Value: 1

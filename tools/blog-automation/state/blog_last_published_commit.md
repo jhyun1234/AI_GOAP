@@ -15,6 +15,26 @@ metadata:
 
 ## 최신 사용 커밋
 
+- `latest_commit`: `598e51e` (feat(content) 대사 풀 2차 확장 — .cs 0, 사용자 요청)
+- `selected_commits_range`: `a451435`(spec(m7) M7 실행명세서) ~ `598e51e`(feat(content) 대사 풀 2차 확장) — 11커밋(M7-A~E 5개 세부 항목 + M7-T3 에셋 정책 게이트 + M7 완료 직후 실측에서 발견된 부수 버그 수정 3건(모닥불 몰림 8e1ac6b·대화 연출 94b892e·말풍선 우선순위 799842f) + 대사 풀 2차 확장 598e51e 포함, 기획팀 브리프 `01_planner_brief.md` commit_refs 전체 반영)
+- `cycle_date`: 2026-07-20 (마스터 1차·2차 승인 후 게시팀 Step 7 발행)
+- `publish_status`: PUBLISHED (Blogger published: 2026-07-20 04:43 UTC / 2026-07-19 21:43 PDT, status: LIVE)
+- `blogger_post_id`: 267235146240614055
+- `blog_url`: https://gamedevclaude.blogspot.com/2026/07/claude-code-ai-goap-ai-m7.html
+- `title`: Claude Code AI 페어 프로그래밍 후기: 유니티 GOAP AI 인디게임 개발일지 — 주민들이 드디어 서로에게 말을 걸기 시작했다 (M7 상호대화와 가시성)
+- `labels`: Claude Code 게임 개발, AI 페어 프로그래밍 후기, Unity GOAP AI, 인디게임 개발일지
+- `local_archive`: tools/blog-automation/published/2026-07-20-unity-goap-m7-chatter-visibility.html
+  (Blogger API 응답의 content 필드를 그대로 저장 — 실제 게시본과 동일, 9,101 bytes)
+- `비고`: M7 상호대화와 가시성 소재(a451435~598e51e). 이름표+선택 정보줄(M7-A)로 성격(M4)·
+  직업(M5) 분화가 처음으로 화면에서 보이게 됨·대사 풀 확장(.cs 0, M7-B)·ChatterSO/
+  ChatterService 상호대화 선반(M7-C, ADR: 표현 전용·관계 미축적·이름 분기 금지·주기당
+  최대 1쌍)·대화 에셋 2종(M7-D)+에셋 정책 게이트(M7-T3)·직교성 리허설(M7-E, 에셋
+  1개·코드 0)까지 전 항목 포함. 완료 직후 실측에서 발견된 부수 버그 3건(모닥불 몰림
+  해소·대화 연출 멈춰서 마주보기+반경 4→2타일·말풍선 우선순위 정리)도 다룸. 이 글로
+  M7 미발행 구간 해소.
+
+### 이전 회차 이력 (2026-07-19, M6 예고된 겨울과 설득)
+
 - `latest_commit`: `7c0dd7f` (feat(personality) 성격이 위기 대응을 가른다 — GoalBoosts 축 + 이탈 계단화)
 - `selected_commits_range`: `aa795e6`(spec(m6) M6 실행명세서) ~ `7c0dd7f`(feat(personality) 성격이 위기 대응을 가른다) — 12커밋(M6-A~F 8개 세부 항목 + 위기감 재조정 + 개체 편차 붕괴 수정 포함, 기획팀 브리프 `01_planner_brief.md`에서 지정 문서 범위(`aa795e6`~`80cac26`)를 `a0e318b`·`7c0dd7f`(같은 세션의 M6 결말부)까지 보정)
 - `cycle_date`: 2026-07-19 (마스터 1차·2차 승인 후 게시팀 Step 7 발행)

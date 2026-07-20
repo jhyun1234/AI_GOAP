@@ -278,6 +278,11 @@ namespace AIVillage.Tests.EditMode
             // 그때 정지 인원·릴레이 지연도 기존 1:1과 동일
             Assert.AreEqual(2, ChatterService.PauserCount(1), "상대뿐이면 정지 2 = 기존");
             Assert.AreEqual(2.5f, ChatterService.RelayDelay(2.5f, 0), 1e-4f, "상대 지연 = 기존 ReplyDelaySec");
+
+            // 새 필드의 기본값이 곧 중립 — 기존 Chatter 3종은 무수정으로 M7 호흡 유지
+            var fresh = ScriptableObject.CreateInstance<ChatterSO>();
+            Assert.AreEqual(0, fresh.MaxExtraListeners, "청중 상한 기본 0 = 1:1");
+            Assert.AreEqual(1f, fresh.SceneTempoMult, 1e-4f, "연출 배속 기본 1 = 기존 호흡");
         }
     }
 }

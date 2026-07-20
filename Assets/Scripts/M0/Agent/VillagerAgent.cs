@@ -299,8 +299,9 @@ namespace AIVillage.M0
             if (_delayedShowAt > 0f && Time.time >= _delayedShowAt)
             {
                 _delayedShowAt = 0f;
-                ShowTransient(_delayedLine);
+                ShowTransient(_delayedLine, _delayedHold);
                 _delayedLine = null;
+                _delayedHold = 0f;
             }
         }
 
@@ -961,17 +962,20 @@ namespace AIVillage.M0
                 AbortPlan("명령 취소 (자율 복귀)", warn: false, cooldown: false);
         }
 
-        /// <summary>임시 대사 표시의 유일한 통로 — ChatterService(M7)도 여기를 쓴다 (ADR-M7-4).</summary>
-        public void ShowTransient(string line)
+        /// <summary>임시 대사 표시의 유일한 통로 — ChatterService(M7)도 여기를 쓴다 (ADR-M7-4).
+        /// holdSec 0 = 에셋 기본 노출(TransientLineSec). 장면별 연출 배속은 호출자(ChatterService)가
+        /// 계산해 넘긴다 — 1회성 회의처럼 천천히 읽혀야 하는 장면용 (M9-E 후속).</summary>
+        public void ShowTransient(string line, float holdSec = 0f)
         {
             if (string.IsNullOrEmpty(line)) return;
             _bubble?.ShowText(line);
-            _transientTextUntil = Time.time + _cfg.TransientLineSec; // 노출 시간 = 에셋 (M8 후속 승격)
+            _transientTextUntil = Time.time + (holdSec > 0f ? holdSec : _cfg.TransientLineSec);
         }
 
         // 지연 응수 (M7-C) — 발화 말풍선 뒤 ReplyDelaySec 간격으로 "대화처럼" (ADR-M7-4)
         private string _delayedLine;
         private float _delayedShowAt;
+        private float _delayedHold; // 응수 노출 시간 (0 = 에셋 기본) — 장면 배속 전달용
         private float _planResumeAt; // 대사 만료 후 플랜 말풍선 복원 예약 시각 (0 = 예약 없음)
 
         /// <summary>
@@ -979,11 +983,12 @@ namespace AIVillage.M0
         /// 대기 중엔 말풍선을 비운다 — 기존 혼잣말("따뜻하다...")이 즉답처럼 보이는 것 방지
         /// (2026-07-17 관측: 잔소리 직후 여가 문구가 남아 대화가 어색). 듣는 사이 = 침묵.
         /// </summary>
-        public void ShowTransientDelayed(string line, float delaySec)
+        public void ShowTransientDelayed(string line, float delaySec, float holdSec = 0f)
         {
             if (string.IsNullOrEmpty(line)) return;
             _delayedLine = line;
             _delayedShowAt = Time.time + delaySec;
+            _delayedHold = holdSec;
             _bubble?.Clear();
         }
 

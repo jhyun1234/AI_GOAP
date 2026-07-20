@@ -155,15 +155,20 @@ namespace AIVillage.M0
         /// </summary>
         private void Deliver(ChatterSO c, VillagerAgent speaker, List<VillagerAgent> responders, float nowSec)
         {
-            speaker.ShowTransient(Pick(c.SpeakLines));
+            // 연출 배속 (M9-E 후속) — 1이면 아래 전부 기존 값 그대로 (중립 불변식)
+            float tempo = c.SceneTempoMult > 0f ? c.SceneTempoMult : 1f;
+            float gapSec = _agentCfg.ReplyDelaySec * tempo;   // 릴레이 간격
+            float holdSec = _agentCfg.TransientLineSec * tempo; // 말풍선 노출
+
+            speaker.ShowTransient(Pick(c.SpeakLines), holdSec);
             int pausers = PauserCount(responders.Count);                 // 화자 포함 총 정지 인원 (≤3)
-            float pauseSec = _agentCfg.ChatPauseSec + _agentCfg.ReplyDelaySec * (responders.Count - 1);
+            float pauseSec = _agentCfg.ChatPauseSec + gapSec * (responders.Count - 1);
             // 화자는 첫 응답자를 바라보며 정지 (응답자 0은 두 진입점 모두에서 이미 배제)
             speaker.FaceForChat(responders[0].transform.position, pauseSec);
             for (int i = 0; i < responders.Count; i++)
             {
                 VillagerAgent r = responders[i];
-                r.ShowTransientDelayed(Pick(c.RepliesFor(r.Personality)), RelayDelay(_agentCfg.ReplyDelaySec, i));
+                r.ShowTransientDelayed(Pick(c.RepliesFor(r.Personality)), RelayDelay(gapSec, i), holdSec);
                 if (i < pausers - 1) r.FaceForChat(speaker.transform.position, pauseSec); // 앞 청중만 정지
                 RecordChat(speaker.AgentId, r.AgentId, nowSec); // 전원 쿨다운 (화자 반복 기록은 idempotent)
                 OnChatted?.Invoke(c, speaker, r); // M8-A — 청중별 관계 축적 (1:1이면 1회 = M8 동작)

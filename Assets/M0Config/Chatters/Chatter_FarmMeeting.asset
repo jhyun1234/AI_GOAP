@@ -18,6 +18,7 @@ MonoBehaviour:
   MaxTargetGoalPriority: 2
   RadiusTiles: 4
   MaxExtraListeners: 3
+  SceneTempoMult: 2
   SpeakerToTargetDelta: 0
   TargetToSpeakerDelta: 0
   SpeakLines:

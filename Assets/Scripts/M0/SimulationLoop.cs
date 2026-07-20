@@ -187,6 +187,8 @@ namespace AIVillage.M0
             }
             if (_meetingListeners.Count == 0) return; // 근처에 아무도 없으면 회의 없음 (혼잣말 방지)
             Chatter.FireScene(_farmMeetingChatter, speaker, _meetingListeners, Time.time);
+            // 1회성 장면이라 화면 밖에서 벌어져도 놓치지 않도록 알림 (재해 Notify 패턴)
+            Hud?.Notify($"농경지 확정 — 농부 회의 ({_meetingListeners.Count + 1}명)");
         }
 
         private void Awake()

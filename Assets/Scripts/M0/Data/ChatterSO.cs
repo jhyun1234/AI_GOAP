@@ -29,6 +29,10 @@ namespace AIVillage.M0
         [Tooltip("추가 청중 상한 (M9-E). 0 = 기존 1:1 (중립 불변식). 청중 성립 조건은 상대와 동일 대역.")]
         public int MaxExtraListeners;
 
+        [Tooltip("연출 배속 (1 = 기존 호흡). 릴레이 간격·말풍선 노출·마주보기를 함께 늘린다 — " +
+                 "회의처럼 1회성이라 천천히 읽혀야 하는 장면용. 일상 대화는 1로 둔다.")]
+        public float SceneTempoMult = 1f;
+
         [Header("관계 영향 (M8-A — 대화가 관계에 남기는 흔적. 0 = 중립, M7 동작과 동일)")]
         [Tooltip("발화 시 화자→상대 친밀도 변화 (잔소리 -2 류). 적용은 RelationshipService 구독 — ADR-M8-1")]
         public int SpeakerToTargetDelta;

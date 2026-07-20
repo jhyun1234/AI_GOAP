@@ -15,7 +15,7 @@ MonoBehaviour:
   DisplayName: "가을"
   DurationDays: 2
   IsCrisis: 0
-  RegenMult: 1.5
+  RegenMult: 1
   GrowthMult: 1.2
   SatietyDecayMult: 1
   ForecastLines: []

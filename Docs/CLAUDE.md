@@ -71,6 +71,7 @@ Unity 탑다운 마을 생존 시뮬레이션. GOAP(Burst Job A*) 기반 주민 
 | 새 자원 타입 | SlotId.cs 1파일 (enum 2줄 + 매핑 2줄 + Count) + 에셋 |
 | 새 실행 계열 | ActionSO 서브클래스 + Runner 1개 (다른 파일 수정 없음 — abstract가 강제) |
 | 계절 추가 | SeasonSO 에셋 1개 + WorldConfig.SeasonCycle 등록. **코드 0줄** (M6-F 가을 리허설 증명) — 배율 3종+예고 대사가 전부 |
+| 재해 추가 | DisasterSO 에셋 1개 + WorldConfig.Disasters 등록. **코드 0줄** (M9-F 홍수 리허설 증명) — 계절 참조·발동 시점·소실 곡선·저항 슬롯·반응 대사가 전부 |
 | 보상 종류 추가 | RewardSO 에셋 1개 (비용·지급·거부 문턱 오프셋·대사) |
 | 대화 상황 추가 | ChatterSO 에셋 1개 + WorldConfig.Chatters 등록. **코드 0줄** (M7-E 수확 자랑 리허설 증명) — 조건 대역·대사·성격별 응수가 전부 |
 | 대화의 관계 영향 조정 | ChatterSO 델타 필드 2개 (화자→상대·상대→화자). 코드 0줄 (M8-A) |

@@ -15,7 +15,7 @@ MonoBehaviour:
   DisplayName: "홍수"
   Season: {fileID: 11400000, guid: 5a1c9e3d7b2f4a86c0d1e9f3a7b5c8d2, type: 2}
   OffsetDays: 2.5
-  TargetCrops: 1
+  TargetCrops: 0
   BaseLossPct: 0.15
   PerTargetPct: 0.02
   MaxLossPct: 0.4

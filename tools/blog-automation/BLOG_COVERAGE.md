@@ -3,6 +3,43 @@
 *목적: "블로그 글이 개발 순서에 맞게 잘 정리되어 나가고 있는가"를 어느 세션에서든
 즉시 점검하기 위한 허브. 사용자가 "블로그 순서/품질 점검해줘"라고 하면 이 파일부터 읽는다.*
 
+**마지막 사전점검**: 2026-07-21 (자동 스케줄, 세션 지연으로 15:46 KST 실행 — 오늘
+13:03 회차는 이미 발행 완료된 뒤였다. 따라서 이번 점검은 **내일(07-22) 회차 대상**).
+
+**오늘 회차 결과**: M8(관계·소유·부탁, `68c6ef8`~`66f690b`) 발행 완료 —
+blogger_post_id 2940839193792714370, [링크](https://gamedevclaude.blogspot.com/2026/07/claude-code-ai-goap-ai-m8.html).
+07-20 게시팀이 지정한 ACTIVE 소재가 그대로 적중했고 순서 역전 없음(M7 → M8).
+
+**사실관계 스팟 체크 통과**: 로컬 아카이브
+`published/2026-07-21-unity-goap-m8-relationship-ownership-request.html`를 실제 코드와
+대조 — 글이 주장한 부탁 거절 판정 순서 "바쁨 → 배고픔 → 피로 → 친밀"이
+`Assets/Scripts/M0/Agent/VillagerAgent.cs:866~870`(`RefusedBusy` → `RefusedHungry` →
+`RefusedTired` → `RefusedLowAffinity`)과 정확히 일치. 관계 방향성(A→B / B→A 분리)·
+좌표를 건물 신원으로 사용(OwnershipService + MyHasHome)·자율 건설/자동 배정 폐기·
+성격별 보상 태도(떼먹기·선불)·장식성 발화 억제·대화 델타 기본값 0(중립 불변식)·
+주민 4명 모두 memory 기록 및 커밋 서사와 일치. 과장·미검증 주장 없음.
+
+**🔴 내일(07-22) 회차 교정 — ACTIVE 신규 지정함.** 게이트 계산(origin/main 기준,
+`LAST=66f690b`): 미소비 커밋 45개 · spec 커밋 2개 · 경과 3일 → **기준 A·B 통과, 발행
+확정**. 그런데 게시팀 Step 8이 ACTIVE를 비워둔 채 통상 스코핑에 맡긴 상태였고, 그
+스코핑에는 함정이 있었다 — **origin/main에는 07-19~21 세션 로그가 커밋되어 M9-A~J
+구현 서사가 devlog에 전부 들어와 있지만, 정작 M9 구현 커밋 22개(`afdbc22`~`a351437`)는
+로컬 브랜치에만 있고 push되지 않았다.** planner의 1차 소스는 devlog, 교차 검증은 git
+커밋이므로 planner가 M9를 골라 산문만으로 집필하고 검수팀의 커밋 대조가 실패하는
+어긋남이 발생할 수 있었다. 더구나 M9는 중간 리뷰 ② 재관측 대기로 밀스톤 자체가
+미완결이다. → `blog_next_material_priority.md`를 **STATUS: ACTIVE**로 지정해,
+origin/main에 온전히 존재하고 M8 다음 순서인 구간(`897605c` 완공 보고 "마주치면 정산"
+재설계 + IPathfinder 확장 경계 · `f907fc2` 말풍선 여운 · `db4424a`/`9980876` M9 명세
+2건)을 묶음 소재로 고정했다. M9 구현 언급 금지 조항도 함께 명시. M9 구현이 그 전에
+push되더라도 이 소재가 시간순으로 앞서므로 순서 역전은 발생하지 않는다.
+
+**파이프라인 건강**: 403 / REJECTED_3X 두 경보 모두 CLOSED 유지, 재발 없음. 07-19·
+07-20·07-21 세 회차 모두 원격에서 `chore(blog): auto-run state update` 커밋이 정상
+push됨(`202f9b5`·`cb8b0f9`·`ddfe9db`) — GitHub API 직접 커밋 경로가 안정적으로 동작 중.
+07-18 M5 회차의 중복 게시 사고도 재발 없음.
+
+### 이전 사전점검 이력 (2026-07-20, 기록 보존용)
+
 **마지막 사전점검**: 2026-07-20 (자동 스케줄, 13:03 발행 1시간 전 정상 실행). 07-19
 사전점검 이후 새로 발행된 글 없음 — `blog_last_published_commit.md` latest_commit은
 여전히 `7c0dd7f`(M6). `blog_next_material_priority.md`가 `STATUS: ACTIVE`로 **M7(상호대화와
@@ -58,9 +95,11 @@ A~J 다수 항목 진행 중·미완결)은 그 다음 후보로 관찰 계속.
 | 6 | 2026-07-17 | **M4 주민의 성격(아키타입 재편입)** — PersonalitySO·비용 배율·명령 거부·혼잣말·5번째 아키타입 + JPS 버그 발견 | b982090~862de3b | 5번(M2+M3) 다음 소재 | PUBLISHED ([링크](https://gamedevclaude.blogspot.com/2026/07/unity-goap_0950458123.html)) |
 | 7 | 2026-07-18 | **M5 직업과 일과** — JobSO·실효 우선순위·일과 주입(농부/탐험가)·직업 에셋 5종·목수 리허설(.cs 0) + JPS 대각 버그 | fd6b1db~87d7d7f | 6번(M4) 다음 소재 | PUBLISHED ([링크](https://gamedevclaude.blogspot.com/2026/07/unity-goap-ai.html)) |
 | 8 | 2026-07-19 | **M6 예고된 겨울 + 보상 재설득** — 계절 선반·굶주림 이탈·보상 재설득·가을 리허설(.cs 0)·개체 편차 붕괴 수정·위기감 재조정·성격별 위기 대응 분화(GoalBoosts) | aa795e6~7c0dd7f | 7번(M5) 다음 소재 | PUBLISHED ([링크](https://gamedevclaude.blogspot.com/2026/07/claude-code-unity-0.html)) |
-| — | (차기 예약) | **M7 상호대화와 가시성** — 이름표·정보줄·대사 확장·주민 반응 대화 | a451435~08f7f9b | 8번(M6) 다음 소재 | PRIORITY ACTIVE — 2026-07-19 게시팀 Step 8 지정 (`blog_next_material_priority.md` 참조) |
-| — | 미발행 구간 (완료, 대기) | **M8 관계·소유·부탁** — 관계 축·소유 축(내 집)·부탁 선반·보상 태도(떼먹기/선불) | 68c6ef8~66f690b | M7 다음 소재 | 대기 |
-| — | 미발행 구간 (진행 중) | **M9 공간·재해** — 구역 선반·파괴 문·재해 선반·FoodDaysLeft·식량 goal 개편 등 A~J 다수 항목 | (진행 중, 미완결) | M8 다음 소재 후보 — 완결 후 관찰 | 대기 (미완결) |
+| 9 | 2026-07-20 | **M7 상호대화와 가시성** — 이름표·선택 정보줄·대사 풀 확장(.cs 0)·ChatterSO/ChatterService 상호대화 선반·에셋 정책 게이트·직교성 리허설 + 부수 버그 3건(모닥불 몰림·대화 연출·말풍선 우선순위) | a451435~598e51e | 8번(M6) 다음 소재 | PUBLISHED ([링크](https://gamedevclaude.blogspot.com/2026/07/claude-code-ai-goap-ai-m7.html)) |
+| 10 | 2026-07-21 | **M8 관계·소유·부탁** — RelationshipService(방향성 관계)·정보줄 단짝/원한·OwnershipService(내 집)·부탁 선반(RequestSO/JudgeRequest)·요리 부탁 리허설(.cs 0) + 후속 보완 4건(보상 태도 떼먹기/선불·집=목수 부탁 전용·대화 흐름 보호·완공 보고 심부름) | 68c6ef8~66f690b | 9번(M7) 다음 소재 | PUBLISHED ([링크](https://gamedevclaude.blogspot.com/2026/07/claude-code-ai-goap-ai-m8.html)) — 사실관계 스팟 체크 통과 (2026-07-21) |
+| — | (차기 예약) | **M8 후속 + M9 명세 묶음** — 완공 보고 "쫓아가기"→"마주치면 정산" 재설계(동속 추격 미수렴 근본 진단)·IPathfinder 확장 경계 ADR·말풍선 침묵 여운·M9 공간/재해 실행명세서·식량 수지 보완가이드(FoodDaysLeft) | 897605c, f907fc2, db4424a, 9980876 | 10번(M8) 다음 소재 | PRIORITY ACTIVE — 2026-07-21 사전점검 지정 (`blog_next_material_priority.md` 참조) |
+| — | 미발행 구간 (대기) | **개발 방법론 명세서** — AI 사고·판정·소통 메커니즘(M1~M8) 박제 + mermaid 다이어그램·개념 노트 성좌 | 1ab4f9c~ee165a5 | 차기 예약 다음 후보 (밀스톤 체인 밖 메타 소재) | 대기 — M9 완결 지연 시 대기 소재로 활용 |
+| — | 미발행 구간 (진행 중, **origin/main 미push**) | **M9 공간·재해** — ZoneService 구역 선반·파괴 문·DisasterService·FoodDaysLeft 슬롯·N명 대화 회의·홍수 리허설(.cs 0)·밸런스 4커밋 | afdbc22~a351437 (로컬 전용) | 위 두 소재 다음 후보 | 대기 (미완결 + 미push) — **push·사용자 재관측 완료 전 집필 금지** |
 
 ## 주기 점검 절차 (점검 세션용 체크리스트)
 

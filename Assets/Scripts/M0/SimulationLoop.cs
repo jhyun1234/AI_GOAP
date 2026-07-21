@@ -123,6 +123,35 @@ namespace AIVillage.M0
             if (agent != null && !_agents.Contains(agent)) _agents.Add(agent);
         }
 
+        /// <summary>부상 주민 수 집계 (M10-A) — InjuredCount 파생 슬롯의 유일한 원천 (트리거 전용).</summary>
+        public int CountInjured()
+        {
+            int n = 0;
+            foreach (VillagerAgent a in _agents)
+                if (a != null && a.State != AgentState.Dead && a.Injury != InjurySeverity.None) n++;
+            return n;
+        }
+
+        /// <summary>누적 사망 수 (M10-A) — 쓰기는 RecordDeath뿐. 세이브 대상 (ADR-M0-10).</summary>
+        public int DeathCount { get; private set; }
+
+        /// <summary>
+        /// 사망 기록 (M10-A) — 호출처는 VillagerAgent.Die()뿐 (이탈 이원화 — ADR-M10-3:
+        /// Depart는 여기 오지 않는다). 카운터 +1 + 사망 타일에 무덤 오브젝트 (표현 전용, 영구 흔적).
+        /// </summary>
+        public void RecordDeath(int tileX, int tileY)
+        {
+            DeathCount++;
+            var grave = new GameObject($"Grave_{tileX}_{tileY}");
+            grave.transform.SetParent(transform, worldPositionStays: false);
+            grave.transform.position = new Vector3(tileX, tileY, 0f); // ADR-M0-9 — X-Y 평면
+            var sr = grave.AddComponent<SpriteRenderer>();
+            sr.sprite = M0Sprites.Circle;
+            sr.color = new Color(0.45f, 0.45f, 0.5f, 0.9f); // 회색 비석 마커 (아트 교체는 후속 에셋)
+            sr.sortingOrder = 5;                             // 주민(10) 아래, 바닥 위
+            grave.transform.localScale = Vector3.one * 0.5f;
+        }
+
         public void UnregisterAgent(VillagerAgent agent)
         {
             if (agent == null) return;
@@ -226,8 +255,9 @@ namespace AIVillage.M0
                 Debug.LogWarning("[M0SimulationLoop] WorldConfig.SeasonCycle 비어 있음 — 계절 없이 진행 (M5 동작).");
             }
             // 식량 수지 (M9-G) — 인원은 provider(호출 시점 실인원, Dead 제외), 가치표는 config.FoodSources에서 파생
+            // 부상 수(M10-A)도 같은 provider 패턴 — 파생 슬롯의 원천은 집계 하나뿐
             World        = new WorldModel(Discovery, _worldConfig, Farm, Season,
-                                         () => _agents.Count, _agentConfig);
+                                         () => _agents.Count, _agentConfig, CountInjured);
             Construction = new ConstructionService(World);
             Zones        = new ZoneService(); // M9-A — 배치 결정자 (군집 휴리스틱 대체, ADR-M9-1)
             Planner      = new PlannerGateway(_catalog);

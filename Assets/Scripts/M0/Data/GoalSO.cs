@@ -39,6 +39,11 @@ namespace AIVillage.M0
                  "P0 생존 goal·명령에 설정 금지 — 생존과 플레이어 의지는 인원 제한 대상이 아니다.")]
         public int MaxWorkers;
 
+        [Tooltip("부상 중에도 후보로 남는 goal (M10-A — 생존 goal만 true: P0 식사·수면, 도망, 간식). " +
+                 "false(기본)면 부상 주민의 후보에서 제외 — 절뚝이며 노동하러 가는 것을 막는다. " +
+                 "부상 None이면 이 필드는 판정에 개입하지 않는다 (중립 불변식).")]
+        public bool AllowedWhenInjured;
+
         /// <summary>
         /// ADR-M0-7 정합 검사: goal 달성 상태가 trigger를 다시 발동시키면 무한 루프다.
         /// 같은 슬롯에 대해 "목표값이 발동 조건을 만족"하면 에셋 저장 시점에 에러를 띄운다.

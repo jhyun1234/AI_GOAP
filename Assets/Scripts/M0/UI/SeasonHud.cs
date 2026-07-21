@@ -133,6 +133,8 @@ namespace AIVillage.M0
                 $"{a.ShortName} — 성격 {(a.Personality != null ? a.Personality.DisplayName : "없음")}" +
                 $" · 직업 {(a.Job != null ? a.Job.DisplayName : "무직")}" +
                 $" · 포만 {Mathf.RoundToInt(a.Satiety)} · 피로 {Mathf.RoundToInt(a.Fatigue)}" +
+                // 부상 표기 (M10-A) — 붉은 강조. None이면 표기 없음 (중립 — M9 표시와 동일)
+                (a.Injury != InjurySeverity.None ? " · <color=#FF6B6B>부상</color>" : "") +
                 $" · 지금: {(a.CurrentGoal != null ? a.CurrentGoal.DisplayName : "쉬는 중")}";
 
             // 수락한 부탁 표기 (M8 후속) — "부탁: A의 집 지어주기". 진행 중(수락~완수)에만

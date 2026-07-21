@@ -137,5 +137,37 @@ namespace AIVillage.M0
             "더는 못 버티겠어… 미안해요.",
             "이 마을엔 겨울을 날 음식이 없어.",
         };
+
+        [Header("부상 (M10-A — 최초의 사망 축. 전부 제안치, 명세 §4.4)")]
+        [Tooltip("부상 중 이동 속도 배율 (<1 = 절뚝임). 도망·식사도 이 속도 — 다음 타격의 최우선 후보가 된다.")]
+        public float InjuredMoveSpeedMult = 0.4f;
+
+        [Tooltip("간호 누적이 이 기간(게임일)에 도달하면 완치. 자연 회복 없음 — 간호만 진행시킨다 (결정 11).")]
+        public float InjuryRecoverDays = 1f;
+
+        [Tooltip("미간호 누적이 이 기간(게임일)에 도달하면 사망. 간호 중엔 정지(홀드 — 리셋 아님). " +
+                 "굶주림 0.5일보다 길게 — 발견→간호 판단의 유예 (명세 §4.5 검산).")]
+        public float InjuryDeathAfterDays = 1.5f;
+
+        [Tooltip("부상 순간 대사 (랜덤 선택). 명령·부탁 거절(부상)도 재사용.")]
+        public string[] InjuredLines =
+        {
+            "다리가… 움직일 수가 없어.",
+            "물렸어… 누가 좀 봐줘.",
+        };
+
+        [Tooltip("사망 직전 마지막 대사 (랜덤 선택)")]
+        public string[] DieLines =
+        {
+            "먼저 갈게… 마을을 부탁해.",
+            "춥다… 미안…",
+        };
+
+        [Tooltip("간호 시작 대사 (랜덤 선택 — M10-B TendRunner가 사용)")]
+        public string[] TendLines =
+        {
+            "금방 나을 거야. 곁에 있을게.",
+            "상처 좀 보자. 가만히.",
+        };
     }
 }

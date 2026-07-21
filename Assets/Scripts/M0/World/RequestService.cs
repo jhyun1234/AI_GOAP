@@ -188,6 +188,7 @@ namespace AIVillage.M0
                 case VillagerAgent.RequestResult.RefusedBusy:        return r.RefuseBusyLines;
                 case VillagerAgent.RequestResult.RefusedLowAffinity: return r.RefuseLowAffinityLines;
                 case VillagerAgent.RequestResult.RefusedNoReward:    return r.RefuseNoRewardLines;
+                case VillagerAgent.RequestResult.RefusedInjured:     return _agentCfg.InjuredLines; // M10-A — 부상 대사 재사용 (이중 기입 금지)
                 case VillagerAgent.RequestResult.RefusedHungry:
                     return FirstNonEmpty(target.Personality != null ? target.Personality.RefuseHungryLines : null,
                                          _agentCfg.RefuseHungryLines);
@@ -206,6 +207,7 @@ namespace AIVillage.M0
                 case VillagerAgent.RequestResult.RefusedHungry:      return "거절(배고픔)";
                 case VillagerAgent.RequestResult.RefusedTired:       return "거절(피로)";
                 case VillagerAgent.RequestResult.RefusedNoReward:    return "거절(선불)";
+                case VillagerAgent.RequestResult.RefusedInjured:     return "거절(부상)"; // M10-A
                 default:                                             return "거절(원한)";
             }
         }

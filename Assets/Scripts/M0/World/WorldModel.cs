@@ -24,15 +24,18 @@ namespace AIVillage.M0
         private readonly (SlotId slot, int gain)[] _foodValues;
         private readonly System.Func<int> _aliveCount; // 원천 = SimulationLoop._agents.Count (Dead 제외)
         private readonly float _decayPerDay;            // AgentConfig.SatietyDecayPerGameDay
+        private readonly System.Func<int> _injuredCount; // 부상 주민 수 (M10-A) — 원천 = SimulationLoop.CountInjured
 
         public WorldModel(DiscoveryService discovery, WorldConfigSO config, FarmService farm = null,
                           SeasonService season = null,
-                          System.Func<int> aliveCount = null, AgentConfigSO agentCfg = null)
+                          System.Func<int> aliveCount = null, AgentConfigSO agentCfg = null,
+                          System.Func<int> injuredCount = null)
         {
             _discovery = discovery;
             _farm = farm;
             _season = season;
             _aliveCount = aliveCount;
+            _injuredCount = injuredCount;
             _decayPerDay = agentCfg != null ? agentCfg.SatietyDecayPerGameDay : 0f;
             if (config != null)
             {
@@ -170,6 +173,9 @@ namespace AIVillage.M0
             slots[(int)SlotId.FoodDaysLeft] = _aliveCount != null && _foodValues != null
                 ? ComputeFoodDaysLeft(_foodValues, slots, _aliveCount(), _decayPerDay, SeasonDecayMult())
                 : NO_ESTIMATE;
+            // 부상 주민 수 (M10-A) — 파생 슬롯, 원천은 SimulationLoop 집계뿐. 미배선이면 0 (중립 —
+            // Goal_TendInjured 트리거 "≥1" 영구 불발 = M9 동작).
+            slots[(int)SlotId.InjuredCount] = _injuredCount != null ? _injuredCount() : 0;
             return new WorldSnapshot(slots);
         }
 

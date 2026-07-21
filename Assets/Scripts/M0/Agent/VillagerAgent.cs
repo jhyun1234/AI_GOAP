@@ -12,7 +12,14 @@ namespace AIVillage.M0
         Planning, // 플래너 잡 폴링
         Moving,   // 타일 예약 이동 (Update 프레임 보간)
         Acting,   // 러너 실행
-        Dead,     // M0에서 진입 경로 없음 (전투 부재) — 상태만 예약
+        Dead,     // 시뮬 종료 상태 — 이탈(M6-D)·사망(M10-A)이 공유 (ADR-M6-3: 새 상태 추가 금지)
+    }
+
+    /// <summary>부상 심각도 (M10-A). append 예약: Heavy = 2 (M11+ 침상 고정·간병 배달 — 명세 §7).</summary>
+    public enum InjurySeverity
+    {
+        None  = 0,
+        Light = 1, // 경상 — 거동 가능 (감속 + 노동 goal 차단), 간호로 회복
     }
 
     /// <summary>
@@ -325,15 +332,30 @@ namespace AIVillage.M0
                 Depart();
                 return;
             }
+
+            // 부상 계단 (M10-A) — 굶주림과 같은 패턴, 원인·결말은 분리 (ADR-M10-3).
+            // 회복은 간호 중에만 진행 (자연 회복 없음 — 결정 11), 방치 누적이 문턱에 닿으면 사망.
+            if (Injury != InjurySeverity.None)
+            {
+                bool tended = Time.time < _tendedUntil;
+                (_injuryRecovery, _injuryNeglectDays) = NextInjuryState(
+                    _injuryRecovery, _injuryNeglectDays, tended, _tendMult, deltaGameDays);
+                if (_injuryRecovery >= _cfg.InjuryRecoverDays) HealInjury();
+                else if (ShouldDie(_injuryNeglectDays, _cfg))
+                {
+                    Die();
+                    return;
+                }
+            }
             _tickCounter++;
 
             // 실행 중 상위 goal 전환 (데이터 주도 — 임계값은 GoalSO 에셋에만 존재)
             if ((State == AgentState.Moving || State == AgentState.Acting)
                 && _tickCounter % GOAL_RECHECK_EVERY_TICKS == 0)
             {
-                // 쿨다운 필터를 Idle 선택과 동일하게 적용 — 방금 실패한 goal이 전환 대상으로
-                // 재등장해 중단↔재시작 폭주(0.5초 주기)를 일으키는 것을 방지
-                GoalSO now = _sim.Goals.Select(BuildSnapshot(), IsGoalCoolingDown, _order, _goalBias, _routine, _request);
+                // 쿨다운+부상 필터를 Idle 선택과 동일하게 적용 — 방금 실패한 goal이 전환 대상으로
+                // 재등장해 중단↔재시작 폭주(0.5초 주기)를 일으키는 것을 방지 (M10-A: 합성 필터)
+                GoalSO now = _sim.Goals.Select(BuildSnapshot(), IsGoalExcluded, _order, _goalBias, _routine, _request);
                 if (now != null && _goal != null && now != _goal
                     && EffectivePriority(now) > EffectivePriority(_goal))
                 {
@@ -377,6 +399,103 @@ namespace AIVillage.M0
         /// <summary>포만 감쇠 산식의 유일한 지점 (M6-B) — 순수 함수라 게이트(M6-T2b)가 직접 검증한다.</summary>
         public static float SatietyDecay(float perGameDay, float seasonMult, float deltaGameDays)
             => perGameDay * seasonMult * deltaGameDays;
+
+        // ── 부상·사망 (M10-A — 최초의 사망 축. ADR-M10-2: 쓰기는 Injure/HealInjury/SimTick뿐) ──
+
+        /// <summary>부상 상태. 세이브 대상 (ADR-M0-10 — Severity·회복·방치 누적 3종 함께).</summary>
+        public InjurySeverity Injury { get; private set; }
+
+        private float _injuryRecovery;    // 간호 누적 (게임일) — InjuryRecoverDays 도달 시 완치. 세이브 대상
+        private float _injuryNeglectDays; // 미간호 누적 (게임일) — InjuryDeathAfterDays 도달 시 사망. 세이브 대상
+        private float _tendedUntil;       // 간호 유효 시각 (Time.time) — 세이브 안 함 (로드 후 간호 재개로 재유도)
+        private float _tendMult = 1f;     // 현재 간호자 회복 배율 (Job.TendRecoveryMult)
+
+        /// <summary>부상 진입 가능 판정 (순수 — 게이트 M10-T1): Dead·중복 부상 무시 (M10은 단일 심각도).</summary>
+        public static bool CanInjure(AgentState state, InjurySeverity current)
+            => state != AgentState.Dead && current == InjurySeverity.None;
+
+        /// <summary>
+        /// 부상 진입의 유일한 문 (ADR-M10-2) — 호출처는 ThreatService.ExecuteStrike뿐 (M10-C).
+        /// 하던 일은 중단 (실패 아님 — 쿨다운 없음), 이후 goal 후보는 AllowedWhenInjured로 좁혀진다.
+        /// </summary>
+        public void Injure(InjurySeverity severity)
+        {
+            if (!CanInjure(State, Injury) || severity == InjurySeverity.None) return;
+            Injury = severity;
+            _injuryRecovery = 0f;
+            _injuryNeglectDays = 0f;
+            _tendedUntil = 0f;
+            // Planning 중 부상: 대기 중인 노동 플랜이 부상 필터를 우회해 시작되는 구멍 차단.
+            // Cancel 없이 상태만 바꾸면 _pending 누수(NativeArray leak — 커밋 전 체크 4) — 반드시 취소 후 중단.
+            if (State == AgentState.Planning && _pending != null)
+            {
+                _sim.Planner.Cancel(_pending);
+                _pending = null;
+                AbortPlan("부상 — 계획 취소", warn: false, cooldown: false);
+            }
+            else if (State == AgentState.Moving || State == AgentState.Acting)
+                AbortPlan("부상 — 하던 일 중단", warn: false, cooldown: false);
+            ShowTransient(Pick(_cfg.InjuredLines));
+            Debug.LogWarning($"[Injury] {AgentId}: 부상 ({severity})");
+            _sim.Hud?.Notify($"{ShortName}이(가) 다쳤습니다");
+        }
+
+        /// <summary>간호 표시 (M10-B TendRunner 전용) — 유효 시간 동안 사망 계단 정지 + 회복 진행.
+        /// 부상 상태 자체는 쓰지 않는다 (ADR-M10-2 — 회복 진행은 본인 SimTick만).</summary>
+        public void MarkTended(float untilSec, float recoveryMult)
+        {
+            _tendedUntil = untilSec;
+            _tendMult = Mathf.Max(1f, recoveryMult);
+        }
+
+        /// <summary>
+        /// 부상 계단 갱신 (순수 — 게이트 M10-T1): 간호 중 = 회복 진행·방치 정지(홀드 — 리셋 아님,
+        /// 스치는 간호로 사망 시계가 초기화되면 사망 불가능 — 명세 ⚠️②), 방치 = 방치 누적·회복 정지.
+        /// </summary>
+        public static (float recovery, float neglect) NextInjuryState(
+            float recovery, float neglect, bool tended, float tendMult, float deltaGameDays)
+            => tended ? (recovery + deltaGameDays * tendMult, neglect)
+                      : (recovery, neglect + deltaGameDays);
+
+        /// <summary>사망 판정 (순수 — 게이트 M10-T1) — 문턱은 에셋 값 (ADR-M0-2). ShouldDepart와 동일 형식.</summary>
+        public static bool ShouldDie(float neglectDays, AgentConfigSO cfg)
+            => neglectDays >= cfg.InjuryDeathAfterDays;
+
+        /// <summary>완치 — 부상 소멸의 유일한 지점. 감속·goal 필터가 같은 틱에 해제된다.</summary>
+        private void HealInjury()
+        {
+            Debug.Log($"[Injury] {AgentId}: 회복 — 간호 누적 {_injuryRecovery:F2}일");
+            Injury = InjurySeverity.None;
+            _injuryRecovery = 0f;
+            _injuryNeglectDays = 0f;
+            _tendedUntil = 0f;
+            _tendMult = 1f;
+        }
+
+        /// <summary>
+        /// 부상 사망 (M10-A) — 이탈(Depart)과 동일 경로 재사용 (ADR-M6-3): State=Dead + 지연 파괴,
+        /// 클레임·타일·명령·보상 정리는 전부 OnDestroy 단일 경로. 무덤·카운터는 RecordDeath (표현+기록).
+        /// 굶주림은 여기 오지 않는다 — 결말 이원화 (ADR-M10-3: 이탈=굶주림, 사망=부상).
+        /// </summary>
+        private void Die()
+        {
+            Debug.LogWarning($"[VillagerAgent] {AgentId}: 부상 사망 — 방치 {_injuryNeglectDays:F2}일 " +
+                             $"(문턱 {_cfg.InjuryDeathAfterDays}일)");
+            _sim.Hud?.Notify($"{ShortName}이(가) 숨을 거뒀습니다");
+            _sim.RecordDeath(TileX, TileY);
+            ShowTransient(Pick(_cfg.DieLines));
+            State = AgentState.Dead;      // SimTick 차단 — Depart와 동일 (새 상태 추가 금지)
+            Destroy(gameObject, _cfg.TransientLineSec);
+        }
+
+        /// <summary>부상 goal 필터 (순수 — 게이트 M10-T1): 부상 중엔 AllowedWhenInjured goal만 후보.
+        /// None이면 항상 false = 기존 Select와 완전 동일 (중립 불변식).</summary>
+        public static bool BlockedByInjury(GoalSO goal, InjurySeverity injury)
+            => injury != InjurySeverity.None && goal != null && !goal.AllowedWhenInjured;
+
+        /// <summary>쿨다운+부상 합성 필터 — Select의 skip 델리게이트 (두 호출부가 같은 진리를 쓴다).</summary>
+        private bool IsGoalExcluded(GoalSO goal)
+            => IsGoalCoolingDown(goal) || BlockedByInjury(goal, Injury);
 
         // ── 굶주림 이탈 (M6-D — 최초의 실패 상태) ─────────────────────────────
 
@@ -441,7 +560,7 @@ namespace AIVillage.M0
                 _sim.Requests?.NotifyFulfilled(AgentId);
             }
 
-            _goal = _sim.Goals.Select(snap, IsGoalCoolingDown, _order, _goalBias, _routine, _request);
+            _goal = _sim.Goals.Select(snap, IsGoalExcluded, _order, _goalBias, _routine, _request);
             if (_goal == null)
             {
                 _idleCooldownSec = 0.5f; // 할 일 없음 — 정상 Idle
@@ -682,7 +801,9 @@ namespace AIVillage.M0
             // W5 표현: 개체 편차 + 출발 가속 + 최종 목적지 근접 감속 (논리 도착 판정과 분리)
             bool nearDest = _wpIndex >= _waypoints.Count - 1
                             && (transform.position - targetPos).magnitude < _cfg.DecelDistance;
-            float speed = _motion.Tick(dt, nearDest);
+            // 부상 감속 (M10-A) — 속도 계산의 유일한 지점에 배율 1곱 (절뚝임. None이면 1 = 중립)
+            float speed = _motion.Tick(dt, nearDest)
+                          * (Injury != InjurySeverity.None ? _cfg.InjuredMoveSpeedMult : 1f);
             _lastDir = (targetPos - transform.position).normalized;
             transform.position = Vector3.MoveTowards(transform.position, targetPos, speed * dt);
 
@@ -722,7 +843,7 @@ namespace AIVillage.M0
         // 촌장 명령 (M1-C)
         // ─────────────────────────────────────────────────────────────────────
 
-        public enum OrderResult { Accepted, RefusedHungry, RefusedTired, FailedNoStock }
+        public enum OrderResult { Accepted, RefusedHungry, RefusedTired, FailedNoStock, RefusedInjured }
 
         /// <summary>
         /// 거부 판정의 유일한 규칙 (ADR-M1-2: 욕구 2축, 랜덤 없음) — 순수 함수라 게이트(M1-T1)가 직접 검증한다.
@@ -765,6 +886,15 @@ namespace AIVillage.M0
         public OrderResult TryGiveOrder(GoalSO order, ResourceNode targetNode = null, RewardSO reward = null)
         {
             if (order == null) return OrderResult.Accepted;
+
+            // 부상 거절 (M10-A) — 판정 앞단 조기 반환: JudgeOrder(순수·게이트 보유)는 무변경.
+            // 노동 goal이 필터로 막힌 주민에게 명령만 통하면 이원화가 된다 (몸의 사정은 하나).
+            if (Injury != InjurySeverity.None)
+            {
+                ShowTransient(Pick(_cfg.InjuredLines));
+                Debug.Log($"[VillagerAgent] {AgentId}: 명령 거부 (부상)");
+                return OrderResult.RefusedInjured;
+            }
 
             if (reward != null && World.GetStock(reward.CostSlot) < reward.CostAmount)
                 return OrderResult.FailedNoStock; // 말풍선 없음 — 주민이 아니라 촌장의 실수
@@ -842,7 +972,7 @@ namespace AIVillage.M0
         // 주민 부탁 (M8-D, ADR-M8-4: _order와 대칭 — 개인 사다리의 또 한 칸)
         // ─────────────────────────────────────────────────────────────────────
 
-        public enum RequestResult { Accepted, RefusedBusy, RefusedHungry, RefusedTired, RefusedLowAffinity, RefusedNoReward }
+        public enum RequestResult { Accepted, RefusedBusy, RefusedHungry, RefusedTired, RefusedLowAffinity, RefusedNoReward, RefusedInjured }
 
         private GoalSO _request;
         private bool _requestIsRuntimeClone;
@@ -882,6 +1012,8 @@ namespace AIVillage.M0
         public RequestResult TryGiveRequest(RequestSO r, string requesterId)
         {
             if (r == null || r.InjectGoal == null) return RequestResult.RefusedBusy; // 방어 — 에셋 오류
+            // 부상 거절 (M10-A) — 명령과 동일한 앞단 조기 반환 (JudgeRequest 순수 함수 무변경)
+            if (Injury != InjurySeverity.None) return RequestResult.RefusedInjured;
             // 선불 가용성 (ADR-보상2) — 보상이 있고 지금 재고가 충분해야. 판정과 차감이 같은
             // 시뮬 틱이라 검사~지급 사이 경쟁 없음 (지급은 RequestService.Ask 수락 경로)
             bool upfrontAvailable = r.RewardCostAmount > 0

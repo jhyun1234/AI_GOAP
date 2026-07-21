@@ -48,11 +48,12 @@ namespace AIVillage.M0
 
         // ── M10 확장 (기존 인덱스 뒤에만 추가 — 에셋 호환 유지) ────────────
         InjuredCount      = 20, // 수치형 — 부상 주민 수. 파생 슬롯(SimulationLoop 집계, 트리거 전용 ADR-M9-9 패턴). 예산 52칸 중 21.
+        ThreatNear        = 21, // 논리형 — 내 감지 반경 내 활성 위협 존재. 개인 파생 슬롯(ThreatService.IsNearThreat, M10-D 배선). 예산 52칸 중 22.
     }
 
     public static class SlotIds
     {
-        public const int Count = 21;
+        public const int Count = 22;
 
         /// <summary>전역 스톡 슬롯 여부 — EffectApplier/러너가 공유하는 유일한 판정.</summary>
         public static bool IsStock(SlotId slot)

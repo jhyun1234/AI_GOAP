@@ -1,0 +1,33 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 64a460f4837e45e9b79ca78696036c35, type: 3}
+  m_Name: Threat_Tier2_Pack
+  m_EditorClassIdentifier:
+  DisplayName: "늑대 무리"
+  MinVillageScale: 12
+  PeriodDays: 6
+  WarnDays: 1.5
+  TargetVillagers: 1
+  StrikeRadiusTiles: 3
+  DangerRadiusTiles: 6
+  BaseLossPct: 0.25
+  PerTargetPct: 0.03
+  MaxLossPct: 0.25
+  MoveSpeed: 2.5
+  BodyColor: {r: 0.85, g: 0.15, b: 0.15, a: 1}
+  ForecastLines:
+  - "늑대가 무리를 지었대… 무서워."
+  - "울음소리가 한둘이 아니야."
+  - "마을이 커지니 짐승들도 노리나 봐."
+  StrikeLines:
+  - "물렸어! 도망쳐!"
+  - "늑대 무리다! 숨어!"

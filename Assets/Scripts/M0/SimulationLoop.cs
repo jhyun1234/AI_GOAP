@@ -79,6 +79,9 @@ namespace AIVillage.M0
 
         /// <summary>재해 (M9-C). Disasters가 비면 서비스 null = 재해 없음 (중립 불변식, M8 동작).</summary>
         public DisasterService Disaster { get; private set; }
+
+        /// <summary>야생 위협 (M10-C). Threats가 비면 서비스 null = 위협 없음 (중립 불변식, M9 동작).</summary>
+        public ThreatService Threats { get; private set; }
         public PlannerGateway Planner { get; private set; }
         public GoalSelector Goals { get; private set; }
         public AgentConfigSO AgentConfig => _agentConfig;
@@ -375,6 +378,41 @@ namespace AIVillage.M0
             // 경로 탐색 창구 — Walkable을 지연 조회하는 JPS 어댑터로 초기화한다.
             // 후반 A*/HPA* 교체는 이 한 줄만 바꾼다 (Docs/ADR_경로탐색_확장경계.md).
             Pathfinder = new JpsPathfinder(() => Walkable);
+
+            // 야생 위협 (M10-C) — Threats가 비면 서비스 null (중립 불변식, DisasterService 패턴).
+            // 부상·파괴는 문(Injure/RemoveCountableAt)을 지난다 — 서비스가 상태를 직접 쓰지 않는다.
+            if (_worldConfig.Threats != null && _worldConfig.Threats.Length > 0)
+            {
+                Threats = new ThreatService(_worldConfig.Threats, World, Zones, Construction,
+                                            _agents, _worldConfig, () => Pathfinder, transform);
+                Threats.OnForecast += t =>
+                    Hud?.Notify($"{t.DisplayName}이(가) 다가옵니다 — {t.WarnDays:0.#}일 뒤");
+                Threats.OnStruck += (t, n, tile) =>
+                {
+                    Hud?.Notify(t.TargetVillagers ? $"{t.DisplayName} 습격 — 부상 {n}명"
+                                                  : $"{t.DisplayName} 습격 — 밭 {n}개 소실");
+                    ShowThreatStrikeLines(t, tile);
+                };
+            }
+        }
+
+        /// <summary>위협 타격 반응 대사 (M10-C, 표현 전용) — 타격 지점 최근접 생존 주민 최대 2명이
+        /// StrikeLines를 내뱉는다 (재해 ShowStrikeLines 패턴 — 릴레이 아님, 대사만 Random 허용).</summary>
+        private void ShowThreatStrikeLines(ThreatSO t, Vector2Int tile)
+        {
+            if (t.StrikeLines == null || t.StrikeLines.Length == 0 || _agents.Count == 0) return;
+            VillagerAgent a1 = null, a2 = null;
+            int d1 = int.MaxValue, d2 = int.MaxValue;
+            foreach (VillagerAgent a in _agents)
+            {
+                if (a == null || a.State == AgentState.Dead) continue;
+                int dx = a.TileX - tile.x, dy = a.TileY - tile.y;
+                int dist = dx * dx + dy * dy;
+                if (dist < d1) { d2 = d1; a2 = a1; d1 = dist; a1 = a; }
+                else if (dist < d2) { d2 = dist; a2 = a; }
+            }
+            a1?.ShowTransient(t.StrikeLines[Random.Range(0, t.StrikeLines.Length)]);
+            a2?.ShowTransient(t.StrikeLines[Random.Range(0, t.StrikeLines.Length)]);
         }
 
         private void Start()
@@ -420,6 +458,9 @@ namespace AIVillage.M0
                     float daysIntoSeason = Season.Current.DurationDays - Season.DaysLeftInSeason;
                     Disaster.Tick(Season.Current, daysIntoSeason, Season.SeasonOrdinal);
                 }
+
+                // 야생 위협 스케줄 (M10-C) — 계절과 별개 축 (변인 분리). 서비스 null이면 무동작.
+                Threats?.Tick(GameTime);
 
                 Hud?.Tick(GameTime, Season, _worldConfig.ForecastDays, World.EstimateFoodDaysLeft());
 

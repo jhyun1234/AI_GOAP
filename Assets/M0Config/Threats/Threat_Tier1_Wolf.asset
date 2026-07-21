@@ -1,0 +1,33 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 64a460f4837e45e9b79ca78696036c35, type: 3}
+  m_Name: Threat_Tier1_Wolf
+  m_EditorClassIdentifier:
+  DisplayName: "외로운 늑대"
+  MinVillageScale: 0
+  PeriodDays: 6
+  WarnDays: 1
+  TargetVillagers: 0
+  StrikeRadiusTiles: 3
+  DangerRadiusTiles: 6
+  BaseLossPct: 0.25
+  PerTargetPct: 0.03
+  MaxLossPct: 0.4
+  MoveSpeed: 2.5
+  BodyColor: {r: 0.75, g: 0.3, b: 0.2, a: 1}
+  ForecastLines:
+  - "숲에서 늑대 울음이 들려…"
+  - "요즘 밭 근처에 짐승 발자국이 있어."
+  - "밤에 뭔가 어슬렁거리는 걸 봤어."
+  StrikeLines:
+  - "늑대다! 밭이 엉망이 됐어!"
+  - "저 짐승이 밭을 파헤쳤어…"

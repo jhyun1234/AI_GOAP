@@ -95,10 +95,18 @@ namespace AIVillage.M0
         /// × (저항 ? ResistMult : 1)). 대상 0이면 0 (게이트 케이스 — 발동 로그만).
         /// </summary>
         public static int LossCount(int targets, DisasterSO d, bool resisted)
+            => LossCount(targets, d.BaseLossPct, d.PerTargetPct, d.MaxLossPct,
+                         resisted ? d.ResistMult : 1f);
+
+        /// <summary>
+        /// 곡선 원시형 (M10-C 위협이 재사용 — 산식 이원화 금지): CeilToInt(대상수 ×
+        /// Clamp(Base + PerTarget×대상수, 0, Max) × resistMult). 재해 버전은 여기로 위임한다.
+        /// </summary>
+        public static int LossCount(int targets, float basePct, float perTargetPct,
+                                    float maxLossPct, float resistMult = 1f)
         {
             if (targets <= 0) return 0;
-            float pct = Mathf.Clamp(d.BaseLossPct + d.PerTargetPct * targets, 0f, d.MaxLossPct);
-            if (resisted) pct *= d.ResistMult;
+            float pct = Mathf.Clamp(basePct + perTargetPct * targets, 0f, maxLossPct) * resistMult;
             return Mathf.Min(targets, Mathf.CeilToInt(targets * pct));
         }
 

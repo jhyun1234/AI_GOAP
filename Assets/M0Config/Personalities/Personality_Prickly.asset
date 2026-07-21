@@ -52,3 +52,4 @@ MonoBehaviour:
   - "피곤하면 실수해요. 그거 싫어요"
   - "...쉬는 것도 일이에요"
   MoodLineChance: 0.2
+  FleeRadiusMult: 1.2

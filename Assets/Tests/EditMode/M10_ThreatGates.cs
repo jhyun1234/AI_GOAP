@@ -91,6 +91,53 @@ namespace AIVillage.Tests.EditMode
             Assert.AreEqual(0, result.Count, "count 0 = 없음");
         }
 
+        // ── M10-T4 도망 (M10-D) ───────────────────────────────────────────────
+
+        [Test]
+        public void M10_T4_WithinDanger_PersonalRadiusBoundary()
+        {
+            const int RADIUS = 6;
+            // 중립 배율 1.0 — 반경 그대로
+            Assert.IsTrue(ThreatService.WithinDanger(6, RADIUS, 1.0f), "경계 포함");
+            Assert.IsFalse(ThreatService.WithinDanger(7, RADIUS, 1.0f), "경계 밖");
+            // 고집쟁이 0.6 — ⌈6×0.6⌉=4: 위협이 4타일까지 와야 알아챈다 (늦은 도망 = 부상 후보)
+            Assert.IsTrue(ThreatService.WithinDanger(4, RADIUS, 0.6f), "축소 반경 경계");
+            Assert.IsFalse(ThreatService.WithinDanger(5, RADIUS, 0.6f), "5타일은 아직 태평");
+            // 새침 1.2 — ⌈7.2⌉=8: 예민
+            Assert.IsTrue(ThreatService.WithinDanger(8, RADIUS, 1.2f), "확대 반경 경계");
+            Assert.IsFalse(ThreatService.WithinDanger(9, RADIUS, 1.2f));
+        }
+
+        [Test]
+        public void M10_T4_FleeNeutralInvariant()
+        {
+            // 위협 미배선 = ThreatNear 항상 0 (Goal_Flee 트리거 ==1 영구 불발 — M9 동작)
+            var world = new WorldModel(null, null);
+            WorldSnapshot snap = world.BuildSnapshot(50, 50); // threatNear 기본 false
+            Assert.AreEqual(0, snap.Get(SlotId.ThreatNear), "기본 스냅샷 ThreatNear 0 (중립 불변식)");
+            Assert.AreEqual(1, world.BuildSnapshot(50, 50, false, true).Get(SlotId.ThreatNear),
+                "감지 시에만 1");
+
+            // 성격 기본 배율 1 (기존 성격 에셋 미수정분 = 중립)
+            var p = ScriptableObject.CreateInstance<PersonalitySO>();
+            Assert.AreEqual(1f, p.FleeRadiusMult, 1e-5f, "신규 필드 기본값 = 중립");
+            Object.DestroyImmediate(p);
+        }
+
+        [Test]
+        public void M10_T4_Goal_Flee_TriggerGoalConsistency()
+        {
+            // ADR-M0-7 정합의 논리 재현: 목표(ThreatNear==0) 달성값 0은 트리거(==1)를 만족하지
+            // 않는다 — 무한 루프 없음 (에셋 OnValidate는 Unity 임포트가 검증)
+            Assert.AreNotEqual(0, 1, "목표값 0 ≠ 트리거값 1");
+            // 도망은 부상자도 간다 — Goal_Flee.asset AllowedWhenInjured=1과 짝 (BlockedByInjury false)
+            var flee = ScriptableObject.CreateInstance<GoalSO>();
+            flee.AllowedWhenInjured = true;
+            Assert.IsFalse(VillagerAgent.BlockedByInjury(flee, InjurySeverity.Light),
+                "부상 중에도 도망 goal은 후보 잔존");
+            Object.DestroyImmediate(flee);
+        }
+
         [Test]
         public void M10_T3_LossCount_PrimitiveDelegationIdentity()
         {

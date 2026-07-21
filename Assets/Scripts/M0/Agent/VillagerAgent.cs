@@ -375,10 +375,14 @@ namespace AIVillage.M0
             }
         }
 
-        /// <summary>플래닝 스냅샷 — RequestService(M8-D)의 의뢰인 조건 판정도 이걸 쓴다 (같은 언어).</summary>
+        /// <summary>플래닝 스냅샷 — RequestService(M8-D)의 의뢰인 조건 판정도 이걸 쓴다 (같은 언어).
+        /// ThreatNear는 개인 감지 배율(성격 FleeRadiusMult)로 여기서 계산 — 같은 위협을 봐도
+        /// 고집쟁이는 늦게 알아챈다 (M10-D, 결정적 부상 선정의 성격 축).</summary>
         public WorldSnapshot BuildSnapshot()
             => World.BuildSnapshot(Mathf.RoundToInt(Satiety), Mathf.RoundToInt(Fatigue),
-                _sim.Ownership.TryGetOwned(AgentId, SlotId.HouseCount, out _)); // MyHasHome (M8-C)
+                _sim.Ownership.TryGetOwned(AgentId, SlotId.HouseCount, out _), // MyHasHome (M8-C)
+                _sim.Threats != null && _sim.Threats.IsNearThreat(TileX, TileY,
+                    Personality != null ? Personality.FleeRadiusMult : 1f));   // ThreatNear (M10-D)
 
         /// <summary>
         /// 앵커 조회 단일 창구 (M8-C) — 러너는 이 메서드만 쓴다. 슬롯 순회마다 내 소유 건물이
@@ -702,6 +706,13 @@ namespace AIVillage.M0
                 && _sim.Season.DaysToCrisis <= _sim.WorldConfig.ForecastDays
                 && Random.value < _cfg.ForecastMoodChance)
                 ShowTransient(Pick(_sim.Season.NextCrisis.ForecastLines));
+
+            // 위협 예고 술렁임 (M10-D) — 계절 예고와 같은 통로·같은 확률 (표현 전용).
+            // 대사·예고 기간은 전부 에셋 값 (ThreatSO.ForecastLines / WarnDays).
+            if (!InConversation
+                && _sim.Threats != null && _sim.Threats.Forecasting != null
+                && Random.value < _cfg.ForecastMoodChance)
+                ShowTransient(Pick(_sim.Threats.Forecasting.ForecastLines));
 
             _runner = action.CreateRunner(this);
 

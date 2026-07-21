@@ -46,3 +46,4 @@ MonoBehaviour:
   - "밭일은 몸이 밑천인데, 좀 쉬어야죠"
   - "해 뜨면 다시 할게요"
   MoodLineChance: 0.2
+  FleeRadiusMult: 0.8

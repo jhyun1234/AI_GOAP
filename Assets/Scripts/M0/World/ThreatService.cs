@@ -269,6 +269,11 @@ namespace AIVillage.M0
             }
         }
 
+        /// <summary>감지 판정 (순수 — 게이트 M10-T4): 맨해튼 거리 ≤ ⌈감지 반경 × 개인 배율⌉.
+        /// 배율 <1 = 반경 축소 = 늦게 알아챔 (고집쟁이 0.6 → 6타일이 4타일로).</summary>
+        public static bool WithinDanger(int manhattanDist, int dangerRadiusTiles, float personalRadiusMult)
+            => manhattanDist <= Mathf.CeilToInt(dangerRadiusTiles * personalRadiusMult);
+
         /// <summary>내 근처에 활성 위협이 있는가 (M10-D ThreatNear 슬롯의 유일한 원천).
         /// personalRadiusMult = 성격 감지 배율 (고집쟁이 0.6 = 늦게 알아챈다).</summary>
         public bool IsNearThreat(int x, int y, float personalRadiusMult)
@@ -277,7 +282,7 @@ namespace AIVillage.M0
             {
                 if (t == null) continue;
                 int d = Mathf.Abs(x - t.TileX) + Mathf.Abs(y - t.TileY);
-                if (d <= Mathf.CeilToInt(t.So.DangerRadiusTiles * personalRadiusMult)) return true;
+                if (WithinDanger(d, t.So.DangerRadiusTiles, personalRadiusMult)) return true;
             }
             return false;
         }

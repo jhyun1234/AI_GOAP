@@ -52,3 +52,4 @@ MonoBehaviour:
   - "쉬는 것도 내 마음대로야."
   - "오늘은 여기까지 하기로 정했어."
   MoodLineChance: 0.2
+  FleeRadiusMult: 0.6

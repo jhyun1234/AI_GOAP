@@ -143,7 +143,8 @@ namespace AIVillage.M0
         /// 플래닝용 read-only 스냅샷 생성. 발견 플래그는 "잔량 있는 발견 노드 존재 여부"다
         /// (근접이 아님 — 노드까지의 이동은 W4 러너 담당).
         /// </summary>
-        public WorldSnapshot BuildSnapshot(int satiety, int fatigue, bool hasHome = false)
+        public WorldSnapshot BuildSnapshot(int satiety, int fatigue, bool hasHome = false,
+                                           bool threatNear = false)
         {
             var slots = new int[PlanningConfig.TotalSlots];
 
@@ -176,6 +177,9 @@ namespace AIVillage.M0
             // 부상 주민 수 (M10-A) — 파생 슬롯, 원천은 SimulationLoop 집계뿐. 미배선이면 0 (중립 —
             // Goal_TendInjured 트리거 "≥1" 영구 불발 = M9 동작).
             slots[(int)SlotId.InjuredCount] = _injuredCount != null ? _injuredCount() : 0;
+            // 위협 근접 (M10-D) — My* 계열 개인 파생 슬롯 (에이전트가 개인 감지 배율로 계산해
+            // 인자로 넘긴다, MySatiety 패턴). 기본 false = 0 (중립 — Goal_Flee 영구 불발).
+            slots[(int)SlotId.ThreatNear] = threatNear ? 1 : 0;
             return new WorldSnapshot(slots);
         }
 

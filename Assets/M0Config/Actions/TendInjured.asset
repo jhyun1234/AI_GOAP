@@ -16,7 +16,7 @@ MonoBehaviour:
   BubbleLines:
   - "곁을 지키자"
   - "상처를 봐주자"
-  BaseCost: 1
+  BaseCost: 8
   DurationSec: 0
   Preconditions:
   - Slot: 20

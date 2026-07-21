@@ -617,7 +617,7 @@ namespace AIVillage.M0
                 return;
             }
 
-            if (!_sim.Planner.TryGetResult(_pending, out PlanStatus status, out ActionSO[] plan, out _))
+            if (!_sim.Planner.TryGetResult(_pending, out PlanStatus status, out ActionSO[] plan, out int nodes))
                 return;
             _pending = null;
 
@@ -635,8 +635,11 @@ namespace AIVillage.M0
                     ToIdle(0.5f);
                     break;
 
-                default: // NoSolution — ADR-3: 버그 증상. MAX_NODES 인상 금지, 로그로 노출
-                    Debug.LogWarning($"[VillagerAgent] {AgentId}: NoSolutionFound (goal={_goal.name}) — ADR-3 진단 필요");
+                default: // NoSolution — ADR-3: 버그 증상. MAX_NODES 인상 금지, 로그로 노출.
+                    // 노드 수 병기 (2026-07-22 석재 goal 폭발 진단의 교훈): 4096 = 탐색 폭발
+                    // (휴리스틱 수축·대부족량 goal), 그 미만 = 진짜 해 없음 (에셋 정합·발견 체인 순).
+                    Debug.LogWarning($"[VillagerAgent] {AgentId}: NoSolutionFound (goal={_goal.name}, " +
+                                     $"노드 {nodes}/{PlanningConfig.MaxNodes}) — ADR-3 진단 필요");
                     ToIdle(2f);
                     break;
             }

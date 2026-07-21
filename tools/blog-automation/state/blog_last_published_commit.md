@@ -15,6 +15,79 @@ metadata:
 
 ## 최신 사용 커밋
 
+- `latest_commit`: `66f690b` (docs(devlog) 2026-07-18 M8 후속 세션 — 범위 종료점)
+- `selected_commits_range`: `68c6ef8`(spec(m8) 사회 축 실행명세서) ~ `66f690b`(docs(devlog)
+  2026-07-18 M8 후속 세션) — 18커밋(M8-A~F 6개 세부 항목 + CLAUDE.md 비용표 갱신·DoD
+  코드 검증·세션 로그 + 후속 보완 4건(대화 호흡 상향+공용 쿨다운 8e53abf, 부탁 가시화+
+  완공 보고 심부름+주민 간 보상 5ce720e, 성격별 보상 태도 떼먹기·선불 요구
+  efcb0d5/8d72438, 보고 도착 재검사+씬 주민 10→4명+장식성 발화 억제 2d24b0f/9be5239,
+  집=목수 부탁 전용화 5956af2) 포함, 기획팀 브리프 `01_planner_brief.md` commit_refs
+  전체 반영 — 서사 무관 부수 커밋 0369bda·987e9bb는 제외)
+- `cycle_date`: 2026-07-21 (마스터 1차·2차 승인 후 게시팀 Step 7 발행)
+- `publish_status`: PUBLISHED (Blogger published: 2026-07-21 04:26 UTC / 2026-07-20 21:26 PDT, status: LIVE)
+- `blogger_post_id`: 2940839193792714370
+- `blog_url`: https://gamedevclaude.blogspot.com/2026/07/claude-code-ai-goap-ai-m8.html
+- `title`: Claude Code 게임 개발 AI 페어 프로그래밍 후기: 유니티 GOAP AI 인디게임 개발일지 — 주민들이 드디어 서로를 "기억"하기 시작했다 (M8 관계·소유·부탁)
+- `labels`: Claude Code 게임 개발, AI 페어 프로그래밍 후기, 유니티 GOAP AI, 인디게임 개발일지
+- `local_archive`: tools/blog-automation/published/2026-07-21-unity-goap-m8-relationship-ownership-request.html
+  (POST 응답의 content 필드는 `data += chunk` 스트림 이어붙이기 버그로 멀티바이트 문자가
+  깨져 있어(U+FFFD 확인됨) 그대로 저장하지 않고, GET으로 재조회하며 `Buffer.concat` 후
+  `toString('utf8')`로 재획득해 저장 — 원본 05_final.md html_content와 바이트 단위로
+  완전 동일함을 직접 확인, 14,874 bytes)
+- `비고`: M8 관계·소유·부탁 소재(68c6ef8~66f690b). 대화 이벤트 구독형 관계 축적(M8-A,
+  RelationshipService)·정보줄 단짝·원한 표기(M8-B)·소유 축(M8-C, OwnershipService+
+  MyHasHome)·부탁 선반(M8-D, RequestSO/RequestService/JudgeRequest)·부탁 에셋 1호+
+  요리 부탁 리허설(M8-E/F, 데이터 주도 설계 다섯 번째 재현)까지 A~F 전 항목 포함.
+  완료 선언 직후 실측에서 발견된 후속 보완 4건 — 성격별 보상 태도(떼먹기·선불 요구)·
+  집은 목수 부탁으로만(자율 건설·자동 배정 폐기, 트레이드오프)·대화 흐름 보호(장식성
+  발화 억제)·부탁 가시화+완공 보고 심부름+주민 간 보상 — 도 다룸. 이 글로 M8 미발행
+  구간 해소.
+
+### 이전 회차 이력 (2026-07-20, M7 상호대화와 가시성)
+
+- `latest_commit`: `598e51e` (feat(content) 대사 풀 2차 확장 — .cs 0, 사용자 요청)
+- `selected_commits_range`: `a451435`(spec(m7) M7 실행명세서) ~ `598e51e`(feat(content) 대사 풀 2차 확장) — 11커밋(M7-A~E 5개 세부 항목 + M7-T3 에셋 정책 게이트 + M7 완료 직후 실측에서 발견된 부수 버그 수정 3건(모닥불 몰림 8e1ac6b·대화 연출 94b892e·말풍선 우선순위 799842f) + 대사 풀 2차 확장 598e51e 포함, 기획팀 브리프 `01_planner_brief.md` commit_refs 전체 반영)
+- `cycle_date`: 2026-07-20 (마스터 1차·2차 승인 후 게시팀 Step 7 발행)
+- `publish_status`: PUBLISHED (Blogger published: 2026-07-20 04:43 UTC / 2026-07-19 21:43 PDT, status: LIVE)
+- `blogger_post_id`: 267235146240614055
+- `blog_url`: https://gamedevclaude.blogspot.com/2026/07/claude-code-ai-goap-ai-m7.html
+- `title`: Claude Code AI 페어 프로그래밍 후기: 유니티 GOAP AI 인디게임 개발일지 — 주민들이 드디어 서로에게 말을 걸기 시작했다 (M7 상호대화와 가시성)
+- `labels`: Claude Code 게임 개발, AI 페어 프로그래밍 후기, Unity GOAP AI, 인디게임 개발일지
+- `local_archive`: tools/blog-automation/published/2026-07-20-unity-goap-m7-chatter-visibility.html
+  (Blogger API 응답의 content 필드를 그대로 저장 — 실제 게시본과 동일, 9,101 bytes)
+- `비고`: M7 상호대화와 가시성 소재(a451435~598e51e). 이름표+선택 정보줄(M7-A)로 성격(M4)·
+  직업(M5) 분화가 처음으로 화면에서 보이게 됨·대사 풀 확장(.cs 0, M7-B)·ChatterSO/
+  ChatterService 상호대화 선반(M7-C, ADR: 표현 전용·관계 미축적·이름 분기 금지·주기당
+  최대 1쌍)·대화 에셋 2종(M7-D)+에셋 정책 게이트(M7-T3)·직교성 리허설(M7-E, 에셋
+  1개·코드 0)까지 전 항목 포함. 완료 직후 실측에서 발견된 부수 버그 3건(모닥불 몰림
+  해소·대화 연출 멈춰서 마주보기+반경 4→2타일·말풍선 우선순위 정리)도 다룸. 이 글로
+  M7 미발행 구간 해소.
+
+### 이전 회차 이력 (2026-07-19, M6 예고된 겨울과 설득)
+
+- `latest_commit`: `7c0dd7f` (feat(personality) 성격이 위기 대응을 가른다 — GoalBoosts 축 + 이탈 계단화)
+- `selected_commits_range`: `aa795e6`(spec(m6) M6 실행명세서) ~ `7c0dd7f`(feat(personality) 성격이 위기 대응을 가른다) — 12커밋(M6-A~F 8개 세부 항목 + 위기감 재조정 + 개체 편차 붕괴 수정 포함, 기획팀 브리프 `01_planner_brief.md`에서 지정 문서 범위(`aa795e6`~`80cac26`)를 `a0e318b`·`7c0dd7f`(같은 세션의 M6 결말부)까지 보정)
+- `cycle_date`: 2026-07-19 (마스터 1차·2차 승인 후 게시팀 Step 7 발행)
+- `publish_status`: PUBLISHED (Blogger published: 2026-07-19 04:30 UTC / 2026-07-18 21:30 PDT, status: LIVE)
+- `blogger_post_id`: 4301273701134180743
+- `blog_url`: https://gamedevclaude.blogspot.com/2026/07/claude-code-unity-0.html
+- `title`: 인디게임 개발일지: Claude Code와 만든 Unity 계절 시스템 구현 — 기술은 만점인데 재미는 0점이었다
+- `labels`: AI 페어 프로그래밍 후기, Claude Code 게임 개발, Unity 계절 시스템 구현, Unity GOAP 게임 밸런싱
+- `local_archive`: tools/blog-automation/published/2026-07-19-unity-goap-m6-season-winter-crisis.html
+  (Blogger API 응답의 content 필드를 Buffer.concat 후 toString('utf8')로 재획득해 저장 —
+  게시 직후 별도 GET으로 재조회한 값과 원본 제출본을 diff/md5 대조해 완전 동일함을 확인,
+  13,856 bytes)
+- `비고`: M6 예고된 겨울과 설득 소재(aa795e6~7c0dd7f). 계절 선반(SeasonSO/SeasonService)·
+  겨울 효과(배율 곱 지점 2곳)·달력 HUD 예고·굶주림 이탈(이 게임 최초의 실패 상태)·보상
+  재설득(에스크로 방식, 이 게임 최초의 협상 수단)·가을 리허설(.cs 0)까지 M6-A~F 전 항목+
+  완료 직후 실측에서 "겨울 수지 2배 잉여"를 발견해 즉시 재조정(겨울 3→4일, 감쇠 1.75배,
+  주민 5→10명)한 위기감 재조정(a0e318b)·성격별 위기 대응 분화(GoalBoosts, 7c0dd7f)까지
+  포함. 같은 세션에서 발견된 "개체 편차 붕괴" 버그(주민 5명의 초기 포만이 문자열 해시
+  충돌로 81.6~81.7에 뭉치던 것을 FNV-1a로 근본 수정, 44b7538)도 다룸. 이 글로 M6 미발행
+  구간 해소.
+
+### 이전 회차 이력 (2026-07-18, M5 직업과 일과)
+
 - `latest_commit`: `87d7d7f` (feat(m5) M5-E 목수 리허설 — 직업 추가 = 에셋 1개 + 씬 풀 등록, .cs 0개)
 - `selected_commits_range`: `fd6b1db`(feat(m5) M5-A JobSO 스키마·스폰 할당) ~ `87d7d7f`(feat(m5) M5-E 목수 리허설)
 - `cycle_date`: 2026-07-18 (마스터 1차·2차 승인 후 게시팀 Step 7 발행)

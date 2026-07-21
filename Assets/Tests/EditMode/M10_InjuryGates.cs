@@ -60,6 +60,29 @@ namespace AIVillage.Tests.EditMode
             Assert.IsFalse(VillagerAgent.CanInjure(AgentState.Dead, InjurySeverity.None), "Dead 무시");
         }
 
+        [Test]
+        public void M10_T2_Catalog_MinBaseCost_HeuristicFloor()
+        {
+            // 2026-07-22 석재 goal 탐색 폭발의 재발 방지 게이트: 플래너 잡 휴리스틱이
+            // h = 스텝 추정 × min(카탈로그 BaseCost)라, 카탈로그에 저비용 액션이 들어오면
+            // 전 goal의 휴리스틱이 일괄 수축해 A*가 무유도로 퍼진다 (MAX_NODES 폭발 → NoSolution).
+            // 5 = 현 카탈로그 최소선(EatCookedFood) — 이 아래로 내리려면 대부족량 goal
+            // (Goal_GatherStone 등)의 탐색 예산을 함께 검증하고 이 게이트를 의도적으로 개정할 것.
+            var catalog = UnityEditor.AssetDatabase.LoadAssetAtPath<ActionCatalog>(
+                "Assets/M0Config/ActionCatalog.asset");
+            Assert.IsNotNull(catalog, "실제 카탈로그 에셋 로드");
+
+            float min = float.MaxValue;
+            string minName = "?";
+            foreach (ActionSO a in catalog.Actions)
+            {
+                Assert.IsNotNull(a, "카탈로그 빈 슬롯 없음");
+                if (a.BaseCost < min) { min = a.BaseCost; minName = a.name; }
+            }
+            Assert.GreaterOrEqual(min, 5f,
+                $"카탈로그 최소 BaseCost 붕괴 — '{minName}'({min})이 휴리스틱 바닥을 뚫는다 (본 게이트 주석 참조)");
+        }
+
         // ── M10-T2 간호 (M10-B) ───────────────────────────────────────────────
 
         [Test]

@@ -37,6 +37,10 @@ namespace AIVillage.M0
         [Tooltip("할 일 없을 때의 일과 goal (개인 사다리 주입, ADR-M5-2). 비면 일과 없음")]
         public GoalSO RoutineGoal;
 
+        [Tooltip("간호 시 부상 회복 배율 (M10-B). 1 = 일반 주민 (중립 — 간호는 직업 전용이 아니다, " +
+                 "결정 11 붕괴 스위치 금지). 치료사만 3 (제안치) — 잃으면 마을이 '느려진다'.")]
+        public float TendRecoveryMult = 1f;
+
         /// <summary>이 직업의 goal 보정치. 참조 동일성 비교만 — 이름 문자열 비교 금지 (ADR-M0-1 정신).</summary>
         public int BoostFor(GoalSO goal)
         {

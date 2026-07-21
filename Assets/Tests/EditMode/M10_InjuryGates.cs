@@ -60,6 +60,55 @@ namespace AIVillage.Tests.EditMode
             Assert.IsFalse(VillagerAgent.CanInjure(AgentState.Dead, InjurySeverity.None), "Dead 무시");
         }
 
+        // ── M10-T2 간호 (M10-B) ───────────────────────────────────────────────
+
+        [Test]
+        public void M10_T2_PickNearestIndex_DistanceOrderAndDeterministicTie()
+        {
+            var candidates = new System.Collections.Generic.List<(string id, int x, int y)>
+            {
+                ("M0_Villager_C", 5, 5), // 거리² 50
+                ("M0_Villager_A", 3, 0), // 거리² 9 — 최근접
+                ("M0_Villager_B", 0, 4), // 거리² 16
+            };
+            Assert.AreEqual(1, M0SimulationLoop.PickNearestIndex(0, 0, candidates), "거리 오름차순 — 최근접 선택");
+
+            // 동률 — AgentId 사전순 (ordinal, 결정적 — ADR-M10-1: 희생·대상 선정에 랜덤 금지)
+            var tie = new System.Collections.Generic.List<(string id, int x, int y)>
+            {
+                ("M0_Villager_B", 3, 0),
+                ("M0_Villager_A", 0, 3), // 같은 거리² 9 — id 사전순 앞
+            };
+            Assert.AreEqual(1, M0SimulationLoop.PickNearestIndex(0, 0, tie), "거리 동률 = id 사전순");
+
+            // 빈 목록 — 대상 없음 (TendRunner Prepare 실패 경로)
+            var empty = new System.Collections.Generic.List<(string id, int x, int y)>();
+            Assert.AreEqual(-1, M0SimulationLoop.PickNearestIndex(0, 0, empty), "부상자 0 = -1");
+        }
+
+        [Test]
+        public void M10_T2_TendRecoveryMult_DefaultNeutral()
+        {
+            // 직업 미설정 = 배율 1 (중립 불변식 — 간호는 직업 전용이 아니다, 결정 11).
+            // TendRunner의 "Job null → 1f" 경로와 함께 이 기본값이 일반 주민 간호를 보장한다.
+            var job = ScriptableObject.CreateInstance<JobSO>();
+            Assert.AreEqual(1f, job.TendRecoveryMult, 1e-5f, "신규 직업 기본 배율 = 1 (가속은 에셋 값으로만)");
+            Object.DestroyImmediate(job);
+        }
+
+        [Test]
+        public void M10_T2_Goal_TendInjured_TriggerGoalConsistency()
+        {
+            // ADR-M0-7 정합의 논리 재현: 목표(InjuredCount ≤ 0) 달성값 0은 트리거(≥ 1)를
+            // 만족하지 않는다 — 달성 즉시 재발동 무한 루프 없음 (에셋 OnValidate는 Unity 임포트가 검증)
+            var goal = ScriptableObject.CreateInstance<GoalSO>();
+            goal.TriggerConditions = new[] { new SlotCondition { Slot = SlotId.InjuredCount, Op = CompareOp.GreaterOrEqual, Value = 1 } };
+            goal.GoalConditions = new[] { new SlotCondition { Slot = SlotId.InjuredCount, Op = CompareOp.LessOrEqual, Value = 0 } };
+            Assert.IsFalse(goal.GoalConditions[0].Value >= goal.TriggerConditions[0].Value,
+                "목표값 0 < 트리거 문턱 1 — 무한 루프 없음");
+            Object.DestroyImmediate(goal);
+        }
+
         [Test]
         public void M10_T1_BlockedByInjury_FilterAndNeutralInvariant()
         {

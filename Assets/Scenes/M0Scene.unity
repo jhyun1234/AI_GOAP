@@ -632,6 +632,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: a1d86e4f92c3450b87e2f5a60d94c318, type: 2}
   - {fileID: 11400000, guid: b6f24e8a03d9417c85b1f7a2c94d6e30, type: 2}
   - {fileID: 11400000, guid: 0fd7741aeb03452b871f58e57e4c4233, type: 2}
+  - {fileID: 11400000, guid: 2f1d5477100a45ccb5631d7349399160, type: 2}
   _nodeSpawner: {fileID: 502}
   _spriteSet: {fileID: 11400000, guid: b9a6564a8f7c4724b5edf1d3d32e17b6, type: 2}
   _bubbleFont: {fileID: 11400000, guid: 67865f5944a154b43b12b21a5f1d92c1, type: 2}
@@ -649,6 +650,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 8729aa72b5e641c88f8a3e509d6a697b, type: 2}
   - {fileID: 11400000, guid: fa059dde74744ce4bf5d001b01420102, type: 2}
   - {fileID: 11400000, guid: fda218a4d94842849b31a189131a4926, type: 2}
+  - {fileID: 11400000, guid: 2a8a1a9cacd9443e9e7c6848a75cf98f, type: 2}
   _farmMeetingChatter: {fileID: 11400000, guid: f42058ea3dc34d6fa7af6e43a0f204be, type: 2}
 --- !u!1 &800
 GameObject:

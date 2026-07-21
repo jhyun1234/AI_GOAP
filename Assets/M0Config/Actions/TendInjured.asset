@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 115419b6a2ee40dfb0ff48ca0b78b5dc, type: 3}
+  m_Name: TendInjured
+  m_EditorClassIdentifier:
+  DisplayName: "간호하기"
+  BubbleLines:
+  - "곁을 지키자"
+  - "상처를 봐주자"
+  BaseCost: 1
+  DurationSec: 0
+  Preconditions:
+  - Slot: 20
+    Op: 1
+    Value: 1
+  Effects:
+  - Slot: 20
+    Op: 2
+    Value: 1
+  TendRangeTiles: 2

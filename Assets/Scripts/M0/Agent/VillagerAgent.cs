@@ -63,6 +63,7 @@ namespace AIVillage.M0
         public ZoneService Zones => _sim.Zones; // 구역 배치 결정자 (M9-A)
         public FarmService Farm => _sim.Farm;
         public WorldConfigSO WorldConfig => _sim.WorldConfig;
+        public AgentConfigSO AgentConfig => _cfg; // 러너용 읽기 창구 (M10-B — TendLines 등 대사 에셋)
 
         /// <summary>타일 통행 가능 여부 — 러너의 랜덤 목표 필터용 (M4-E). 맵 밖은 false.</summary>
         public bool IsWalkable(int x, int y)
@@ -447,6 +448,12 @@ namespace AIVillage.M0
             _tendedUntil = untilSec;
             _tendMult = Mathf.Max(1f, recoveryMult);
         }
+
+        /// <summary>간호받는 중인가 — FindNearestInjured의 미간호 우선 판정용 (M10-B).</summary>
+        public bool IsTended => Time.time < _tendedUntil;
+
+        /// <summary>최근접 부상자 조회 (TendRunner 전용) — FindVisitTarget과 같은 러너 창구 패턴.</summary>
+        public VillagerAgent FindNearestInjured() => _sim.FindNearestInjured(this);
 
         /// <summary>
         /// 부상 계단 갱신 (순수 — 게이트 M10-T1): 간호 중 = 회복 진행·방치 정지(홀드 — 리셋 아님,

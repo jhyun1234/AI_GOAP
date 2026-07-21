@@ -123,6 +123,59 @@ namespace AIVillage.M0
             if (agent != null && !_agents.Contains(agent)) _agents.Add(agent);
         }
 
+        // 부상자 탐색 버퍼 (M10-B) — 프레임 재사용, 할당 0 (농부 회의 버퍼 패턴)
+        private readonly List<VillagerAgent> _injuredBuf = new List<VillagerAgent>(8);
+        private readonly List<(string id, int x, int y)> _injuredKeyBuf = new List<(string, int, int)>(8);
+
+        /// <summary>
+        /// 최근접 부상자 (M10-B) — TendRunner 전용 창구. 미간호 우선(2패스), 거리순, 동률은
+        /// AgentId 사전순 (결정적 — ADR-M10-1). 미간호가 없으면 간호 중인 부상자도 반환 —
+        /// 두 번째 간호자는 무해(표시 갱신뿐)하고, 첫 간호자가 P0로 떠날 때 끊김 없이 인계된다.
+        /// </summary>
+        public VillagerAgent FindNearestInjured(VillagerAgent tender)
+        {
+            VillagerAgent found = FindInjuredPass(tender, untendedOnly: true);
+            return found != null ? found : FindInjuredPass(tender, untendedOnly: false);
+        }
+
+        private VillagerAgent FindInjuredPass(VillagerAgent tender, bool untendedOnly)
+        {
+            _injuredBuf.Clear();
+            _injuredKeyBuf.Clear();
+            foreach (VillagerAgent a in _agents)
+            {
+                if (a == null || a == tender || a.State == AgentState.Dead
+                    || a.Injury == InjurySeverity.None) continue;
+                if (untendedOnly && a.IsTended) continue;
+                _injuredBuf.Add(a);
+                _injuredKeyBuf.Add((a.AgentId, a.TileX, a.TileY));
+            }
+            int idx = PickNearestIndex(tender.TileX, tender.TileY, _injuredKeyBuf);
+            return idx >= 0 ? _injuredBuf[idx] : null;
+        }
+
+        /// <summary>최근접 인덱스 선택 (순수 — 게이트 M10-T2): 거리 제곱 오름차순, 동률은 id
+        /// 사전순(ordinal — 지역 무관 결정성). 빈 목록 -1.</summary>
+        public static int PickNearestIndex(int fromX, int fromY,
+                                           IReadOnlyList<(string id, int x, int y)> candidates)
+        {
+            int best = -1;
+            long bestD = long.MaxValue;
+            for (int i = 0; i < candidates.Count; i++)
+            {
+                long dx = candidates[i].x - fromX, dy = candidates[i].y - fromY;
+                long d = dx * dx + dy * dy;
+                if (d < bestD
+                    || (d == bestD && best >= 0
+                        && string.CompareOrdinal(candidates[i].id, candidates[best].id) < 0))
+                {
+                    bestD = d;
+                    best = i;
+                }
+            }
+            return best;
+        }
+
         /// <summary>부상 주민 수 집계 (M10-A) — InjuredCount 파생 슬롯의 유일한 원천 (트리거 전용).</summary>
         public int CountInjured()
         {

@@ -85,6 +85,26 @@ namespace AIVillage.M0
             return $"{n}개 {sb}";
         }
 
+        // ── 런타임 스폰 주입 (M10-E) — Start 전에 Preset()으로 도착. 미주입 = 기존 랜덤 (중립) ──
+        private PersonalitySO _presetPersonality;
+        private JobSO _presetJob;
+        private bool _hasPreset;
+
+        /// <summary>
+        /// 성격·직업 사전 주입 (SpawnVillager 전용, M10-E) — AddComponent 직후·Start 전에 호출.
+        /// null도 유효한 주입이다 (중립 성격·무직 방랑자) — 판정은 _hasPreset 플래그.
+        /// </summary>
+        public void Preset(PersonalitySO p, JobSO j)
+        {
+            _presetPersonality = p;
+            _presetJob = j;
+            _hasPreset = true;
+        }
+
+        /// <summary>주입 우선 선택 (순수 — 게이트 M10-T5): 주입 시 그 값(null 포함), 아니면 랜덤 경로.</summary>
+        public static T PresetOrRandom<T>(bool hasPreset, T preset, System.Func<T> random) where T : class
+            => hasPreset ? preset : random();
+
         /// <summary>성격 아키타입 (M4-A). null = 중립 — M3와 동작 동일 (ADR-M4-2).</summary>
         public PersonalitySO Personality { get; private set; }
 
@@ -233,9 +253,10 @@ namespace AIVillage.M0
             _decayJitter = 1f + StableHash.Spread(AgentId, "decay") * _cfg.SatietyDecayVariancePct;
 
             // 성격 할당 (M4-A) — 스폰 1회 고정. 배율 편차 ±10%도 이때 확정 (정체성 — 세이브 대상, ADR-M4-5)
-            Personality = _sim.PickRandomPersonality();
+            // 런타임 스폰(M10-E)은 Preset 주입값이 랜덤을 대체 — UI가 보여준 그 사람이 온다 (⚠️①).
+            Personality = PresetOrRandom(_hasPreset, _presetPersonality, _sim.PickRandomPersonality);
             // 직업 할당 (M5-A) — 성격과 별개 축, 스폰 1회 고정 (세이브 대상, ADR-M5-5)
-            Job = _sim.PickRandomJob();
+            Job = PresetOrRandom(_hasPreset, _presetJob, _sim.PickRandomJob);
             _multJitter = new[]
             {
                 Random.Range(0.9f, 1.1f), Random.Range(0.9f, 1.1f),

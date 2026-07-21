@@ -51,6 +51,15 @@ namespace AIVillage.M0
 
             if (Input.GetKeyDown(KeyCode.Escape)) Deselect();
 
+            // 방랑자 수락/거절 (M10-E, ADR-M10-7 — 판정 입력은 이 키뿐. 술렁임은 표현 전용).
+            // 프롬프트 활성 중에만 판독 (⚠️③ — 다른 단축키와 충돌 방지). 이중 입력은 서비스가 차단.
+            WandererService wanderers = M0SimulationLoop.Instance.Wanderers;
+            if (wanderers != null && wanderers.HasPendingOffer)
+            {
+                if (Input.GetKeyDown(KeyCode.Y)) wanderers.Resolve(true);
+                else if (Input.GetKeyDown(KeyCode.N)) wanderers.Resolve(false);
+            }
+
             if (Input.GetMouseButtonDown(0))
             {
                 VillagerAgent hit = PickVillager(MouseWorld());

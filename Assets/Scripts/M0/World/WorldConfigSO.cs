@@ -45,6 +45,14 @@ namespace AIVillage.M0
                  "활성 티어 = 마을 규모(주민+밭+집) 충족 중 최대 1개.")]
         public ThreatSO[] Threats;
 
+        [Header("방랑자 (M10-E — 상실의 회복. 전부 제안치)")]
+        [Tooltip("방랑자 도착 주기 (게임일). 위협 주기 6과 어긋난 5 — 회복이 상실 직후 오지 않는 위상차. " +
+                 "0 이하 = 방랑자 없음 (중립 불변식 — M9 동작).")]
+        public float WandererIntervalDays = 5f;
+
+        [Tooltip("수락/거절 응답 대기 (게임일). 초과 시 자동 퇴장 — 결정을 미루는 것도 결정이다.")]
+        public float WandererWaitDays = 0.7f;
+
         [Header("식량 수지 (M9-G — ADR-M9-10: 식량 가치의 유일한 출처는 소비 액션)")]
         [Tooltip("식량 소비 액션 목록 (EatCookedFood·EatRawFood 등). FoodDaysLeft 계산이 이 액션들의 " +
                  "효과(스톡 SubClamp0 + MySatiety Add)에서 1개당 포만을 파생한다 — 가치 이중 기입 금지. " +

@@ -16,6 +16,7 @@ namespace AIVillage.M0
         private readonly TMP_Text _calendar;
         private readonly TMP_Text _notice;
         private readonly TMP_Text _selectedInfo;
+        private readonly TMP_Text _prompt; // 결정 프롬프트 (M10-E) — 방랑자 Y/N 등 상시 유지 줄
         private float _noticeUntil;
         private string _lastCalendar;
         private VillagerAgent _selected;
@@ -46,7 +47,12 @@ namespace AIVillage.M0
             _notice.text = "";
             _selectedInfo = MakeText(root.transform, "SelectedInfo", font, new Vector2(12f, -86f), 24f);
             _selectedInfo.text = "";
+            // 결정 프롬프트 (M10-E) — 알림과 달리 상시 유지 (해소될 때까지). 노랑 강조.
+            _prompt = MakeText(root.transform, "Prompt", font, new Vector2(12f, -124f), 26f);
+            _prompt.color = new Color(1f, 0.85f, 0.4f);
+            _prompt.text = "";
         }
+
 
         private static TMP_Text MakeText(Transform parent, string name, TMP_FontAsset font,
                                          Vector2 offset, float size)
@@ -193,6 +199,13 @@ namespace AIVillage.M0
                 ? $" · <color=#FF6B6B>식량 {foodDaysLeft}일치</color>"
                 : $" · 식량 {foodDaysLeft}일치";
         }
+
+        /// <summary>결정 프롬프트 표시 (M10-E) — 알림(Notify)과 달리 ClearPrompt까지 상시 유지.
+        /// 플레이어 입력을 기다리는 줄이라 자동 소거가 없다 (놓침 방지 — 예고 휘발성 교훈).</summary>
+        public void SetPrompt(string line) => _prompt.text = line ?? "";
+
+        /// <summary>결정 프롬프트 소거 — 해소(수락·거절·시간 초과)의 표현 짝.</summary>
+        public void ClearPrompt() => _prompt.text = "";
 
         /// <summary>이벤트 알림 1줄 (계절 전환·주민 이탈 등) — 최신 1건만, NOTIFY_SEC 후 소거.</summary>
         public void Notify(string line)

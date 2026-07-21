@@ -49,6 +49,9 @@ namespace AIVillage.M0
         [Tooltip("농부 회의 연출 (M9-E) — 구역 확정 순간 완공자+근처 주민 릴레이. 비우면 회의 없음(중립).")]
         [SerializeField] private ChatterSO _farmMeetingChatter;
 
+        [Tooltip("방랑자 도착 술렁임 (M10-E) — 어귀 도착 순간 최근접 주민 릴레이. 비우면 술렁임 없음(중립).")]
+        [SerializeField] private ChatterSO _wandererChatter;
+
         public static M0SimulationLoop Instance { get; private set; }
 
         public WorldModel World { get; private set; }
@@ -82,6 +85,9 @@ namespace AIVillage.M0
 
         /// <summary>야생 위협 (M10-C). Threats가 비면 서비스 null = 위협 없음 (중립 불변식, M9 동작).</summary>
         public ThreatService Threats { get; private set; }
+
+        /// <summary>방랑자 (M10-E). WandererIntervalDays ≤ 0이면 서비스 null = 방랑자 없음 (중립 불변식).</summary>
+        public WandererService Wanderers { get; private set; }
         public PlannerGateway Planner { get; private set; }
         public GoalSelector Goals { get; private set; }
         public AgentConfigSO AgentConfig => _agentConfig;
@@ -177,6 +183,96 @@ namespace AIVillage.M0
                 }
             }
             return best;
+        }
+
+        // ── 런타임 인구 문 (M10-E — 새 선반 ③의 심장. 시작 드래프트·M11 재건이 재사용 예정) ──
+
+        // 사용 이력 이름 집합 — 사망·이탈로 빠져도 이름은 예약 유지 (같은 이름 재등장 = 서사 혼동).
+        // 첫 사용 시 현 주민으로 시드. 세이브 대상 (ADR-M0-10 — 카운터와 함께).
+        private readonly HashSet<string> _usedNames = new HashSet<string>();
+
+        /// <summary>누적 정착 수 (M10-E) — 쓰기는 SpawnVillager뿐. 세이브 대상 (ADR-M10-10).</summary>
+        public int SettleCount { get; private set; }
+
+        /// <summary>
+        /// 런타임 주민 스폰의 유일한 문 (M10-E). 이름 발급 → GameObject 생성 → Preset 주입 →
+        /// VillagerAgent.Start가 기존 스폰 파이프라인(등록·편차·뷰·타일 예약)을 전부 수행한다.
+        /// 호출처는 WandererService.Resolve(수락)뿐 — 두 번째 인구 유입 경로가 생기면 반려.
+        /// </summary>
+        public VillagerAgent SpawnVillager(Vector2Int tile, PersonalitySO p, JobSO j)
+        {
+            if (_usedNames.Count == 0)
+                foreach (VillagerAgent a in _agents)
+                    if (a != null) _usedNames.Add(a.AgentId);
+
+            string name = NextSpawnName(_usedNames);
+            _usedNames.Add(name);
+            var go = new GameObject(name); // Awake가 go.name을 AgentId로 읽는다 — 생성 시점 확정
+            go.transform.position = new Vector3(tile.x, tile.y, 0f); // ADR-M0-9 — X-Y 평면
+            VillagerAgent agent = go.AddComponent<VillagerAgent>();
+            agent.Preset(p, j); // Start 전 주입 보장 (AddComponent는 Awake만 즉시 실행)
+            SettleCount++;
+            Debug.Log($"[Wanderer] 정착 — {name} ({(p != null ? p.DisplayName : "중립")}·{(j != null ? j.DisplayName : "무직")})");
+            return agent;
+        }
+
+        /// <summary>
+        /// 스폰 이름 발급 (순수 — 게이트 M10-T5): A~Z, 그다음 AA·AB… 순으로 미사용 첫 이름.
+        /// 결정적 — 같은 사용 집합이면 같은 이름 (StableHash 개체 편차의 시드가 이름이라 중요).
+        /// </summary>
+        public static string NextSpawnName(ICollection<string> usedNames)
+        {
+            for (int i = 0; ; i++)
+            {
+                string name = "M0_Villager_" + ToLetters(i);
+                if (!usedNames.Contains(name)) return name;
+            }
+        }
+
+        private static string ToLetters(int index)
+        {
+            string s = "";
+            index++;
+            while (index > 0)
+            {
+                index--;
+                s = (char)('A' + index % 26) + s;
+                index /= 26;
+            }
+            return s;
+        }
+
+        // 방랑자 술렁임 청중 버퍼 (M10-E) — 농부 회의 버퍼와 분리 (같은 프레임 겹침 방어)
+        private readonly List<VillagerAgent> _wandererListeners = new List<VillagerAgent>(8);
+
+        /// <summary>방랑자 도착 술렁임 (M10-E, 표현 전용) — 어귀 최근접 주민이 화자, 반경 내 릴레이
+        /// (ShowFarmMeeting 패턴 — FireScene 이벤트 전용 대화).</summary>
+        private void ShowWandererMurmur(Vector2Int arriveTile)
+        {
+            if (_wandererChatter == null || _agents.Count == 0) return;
+
+            VillagerAgent speaker = null;
+            int best = int.MaxValue;
+            foreach (VillagerAgent a in _agents)
+            {
+                if (a == null || a.State == AgentState.Dead) continue;
+                int dx = a.TileX - arriveTile.x, dy = a.TileY - arriveTile.y;
+                int d = dx * dx + dy * dy;
+                if (d < best) { best = d; speaker = a; }
+            }
+            if (speaker == null) return;
+
+            _wandererListeners.Clear();
+            foreach (VillagerAgent a in _agents)
+            {
+                if (_wandererListeners.Count >= _wandererChatter.MaxExtraListeners) break;
+                if (a == null || a == speaker || a.State == AgentState.Dead) continue;
+                if (Mathf.Abs(a.TileX - arriveTile.x) > _wandererChatter.RadiusTiles
+                    || Mathf.Abs(a.TileY - arriveTile.y) > _wandererChatter.RadiusTiles) continue;
+                _wandererListeners.Add(a);
+            }
+            if (_wandererListeners.Count == 0) return; // 혼잣말 방지 (회의 연출과 동일)
+            Chatter.FireScene(_wandererChatter, speaker, _wandererListeners, Time.time);
         }
 
         /// <summary>부상 주민 수 집계 (M10-A) — InjuredCount 파생 슬롯의 유일한 원천 (트리거 전용).</summary>
@@ -394,6 +490,24 @@ namespace AIVillage.M0
                     ShowThreatStrikeLines(t, tile);
                 };
             }
+
+            // 방랑자 (M10-E) — 주기 ≤ 0이면 서비스 null (중립 불변식). 표현 배선은 전부 여기 —
+            // 서비스는 이벤트만 쏘고 HUD·술렁임을 모른다.
+            if (_worldConfig.WandererIntervalDays > 0f)
+            {
+                Wanderers = new WandererService(_worldConfig, this);
+                Wanderers.OnOffered += (prompt, tile) =>
+                {
+                    Hud?.SetPrompt(prompt);
+                    Hud?.Notify("방랑자가 마을 어귀에 왔습니다");
+                    ShowWandererMurmur(tile);
+                };
+                Wanderers.OnResolved += accept =>
+                {
+                    Hud?.ClearPrompt();
+                    Hud?.Notify(accept ? "방랑자가 마을에 합류했습니다" : "방랑자가 떠났습니다");
+                };
+            }
         }
 
         /// <summary>위협 타격 반응 대사 (M10-C, 표현 전용) — 타격 지점 최근접 생존 주민 최대 2명이
@@ -461,6 +575,9 @@ namespace AIVillage.M0
 
                 // 야생 위협 스케줄 (M10-C) — 계절과 별개 축 (변인 분리). 서비스 null이면 무동작.
                 Threats?.Tick(GameTime);
+
+                // 방랑자 도착·응답 시한 (M10-E) — 서비스 null이면 무동작.
+                Wanderers?.Tick(GameTime);
 
                 Hud?.Tick(GameTime, Season, _worldConfig.ForecastDays, World.EstimateFoodDaysLeft());
 

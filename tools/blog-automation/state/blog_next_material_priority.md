@@ -8,6 +8,27 @@ metadata:
 
 # 블로그 파이프라인 다음 회차 우선 소재
 
+**STATUS: 없음 (2026-07-21 게시팀 Step 8 — 신규 지정 없음)** — 기획팀 브리프
+(`tools/blog-automation/.staging/01_planner_brief.md`)에 `deferred_milestones`가 없어
+(M9는 spec(m9) 커밋만 있고 구현 커밋이 전무해 딥다이브 후보로 성립하지 않음) 이번
+회차 게시팀은 새로운 ACTIVE 소재를 지정하지 않는다. 다음 사이클의 blog-planner는 이
+파일에 우선 소재가 없는 상태로 통상 스코핑(`blog_last_published_commit.md`의
+`latest_commit` 이후 커밋 기준)을 따른다.
+
+## 이전 회차 이력 (2026-07-20 소비 완료 → 2026-07-21 실제 발행, 기록 보존용)
+
+**STATUS: CONSUMED (소비 완료: 2026-07-21)** — 2026-07-21 마스터 1차·2차 승인 후
+게시팀 Step 7에서 이 소재(M8 관계·소유·부탁)로 발행 완료. blog-planner는 이 섹션을
+더 이상 우선 소재로 취급하지 않는다.
+
+- 발행 결과: https://gamedevclaude.blogspot.com/2026/07/claude-code-ai-goap-ai-m8.html
+  (blogger_post_id: 2940839193792714370, 제목: "Claude Code 게임 개발 AI 페어
+  프로그래밍 후기: 유니티 GOAP AI 인디게임 개발일지 — 주민들이 드디어 서로를 "기억"하기
+  시작했다 (M8 관계·소유·부탁)")
+- `latest_commit`은 `blog_last_published_commit.md`에 `66f690b`로 갱신됨.
+
+(아래는 지정 당시 원문 — 기록 보존용)
+
 **STATUS: ACTIVE (2026-07-20 게시팀 Step 8 지정)** — blog-planner는 다음 회차에서 이
 소재를 **최우선**으로 집필한다.
 

@@ -15,6 +15,36 @@ metadata:
 
 ## 최신 사용 커밋
 
+- `latest_commit`: `66f690b` (docs(devlog) 2026-07-18 M8 후속 세션 — 범위 종료점)
+- `selected_commits_range`: `68c6ef8`(spec(m8) 사회 축 실행명세서) ~ `66f690b`(docs(devlog)
+  2026-07-18 M8 후속 세션) — 18커밋(M8-A~F 6개 세부 항목 + CLAUDE.md 비용표 갱신·DoD
+  코드 검증·세션 로그 + 후속 보완 4건(대화 호흡 상향+공용 쿨다운 8e53abf, 부탁 가시화+
+  완공 보고 심부름+주민 간 보상 5ce720e, 성격별 보상 태도 떼먹기·선불 요구
+  efcb0d5/8d72438, 보고 도착 재검사+씬 주민 10→4명+장식성 발화 억제 2d24b0f/9be5239,
+  집=목수 부탁 전용화 5956af2) 포함, 기획팀 브리프 `01_planner_brief.md` commit_refs
+  전체 반영 — 서사 무관 부수 커밋 0369bda·987e9bb는 제외)
+- `cycle_date`: 2026-07-21 (마스터 1차·2차 승인 후 게시팀 Step 7 발행)
+- `publish_status`: PUBLISHED (Blogger published: 2026-07-21 04:26 UTC / 2026-07-20 21:26 PDT, status: LIVE)
+- `blogger_post_id`: 2940839193792714370
+- `blog_url`: https://gamedevclaude.blogspot.com/2026/07/claude-code-ai-goap-ai-m8.html
+- `title`: Claude Code 게임 개발 AI 페어 프로그래밍 후기: 유니티 GOAP AI 인디게임 개발일지 — 주민들이 드디어 서로를 "기억"하기 시작했다 (M8 관계·소유·부탁)
+- `labels`: Claude Code 게임 개발, AI 페어 프로그래밍 후기, 유니티 GOAP AI, 인디게임 개발일지
+- `local_archive`: tools/blog-automation/published/2026-07-21-unity-goap-m8-relationship-ownership-request.html
+  (POST 응답의 content 필드는 `data += chunk` 스트림 이어붙이기 버그로 멀티바이트 문자가
+  깨져 있어(U+FFFD 확인됨) 그대로 저장하지 않고, GET으로 재조회하며 `Buffer.concat` 후
+  `toString('utf8')`로 재획득해 저장 — 원본 05_final.md html_content와 바이트 단위로
+  완전 동일함을 직접 확인, 14,874 bytes)
+- `비고`: M8 관계·소유·부탁 소재(68c6ef8~66f690b). 대화 이벤트 구독형 관계 축적(M8-A,
+  RelationshipService)·정보줄 단짝·원한 표기(M8-B)·소유 축(M8-C, OwnershipService+
+  MyHasHome)·부탁 선반(M8-D, RequestSO/RequestService/JudgeRequest)·부탁 에셋 1호+
+  요리 부탁 리허설(M8-E/F, 데이터 주도 설계 다섯 번째 재현)까지 A~F 전 항목 포함.
+  완료 선언 직후 실측에서 발견된 후속 보완 4건 — 성격별 보상 태도(떼먹기·선불 요구)·
+  집은 목수 부탁으로만(자율 건설·자동 배정 폐기, 트레이드오프)·대화 흐름 보호(장식성
+  발화 억제)·부탁 가시화+완공 보고 심부름+주민 간 보상 — 도 다룸. 이 글로 M8 미발행
+  구간 해소.
+
+### 이전 회차 이력 (2026-07-20, M7 상호대화와 가시성)
+
 - `latest_commit`: `598e51e` (feat(content) 대사 풀 2차 확장 — .cs 0, 사용자 요청)
 - `selected_commits_range`: `a451435`(spec(m7) M7 실행명세서) ~ `598e51e`(feat(content) 대사 풀 2차 확장) — 11커밋(M7-A~E 5개 세부 항목 + M7-T3 에셋 정책 게이트 + M7 완료 직후 실측에서 발견된 부수 버그 수정 3건(모닥불 몰림 8e1ac6b·대화 연출 94b892e·말풍선 우선순위 799842f) + 대사 풀 2차 확장 598e51e 포함, 기획팀 브리프 `01_planner_brief.md` commit_refs 전체 반영)
 - `cycle_date`: 2026-07-20 (마스터 1차·2차 승인 후 게시팀 Step 7 발행)

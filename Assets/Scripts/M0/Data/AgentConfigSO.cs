@@ -117,6 +117,16 @@ namespace AIVillage.M0
                  "25는 2026-07-13 기획 승인값 (초기 70 기준 약 2일마다 식사).")]
         public float SatietyDecayPerGameDay = 25f;
 
+        [Header("개인 인벤토리 (M11-A — 상한의 단일 출처. 전부 제안치, ADR-M11-3)")]
+        [Tooltip("몸 소지 상한 (슬롯별 — 생식·조리식 각각). 플래너 전제 자동 주입과 EffectApplier " +
+                 "선검사가 같은 값을 읽는다 (판정 단일). 제안치 8 ≈ 생식 4.8일치 — M9 잉여-안락 재발 방지. " +
+                 "※ 명세 §4.2의 '합산'은 슬롯별로 개정 (플래너 전제 언어가 단일 슬롯 비교 — M11-A 커밋 사유).")]
+        public int BodyCarryCap = 8;
+
+        [Tooltip("집 저장 상한 (슬롯별). 제안치 15 — 몸+집 합계가 20을 넘지 않게 (잉여-안락 경계). " +
+                 "주택 사다리(태크트리) 도입 시 BuildingSO 필드로 이관 예정.")]
+        public int HomeStorageCap = 15;
+
         [Header("위기 예고 (M6-C — 제안치)")]
         [Tooltip("예고 기간 술렁임 확률 (액션 시작 시점마다 판정). 대사는 SeasonSO.ForecastLines.")]
         public float ForecastMoodChance = 0.15f;

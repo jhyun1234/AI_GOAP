@@ -1,4 +1,4 @@
-using AIVillage.M0;
+﻿using AIVillage.M0;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -89,7 +89,7 @@ namespace AIVillage.Tests.EditMode
         {
             // 미배선(aliveCount·FoodSources 없음) = 99 (중립, 기존 스냅샷과 diff 0)
             var neutral = new WorldModel(new DiscoveryService(), Config());
-            Assert.AreEqual(WorldModel.NO_ESTIMATE, neutral.BuildSnapshot(50, 50).Get(SlotId.FoodDaysLeft),
+            Assert.AreEqual(WorldModel.NO_ESTIMATE, neutral.BuildSnapshot(50, 50).Get(SlotId.MyFoodDaysLeft),
                 "미배선 = 99 (중립 불변식)");
 
             // 배선 시 산출 — 조리6·생식15·4명·평시 = 5
@@ -100,7 +100,7 @@ namespace AIVillage.Tests.EditMode
             world.AddStock(SlotId.CookedFoodStock, 6);
             world.AddStock(SlotId.RawFoodStock, 15);
 
-            Assert.AreEqual(5, world.BuildSnapshot(50, 50).Get(SlotId.FoodDaysLeft), "배선 스냅샷 = 5일치");
+            Assert.AreEqual(5, world.BuildSnapshot(50, 50).Get(SlotId.MyFoodDaysLeft), "배선 스냅샷 = 5일치");
             Assert.AreEqual(5, world.EstimateFoodDaysLeft(), "HUD 창구도 같은 값 (판정 단일)");
         }
 
@@ -114,7 +114,7 @@ namespace AIVillage.Tests.EditMode
             g.Priority = 18;
             g.TriggerConditions = new[]
             {
-                new SlotCondition { Slot = SlotId.FoodDaysLeft, Op = CompareOp.LessOrEqual, Value = 2 },
+                new SlotCondition { Slot = SlotId.MyFoodDaysLeft, Op = CompareOp.LessOrEqual, Value = 2 },
             };
             g.GoalConditions = new[]
             {
@@ -128,7 +128,7 @@ namespace AIVillage.Tests.EditMode
         private static WorldSnapshot Snap(int foodDaysLeft, int cooked)
         {
             var slots = new int[PlanningConfig.TotalSlots];
-            slots[(int)SlotId.FoodDaysLeft] = foodDaysLeft;
+            slots[(int)SlotId.MyFoodDaysLeft] = foodDaysLeft;
             slots[(int)SlotId.CookedFoodStock] = cooked;
             return new WorldSnapshot(slots);
         }

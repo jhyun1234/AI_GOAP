@@ -44,21 +44,43 @@ namespace AIVillage.M0
 
         // ── M9 확장 (기존 인덱스 뒤에만 추가 — 에셋 호환 유지) ─────────────
         IrrigationBuilt   = 18, // 논리형 — 관개수로 완공 (재해 저항 슬롯, M9-D). 예산 52칸 중 19 사용.
-        FoodDaysLeft      = 19, // 수치형 — 남은 식량 일수(내림). 파생 슬롯(WorldModel 산출, 트리거 전용 ADR-M9-9). 예산 52칸 중 20.
+        MyFoodDaysLeft    = 19, // 수치형 — [M11 개정] 舊 FoodDaysLeft. 내(몸+집) 남은 식량 일수 파생.
+                                // ⚠️ M11-D 전까지는 산식이 아직 마을 합산 — 이름만 선행 개명 (직렬화 int라 에셋 호환).
 
         // ── M10 확장 (기존 인덱스 뒤에만 추가 — 에셋 호환 유지) ────────────
         InjuredCount      = 20, // 수치형 — 부상 주민 수. 파생 슬롯(SimulationLoop 집계, 트리거 전용 ADR-M9-9 패턴). 예산 52칸 중 21.
         ThreatNear        = 21, // 논리형 — 내 감지 반경 내 활성 위협 존재. 개인 파생 슬롯(ThreatService.IsNearThreat, M10-D 배선). 예산 52칸 중 22.
+
+        // ── M11 확장 (기존 인덱스 뒤에만 추가 — 에셋 호환 유지) ────────────
+        MyRawFood         = 22, // 수치형 — 몸 소지 생식. 개인 스톡 (원천 = VillagerAgent.ApplyPersonalStock, ADR-M11-1)
+        MyCookedFood      = 23, // 수치형 — 몸 소지 조리식
+        MyHomeRawFood     = 24, // 수치형 — 내 집 저장 생식 (원천 = HomeStorageService — 타일 키, M12 집 타격-상실 대비)
+        MyHomeCookedFood  = 25, // 수치형 — 내 집 저장 조리식
+        MyWasAttacked     = 26, // 논리형 — 피격 경험 (Injure 1회로 영구 true. 집 동기 축, M11-G 배선. 세이브 대상)
+        MyFarmPlotCount   = 27, // 수치형 — 내 소유 밭 수 (원천 = FarmService 소유 필터, M11-E 배선)
+        MyEmptyPlot       = 28, // 수치형 — 내 빈 밭 수
+        MyRipeCrop        = 29, // 수치형 — 내 익은 밭 수
+        UntendedInjuredCount = 30, // 수치형 — 미안정 부상자 수 (안정화 goal 트리거 — crowding 해소 축, M11-I 배선). 예산 52칸 중 31.
     }
 
     public static class SlotIds
     {
-        public const int Count = 22;
+        public const int Count = 31;
 
-        /// <summary>전역 스톡 슬롯 여부 — EffectApplier/러너가 공유하는 유일한 판정.</summary>
+        /// <summary>전역 스톡 슬롯 여부 — EffectApplier/러너가 공유하는 유일한 판정.
+        /// ⚠️ 개인 스톡(MyRawFood 등)을 여기 넣으면 안 된다 (명세 M11-A ⚠️①) —
+        /// EffectApplier 선검사가 WorldModel을 읽어 개인 식사가 전부 실패한다. IsPersonalStock이 별도 판정.</summary>
         public static bool IsStock(SlotId slot)
             => slot == SlotId.WoodStock || slot == SlotId.RawFoodStock || slot == SlotId.StoneStock
             || slot == SlotId.CookedFoodStock;
+
+        /// <summary>몸 소지 개인 스톡 여부 (M11-A) — 원천 = VillagerAgent (ADR-M11-1).</summary>
+        public static bool IsPersonalStock(SlotId slot)
+            => slot == SlotId.MyRawFood || slot == SlotId.MyCookedFood;
+
+        /// <summary>집 저장 스톡 여부 (M11-A) — 원천 = HomeStorageService (ADR-M11-1). 무주택이면 효과 실패.</summary>
+        public static bool IsHomeStock(SlotId slot)
+            => slot == SlotId.MyHomeRawFood || slot == SlotId.MyHomeCookedFood;
 
         /// <summary>
         /// 수치형 슬롯 여부 — "수치 슬롯만 허용" 검증(BuildingSO.CountSlot 등 OnValidate)의
@@ -70,7 +92,11 @@ namespace AIVillage.M0
             || slot == SlotId.StoneStock
             || slot == SlotId.CookedFoodStock || slot == SlotId.FarmPlotCount
             || slot == SlotId.HouseCount || slot == SlotId.DaysToCrisis
-            || slot == SlotId.FoodDaysLeft || slot == SlotId.InjuredCount;
+            || slot == SlotId.MyFoodDaysLeft || slot == SlotId.InjuredCount
+            || slot == SlotId.MyRawFood || slot == SlotId.MyCookedFood
+            || slot == SlotId.MyHomeRawFood || slot == SlotId.MyHomeCookedFood
+            || slot == SlotId.MyFarmPlotCount || slot == SlotId.MyEmptyPlot
+            || slot == SlotId.MyRipeCrop || slot == SlotId.UntendedInjuredCount;
 
         /// <summary>자원 타입 → 스톡 슬롯. M0 미지원 타입이면 null (Iron/Copper/Silver는 M1).</summary>
         public static SlotId? StockOf(ResourceType type)

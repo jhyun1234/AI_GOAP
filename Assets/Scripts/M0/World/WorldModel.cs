@@ -144,7 +144,9 @@ namespace AIVillage.M0
         /// (근접이 아님 — 노드까지의 이동은 W4 러너 담당).
         /// </summary>
         public WorldSnapshot BuildSnapshot(int satiety, int fatigue, bool hasHome = false,
-                                           bool threatNear = false)
+                                           bool threatNear = false,
+                                           int myRaw = 0, int myCooked = 0,
+                                           int homeRaw = 0, int homeCooked = 0)
         {
             var slots = new int[PlanningConfig.TotalSlots];
 
@@ -171,9 +173,16 @@ namespace AIVillage.M0
             slots[(int)SlotId.CrisisActive] = _season != null && _season.Current != null
                                               && _season.Current.IsCrisis ? 1 : 0;
             // 남은 식량 일수 (M9-G) — DaysToCrisis와 같은 파생 슬롯 패턴. 미배선이면 99 (중립).
-            slots[(int)SlotId.FoodDaysLeft] = _aliveCount != null && _foodValues != null
+            // ⚠️ M11-D 전까지 산식은 아직 마을 합산이다 (슬롯 이름만 M11-A에서 선행 개명).
+            slots[(int)SlotId.MyFoodDaysLeft] = _aliveCount != null && _foodValues != null
                 ? ComputeFoodDaysLeft(_foodValues, slots, _aliveCount(), _decayPerDay, SeasonDecayMult())
                 : NO_ESTIMATE;
+            // 개인 인벤토리 (M11-A) — 몸 소지는 VillagerAgent, 집 저장은 HomeStorageService가 원천.
+            // 기본 0 = 중립 (미배선 테스트·개인화 이전 에셋은 이 슬롯을 참조하지 않는다).
+            slots[(int)SlotId.MyRawFood]        = myRaw;
+            slots[(int)SlotId.MyCookedFood]     = myCooked;
+            slots[(int)SlotId.MyHomeRawFood]    = homeRaw;
+            slots[(int)SlotId.MyHomeCookedFood] = homeCooked;
             // 부상 주민 수 (M10-A) — 파생 슬롯, 원천은 SimulationLoop 집계뿐. 미배선이면 0 (중립 —
             // Goal_TendInjured 트리거 "≥1" 영구 불발 = M9 동작).
             slots[(int)SlotId.InjuredCount] = _injuredCount != null ? _injuredCount() : 0;

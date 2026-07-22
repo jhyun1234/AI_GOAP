@@ -77,6 +77,9 @@ namespace AIVillage.M0
         /// <summary>건물 소유 (M8-C). 쓰기는 Assign/ReleaseBy만 (ADR-M8-3). 세이브 대상.</summary>
         public OwnershipService Ownership { get; private set; }
 
+        /// <summary>집 저장 식량 (M11-A). 쓰기는 TryAdd/TrySpend만 (ADR-M11-1). 세이브 대상.</summary>
+        public HomeStorageService HomeStorage { get; private set; }
+
         /// <summary>주민 부탁 (M8-D). Requests가 비면 스스로 중립 (M7 동작).</summary>
         public RequestService Requests { get; private set; }
 
@@ -430,11 +433,12 @@ namespace AIVillage.M0
                                          () => _agents.Count, _agentConfig, CountInjured);
             Construction = new ConstructionService(World);
             Zones        = new ZoneService(); // M9-A — 배치 결정자 (군집 휴리스틱 대체, ADR-M9-1)
-            Planner      = new PlannerGateway(_catalog);
+            Planner      = new PlannerGateway(_catalog, _agentConfig); // M11-A — 개인 상한 전제 주입 (ADR-M11-3)
             Goals        = new GoalSelector(_goals);
             Chatter      = new ChatterService(_worldConfig, _agentConfig); // M7-C — 표현 전용 (ADR-M7-1)
             Relationship = new RelationshipService();
             Ownership    = new OwnershipService(); // M8-C — 소유 축
+            HomeStorage  = new HomeStorageService(); // M11-A — 집 저장 (타일 키, ADR-M11-1)
             Requests     = new RequestService(_worldConfig, _agentConfig, Relationship,
                                               Ownership, Construction, _agents,
                                               Chatter, World); // M8-D — 부탁 선반 (대화 쿨다운·보상 스톡)
@@ -460,6 +464,11 @@ namespace AIVillage.M0
             Construction.OnRemoved += (slot, x, y) =>
             {
                 if (slot == SlotId.FarmPlotCount) Farm.RemovePlot(x, y);
+            };
+            // 집 소실 → 저장 식량 정리 (M11-A, 소멸 경로 단일성 — M12 집 타격-상실 로그가 이 지점에 연결)
+            Construction.OnRemoved += (slot, x, y) =>
+            {
+                if (slot == SlotId.HouseCount) HomeStorage.ReleaseTile(new Vector2Int(x, y));
             };
             // 구역 확정 = 첫 완공 (M9-A, ADR-M9-2) — NotifyBuilt가 첫 완공만 앵커로 잡는다
             Construction.OnCompleted += (b, x, y) => Zones.NotifyBuilt(b, x, y);

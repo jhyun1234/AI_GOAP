@@ -18,8 +18,10 @@ namespace AIVillage.M0
         /// <summary>GOAPActionDef의 전제/효과 필드 쌍 수 (Prec0~7, Eff0~7).</summary>
         public const int MAX_CONDITIONS = 8;
 
-        /// <summary>카탈로그 전체를 def 배열로 컴파일한다. 항목 초과·빈 슬롯은 fail-fast (시작 시 1회이므로 예외 정당).</summary>
-        public static GOAPActionDef[] CompileManaged(ActionCatalog catalog)
+        /// <summary>카탈로그 전체를 def 배열로 컴파일한다. 항목 초과·빈 슬롯은 fail-fast (시작 시 1회이므로 예외 정당).
+        /// bodyCap/homeCap > 0이면 개인/집 스톡 Add 효과에 상한 전제를 자동 주입한다 (ADR-M11-3 —
+        /// 상한의 단일 출처는 AgentConfig, 액션 에셋에 상한 리터럴 기입 금지. 0 = 주입 없음 = 기존 동작).</summary>
+        public static GOAPActionDef[] CompileManaged(ActionCatalog catalog, int bodyCap = 0, int homeCap = 0)
         {
             if (catalog == null || catalog.Actions == null || catalog.Actions.Length == 0)
                 throw new InvalidOperationException("[ActionCompiler] 카탈로그가 비어 있습니다.");
@@ -38,6 +40,7 @@ namespace AIVillage.M0
                 effs.Clear();
                 so.CollectPreconditions(precs);
                 so.CollectEffects(effs);
+                InjectCapPreconditions(precs, effs, bodyCap, homeCap); // M11-A — 상한 전제 자동 주입
 
                 if (precs.Count > MAX_CONDITIONS || effs.Count > MAX_CONDITIONS)
                     throw new InvalidOperationException(
@@ -55,6 +58,26 @@ namespace AIVillage.M0
                 defs[i] = def;
             }
             return defs;
+        }
+
+        /// <summary>
+        /// 개인/집 스톡 상한 전제 자동 주입 (순수 — 게이트 M11-T1, ADR-M11-3): Add 효과의 슬롯이
+        /// 개인 스톡이면 (슬롯 ≤ bodyCap-Add값), 집 저장이면 (슬롯 ≤ homeCap-Add값)을 전제에 더한다.
+        /// 플래너가 상한을 알아야 "가득 찬 몸에 또 채집"하는 헛노동 플랜이 안 나온다 — 런타임
+        /// 선검사(EffectApplier)와 같은 판정이라 어긋날 수 없다 (판정 단일).
+        /// cap ≤ 0 = 주입 없음 (중립 — 미배선 테스트·기존 게이트웨이 동작 불변).
+        /// </summary>
+        public static void InjectCapPreconditions(List<SlotCondition> precs, List<SlotEffect> effs,
+                                                  int bodyCap, int homeCap)
+        {
+            foreach (SlotEffect e in effs)
+            {
+                if (e.Op != EffectOp.Add) continue;
+                int cap = SlotIds.IsPersonalStock(e.Slot) ? bodyCap
+                        : SlotIds.IsHomeStock(e.Slot)     ? homeCap : 0;
+                if (cap <= 0) continue;
+                precs.Add(new SlotCondition { Slot = e.Slot, Op = CompareOp.LessOrEqual, Value = cap - e.Value });
+            }
         }
 
         /// <summary>

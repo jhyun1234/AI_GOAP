@@ -62,6 +62,7 @@ namespace AIVillage.M0
         public ConstructionService Construction => _sim.Construction;
         public ZoneService Zones => _sim.Zones; // 구역 배치 결정자 (M9-A)
         public FarmService Farm => _sim.Farm;
+        public HomeStorageService HomeStorage => _sim.HomeStorage; // 집 저장 (M11-A — EffectApplier 창구)
         public WorldConfigSO WorldConfig => _sim.WorldConfig;
         public AgentConfigSO AgentConfig => _cfg; // 러너용 읽기 창구 (M10-B — TendLines 등 대사 에셋)
 
@@ -398,12 +399,19 @@ namespace AIVillage.M0
 
         /// <summary>플래닝 스냅샷 — RequestService(M8-D)의 의뢰인 조건 판정도 이걸 쓴다 (같은 언어).
         /// ThreatNear는 개인 감지 배율(성격 FleeRadiusMult)로 여기서 계산 — 같은 위협을 봐도
-        /// 고집쟁이는 늦게 알아챈다 (M10-D, 결정적 부상 선정의 성격 축).</summary>
+        /// 고집쟁이는 늦게 알아챈다 (M10-D, 결정적 부상 선정의 성격 축).
+        /// 몸 소지·집 저장(M11-A)도 개인 주입 — 집 저장은 무주택이면 0 (중립).</summary>
         public WorldSnapshot BuildSnapshot()
-            => World.BuildSnapshot(Mathf.RoundToInt(Satiety), Mathf.RoundToInt(Fatigue),
-                _sim.Ownership.TryGetOwned(AgentId, SlotId.HouseCount, out _), // MyHasHome (M8-C)
+        {
+            bool hasHome = TryGetHomeTile(out Vector2Int home);
+            (int homeRaw, int homeCooked) = hasHome && HomeStorage != null
+                ? HomeStorage.Get(home) : (0, 0);
+            return World.BuildSnapshot(Mathf.RoundToInt(Satiety), Mathf.RoundToInt(Fatigue),
+                hasHome, // MyHasHome (M8-C)
                 _sim.Threats != null && _sim.Threats.IsNearThreat(TileX, TileY,
-                    Personality != null ? Personality.FleeRadiusMult : 1f));   // ThreatNear (M10-D)
+                    Personality != null ? Personality.FleeRadiusMult : 1f),    // ThreatNear (M10-D)
+                MyRaw, MyCooked, homeRaw, homeCooked);                         // 개인 인벤토리 (M11-A)
+        }
 
         /// <summary>
         /// 앵커 조회 단일 창구 (M8-C) — 러너는 이 메서드만 쓴다. 슬롯 순회마다 내 소유 건물이
@@ -1220,6 +1228,58 @@ namespace AIVillage.M0
             State = AgentState.Idle;
             _idleCooldownSec = cooldownSec;
         }
+
+        // ── 몸 소지 개인 스톡 (M11-A — 개인 인벤토리 선반의 절반. 세이브 대상 ADR-M11-10) ──
+
+        /// <summary>몸 소지 생식. 쓰기는 ApplyPersonalStock만 (ADR-M11-1).</summary>
+        public int MyRaw { get; private set; }
+
+        /// <summary>몸 소지 조리식.</summary>
+        public int MyCooked { get; private set; }
+
+        /// <summary>슬롯별 잔량 — EffectApplier 선검사·스냅샷 주입 공용 (판정 단일).</summary>
+        public int GetPersonalStock(SlotId slot)
+            => slot == SlotId.MyRawFood ? MyRaw
+             : slot == SlotId.MyCookedFood ? MyCooked : 0;
+
+        /// <summary>
+        /// 개인 스톡 계단 (순수 — 게이트 M11-T1): Sub 부족 = 실패(무변경), Add 상한 초과 = 실패
+        /// (클램프로 초과분을 조용히 버리지 않는다 — 선검사 실패 → 러너 실패 → 재계획).
+        /// ⚠️ 상한은 슬롯별이다 (명세 §4.2 "합산"에서 개정 — 플래너 전제 언어가 단일 슬롯 비교라
+        /// 합산 상한은 표현 불가. 합산을 런타임에만 두면 컴파일러 주입 전제와 판정이 이원화되어
+        /// ADR-M11-3 "클램프 발동 = 버그" 불변식이 깨진다. 사유는 M11-A 커밋 메시지).
+        /// </summary>
+        public static (bool ok, int next) NextPersonalStock(int current, EffectOp op, int value, int cap)
+        {
+            switch (op)
+            {
+                case EffectOp.Add:
+                    return current + value > cap ? (false, current) : (true, current + value);
+                case EffectOp.SubClamp0:
+                    return current < value ? (false, current) : (true, current - value);
+                default: // Set — 전역 스톡과 동일하게 미지원 (EffectApplier가 경고)
+                    return (false, current);
+            }
+        }
+
+        /// <summary>
+        /// 개인 스톡 쓰기의 유일한 문 (ADR-M11-1) — 호출처는 EffectApplier와 시작 분배·보상 이전뿐.
+        /// 실패 반환 = 정상 흐름 (원자성) — 다만 EffectApplier 선검사를 통과하고도 실패하면
+        /// 컴파일러 상한 주입 누락 버그다 (ADR-M11-3 방어선, 경고는 EffectApplier가 낸다).
+        /// </summary>
+        public bool ApplyPersonalStock(SlotId slot, EffectOp op, int value)
+        {
+            if (!SlotIds.IsPersonalStock(slot)) return false;
+            (bool ok, int next) = NextPersonalStock(GetPersonalStock(slot), op, value, _cfg.BodyCarryCap);
+            if (!ok) return false;
+            if (slot == SlotId.MyRawFood) MyRaw = next;
+            else MyCooked = next;
+            return true;
+        }
+
+        /// <summary>내 집 타일 (M11-A) — 집 저장 라우팅·피난 목적지 공용 창구. 원천 = OwnershipService.</summary>
+        public bool TryGetHomeTile(out Vector2Int tile)
+            => _sim.Ownership.TryGetOwned(AgentId, SlotId.HouseCount, out tile);
 
         /// <summary>EffectApplier 전용 — My* 슬롯 효과를 개인 욕구에 반영 (0~100 클램프).</summary>
         public void ApplyNeedEffect(SlotId slot, EffectOp op, int value)

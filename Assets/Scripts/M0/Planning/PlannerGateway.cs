@@ -47,10 +47,14 @@ namespace AIVillage.M0
             public float RequestedAt { get; internal set; }
         }
 
-        public PlannerGateway(ActionCatalog catalog)
+        /// <summary>agentCfg = 개인/집 스톡 상한의 단일 출처 (M11-A, ADR-M11-3 — 컴파일 시 상한
+        /// 전제 자동 주입). null이면 주입 없음 = 기존 동작 (중립 — 테스트·미배선 경로 불변).</summary>
+        public PlannerGateway(ActionCatalog catalog, AgentConfigSO agentCfg = null)
         {
             _catalog = catalog != null ? catalog : throw new ArgumentNullException(nameof(catalog));
-            _defs = ActionCompiler.CompileManaged(catalog);
+            _defs = ActionCompiler.CompileManaged(catalog,
+                agentCfg != null ? agentCfg.BodyCarryCap : 0,
+                agentCfg != null ? agentCfg.HomeStorageCap : 0);
             ActionCompiler.ComputeMaxGainDrop(_defs, PlanningConfig.TotalSlots, out _maxGain, out _maxDrop);
         }
 

@@ -27,15 +27,18 @@ namespace AIVillage.M0
         private readonly WorldConfigSO _worldCfg;
         private readonly OwnershipService _ownership;
         private readonly RequestService _requests;
+        private readonly HomeStorageService _homeStorage; // 집 저장 표기 (M11-A)
 
         public SeasonHud(Transform parent, TMP_FontAsset font,
                          RelationshipService relationship = null, WorldConfigSO worldCfg = null,
-                         OwnershipService ownership = null, RequestService requests = null)
+                         OwnershipService ownership = null, RequestService requests = null,
+                         HomeStorageService homeStorage = null)
         {
             _relationship = relationship;
             _worldCfg = worldCfg;
             _ownership = ownership;
             _requests = requests;
+            _homeStorage = homeStorage;
             var root = new GameObject("SeasonHud");
             root.transform.SetParent(parent, false);
             var canvas = root.AddComponent<Canvas>();
@@ -117,7 +120,8 @@ namespace AIVillage.M0
                 return;
             }
 
-            string line = ComposeSelected(_selected, _relationship, _worldCfg, _ownership, _requests);
+            string line = ComposeSelected(_selected, _relationship, _worldCfg, _ownership, _requests,
+                                          _homeStorage);
             if (line != _lastSelectedLine)
             {
                 _lastSelectedLine = line;
@@ -133,12 +137,15 @@ namespace AIVillage.M0
         /// </summary>
         public static string ComposeSelected(VillagerAgent a, RelationshipService rel = null,
                                              WorldConfigSO cfg = null, OwnershipService own = null,
-                                             RequestService requests = null)
+                                             RequestService requests = null,
+                                             HomeStorageService homeStorage = null)
         {
             string line =
                 $"{a.ShortName} — 성격 {(a.Personality != null ? a.Personality.DisplayName : "없음")}" +
                 $" · 직업 {(a.Job != null ? a.Job.DisplayName : "무직")}" +
                 $" · 포만 {Mathf.RoundToInt(a.Satiety)} · 피로 {Mathf.RoundToInt(a.Fatigue)}" +
+                // 소지 식량 표기 (M11-A 관측 — 보상 차감·저장 이동을 콘솔 없이 화면에서 확인)
+                $" · 소지 생{a.MyRaw}·조{a.MyCooked}" +
                 // 부상 표기 (M10-A) — 붉은 강조. None이면 표기 없음 (중립 — M9 표시와 동일)
                 (a.Injury != InjurySeverity.None ? " · <color=#FF6B6B>부상</color>" : "") +
                 $" · 지금: {(a.CurrentGoal != null ? a.CurrentGoal.DisplayName : "쉬는 중")}";
@@ -148,9 +155,20 @@ namespace AIVillage.M0
                 line += $" · <color=#7EC8FF>부탁: {ToShortName(reqId)}의 {task}</color>";
 
             // 집 표기 (M8-C) — 표시 정책: 집(HouseCount)만. 다른 소유 슬롯이 생기면 여기 확장
+            // 집 저장 식량 (M11-A) — 서비스 미배선이면 좌표만 (중립)
             if (own != null)
-                line += own.TryGetOwned(a.AgentId, SlotId.HouseCount, out Vector2Int home)
-                    ? $" · 집 ({home.x},{home.y})" : " · 집 없음";
+            {
+                if (own.TryGetOwned(a.AgentId, SlotId.HouseCount, out Vector2Int home))
+                {
+                    line += $" · 집 ({home.x},{home.y})";
+                    if (homeStorage != null)
+                    {
+                        (int raw, int cooked) = homeStorage.Get(home);
+                        line += $" 저장 생{raw}·조{cooked}";
+                    }
+                }
+                else line += " · 집 없음";
+            }
 
             if (rel != null && cfg != null)
             {

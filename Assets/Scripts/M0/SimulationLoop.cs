@@ -570,7 +570,8 @@ namespace AIVillage.M0
                       $"Wood {World.GetStock(SlotId.WoodStock)}, RawFood {World.GetStock(SlotId.RawFoodStock)}");
 
             // 씬 배선 없음 — BuildingVisualizer 패턴 (M6-C). 관계·소유·부탁 참조는 표기 전용 (M8-B/C/후속)
-            Hud = new SeasonHud(transform, _bubbleFont, Relationship, _worldConfig, Ownership, Requests);
+            Hud = new SeasonHud(transform, _bubbleFont, Relationship, _worldConfig, Ownership, Requests,
+                                HomeStorage); // 집 저장 표기 (M11-A)
 
             StartCoroutine(TickLoop());
         }

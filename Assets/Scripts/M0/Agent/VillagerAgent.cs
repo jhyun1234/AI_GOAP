@@ -556,6 +556,7 @@ namespace AIVillage.M0
             Debug.LogWarning($"[VillagerAgent] {AgentId}: 굶주림 이탈 — 포만 {Satiety:F0} " +
                              $"(< {_cfg.StarvingBelowSatiety}) 지속 {_starvingDays:F2}일 " +
                              $"(이탈 문턱 {_cfg.DepartAfterStarvingDays}일)");
+            _sim.RecordDepart(); // 기록 카운터 (M10-F) — 사망(RecordDeath)과 이원화 (ADR-M10-3)
             _sim.Hud?.Notify($"{AgentId}이(가) 마을을 떠났습니다");
             ShowTransient(Pick(_cfg.DepartLines));
             State = AgentState.Dead;      // SimTick 차단 — 새 상태 추가 금지 (ADR-M6-3)

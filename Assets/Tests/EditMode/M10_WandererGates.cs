@@ -53,6 +53,29 @@ namespace AIVillage.Tests.EditMode
             Assert.AreEqual("M0_Villager_AA", M0SimulationLoop.NextSpawnName(full), "Z 소진 = AA");
         }
 
+        // ── M10-T6 전멸 종료 (M10-F) ─────────────────────────────────────────
+
+        [Test]
+        public void M10_T6_ShouldShowGameOver_LatchAndPrecondition()
+        {
+            // 시작 전 빈 목록 ≠ 전멸 — 주민이 있었던 마을만 전멸할 수 있다
+            Assert.IsFalse(M0SimulationLoop.ShouldShowGameOver(false, everHadAgents: false, aliveCount: 0),
+                "스폰 전 0명은 전멸 아님");
+            Assert.IsFalse(M0SimulationLoop.ShouldShowGameOver(false, true, 1), "생존자 있음");
+            Assert.IsTrue(M0SimulationLoop.ShouldShowGameOver(false, true, 0), "있던 마을이 0명 = 전멸");
+            Assert.IsFalse(M0SimulationLoop.ShouldShowGameOver(true, true, 0), "1회 래치 — 재표시 없음");
+        }
+
+        [Test]
+        public void M10_T6_ComposeGameOver_RecordsAllThreeCounters()
+        {
+            string s = SeasonHud.ComposeGameOver(day: 42, deaths: 3, departs: 1, settles: 2);
+            StringAssert.Contains("Day 42", s);
+            StringAssert.Contains("사망 3", s);
+            StringAssert.Contains("이탈 1", s, "이탈·사망 이원화가 기록에서도 유지 (ADR-M10-3)");
+            StringAssert.Contains("정착 2", s);
+        }
+
         [Test]
         public void M10_T5_PresetOrRandom_InjectionBeatsRandom()
         {

@@ -129,7 +129,11 @@ namespace AIVillage.M0
 
         public void RegisterAgent(VillagerAgent agent)
         {
-            if (agent != null && !_agents.Contains(agent)) _agents.Add(agent);
+            if (agent != null && !_agents.Contains(agent))
+            {
+                _agents.Add(agent);
+                _everHadAgents = true; // 전멸 판정용 — 시작 전 빈 목록과 전멸을 구분 (M10-F)
+            }
         }
 
         // 부상자 탐색 버퍼 (M10-B) — 프레임 재사용, 할당 0 (농부 회의 버퍼 패턴)
@@ -286,6 +290,20 @@ namespace AIVillage.M0
 
         /// <summary>누적 사망 수 (M10-A) — 쓰기는 RecordDeath뿐. 세이브 대상 (ADR-M0-10).</summary>
         public int DeathCount { get; private set; }
+
+        /// <summary>누적 이탈 수 (M10-F) — 쓰기는 RecordDepart뿐. 세이브 대상 (ADR-M10-10).</summary>
+        public int DepartCount { get; private set; }
+
+        /// <summary>이탈 기록 — 호출처는 VillagerAgent.Depart()뿐. 사망과 기록도 이원화 (ADR-M10-3).</summary>
+        public void RecordDepart() => DepartCount++;
+
+        // 전멸 종료 (M10-F) — 화면만 덮고 틱은 계속 돈다 (관찰 샌드박스 유지, 재건은 M11).
+        private bool _everHadAgents;
+        private bool _gameOverShown;
+
+        /// <summary>전멸 래치 판정 (순수 — 게이트 M10-T6): 주민이 있었던 마을이 0명이 된 첫 순간만.</summary>
+        public static bool ShouldShowGameOver(bool alreadyShown, bool everHadAgents, int aliveCount)
+            => !alreadyShown && everHadAgents && aliveCount == 0;
 
         /// <summary>
         /// 사망 기록 (M10-A) — 호출처는 VillagerAgent.Die()뿐 (이탈 이원화 — ADR-M10-3:
@@ -577,7 +595,17 @@ namespace AIVillage.M0
                 Threats?.Tick(GameTime);
 
                 // 방랑자 도착·응답 시한 (M10-E) — 서비스 null이면 무동작.
-                Wanderers?.Tick(GameTime);
+                // 전멸 후 정지 (M10-F): 수락 주체(플레이어의 마을)가 없다 — 재건과 함께 M11에서 개정.
+                if (!_gameOverShown) Wanderers?.Tick(GameTime);
+
+                // 전멸 검사 (M10-F) — 1회 래치. 화면만 덮고 시뮬·위협 틱은 지속 (빈 마을의 늑대도 풍경).
+                if (ShouldShowGameOver(_gameOverShown, _everHadAgents, _agents.Count))
+                {
+                    _gameOverShown = true;
+                    Wanderers?.Resolve(false); // 진행 중 제안 정리 — 프롬프트 소거·후보 퇴장 (이중 호출 안전)
+                    Hud?.ShowGameOver(SeasonHud.ComposeGameOver((int)GameTime, DeathCount, DepartCount, SettleCount));
+                    Debug.Log($"[M0Sim] 전멸 — Day {(int)GameTime} (사망 {DeathCount} · 이탈 {DepartCount} · 정착 {SettleCount})");
+                }
 
                 Hud?.Tick(GameTime, Season, _worldConfig.ForecastDays, World.EstimateFoodDaysLeft());
 

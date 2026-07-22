@@ -200,6 +200,50 @@ namespace AIVillage.M0
                 : $" · 식량 {foodDaysLeft}일치";
         }
 
+        /// <summary>
+        /// 전멸 종료 요약 문구 (순수 — 게이트 M10-T6). 마을의 마지막 날 기록 —
+        /// 사망·이탈·정착이 각자 집계된다 (결말 이원화는 기록에서도 유지, ADR-M10-3).
+        /// </summary>
+        public static string ComposeGameOver(int day, int deaths, int departs, int settles)
+            => $"마을의 마지막 날 — Day {day}\n사망 {deaths} · 이탈 {departs} · 정착 {settles}\n\n아무도 남지 않았다.";
+
+        private GameObject _gameOver; // 전멸 오버레이 (1회 생성 — 재건은 M11)
+
+        /// <summary>
+        /// 전멸 종료 화면 (M10-F) — 반투명 검정 오버레이 + 중앙 요약. 닫기·재건 버튼 없음
+        /// (명세 §7 — 관찰은 계속되고, 새 시작은 에디터 재실행). 두 번째 호출은 무시 (래치).
+        /// </summary>
+        public void ShowGameOver(string text)
+        {
+            if (_gameOver != null) return;
+            Transform canvas = _calendar.rectTransform.parent; // ctor의 SeasonHud 캔버스 재사용
+
+            _gameOver = new GameObject("GameOver");
+            _gameOver.transform.SetParent(canvas, false);
+            var bg = _gameOver.AddComponent<UnityEngine.UI.Image>();
+            bg.color = new Color(0f, 0f, 0f, 0.75f);
+            bg.raycastTarget = false; // 상호작용 없음 — 주민 선택 등 입력은 그대로 통과
+            RectTransform bgRt = bg.rectTransform;
+            bgRt.anchorMin = Vector2.zero;
+            bgRt.anchorMax = Vector2.one;
+            bgRt.offsetMin = bgRt.offsetMax = Vector2.zero; // 풀스크린
+
+            var txtGo = new GameObject("GameOverText");
+            txtGo.transform.SetParent(_gameOver.transform, false);
+            var txt = txtGo.AddComponent<TextMeshProUGUI>();
+            if (_calendar.font != null) txt.font = _calendar.font; // 한글 폰트 공유 (W6 패턴)
+            txt.fontSize = 44f;
+            txt.alignment = TextAlignmentOptions.Center;
+            txt.color = new Color(1f, 0.92f, 0.85f);
+            txt.raycastTarget = false;
+            txt.text = text ?? "";
+            RectTransform txtRt = txt.rectTransform;
+            txtRt.anchorMin = txtRt.anchorMax = new Vector2(0.5f, 0.5f);
+            txtRt.pivot = new Vector2(0.5f, 0.5f);
+            txtRt.anchoredPosition = Vector2.zero;
+            txtRt.sizeDelta = new Vector2(900f, 400f);
+        }
+
         /// <summary>결정 프롬프트 표시 (M10-E) — 알림(Notify)과 달리 ClearPrompt까지 상시 유지.
         /// 플레이어 입력을 기다리는 줄이라 자동 소거가 없다 (놓침 방지 — 예고 휘발성 교훈).</summary>
         public void SetPrompt(string line) => _prompt.text = line ?? "";

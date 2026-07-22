@@ -625,6 +625,20 @@ namespace AIVillage.M0
                     _lastLoggedDay = day;
                     string seasonStr = Season?.Current != null
                         ? $"{Season.Current.DisplayName}(위기까지 {Mathf.CeilToInt(Season.DaysToCrisis)}일)" : "-";
+                    // 위협 경주 게이지 (M10 관측용) — 규모 산식·활성 티어를 매일 노출.
+                    // "티어2가 왜 안 오나"류 진단이 로그 한 줄로 끝나야 한다 (2026-07-22 관측 사이클 교훈).
+                    string threatStr = "-";
+                    if (Threats != null)
+                    {
+                        int alive = 0;
+                        foreach (VillagerAgent a in _agents)
+                            if (a != null && a.State != AgentState.Dead) alive++;
+                        int farms = World.GetStock(SlotId.FarmPlotCount);
+                        int houses = World.GetStock(SlotId.HouseCount);
+                        int scale = ThreatService.VillageScale(alive, farms, houses);
+                        ThreatSO tier = ThreatService.PickTier(_worldConfig.Threats, scale);
+                        threatStr = $"규모 {scale}(주민{alive}+밭{farms}+집{houses}) 티어={(tier != null ? tier.DisplayName : "없음")}";
+                    }
                     Debug.Log($"[M0Sim] Day {day} [{seasonStr}] — Wood {World.GetStock(SlotId.WoodStock)}, " +
                               $"Stone {World.GetStock(SlotId.StoneStock)}, " +
                               $"RawFood {World.GetStock(SlotId.RawFoodStock)}, " +
@@ -632,7 +646,7 @@ namespace AIVillage.M0
                               $"Farm {World.GetStock(SlotId.FarmPlotCount)}, " +
                               $"발견 W/S/F={Discovery.HasDiscovered(ResourceType.Wood)}/" +
                               $"{Discovery.HasDiscovered(ResourceType.Stone)}/" +
-                              $"{Discovery.HasDiscovered(ResourceType.RawFood)}");
+                              $"{Discovery.HasDiscovered(ResourceType.RawFood)} — {threatStr}");
                 }
             }
         }

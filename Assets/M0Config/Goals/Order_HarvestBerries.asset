@@ -16,8 +16,8 @@ MonoBehaviour:
   Priority: 60
   TriggerConditions: []
   GoalConditions:
-  - Slot: 1
+  - Slot: 22
     Op: 1
-    Value: 10
+    Value: 5
   DirectActionPool: []
   RelativeToCurrent: 1

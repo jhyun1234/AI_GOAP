@@ -87,6 +87,7 @@ namespace AIVillage.M0
         /// 소비 액션 → (스톡 슬롯, 1개당 포만) 파생 (순수 — M9-T5, ADR-M9-10). 식량 가치의 유일한
         /// 출처는 액션 에셋이다: 효과에서 스톡 SubClamp0 1개 + MySatiety Add를 찾는다. 둘 중 하나라도
         /// 없으면 false (식량 아님 — FoodSources 오등록·Rest류 방어). 50·15 리터럴은 여기 없다.
+        /// M11-B: 개인 스톡(MyRawFood/MyCookedFood)도 식량이다 — 소비 액션 개인화 후에도 파생 유지.
         /// </summary>
         public static bool TryGetFoodValue(ActionSO a, out SlotId stockSlot, out int satietyGain)
         {
@@ -100,7 +101,8 @@ namespace AIVillage.M0
             bool foundStock = false, foundGain = false;
             foreach (SlotEffect e in effects)
             {
-                if (!foundStock && e.Op == EffectOp.SubClamp0 && SlotIds.IsStock(e.Slot) && e.Value == 1)
+                if (!foundStock && e.Op == EffectOp.SubClamp0 && e.Value == 1
+                    && (SlotIds.IsStock(e.Slot) || SlotIds.IsPersonalStock(e.Slot)))
                 {
                     stockSlot = e.Slot;
                     foundStock = true;

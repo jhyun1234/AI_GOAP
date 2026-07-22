@@ -130,6 +130,31 @@ namespace AIVillage.Tests.EditMode
             Assert.AreEqual(0, precs2.Count, "cap 0 = 중립 (주입 없음)");
         }
 
+        // ── 식량 가치 파생 (M11-B, M11-T2 — 개인 슬롯 인식) ────────────────────
+
+        [Test]
+        public void M11_T2_TryGetFoodValue_RecognizesPersonalStock()
+        {
+            // 개인화된 소비 액션 (EatRawFood 개편형): MyRawFood Sub 1 + MySatiety Add 15
+            var eat = ScriptableObject.CreateInstance<ConsumeActionSO>();
+            eat.Preconditions = new[]
+            {
+                new SlotCondition { Slot = SlotId.MyRawFood, Op = CompareOp.GreaterOrEqual, Value = 1 },
+            };
+            eat.Effects = new[]
+            {
+                new SlotEffect { Slot = SlotId.MyRawFood, Op = EffectOp.SubClamp0, Value = 1 },
+                new SlotEffect { Slot = SlotId.MySatiety, Op = EffectOp.Add, Value = 15 },
+            };
+
+            Assert.IsTrue(WorldModel.TryGetFoodValue(eat, out SlotId slot, out int gain),
+                "개인 스톡 소비도 식량으로 파생 (M11-B — FoodDaysLeft 산식의 입력 유지)");
+            Assert.AreEqual(SlotId.MyRawFood, slot);
+            Assert.AreEqual(15, gain);
+
+            Object.DestroyImmediate(eat);
+        }
+
         // ── 슬롯 판정 경계 (명세 M11-A ⚠️① — IsStock 오염 금지) ─────────────────
 
         [Test]

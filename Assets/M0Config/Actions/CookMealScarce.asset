@@ -25,17 +25,17 @@ MonoBehaviour:
   - Slot: 6
     Op: 0
     Value: 1
-  - Slot: 1
+  - Slot: 22
     Op: 1
     Value: 5
   - Slot: 16
     Op: 0
     Value: 1
   Effects:
-  - Slot: 1
+  - Slot: 22
     Op: 2
     Value: 5
-  - Slot: 10
+  - Slot: 23
     Op: 1
     Value: 1
   EatAtAnchor: 1

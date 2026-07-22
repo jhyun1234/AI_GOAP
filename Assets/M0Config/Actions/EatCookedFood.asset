@@ -22,11 +22,11 @@ MonoBehaviour:
   BaseCost: 5
   DurationSec: 2
   Preconditions:
-  - Slot: 10
+  - Slot: 23
     Op: 1
     Value: 1
   Effects:
-  - Slot: 10
+  - Slot: 23
     Op: 2
     Value: 1
   - Slot: 2

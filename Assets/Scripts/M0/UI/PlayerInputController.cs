@@ -36,6 +36,10 @@ namespace AIVillage.M0
         [Tooltip("노드 명령 픽킹 반경 (타일)")]
         [SerializeField] private float _nodePickRadius = 1.5f;
 
+        [Tooltip("배속 단계 (관측·테스트용 빨리 감기) — 숫자키 1부터 순서대로 Time.timeScale 적용. " +
+                 "전역 배속이라 시뮬·이동·대사·쿨다운이 같은 비율로 일관 (게임 로직 무수정).")]
+        [SerializeField] private float[] _speedSteps = { 1f, 2f, 4f, 8f };
+
         private VillagerAgent _selected;
         private GameObject _ring;
         private Camera _camera;
@@ -50,6 +54,16 @@ namespace AIVillage.M0
             if (M0SimulationLoop.Instance == null || _camera == null) return;
 
             if (Input.GetKeyDown(KeyCode.Escape)) Deselect();
+
+            // 배속 (M10 관측 도구) — 숫자키 1=1× 2=2× 3=4× 4=8× (기본 배열 기준, Inspector 조정 가능)
+            if (_speedSteps != null)
+                for (int i = 0; i < _speedSteps.Length && i < 9; i++)
+                    if (Input.GetKeyDown((KeyCode)((int)KeyCode.Alpha1 + i)))
+                    {
+                        Time.timeScale = Mathf.Max(0.1f, _speedSteps[i]);
+                        M0SimulationLoop.Instance.Hud?.Notify($"배속 ×{Time.timeScale:0.#}");
+                        Debug.Log($"[PlayerInput] 배속 ×{Time.timeScale:0.#}");
+                    }
 
             // 방랑자 수락/거절 (M10-E, ADR-M10-7 — 판정 입력은 이 키뿐. 술렁임은 표현 전용).
             // 프롬프트 활성 중에만 판독 (⚠️③ — 다른 단축키와 충돌 방지). 이중 입력은 서비스가 차단.

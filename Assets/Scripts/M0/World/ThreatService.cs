@@ -179,7 +179,8 @@ namespace AIVillage.M0
             go.transform.position = new Vector3(entry.x, entry.y, 0f); // ADR-M0-9 — X-Y 평면
             ThreatAgent agent = go.AddComponent<ThreatAgent>();
             agent.Init(so, this, entry, target,
-                       path.Kind == PathResultKind.PathFound ? path.Waypoints : null);
+                       path.Kind == PathResultKind.PathFound ? path.Waypoints : null,
+                       _pathfinder()); // 추격 재경로용 (주민 타격형 — M10-C 개정)
             _active.Add(agent);
             Debug.Log($"[Threat] 출몰 — {so.DisplayName} @ ({entry.x},{entry.y}) → ({target.x},{target.y})");
         }
@@ -202,11 +203,40 @@ namespace AIVillage.M0
             return new Vector2Int(_config.BaseTileX, _config.BaseTileY);
         }
 
-        /// <summary>도착 통지 (ThreatAgent 전용) — 타격 실행 후 퇴장 경로를 되돌려준다.</summary>
+        /// <summary>
+        /// 추격 대상 (M10-C 개정 2026-07-22: 고정 타깃 → 추격 — 고정 타깃은 도망이 구조적으로
+        /// 100% 이겨 부상이 착탄 불가, Day40+ 관측) — 최근접 비부상 생존 주민. 기부상자 제외:
+        /// 중복 부상이 무시되므로(CanInjure) 쫓아봐야 빈 타격이다. 없으면 false (빈 타격 후 퇴장).
+        /// </summary>
+        public bool TryPickChaseTile(int fromX, int fromY, out Vector2Int tile)
+        {
+            CollectVictimCandidates(new Vector2Int(fromX, fromY), int.MaxValue, excludeInjured: true);
+            int idx = M0SimulationLoop.PickNearestIndex(fromX, fromY, _victimKeyBuf);
+            if (idx >= 0)
+            {
+                tile = new Vector2Int(_victimKeyBuf[idx].x, _victimKeyBuf[idx].y);
+                return true;
+            }
+            tile = default;
+            return false;
+        }
+
+        /// <summary>타격 사거리 판정 (추격형 전용) — 개체 현 위치 기준 StrikeRadius 내 부상 가능
+        /// 주민 존재 여부. 판정은 서비스, 개체는 묻기만 한다 (명세 ⚠️③ 유지).</summary>
+        public bool IsInStrikeRange(ThreatAgent agent)
+        {
+            CollectVictimCandidates(new Vector2Int(agent.TileX, agent.TileY),
+                                    agent.So.StrikeRadiusTiles, excludeInjured: true);
+            return _victimKeyBuf.Count > 0;
+        }
+
+        /// <summary>타격 통지 (ThreatAgent 전용) — 타격 지점 = 개체 현 위치 (추격형은 잡은 자리,
+        /// 밭형은 도착 시 목표 타일과 동일). 타격 실행 후 퇴장 경로를 되돌려준다.</summary>
         public void NotifyArrived(ThreatAgent agent)
         {
-            ExecuteStrike(agent.So, agent.TargetTile);
-            PathResult exit = _pathfinder().FindPath(agent.TargetTile.x, agent.TargetTile.y,
+            var strikeTile = new Vector2Int(agent.TileX, agent.TileY);
+            ExecuteStrike(agent.So, strikeTile);
+            PathResult exit = _pathfinder().FindPath(strikeTile.x, strikeTile.y,
                                                      agent.EntryTile.x, agent.EntryTile.y);
             if (exit.Kind == PathResultKind.PathFound) agent.SetExitPath(exit.Waypoints);
             else agent.DespawnNow(); // 퇴장 경로 없음·이미 가장자리 — 즉시 소멸

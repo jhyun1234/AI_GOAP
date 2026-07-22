@@ -15,6 +15,37 @@ metadata:
 
 ## 최신 사용 커밋
 
+- `latest_commit`: `897605c` (fix(social) 완공 보고 "쫓아가기"→"마주치면 정산"(조각 Y) +
+  IPathfinder 경계 — 4개 커밋 중 타임스탬프 기준 가장 최신, 2026-07-18 14:48)
+- `selected_commits_range`: `db4424a`(spec(m9) 공간 축과 재해 실행명세서, 02:27) ~
+  `897605c`(fix(social) 완공 보고 "쫓아가기"→"마주치면 정산" + IPathfinder 경계, 14:48) —
+  비연속 4커밋: `897605c`(fix(social), 14:48) · `f907fc2`(feat(bubble) 말풍선 침묵 여운 3초,
+  03:05) · `db4424a`(spec(m9) 공간 축과 재해 실행명세서, 02:27) · `9980876`(spec(m9) 식량
+  수지 보완가이드, 02:57). 기획팀 브리프(`01_planner_brief.md`) commit_refs 전체 반영 —
+  같은 시간대에 섞여 있던 서사 무관 부수 커밋(`958fbfd`·`b53d52d`·`3170129`·`8b828ad`
+  devlog/파이프라인 정책 커밋, `1ab4f9c`~`ee165a5` 개발 방법론 명세서, `dda3a69` 사전점검
+  기록 등)은 제외.
+- `cycle_date`: 2026-07-22 (마스터 1차·2차 승인 후 게시팀 Step 7 발행, 격일 auto-run)
+- `publish_status`: PUBLISHED (Blogger published: 2026-07-22 04:39 UTC / 2026-07-21 21:39
+  PDT, status: LIVE)
+- `blogger_post_id`: 4764036419422193885
+- `blog_url`: https://gamedevclaude.blogspot.com/2026/07/claude-code-ai-unity-goap-ai.html
+- `title`: Claude Code 게임 개발 AI 페어 프로그래밍 후기: Unity GOAP AI 인디게임 개발일지 —
+  쫓아가도 못 잡는 버그를 "빚으로 적어두기"로 뒤집은 길찾기 확장 설계
+- `labels`: Claude Code 게임 개발, AI 페어 프로그래밍 후기, Unity GOAP AI, 인디게임 개발일지
+- `local_archive`: tools/blog-automation/published/2026-07-22-unity-goap-debt-settlement-pathfinder-boundary.html
+  (POST 응답의 `labels` 필드에서 `data += c` 스트림 이어붙이기 버그로 멀티바이트 문자가
+  깨진 것을 직접 확인했다(U+FFFD, "인디게임"이 "인���게임"으로 표시됨) — 그대로 저장하지
+  않고 별도 GET 요청을 `Buffer.concat` 후 `toString('utf8')`로 재조회해 저장. 재조회한
+  content가 원본 `05_final.md`의 html_content와 문자열 완전 일치(byte-identical, md5 동일,
+  13,581 bytes)함을 직접 확인했고 U+FFFD 없음도 확인.)
+- `비고`: M8 후속 보완(완공 보고 "쫓아가서 건네기" → "빚+정산" 재진단, IPathfinder 경로탐색
+  창구 단일화) + M9 명세 단계(공간·재해 실행명세서, 식량 수지 보완가이드) 묶음 소재.
+  M9 실제 구현(M9-A~J, `afdbc22`~`a351437`)은 이번 글에서 다루지 않음 — 기획팀 브리프의
+  명시 지시(밀스톤 미완결, 재관측 대기)를 그대로 따름, 말미 예고 한 문단만 허용.
+
+### 이전 회차 이력 (2026-07-21, M8 관계·소유·부탁)
+
 - `latest_commit`: `66f690b` (docs(devlog) 2026-07-18 M8 후속 세션 — 범위 종료점)
 - `selected_commits_range`: `68c6ef8`(spec(m8) 사회 축 실행명세서) ~ `66f690b`(docs(devlog)
   2026-07-18 M8 후속 세션) — 18커밋(M8-A~F 6개 세부 항목 + CLAUDE.md 비용표 갱신·DoD
@@ -42,6 +73,7 @@ metadata:
   집은 목수 부탁으로만(자율 건설·자동 배정 폐기, 트레이드오프)·대화 흐름 보호(장식성
   발화 억제)·부탁 가시화+완공 보고 심부름+주민 간 보상 — 도 다룸. 이 글로 M8 미발행
   구간 해소.
+
 
 ### 이전 회차 이력 (2026-07-20, M7 상호대화와 가시성)
 

@@ -76,7 +76,8 @@ namespace AIVillage.M0
         }
 
         /// <summary>SimulationLoop 틱마다 호출 — 문자열은 값이 바뀔 때만 재조립 (GC 절약).
-        /// foodDaysLeft는 WorldModel.EstimateFoodDaysLeft() 단일 창구 값 (M9-I — HUD 자체 재계산 금지).</summary>
+        /// foodDaysLeft는 전 주민 EstimatePersonalFoodDays 최솟값 (M11-D, SimulationLoop 집계 —
+        /// HUD 자체 재계산 금지는 M9-I 그대로).</summary>
         public void Tick(float gameTime, SeasonService season, float forecastDays,
                          int foodDaysLeft = WorldModel.NO_ESTIMATE)
         {
@@ -209,13 +210,14 @@ namespace AIVillage.M0
             return $"Day {day} · {cur.DisplayName}{food}";
         }
 
-        /// <summary>식량 일수 접미사 (M9-I, 표현 전용) — 중립(99)이면 빈 문자열, ≤2일치는 붉은 강조.</summary>
+        /// <summary>식량 일수 접미사 (M9-I, M11-D 개인화 — 값 = 전 주민 최솟값 '가장 위험한 주민')
+        /// — 중립(99)이면 빈 문자열, ≤2일치는 붉은 강조.</summary>
         private static string FoodSuffix(int foodDaysLeft)
         {
             if (foodDaysLeft >= WorldModel.NO_ESTIMATE) return ""; // 미배선·풍족 = 표기 없음 (중립)
             return foodDaysLeft <= 2
-                ? $" · <color=#FF6B6B>식량 {foodDaysLeft}일치</color>"
-                : $" · 식량 {foodDaysLeft}일치";
+                ? $" · <color=#FF6B6B>식량 최소 {foodDaysLeft}일치</color>"
+                : $" · 식량 최소 {foodDaysLeft}일치";
         }
 
         /// <summary>

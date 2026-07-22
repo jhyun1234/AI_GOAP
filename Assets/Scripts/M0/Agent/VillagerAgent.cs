@@ -1281,6 +1281,15 @@ namespace AIVillage.M0
         public bool TryGetHomeTile(out Vector2Int tile)
             => _sim.Ownership.TryGetOwned(AgentId, SlotId.HouseCount, out tile);
 
+        /// <summary>내(몸+집) 식량 일수 (M11-D) — HUD 최솟값 집계용. 스냅샷 슬롯 19와 같은 산식.</summary>
+        public int EstimateMyFoodDays()
+        {
+            bool hasHome = TryGetHomeTile(out Vector2Int home);
+            (int homeRaw, int homeCooked) = hasHome && HomeStorage != null
+                ? HomeStorage.Get(home) : (0, 0);
+            return World.EstimatePersonalFoodDays(MyRaw, MyCooked, homeRaw, homeCooked);
+        }
+
         /// <summary>EffectApplier 전용 — My* 슬롯 효과를 개인 욕구에 반영 (0~100 클램프).</summary>
         public void ApplyNeedEffect(SlotId slot, EffectOp op, int value)
         {

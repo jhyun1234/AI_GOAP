@@ -20,21 +20,19 @@ namespace AIVillage.M0
         private readonly FarmService _farm;
         private readonly SeasonService _season;
 
-        // 식량 수지 (M9-G) — 가치표는 생성 시 1회 파생·캐시 (틱마다 액션 스캔 금지).
+        // 식량 수지 (M9-G, M11-D 개인화) — 가치표는 생성 시 1회 파생·캐시 (틱마다 액션 스캔 금지).
+        // 마을 인원(aliveCount)은 M11-D에서 산식 입력에서 제거됨 — 식량은 개인 단위다.
         private readonly (SlotId slot, int gain)[] _foodValues;
-        private readonly System.Func<int> _aliveCount; // 원천 = SimulationLoop._agents.Count (Dead 제외)
         private readonly float _decayPerDay;            // AgentConfig.SatietyDecayPerGameDay
         private readonly System.Func<int> _injuredCount; // 부상 주민 수 (M10-A) — 원천 = SimulationLoop.CountInjured
 
         public WorldModel(DiscoveryService discovery, WorldConfigSO config, FarmService farm = null,
-                          SeasonService season = null,
-                          System.Func<int> aliveCount = null, AgentConfigSO agentCfg = null,
+                          SeasonService season = null, AgentConfigSO agentCfg = null,
                           System.Func<int> injuredCount = null)
         {
             _discovery = discovery;
             _farm = farm;
             _season = season;
-            _aliveCount = aliveCount;
             _injuredCount = injuredCount;
             _decayPerDay = agentCfg != null ? agentCfg.SatietyDecayPerGameDay : 0f;
             if (config != null)
@@ -117,28 +115,34 @@ namespace AIVillage.M0
         }
 
         /// <summary>
-        /// 남은 식량 일수 (순수 — M9-T5): floor(Σ(스톡×1개당 포만) ÷ (인원×감쇠×계절배율)).
-        /// 인원 ≤ 0·미배선·일소요 ≤ 0이면 NO_ESTIMATE(99). NO_ESTIMATE 상한 클램프 (트리거 언어 통일).
+        /// 내(몸+집) 남은 식량 일수 (순수 — M11-D, 舊 마을 합산 ComputeFoodDaysLeft 대체 —
+        /// 마을 산식은 삭제됐다, 판정 이원화 금지): floor(Σ(개인 스톡×1개당 포만) ÷ (감쇠×계절배율)).
+        /// 집 저장은 몸과 같은 가치표를 쓴다 (생식=생식, 조리=조리 — 위치는 가치와 무관).
+        /// 가치표 없음·일소요 ≤ 0이면 NO_ESTIMATE(99). NO_ESTIMATE 상한 클램프 (트리거 언어 통일).
         /// </summary>
-        public static int ComputeFoodDaysLeft((SlotId slot, int gain)[] foodValues, int[] slots,
-                                              int aliveCount, float decayPerDay, float seasonMult)
+        public static int ComputeMyFoodDays((SlotId slot, int gain)[] foodValues,
+            int myRaw, int myCooked, int homeRaw, int homeCooked, float decayPerDay, float seasonMult)
         {
-            if (foodValues == null || foodValues.Length == 0 || aliveCount <= 0) return NO_ESTIMATE;
+            if (foodValues == null || foodValues.Length == 0) return NO_ESTIMATE;
             long totalSatiety = 0;
             foreach ((SlotId slot, int gain) fv in foodValues)
-                totalSatiety += (long)slots[(int)fv.slot] * fv.gain;
-
-            float dailyNeed = aliveCount * decayPerDay * seasonMult;
+            {
+                if (fv.slot == SlotId.MyRawFood)         totalSatiety += (long)(myRaw + homeRaw) * fv.gain;
+                else if (fv.slot == SlotId.MyCookedFood) totalSatiety += (long)(myCooked + homeCooked) * fv.gain;
+            }
+            float dailyNeed = decayPerDay * seasonMult;
             if (dailyNeed <= 0f) return NO_ESTIMATE;
             return Mathf.Min(NO_ESTIMATE, Mathf.FloorToInt(totalSatiety / dailyNeed));
         }
 
         private float SeasonDecayMult() => _season != null ? _season.SatietyDecayMult : 1f;
 
-        /// <summary>HUD 폴링용 공개 진입 (M9-I) — 스냅샷과 같은 산식·같은 캐시 (판정 이원화 금지).</summary>
-        public int EstimateFoodDaysLeft()
-            => _aliveCount != null && _foodValues != null
-                ? ComputeFoodDaysLeft(_foodValues, _slots, _aliveCount(), _decayPerDay, SeasonDecayMult())
+        /// <summary>개인 식량 일수 창구 (M11-D) — 스냅샷·HUD 최솟값 집계가 같은 산식·같은 캐시를
+        /// 쓴다 (판정 이원화 금지). 舊 마을 합산 EstimateFoodDaysLeft는 삭제됨.</summary>
+        public int EstimatePersonalFoodDays(int myRaw, int myCooked, int homeRaw, int homeCooked)
+            => _foodValues != null
+                ? ComputeMyFoodDays(_foodValues, myRaw, myCooked, homeRaw, homeCooked,
+                                    _decayPerDay, SeasonDecayMult())
                 : NO_ESTIMATE;
 
         /// <summary>
@@ -174,11 +178,8 @@ namespace AIVillage.M0
                 ? Mathf.CeilToInt(_season.DaysToCrisis) : (int)SeasonService.NO_CRISIS;
             slots[(int)SlotId.CrisisActive] = _season != null && _season.Current != null
                                               && _season.Current.IsCrisis ? 1 : 0;
-            // 남은 식량 일수 (M9-G) — DaysToCrisis와 같은 파생 슬롯 패턴. 미배선이면 99 (중립).
-            // ⚠️ M11-D 전까지 산식은 아직 마을 합산이다 (슬롯 이름만 M11-A에서 선행 개명).
-            slots[(int)SlotId.MyFoodDaysLeft] = _aliveCount != null && _foodValues != null
-                ? ComputeFoodDaysLeft(_foodValues, slots, _aliveCount(), _decayPerDay, SeasonDecayMult())
-                : NO_ESTIMATE;
+            // 내 식량 일수 (M11-D — 마을 합산에서 개인 파생으로 전환. 트리거 전용 ADR-M9-9 유지).
+            slots[(int)SlotId.MyFoodDaysLeft] = EstimatePersonalFoodDays(myRaw, myCooked, homeRaw, homeCooked);
             // 개인 인벤토리 (M11-A) — 몸 소지는 VillagerAgent, 집 저장은 HomeStorageService가 원천.
             // 기본 0 = 중립 (미배선 테스트·개인화 이전 에셋은 이 슬롯을 참조하지 않는다).
             slots[(int)SlotId.MyRawFood]        = myRaw;

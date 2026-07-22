@@ -33,23 +33,24 @@ namespace AIVillage.Tests.EditMode
         }
 
         [Test]
-        public void M9_T5_ComputeFoodDaysLeft_CheckCases_ProportionalToHeadcount()
+        public void M9_T5_ComputeMyFoodDays_BodyPlusHome_SeasonMult_Neutrals()
         {
-            var fv = new (SlotId, int)[] { (SlotId.CookedFoodStock, 50), (SlotId.RawFoodStock, 15) };
-            var slots = new int[PlanningConfig.TotalSlots];
-            slots[(int)SlotId.CookedFoodStock] = 6;   // 300 포만
-            slots[(int)SlotId.RawFoodStock] = 15;     // 225 포만 → 합 525
+            // M11-D 개정: 마을 합산(인원 비례) → 개인(몸+집) 산식. 산식 골격(Σ스톡×가치÷일소요)은 동일.
+            var fv = new (SlotId, int)[] { (SlotId.MyCookedFood, 50), (SlotId.MyRawFood, 15) };
 
-            Assert.AreEqual(5, WorldModel.ComputeFoodDaysLeft(fv, slots, 4, 25f, 1f), "4명·평시 = 5일치");
-            Assert.AreEqual(3, WorldModel.ComputeFoodDaysLeft(fv, slots, 4, 25f, 1.75f), "겨울 배율 = 3일치");
-            Assert.AreEqual(2, WorldModel.ComputeFoodDaysLeft(fv, slots, 8, 25f, 1f), "인원 2배 = 절반 (M9-S12)");
+            // 몸: 조리6=300 + 생식15=225 → 525 포만, 일소요 25 → 21일치
+            Assert.AreEqual(21, WorldModel.ComputeMyFoodDays(fv, 15, 6, 0, 0, 25f, 1f), "몸만·평시");
+            // 겨울 배율 1.75 → 525/43.75 = 12
+            Assert.AreEqual(12, WorldModel.ComputeMyFoodDays(fv, 15, 6, 0, 0, 25f, 1.75f), "겨울 배율");
+            // 집 저장은 몸과 같은 가치 — 생식 4+집 6 = 150 포만 → 6일치
+            Assert.AreEqual(6, WorldModel.ComputeMyFoodDays(fv, 4, 0, 6, 0, 25f, 1f), "몸+집 합산");
 
             Assert.AreEqual(WorldModel.NO_ESTIMATE,
-                WorldModel.ComputeFoodDaysLeft(fv, slots, 0, 25f, 1f), "인원 0 = 99 (중립)");
+                WorldModel.ComputeMyFoodDays(null, 4, 0, 0, 0, 25f, 1f), "가치표 없음 = 99");
             Assert.AreEqual(WorldModel.NO_ESTIMATE,
-                WorldModel.ComputeFoodDaysLeft(null, slots, 4, 25f, 1f), "가치표 없음 = 99");
+                WorldModel.ComputeMyFoodDays(new (SlotId, int)[0], 4, 0, 0, 0, 25f, 1f), "빈 가치표 = 99");
             Assert.AreEqual(WorldModel.NO_ESTIMATE,
-                WorldModel.ComputeFoodDaysLeft(new (SlotId, int)[0], slots, 4, 25f, 1f), "빈 가치표 = 99");
+                WorldModel.ComputeMyFoodDays(fv, 4, 0, 0, 0, 0f, 1f), "일소요 0 = 99 (중립)");
         }
 
         [Test]
@@ -77,31 +78,31 @@ namespace AIVillage.Tests.EditMode
         public void M9_T5_NoValueLiteral_UsesInjectedGain()
         {
             // 가치를 임의값(7 — 50/15 아님)으로 주입 → 산식이 그 값을 그대로 쓴다 (리터럴 없음, M9-S13)
-            var fv = new (SlotId, int)[] { (SlotId.CookedFoodStock, 7) };
-            var slots = new int[PlanningConfig.TotalSlots];
-            slots[(int)SlotId.CookedFoodStock] = 10; // 70 포만, need = 2×25×1 = 50 → floor(1.4)=1
-            Assert.AreEqual(1, WorldModel.ComputeFoodDaysLeft(fv, slots, 2, 25f, 1f),
+            var fv = new (SlotId, int)[] { (SlotId.MyCookedFood, 7) };
+            // 조리 10개 = 70 포만, need = 25×1 = 25 → floor(2.8) = 2
+            Assert.AreEqual(2, WorldModel.ComputeMyFoodDays(fv, 0, 10, 0, 0, 25f, 1f),
                 "일수는 주입 가치(7)에서 계산 — 산식에 50/15 리터럴 없음");
         }
 
         [Test]
         public void M9_T5_Snapshot_Neutral_WhenUnwired_And_ComputedWhenWired()
         {
-            // 미배선(aliveCount·FoodSources 없음) = 99 (중립, 기존 스냅샷과 diff 0)
+            // 미배선(FoodSources 없음) = 99 (중립, 기존 스냅샷과 diff 0)
             var neutral = new WorldModel(new DiscoveryService(), Config());
             Assert.AreEqual(WorldModel.NO_ESTIMATE, neutral.BuildSnapshot(50, 50).Get(SlotId.MyFoodDaysLeft),
                 "미배선 = 99 (중립 불변식)");
 
-            // 배선 시 산출 — 조리6·생식15·4명·평시 = 5
+            // 배선 시 산출 (M11-D 개인) — 내 생식 5 = 75 포만 ÷ 25 = 3일치
             var cfg = Config();
-            cfg.FoodSources = new[] { FoodAction(SlotId.CookedFoodStock, 50), FoodAction(SlotId.RawFoodStock, 15) };
+            cfg.FoodSources = new[] { FoodAction(SlotId.MyCookedFood, 50), FoodAction(SlotId.MyRawFood, 15) };
             var agentCfg = ScriptableObject.CreateInstance<AgentConfigSO>(); // SatietyDecayPerGameDay 기본 25
-            var world = new WorldModel(new DiscoveryService(), cfg, null, null, () => 4, agentCfg);
-            world.AddStock(SlotId.CookedFoodStock, 6);
-            world.AddStock(SlotId.RawFoodStock, 15);
+            var world = new WorldModel(new DiscoveryService(), cfg, null, null, agentCfg);
 
-            Assert.AreEqual(5, world.BuildSnapshot(50, 50).Get(SlotId.MyFoodDaysLeft), "배선 스냅샷 = 5일치");
-            Assert.AreEqual(5, world.EstimateFoodDaysLeft(), "HUD 창구도 같은 값 (판정 단일)");
+            Assert.AreEqual(3, world.BuildSnapshot(50, 50, false, false, myRaw: 5).Get(SlotId.MyFoodDaysLeft),
+                "배선 스냅샷 = 개인 3일치");
+            Assert.AreEqual(3, world.EstimatePersonalFoodDays(5, 0, 0, 0), "HUD 창구도 같은 값 (판정 단일)");
+            // 집 저장 포함 — 생식 5 + 집 조리 2 = 75+100 = 175 ÷ 25 = 7일치
+            Assert.AreEqual(7, world.EstimatePersonalFoodDays(5, 0, 0, 2), "몸+집 합산 창구");
         }
 
         // ── M9-T6: RelativeToCurrent 씬 goal 확장 (펌프 순환의 전제) ──────────────
@@ -182,10 +183,10 @@ namespace AIVillage.Tests.EditMode
             Assert.AreEqual("Day 4", SeasonHud.Compose(4.2f, null, 3f, WorldModel.NO_ESTIMATE),
                 "99(중립) = 표기 없음");
 
-            // 배선 값 표기 + ≤2일치 붉은 강조
-            StringAssert.Contains("식량 5일치", SeasonHud.Compose(4.2f, null, 3f, 5));
+            // 배선 값 표기 (M11-D — 전 주민 최솟값 라벨) + ≤2일치 붉은 강조
+            StringAssert.Contains("식량 최소 5일치", SeasonHud.Compose(4.2f, null, 3f, 5));
             string low = SeasonHud.Compose(4.2f, null, 3f, 2);
-            StringAssert.Contains("식량 2일치", low);
+            StringAssert.Contains("식량 최소 2일치", low);
             StringAssert.Contains("FF6B6B", low, "2일치 이하 붉은 강조");
             StringAssert.DoesNotContain("FF6B6B", SeasonHud.Compose(4.2f, null, 3f, 3),
                 "3일치는 강조 없음");

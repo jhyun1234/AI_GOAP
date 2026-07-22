@@ -427,10 +427,10 @@ namespace AIVillage.M0
             {
                 Debug.LogWarning("[M0SimulationLoop] WorldConfig.SeasonCycle 비어 있음 — 계절 없이 진행 (M5 동작).");
             }
-            // 식량 수지 (M9-G) — 인원은 provider(호출 시점 실인원, Dead 제외), 가치표는 config.FoodSources에서 파생
-            // 부상 수(M10-A)도 같은 provider 패턴 — 파생 슬롯의 원천은 집계 하나뿐
+            // 식량 수지 (M9-G, M11-D 개인화) — 가치표는 config.FoodSources에서 파생, 인원 입력은
+            // 제거됨 (식량은 개인 단위). 부상 수(M10-A)는 provider 패턴 — 파생 슬롯의 원천은 집계 하나뿐
             World        = new WorldModel(Discovery, _worldConfig, Farm, Season,
-                                         () => _agents.Count, _agentConfig, CountInjured);
+                                         _agentConfig, CountInjured);
             Construction = new ConstructionService(World);
             Zones        = new ZoneService(); // M9-A — 배치 결정자 (군집 휴리스틱 대체, ADR-M9-1)
             Planner      = new PlannerGateway(_catalog, _agentConfig); // M11-A — 개인 상한 전제 주입 (ADR-M11-3)
@@ -617,7 +617,16 @@ namespace AIVillage.M0
                     Debug.Log($"[M0Sim] 전멸 — Day {(int)GameTime} (사망 {DeathCount} · 이탈 {DepartCount} · 정착 {SettleCount})");
                 }
 
-                Hud?.Tick(GameTime, Season, _worldConfig.ForecastDays, World.EstimateFoodDaysLeft());
+                // HUD 식량 일수 = 전 주민 최솟값 (M11-D) — 관측 대상은 마을 평균이 아니라 낙오자다
+                int minFoodDays = WorldModel.NO_ESTIMATE;
+                for (int i = 0; i < _agents.Count; i++)
+                {
+                    VillagerAgent a = _agents[i];
+                    if (a == null || a.State == AgentState.Dead) continue;
+                    int d = a.EstimateMyFoodDays();
+                    if (d < minFoodDays) minFoodDays = d;
+                }
+                Hud?.Tick(GameTime, Season, _worldConfig.ForecastDays, minFoodDays);
 
                 // 에이전트 틱 (W4) — 역순 순회: SimTick 중 파괴/해제로 리스트가 줄어도 안전
                 for (int i = _agents.Count - 1; i >= 0; i--)

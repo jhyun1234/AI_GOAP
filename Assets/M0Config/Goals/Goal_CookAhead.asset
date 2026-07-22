@@ -20,7 +20,7 @@ MonoBehaviour:
     Value: 1
   - Slot: 19
     Op: 2
-    Value: 2
+    Value: 3
   - Slot: 22
     Op: 1
     Value: 5

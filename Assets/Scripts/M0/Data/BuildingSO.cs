@@ -44,6 +44,11 @@ namespace AIVillage.M0
                  "(수량형 전용 — 보이는 소프트 상한). 예: FarmPlot 3 = 7×7 농경지.")]
         public int ZoneRadius;
 
+        [Tooltip("같은 슬롯 기존 완공과의 최소 간격 (체비쇼프 타일, M11-F). 0 = 간격 규칙 없음(중립). " +
+                 ">0이면 배치가 택지 선정(HomePicker)으로 넘어간다 — 마을 앵커 반경 안에서 " +
+                 "기존 건물과 이 간격 이상 떨어진 자리를 고른다. 집 3 = 밀집·PathBlocked 완화.")]
+        public int MinSpacingTiles;
+
         [Tooltip("완공 시 스폰할 프리팹. 비우면 MarkerSprite → 원형 마커 순으로 폴백.")]
         public GameObject Prefab;
 
@@ -67,6 +72,13 @@ namespace AIVillage.M0
             // 구역은 수량형 전용 — 단일형에 반경을 주면 배치 결정자가 없다 (M9-A ⚠️)
             if (!IsCountable && ZoneRadius > 0)
                 Debug.LogWarning($"[BuildingSO] {name}: ZoneRadius({ZoneRadius})는 수량형(IsCountable) 건물에만 적용됩니다 — 무시됨.", this);
+            // 간격도 수량형 전용 — 기존 완공 목록(CountSlot)이 없으면 비교 대상이 없다 (M11-F)
+            if (!IsCountable && MinSpacingTiles > 0)
+                Debug.LogWarning($"[BuildingSO] {name}: MinSpacingTiles({MinSpacingTiles})는 수량형(IsCountable) 건물에만 적용됩니다 — 무시됨.", this);
+            // 택지(간격)와 구역(반경)은 배타 — 둘 다 켜면 배치 결정자가 둘이 된다 (M11-F ⚠️)
+            if (MinSpacingTiles > 0 && ZoneRadius > 0)
+                Debug.LogError($"[BuildingSO] {name}: MinSpacingTiles와 ZoneRadius는 동시 사용 불가 " +
+                               "— 택지(HomePicker)와 구역(ZoneService) 중 하나만 배치를 결정합니다.", this);
         }
     }
 }

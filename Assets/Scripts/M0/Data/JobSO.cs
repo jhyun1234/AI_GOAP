@@ -41,6 +41,10 @@ namespace AIVillage.M0
                  "결정 11 붕괴 스위치 금지). 치료사만 3 (제안치) — 잃으면 마을이 '느려진다'.")]
         public float TendRecoveryMult = 1f;
 
+        [Tooltip("택지 점수 가산 (M11-F, HomePicker). 0 = 중립(마을 안쪽), 1 초과 = 바깥 선호. " +
+                 "성격 값과 합산 — 나무꾼·광부처럼 자원 곁에 살고 싶은 직업의 축.")]
+        public float HomeOutskirtsBias;
+
         /// <summary>이 직업의 goal 보정치. 참조 동일성 비교만 — 이름 문자열 비교 금지 (ADR-M0-1 정신).</summary>
         public int BoostFor(GoalSO goal)
         {

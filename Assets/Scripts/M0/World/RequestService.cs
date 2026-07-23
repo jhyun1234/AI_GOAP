@@ -64,6 +64,19 @@ namespace AIVillage.M0
         }
 
         /// <summary>
+        /// 진행 중 부탁의 의뢰인 본인 (M11-F 택지) — 수행자가 "이 집의 주인이 될 사람"을 찾는 창구.
+        /// 부탁 중이 아니거나 의뢰인이 이미 이탈했으면 false (호출처는 본인으로 폴백).
+        /// </summary>
+        public bool TryGetRequester(string workerId, out VillagerAgent requester)
+        {
+            requester = null;
+            if (!_inFlight.TryGetValue(workerId, out (RequestSO so, string requesterId, bool prepaid) rec))
+                return false;
+            requester = FindAgent(rec.requesterId);
+            return requester != null;
+        }
+
+        /// <summary>
         /// 떼먹기 판정 (순수 — 게이트 대상, ADR-보상1): 의뢰인 성격의 친밀 문턱 미만이면 떼먹음.
         /// 랜덤 금지 — 관계 표기로 예측 가능. p null·기본값 -100 = 판정 성립 불가 (절대 안 떼먹음).
         /// </summary>

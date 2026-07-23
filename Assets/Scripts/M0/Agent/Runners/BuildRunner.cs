@@ -40,6 +40,11 @@ namespace AIVillage.M0
             // 맵 경계 — MapBounds 단일 출처 (M3-F)
             MapBounds.Get(out int minX, out int maxX, out int minY, out int maxY);
 
+            // 택지 (M11-F, ADR-M11-5) — MinSpacingTiles > 0 건물(집)은 구역 대신 택지가 결정자다.
+            // 앵커는 마을 기지 고정, 밀집은 기존 완공과의 최소 간격이 막는다.
+            if (_so.Building.IsCountable && _so.Building.MinSpacingTiles > 0)
+                return PrepareHomesite(agent, Occupied, minX, maxX, minY, maxY);
+
             // 구역 (M9-A, ADR-M9-1) — 수량형 건물 배치의 유일한 결정자. 군집 휴리스틱은 삭제됐다.
             // 확정 구역이 있으면 그 반경 안에만 짓는다 (만원이면 실패 = 보이는 소프트 상한).
             // 미확정(첫 완공 전)·ZoneRadius 0이면 hasZone=false → 기존 제자리 경로 그대로.
@@ -69,6 +74,48 @@ namespace AIVillage.M0
                 MoveTarget = stand;
             }
             else if (needMove)
+            {
+                MoveTarget = _buildTile;
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// 택지 경로 (M11-F) — 집처럼 최소 간격이 있는 건물의 Prepare 분기.
+        /// 취향(HomeOutskirtsBias)은 **의뢰인**(집주인이 될 사람) 것이다 — 목수가 자기 취향으로
+        /// 지으면 "목수 취향의 남의 집"이 된다 (⚠️①). 부탁이 아니면(자기 집) 본인 취향.
+        /// </summary>
+        private bool PrepareHomesite(VillagerAgent agent, System.Func<int, int, bool> occupied,
+            int minX, int maxX, int minY, int maxY)
+        {
+            VillagerAgent owner = agent;
+            if (agent.Requests != null && agent.Requests.TryGetRequester(agent.AgentId, out VillagerAgent requester)
+                && requester != null)
+                owner = requester;
+
+            float bias = HomePicker.OutskirtsBias(owner.Personality, owner.Job);
+            var anchor = new Vector2Int(agent.WorldConfig.BaseTileX, agent.WorldConfig.BaseTileY);
+
+            if (!HomePicker.PickHomesite(occupied, agent.Construction.BuiltTilesOf(_so.Building.CountSlot),
+                    anchor, agent.WorldConfig.VillageRadius, _so.Building.MinSpacingTiles, bias,
+                    minX, maxX, minY, maxY, out _buildTile))
+            {
+                FailReason = $"{_so.Building.DisplayName}: 마을(반경 {agent.WorldConfig.VillageRadius}) 만원 — " +
+                             $"간격 {_so.Building.MinSpacingTiles} 이상 빈 택지 없음";
+                return false;
+            }
+
+            if (_so.Building.BlocksMovement)
+            {
+                // 차단 건물은 자기가 만든 벽 위에 설 수 없다 (ADR-M3-3) — 구역 경로와 동일 규약
+                if (!TryPickStandTile(occupied, _buildTile, minX, maxX, minY, maxY, out Vector2Int stand))
+                {
+                    FailReason = $"{_so.Building.DisplayName}: 택지 곁에 설 자리 없음";
+                    return false;
+                }
+                MoveTarget = stand;
+            }
+            else
             {
                 MoveTarget = _buildTile;
             }

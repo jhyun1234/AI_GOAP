@@ -25,6 +25,10 @@ namespace AIVillage.M0
         [Tooltip("게임 시작 시 기지 주변 자동 발견 반경 (舊 _baseDiscoverRadius 12)")]
         public int BaseDiscoverRadius = 12;
 
+        [Tooltip("마을 반경 (M11-F 택지) — 기지 기준 체비쇼프. 집은 이 안에만 선다 " +
+                 "(밖 = 마을이 아님). 만원이면 건설 실패 = 보이는 소프트 상한(구역 만원 계승).")]
+        public int VillageRadius = 10;
+
         [Header("농사 (M2)")]
         [Tooltip("작물 성장 기간 (게임일). 제안치 1.5 (M2 §4) — 방치 시 사이클이 눈에 2~3회 보이는 속도.")]
         public float FarmGrowthDays = 1.5f;

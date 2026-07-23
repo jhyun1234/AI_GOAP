@@ -63,6 +63,7 @@ namespace AIVillage.M0
         public ZoneService Zones => _sim.Zones; // 구역 배치 결정자 (M9-A)
         public FarmService Farm => _sim.Farm;
         public HomeStorageService HomeStorage => _sim.HomeStorage; // 집 저장 (M11-A — EffectApplier 창구)
+        public RequestService Requests => _sim.Requests; // 부탁 (M11-F — 택지의 의뢰인 조회)
         public WorldConfigSO WorldConfig => _sim.WorldConfig;
         public AgentConfigSO AgentConfig => _cfg; // 러너용 읽기 창구 (M10-B — TendLines 등 대사 에셋)
 

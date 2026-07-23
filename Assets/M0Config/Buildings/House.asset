@@ -21,7 +21,8 @@ MonoBehaviour:
   BuiltFlagSlot: 0
   IsCountable: 1
   CountSlot: 14
-  ZoneRadius: 5
+  ZoneRadius: 0
+  MinSpacingTiles: 3
   BlocksMovement: 1
   Prefab: {fileID: 0}
   MarkerSprite: {fileID: 21300000, guid: 56b0033ed9681724b91ea116a038b5a9, type: 3}

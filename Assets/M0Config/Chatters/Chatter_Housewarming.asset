@@ -1,0 +1,37 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 175743ff7b964f319b635978b0d3934e, type: 3}
+  m_Name: Chatter_Housewarming
+  m_EditorClassIdentifier:
+  DisplayName: "집들이"
+  SpeakerGoal: {fileID: 0}
+  MinSpeakerGoalPriority: 8
+  MaxTargetGoalPriority: 2
+  RadiusTiles: 4
+  MaxExtraListeners: 3
+  SceneTempoMult: 2
+  SpeakerToTargetDelta: 0
+  TargetToSpeakerDelta: 0
+  SpeakLines:
+  - "드디어 내 집이 생겼어!"
+  - "여기가 이제 내 집이야"
+  - "오늘부터 여기서 잔다!"
+  DefaultReplyLines:
+  - "축하해! 자리 좋다"
+  - "잘 지었네, 튼튼해 보여"
+  - "이제 비 안 맞겠구나"
+  PersonalityReplies:
+  - Personality: {fileID: 11400000, guid: d3a96c4e05f3472b18e0c27a53f9b4a6, type: 2}
+    Lines:
+    - "흥, 내 집이 더 나을 거야"
+    - "쳇, 뭐 그럭저럭이군"
+    - "축하는 무슨, 나도 곧 지어"

@@ -17,6 +17,10 @@ namespace AIVillage.M0
         private readonly Dictionary<Vector2Int, (SlotId slot, string owner)> _ownerByTile =
             new Dictionary<Vector2Int, (SlotId, string)>(16);
 
+        /// <summary>소유 배정 성사 1회 알림 (tile, slot, ownerId) — 집들이 연출(M11-F)이 구독.
+        /// 무시된 배정(중복·1인 1채)에서는 발화하지 않는다.</summary>
+        public event System.Action<Vector2Int, SlotId, string> OnAssigned;
+
         /// <summary>agentId가 소유한 slot 건물의 타일. 없으면 false.</summary>
         public bool TryGetOwned(string agentId, SlotId slot, out Vector2Int tile)
         {
@@ -53,6 +57,7 @@ namespace AIVillage.M0
             }
             _ownerByTile[tile] = (slot, agentId);
             Debug.Log($"[Ownership] {agentId} ← {slot} ({tile.x},{tile.y}) 배정 ({why})");
+            OnAssigned?.Invoke(tile, slot, agentId);
         }
 
         /// <summary>이탈 주민 정리 — 소유가 풀려 빈집이 된다 (다음 클레임 패스의 재배정 대상).</summary>

@@ -46,8 +46,9 @@ namespace AIVillage.M0
         [Tooltip("직업 풀 (M5-A) — 스폰 시 랜덤 할당. 비우면 전원 무직(중립, M4 동작).")]
         [SerializeField] private JobSO[] _jobPool;
 
-        [Tooltip("농부 회의 연출 (M9-E) — 구역 확정 순간 완공자+근처 주민 릴레이. 비우면 회의 없음(중립).")]
-        [SerializeField] private ChatterSO _farmMeetingChatter;
+        [Tooltip("집들이 연출 (M11-F) — 새 집 소유 배정 순간 집주인+이웃 릴레이. 비우면 집들이 없음(중립). " +
+                 "舊 농부 회의(M9-E)의 자리 — 개인 택지 시대엔 마을의 장면이 집들이다.")]
+        [SerializeField] private ChatterSO _housewarmingChatter;
 
         [Tooltip("방랑자 도착 술렁임 (M10-E) — 어귀 도착 순간 최근접 주민 릴레이. 비우면 술렁임 없음(중립).")]
         [SerializeField] private ChatterSO _wandererChatter;
@@ -253,7 +254,7 @@ namespace AIVillage.M0
         private readonly List<VillagerAgent> _wandererListeners = new List<VillagerAgent>(8);
 
         /// <summary>방랑자 도착 술렁임 (M10-E, 표현 전용) — 어귀 최근접 주민이 화자, 반경 내 릴레이
-        /// (ShowFarmMeeting 패턴 — FireScene 이벤트 전용 대화).</summary>
+        /// (ShowHousewarming과 같은 패턴 — FireScene 이벤트 전용 대화).</summary>
         private void ShowWandererMurmur(Vector2Int arriveTile)
         {
             if (_wandererChatter == null || _agents.Count == 0) return;
@@ -355,42 +356,36 @@ namespace AIVillage.M0
             a2?.ShowTransient(d.StrikeLines[Random.Range(0, d.StrikeLines.Length)]);
         }
 
-        // 농부 회의 청중 버퍼 (M9-E) — 프레임 재사용, 할당 0
+        // 집들이 청중 버퍼 (M11-F, 舊 농부 회의 버퍼) — 프레임 재사용, 할당 0
         private readonly List<VillagerAgent> _meetingListeners = new List<VillagerAgent>(8);
 
-        /// <summary>농부 회의 연출 (M9-E, 표현 전용 — ADR-M9-2) — 구역 확정 순간 앵커 최근접(완공자
-        /// 근사)이 외치고 반경 radius+2 내 주민이 릴레이 응수한다. 회의는 확정을 중계할 뿐 앵커를
-        /// 정하지 않는다 (⚠️③). 밭 구역만 대상 — 주거 구역엔 회의 없음.</summary>
-        private void ShowFarmMeeting(SlotId slot, Vector2Int anchor, int radius)
+        /// <summary>집들이 연출 (M11-F, 표현 전용 — 舊 ShowFarmMeeting의 자리) — 새 집 소유 배정
+        /// 순간 **집주인 본인**이 외치고(⚠️③ — 최근접이 아니다, 주인공이 있는 장면이다) 집 반경
+        /// 내 이웃이 릴레이 응수한다. 배정을 중계할 뿐 소유를 정하지 않는다.</summary>
+        private void ShowHousewarming(Vector2Int tile, SlotId slot, string ownerId)
         {
-            if (slot != SlotId.FarmPlotCount || _farmMeetingChatter == null || _agents.Count == 0) return;
+            if (slot != SlotId.HouseCount || _housewarmingChatter == null || _agents.Count == 0) return;
 
-            // 화자 = 앵커 최근접 생존 주민 (첫 밭을 막 완공한 농부의 근사)
+            // 화자 = 새 집주인 (주인공 — 근사 금지)
             VillagerAgent speaker = null;
-            int best = int.MaxValue;
             foreach (VillagerAgent a in _agents)
-            {
-                if (a == null || a.State == AgentState.Dead) continue;
-                int dx = a.TileX - anchor.x, dy = a.TileY - anchor.y;
-                int d = dx * dx + dy * dy;
-                if (d < best) { best = d; speaker = a; }
-            }
+                if (a != null && a.State != AgentState.Dead && a.AgentId == ownerId) { speaker = a; break; }
             if (speaker == null) return;
 
-            // 청중 = 반경 radius+2 내 주민 (화자 제외), MaxExtraListeners 상한
+            // 청중 = 집 반경 RadiusTiles+2 내 이웃 (화자 제외), MaxExtraListeners 상한
             _meetingListeners.Clear();
-            int rr = radius + 2;
+            int rr = _housewarmingChatter.RadiusTiles + 2;
             foreach (VillagerAgent a in _agents)
             {
-                if (_meetingListeners.Count >= _farmMeetingChatter.MaxExtraListeners) break;
+                if (_meetingListeners.Count >= _housewarmingChatter.MaxExtraListeners) break;
                 if (a == null || a == speaker || a.State == AgentState.Dead) continue;
-                if (Mathf.Abs(a.TileX - anchor.x) > rr || Mathf.Abs(a.TileY - anchor.y) > rr) continue;
+                if (Mathf.Abs(a.TileX - tile.x) > rr || Mathf.Abs(a.TileY - tile.y) > rr) continue;
                 _meetingListeners.Add(a);
             }
-            if (_meetingListeners.Count == 0) return; // 근처에 아무도 없으면 회의 없음 (혼잣말 방지)
-            Chatter.FireScene(_farmMeetingChatter, speaker, _meetingListeners, Time.time);
+            if (_meetingListeners.Count == 0) return; // 근처에 아무도 없으면 집들이 없음 (혼잣말 방지)
+            Chatter.FireScene(_housewarmingChatter, speaker, _meetingListeners, Time.time);
             // 1회성 장면이라 화면 밖에서 벌어져도 놓치지 않도록 알림 (재해 Notify 패턴)
-            Hud?.Notify($"농경지 확정 — 농부 회의 ({_meetingListeners.Count + 1}명)");
+            Hud?.Notify($"{speaker.ShortName}의 새 집 — 집들이 ({_meetingListeners.Count + 1}명)");
         }
 
         private void Awake()
@@ -475,8 +470,10 @@ namespace AIVillage.M0
             // 구역 테두리 (표현 전용) — 확정 순간 앵커 둘레에 외곽선
             _zoneBorderView = new ZoneBorderView(transform);
             Zones.OnZoneEstablished += (slot, anchor, radius) => _zoneBorderView.Draw(slot, anchor, radius);
-            // 구역 확정 → 농부 회의 연출 (M9-E, ADR-M9-2 표현 전용 — 앵커 확정을 회의가 중계할 뿐)
-            Zones.OnZoneEstablished += (slot, anchor, radius) => ShowFarmMeeting(slot, anchor, radius);
+            // 舊 농부 회의 배선(OnZoneEstablished → ShowFarmMeeting)은 M11-F에서 제거됐다.
+            // 개인 택지 시대의 장면은 집들이다 — 소유 배정 이벤트로 옮겨졌다(아래 Ownership.OnAssigned).
+            // ZoneService는 휴면 보존 (테두리 뷰·재해 대사 앵커가 여전히 읽는다, ⚠️②).
+            Ownership.OnAssigned += (tile, slot, ownerId) => ShowHousewarming(tile, slot, ownerId);
             // 밭 완공 → FarmService 등록 (RegisterPlot의 유일한 호출 경로, ADR-M2-4)
             Construction.OnCompleted += (b, x, y) =>
             {

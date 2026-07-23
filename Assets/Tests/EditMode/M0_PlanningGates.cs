@@ -120,8 +120,8 @@ namespace AIVillage.Tests.EditMode
             ActionCatalog catalog = LoadCatalog();
             var gw = new PlannerGateway(catalog);
 
-            // 포만감 10 (발동 20 이하), 생식량 5 → 목표 70: +15 × 4회 식사
-            WorldSnapshot snap = Snap((SlotId.MySatiety, 10), (SlotId.RawFoodStock, 5));
+            // 포만감 10 (발동 20 이하), 몸 소지 생식 5 (M11-B 개인화) → 목표 70: +15 × 4회 식사
+            WorldSnapshot snap = Snap((SlotId.MySatiety, 10), (SlotId.MyRawFood, 5));
             (PlanStatus status, ActionSO[] plan) = RunPlan(gw, snap, LoadGoal("Goal_P0_Hunger"));
 
             Assert.AreEqual(PlanStatus.Success, status);

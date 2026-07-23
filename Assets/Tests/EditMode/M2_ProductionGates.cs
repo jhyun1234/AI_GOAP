@@ -108,8 +108,8 @@ namespace AIVillage.Tests.EditMode
 
             var slots = new int[PlanningConfig.TotalSlots];
             slots[(int)SlotId.MySatiety] = 10;
-            slots[(int)SlotId.RawFoodStock] = 5;
-            slots[(int)SlotId.CookedFoodStock] = 4;
+            slots[(int)SlotId.MyRawFood] = 5;     // M11-B 개인화 — 식사는 몸 소지에서
+            slots[(int)SlotId.MyCookedFood] = 4;
             PlannerGateway.PendingPlan pending = gw.RequestPlan(new WorldSnapshot(slots), goal);
             gw.CompleteNow(pending);
             Assert.IsTrue(gw.TryGetResult(pending, out PlanStatus status, out ActionSO[] plan, out _));

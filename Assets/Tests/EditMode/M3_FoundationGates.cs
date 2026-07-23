@@ -64,9 +64,11 @@ namespace AIVillage.Tests.EditMode
         }
 
         [Test]
-        public void M3_T2_RipeCount_MultipleHarvestsInOnePlan()
+        public void M3_T2_Harvest_PocketRhythm_OneHarvestFillsGoal()
         {
-            // ADR-M3-2: Ripe가 개수라서 익은 밭 3개 → 한 플랜에 수확 3회 (재계획 폭주 해소, M3-S3)
+            // M11-B 개정: 舊 "익은 밭 전량 연속 수확"(ADR-M3-2)은 몸 소지 상한(8) 아래서 불가능
+            // (수확 +6이라 2회째부터 상한 전제에 걸림) → goal이 '내 주머니 6 채우기'가 됐다.
+            // 익은 밭이 3개여도 수확 1회로 목표 달성 — 나머지는 밭에 달린 채 다음 허기를 기다린다.
             var catalog = AssetDatabase.LoadAssetAtPath<ActionCatalog>("Assets/M0Config/ActionCatalog.asset");
             var goal = AssetDatabase.LoadAssetAtPath<GoalSO>("Assets/M0Config/Goals/Goal_HarvestCrop.asset");
             Assert.IsNotNull(catalog); Assert.IsNotNull(goal);
@@ -80,9 +82,8 @@ namespace AIVillage.Tests.EditMode
             Assert.IsTrue(gw.TryGetResult(pending, out PlanStatus status, out ActionSO[] plan, out _));
 
             Assert.AreEqual(PlanStatus.Success, status);
-            Assert.AreEqual(3, plan.Length, "익은 밭 3개 → HarvestCrop ×3 연속 플랜");
-            foreach (ActionSO a in plan)
-                Assert.AreEqual("HarvestCrop", a.name);
+            Assert.AreEqual(1, plan.Length, "수확 1회(+6)로 주머니 목표(≥6) 달성 — 전량 수확 아님");
+            Assert.AreEqual("HarvestCrop", plan[0].name);
         }
 
         [Test]

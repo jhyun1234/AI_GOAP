@@ -90,6 +90,30 @@ namespace AIVillage.Tests.EditMode
             Assert.IsFalse(RequestService.ShouldStiffReward(null, -100), "성격 없음 = 안 떼먹음");
         }
 
+        // ── 선불 가용성 (2026-07-23 중간 리뷰 ② 회귀 방어) ──────────────────────
+
+        [Test]
+        public void M11_T7_UpfrontAvailable_AsksOnlyAboutRequester()
+        {
+            Assert.IsTrue(RequestService.UpfrontAvailable(5, requesterCanPay: true),
+                          "낼 수 있는 의뢰인이면 선불 성립 — 수행자 사정은 묻지 않는다");
+            Assert.IsFalse(RequestService.UpfrontAvailable(5, requesterCanPay: false),
+                           "가난한 의뢰인만 선불 성격에게 거절당한다 (ADR-보상2의 본래 의미)");
+            Assert.IsFalse(RequestService.UpfrontAvailable(0, true), "보상 없는 부탁은 선불 불가");
+        }
+
+        /// <summary>수령 공간은 **정산 분기**의 조건이지 선불 가용성의 조건이 아니다 —
+        /// 두 판정이 같은 조건을 쓰면 평상시 소지를 지닌 수행자가 구조적으로 거절한다
+        /// (2026-07-23 Play 관측: 고집쟁이 목수가 생6 의뢰인을 거절). 축이 다름을 못박는다.</summary>
+        [Test]
+        public void M11_T7_RoomBelongsToSettlementNotToUpfront()
+        {
+            // 같은 "공간 없음" 상황: 정산은 연기로 흡수하고, 선불 판정은 영향받지 않는다
+            Assert.AreEqual(RequestService.Settlement.Defer,
+                RequestService.ResolveSettlement(false, false, false, canPay: true, hasRoom: false));
+            Assert.IsTrue(RequestService.UpfrontAvailable(5, requesterCanPay: true));
+        }
+
         // ── 보상 슬롯 규약 (에셋 실수 방어) ──────────────────────────────────────
 
         [Test]

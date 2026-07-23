@@ -160,9 +160,13 @@ namespace AIVillage.M0
 
             // 선불 가용성 판정도 개인 잔고로 (M11-H) — 전역 스톡 조회는 폐지됐다.
             // 가난한 의뢰인은 선불 성격 수행자에게 RefusedNoReward (기존 대사 재사용).
-            bool canPayNow = r.RewardCostAmount > 0
-                             && requester.CanPayReward(r.RewardCostSlot, r.RewardCostAmount)
-                             && target.HasRoomFor(r.RewardCostSlot, r.RewardCostAmount);
+            // ⚠️ 수령 공간을 여기 넣지 말 것 (2026-07-23 중간 리뷰 ② 관측으로 제거): 선불 성격의
+            // 요구는 "저 사람이 값을 치를 능력이 있는가"이지 "내 손이 지금 비어 있는가"가 아니다.
+            // 공간을 조건에 넣으면 평상시 생식 4를 채우는(Goal_GatherFood 목표) 수행자가 상한 8에서
+            // 5를 못 받아 **구조적으로 항상 거절**했다. 공간이 없으면 후불로 수락하고 연기 정산이
+            // 처리한다 (아래 prepaid는 실제 이전 성공 여부만 본다).
+            bool canPayNow = UpfrontAvailable(r.RewardCostAmount,
+                                             requester.CanPayReward(r.RewardCostSlot, r.RewardCostAmount));
             VillagerAgent.RequestResult verdict = target.TryGiveRequest(r, requester.AgentId, canPayNow);
             target.ShowTransientDelayed(Pick(ReplyLinesFor(r, target, verdict)), _agentCfg.ReplyDelaySec);
 
@@ -271,6 +275,15 @@ namespace AIVillage.M0
             }
             _pendingReports[builderId] = (rec.so, rec.requesterId, rec.prepaid);
         }
+
+        /// <summary>
+        /// 선불 가용성 (순수 — 게이트 M11-T7, ADR-보상2). **인자가 둘뿐인 것이 계약이다**:
+        /// 수행자의 수령 공간은 여기 들어오지 않는다 (2026-07-23 중간 리뷰 ② 관측 — 공간을
+        /// 조건에 넣었더니 평상시 생식을 지닌 수행자가 상한에 걸려 구조적으로 항상 거절했다).
+        /// 선불 성격이 묻는 것은 의뢰인의 지급 능력뿐이다.
+        /// </summary>
+        public static bool UpfrontAvailable(int rewardAmount, bool requesterCanPay)
+            => rewardAmount > 0 && requesterCanPay;
 
         /// <summary>정산 결과 (M11-H) — Defer는 빚을 남기고 장면 자체를 열지 않는다.</summary>
         public enum Settlement { Thanks, Stiff, Pay, Defer }

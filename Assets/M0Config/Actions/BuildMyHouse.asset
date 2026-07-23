@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ac650d4317ee413eaed31b2e75c34290, type: 3}
+  m_Name: BuildMyHouse
+  m_EditorClassIdentifier:
+  DisplayName: "내 집을 짓자"
+  BubbleLines:
+  - "내 집을 지어야지"
+  - "이제 내 집을 마련하자"
+  - "더는 노숙 못 하겠어"
+  BaseCost: 15
+  DurationSec: 5
+  Preconditions: []
+  Effects:
+  - Slot: 17
+    Op: 0
+    Value: 1
+  Building: {fileID: 11400000, guid: c4d81f6a29e3470b95a7d02c8e61b543, type: 2}

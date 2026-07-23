@@ -10,15 +10,21 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 33fdfa0cd09f4e98b5f035ae8ed6614b, type: 3}
-  m_Name: Goal_TendInjured
+  m_Name: Goal_TreatInjured
   m_EditorClassIdentifier:
-  DisplayName: "응급조치"
+  DisplayName: "부상자 치료"
   Priority: 45
   TriggerConditions:
-  - Slot: 30
+  - Slot: 20
     Op: 1
     Value: 1
   GoalConditions:
-  - Slot: 30
+  - Slot: 20
     Op: 2
     Value: 0
+  DirectActionPool: []
+  RelativeToCurrent: 0
+  SkipFailureCooldown: 0
+  MaxWorkers: 0
+  AllowedWhenInjured: 0
+  RequiredJob: {fileID: 11400000, guid: 2a8a1a9cacd9443e9e7c6848a75cf98f, type: 2}

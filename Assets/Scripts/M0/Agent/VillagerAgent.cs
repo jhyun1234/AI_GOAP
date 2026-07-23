@@ -65,6 +65,7 @@ namespace AIVillage.M0
         public HomeStorageService HomeStorage => _sim.HomeStorage; // 집 저장 (M11-A — EffectApplier 창구)
         public RequestService Requests => _sim.Requests; // 부탁 (M11-F — 택지의 의뢰인 조회)
         public ThreatService Threats => _sim.Threats;   // 위협 (M11-G — 노숙 도피 방향). null = 위협 없음
+        public OwnershipService Ownership => _sim.Ownership; // 소유 (M11-I — 목수 자가 건축 배정)
         public WorldConfigSO WorldConfig => _sim.WorldConfig;
         public AgentConfigSO AgentConfig => _cfg; // 러너용 읽기 창구 (M10-B — TendLines 등 대사 에셋)
 
@@ -358,13 +359,17 @@ namespace AIVillage.M0
                 return;
             }
 
-            // 부상 계단 (M10-A) — 굶주림과 같은 패턴, 원인·결말은 분리 (ADR-M10-3).
-            // 회복은 간호 중에만 진행 (자연 회복 없음 — 결정 11), 방치 누적이 문턱에 닿으면 사망.
+            // 부상 계단 v2 (M11-I 간호 2단계) — 굶주림과 같은 패턴, 원인·결말은 분리 (ADR-M10-3).
+            // 치료 간호(Medic)만 회복을 올린다. 일반 간호(응급조치)는 최초 1회 안정화(유예 부여)뿐 —
+            // 유예가 지나면 악화 재개 → 치료사 없으면 사망 (crowding 자연 해소, 결정 15).
             if (Injury != InjurySeverity.None)
             {
                 bool tended = Time.time < _tendedUntil;
-                (_injuryRecovery, _injuryNeglectDays) = NextInjuryState(
-                    _injuryRecovery, _injuryNeglectDays, tended, _tendMult, deltaGameDays);
+                bool byHealer = tended && _tendedByHealer;
+                bool byHelper = tended && !_tendedByHealer;
+                (_injuryRecovery, _injuryNeglectDays, _stabilized, _graceLeft) = NextInjuryStateV2(
+                    _injuryRecovery, _injuryNeglectDays, _stabilized, _graceLeft,
+                    byHealer, byHelper, _tendMult, _cfg.StabilizeGraceDays, deltaGameDays);
                 if (_injuryRecovery >= _cfg.InjuryRecoverDays) HealInjury();
                 else if (ShouldDie(_injuryNeglectDays, _cfg))
                 {
@@ -442,10 +447,13 @@ namespace AIVillage.M0
         /// <summary>부상 상태. 세이브 대상 (ADR-M0-10 — Severity·회복·방치 누적 3종 함께).</summary>
         public InjurySeverity Injury { get; private set; }
 
-        private float _injuryRecovery;    // 간호 누적 (게임일) — InjuryRecoverDays 도달 시 완치. 세이브 대상
+        private float _injuryRecovery;    // 치료 간호 누적 (게임일) — InjuryRecoverDays 도달 시 완치. 세이브 대상
         private float _injuryNeglectDays; // 미간호 누적 (게임일) — InjuryDeathAfterDays 도달 시 사망. 세이브 대상
         private float _tendedUntil;       // 간호 유효 시각 (Time.time) — 세이브 안 함 (로드 후 간호 재개로 재유도)
         private float _tendMult = 1f;     // 현재 간호자 회복 배율 (Job.TendRecoveryMult)
+        private bool  _tendedByHealer;    // 이번 간호가 치료사(완치 가능)인가 — MarkTended가 갱신
+        private bool  _stabilized;        // 응급조치 1회 완료 (M11-I) — 세이브 대상. 유예를 부여받은 상태
+        private float _graceLeft;         // 안정화 유예 잔량 (게임일) — 세이브 대상. 0이 되면 악화 재개
 
         /// <summary>부상 진입 가능 판정 (순수 — 게이트 M10-T1): Dead·중복 부상 무시 (M10은 단일 심각도).</summary>
         public static bool CanInjure(AgentState state, InjurySeverity current)
@@ -462,6 +470,9 @@ namespace AIVillage.M0
             _injuryRecovery = 0f;
             _injuryNeglectDays = 0f;
             _tendedUntil = 0f;
+            _tendedByHealer = false;
+            _stabilized = false;
+            _graceLeft = 0f;
             // Planning 중 부상: 대기 중인 노동 플랜이 부상 필터를 우회해 시작되는 구멍 차단.
             // Cancel 없이 상태만 바꾸면 _pending 누수(NativeArray leak — 커밋 전 체크 4) — 반드시 취소 후 중단.
             if (State == AgentState.Planning && _pending != null)
@@ -480,19 +491,26 @@ namespace AIVillage.M0
             _sim.Hud?.Notify($"{ShortName}이(가) 다쳤습니다");
         }
 
-        /// <summary>간호 표시 (M10-B TendRunner 전용) — 유효 시간 동안 사망 계단 정지 + 회복 진행.
-        /// 부상 상태 자체는 쓰지 않는다 (ADR-M10-2 — 회복 진행은 본인 SimTick만).</summary>
-        public void MarkTended(float untilSec, float recoveryMult)
+        /// <summary>간호 표시 (TendRunner 전용, M11-I) — 유효 시간 동안 간호 인정. isHealer가
+        /// 치료(회복 진행)와 안정화(1회성 유예)를 가른다. 부상 상태 자체는 쓰지 않는다
+        /// (ADR-M10-2 — 진행은 본인 SimTick만). 같은 틱 복수 간호 시 마지막 호출이 이긴다.</summary>
+        public void MarkTended(float untilSec, float recoveryMult, bool isHealer)
         {
             _tendedUntil = untilSec;
             _tendMult = Mathf.Max(1f, recoveryMult);
+            _tendedByHealer = isHealer;
         }
 
         /// <summary>간호받는 중인가 — FindNearestInjured의 미간호 우선 판정용 (M10-B).</summary>
         public bool IsTended => Time.time < _tendedUntil;
 
-        /// <summary>최근접 부상자 조회 (TendRunner 전용) — FindVisitTarget과 같은 러너 창구 패턴.</summary>
-        public VillagerAgent FindNearestInjured() => _sim.FindNearestInjured(this);
+        /// <summary>응급조치를 받아 안정화됐는가 (M11-I) — 일반 간호자의 대상 제외 판정.
+        /// 안정화된 부상자는 UntendedInjuredCount에서 빠져 군중이 해산한다 (crowding 해소).</summary>
+        public bool IsStabilized => _stabilized;
+
+        /// <summary>최근접 부상자 조회 (TendRunner 전용) — healer는 전 부상자, 일반은 미안정 부상자만
+        /// (M11-I 이원화). 안정화 완료 대상에 일반 간호자가 계속 붙는 crowding을 여기서 끊는다.</summary>
+        public VillagerAgent FindNearestInjured(bool healerMode) => _sim.FindNearestInjured(this, healerMode);
 
         /// <summary>
         /// 부상 계단 갱신 (순수 — 게이트 M10-T1): 간호 중 = 회복 진행·방치 정지(홀드 — 리셋 아님,
@@ -502,6 +520,26 @@ namespace AIVillage.M0
             float recovery, float neglect, bool tended, float tendMult, float deltaGameDays)
             => tended ? (recovery + deltaGameDays * tendMult, neglect)
                       : (recovery, neglect + deltaGameDays);
+
+        /// <summary>
+        /// 부상 계단 v2 (순수 — 게이트 M11-T8, 결정 15). 우선순위가 곧 설계다:
+        /// ① 치료 간호 = 회복 진행 (완치의 유일한 경로 — Medic만).
+        /// ② 일반 간호 + 미안정 = 최초 1회 안정화 (유예 부여, 회복 없음). 이미 안정화면 무효과
+        ///    (교대 간호로 영원히 못 살린다 — crowding 재발·Medic 무가치 방지, ⚠️①).
+        /// ③ 유예 잔량 > 0 = 유예 소모 (방치 정지).
+        /// ④ 그 외 = 악화 누적 → 사망. (간호 없고 유예도 소진 = 기존 방치와 동일)
+        /// </summary>
+        public static (float recovery, float neglect, bool stabilized, float grace) NextInjuryStateV2(
+            float recovery, float neglect, bool stabilized, float grace,
+            bool tendedByHealer, bool tendedByHelper, float tendMult, float graceDays, float dt)
+        {
+            if (tendedByHealer) return (recovery + dt * tendMult, neglect, stabilized, grace);
+            if (tendedByHelper && !stabilized) return (recovery, neglect, true, graceDays);
+            // 유예는 0 아래로 내려가지 않는다 (불변식) — Max로 클램프. 마지막 부분 틱은 방치 정지지만
+            // 다음 틱 grace==0이라 악화가 재개된다 (오버슈트는 최대 dt 1틱, 무해).
+            if (grace > 0f) return (recovery, neglect, stabilized, Mathf.Max(0f, grace - dt));
+            return (recovery, neglect + dt, stabilized, grace);
+        }
 
         /// <summary>사망 판정 (순수 — 게이트 M10-T1) — 문턱은 에셋 값 (ADR-M0-2). ShouldDepart와 동일 형식.</summary>
         public static bool ShouldDie(float neglectDays, AgentConfigSO cfg)
@@ -516,6 +554,9 @@ namespace AIVillage.M0
             _injuryNeglectDays = 0f;
             _tendedUntil = 0f;
             _tendMult = 1f;
+            _tendedByHealer = false;
+            _stabilized = false;
+            _graceLeft = 0f;
         }
 
         /// <summary>
@@ -541,7 +582,13 @@ namespace AIVillage.M0
 
         /// <summary>쿨다운+부상 합성 필터 — Select의 skip 델리게이트 (두 호출부가 같은 진리를 쓴다).</summary>
         private bool IsGoalExcluded(GoalSO goal)
-            => IsGoalCoolingDown(goal) || BlockedByInjury(goal, Injury);
+            => IsGoalCoolingDown(goal) || BlockedByInjury(goal, Injury) || BlockedByJob(goal, Job);
+
+        /// <summary>직업 게이트 (순수 — 게이트 M11-T8, ADR-M11-6). RequiredJob null이면 항상 통과
+        /// (중립 불변식 — 기존 Select와 동일). 설정되면 그 직업이 아닌 주민의 후보에서 제외한다
+        /// (Prepare 실패가 아니라 후보 제외 — 실패 쿨다운 공회전 방지, 명세 ⚠️②).</summary>
+        public static bool BlockedByJob(GoalSO goal, JobSO job)
+            => goal != null && goal.RequiredJob != null && job != goal.RequiredJob;
 
         // ── 굶주림 이탈 (M6-D — 최초의 실패 상태) ─────────────────────────────
 

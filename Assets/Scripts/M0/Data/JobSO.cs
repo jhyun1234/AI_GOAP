@@ -37,9 +37,13 @@ namespace AIVillage.M0
         [Tooltip("할 일 없을 때의 일과 goal (개인 사다리 주입, ADR-M5-2). 비면 일과 없음")]
         public GoalSO RoutineGoal;
 
-        [Tooltip("간호 시 부상 회복 배율 (M10-B). 1 = 일반 주민 (중립 — 간호는 직업 전용이 아니다, " +
-                 "결정 11 붕괴 스위치 금지). 치료사만 3 (제안치) — 잃으면 마을이 '느려진다'.")]
+        [Tooltip("간호 시 부상 회복 배율 (M10-B). 1 = 일반 주민 (중립). 치료사만 3 (제안치).")]
         public float TendRecoveryMult = 1f;
+
+        [Tooltip("완치가 가능한 직업인가 (M11-I 간호 2단계). false = 일반 주민(응급조치=안정화만). " +
+                 "true = 치료사 — 완전 회복의 유일한 경로. 없으면 안정화만 받은 부상자는 결국 사망 " +
+                 "(결정 15 — crowding 해소 + 사망 착탄). Job_Medic만 true.")]
+        public bool CanTreatInjury;
 
         [Tooltip("택지 점수 가산 (M11-F, HomePicker). 0 = 중립(마을 안쪽), 1 초과 = 바깥 선호. " +
                  "성격 값과 합산 — 나무꾼·광부처럼 자원 곁에 살고 싶은 직업의 축.")]

@@ -206,9 +206,18 @@ namespace AIVillage.M0
                 return Fail($"{_so.Building.DisplayName} 건설 타일에 주민 체류 — 재계획");
 
             // 완공 위치 = Prepare에서 정한 건설 타일 (비차단은 도착 타일과 동일, 차단은 인접에서 시공)
-            return agent.Construction.Complete(_so.Building, _buildTile.x, _buildTile.y)
-                ? RunnerResult.Succeeded
-                : Fail($"{_so.Building.DisplayName} 완공 실패 (비용 부족 또는 중복)");
+            if (!agent.Construction.Complete(_so.Building, _buildTile.x, _buildTile.y))
+                return Fail($"{_so.Building.DisplayName} 완공 실패 (비용 부족 또는 중복)");
+
+            // 목수 자가 건축 (M11-I) — 부탁이 아닌 집 완공은 지은 본인이 소유한다. 부탁 완수 집은
+            // RequestService.NotifyFulfilled가 의뢰인에게 배정하므로 여기서 건드리지 않는다
+            // (구분 = 진행 중 부탁의 수행자인가). 배정 쓰기는 여전히 Assign 하나 (ADR-M8-3 불변).
+            if (_so.Building.IsCountable && _so.Building.CountSlot == SlotId.HouseCount
+                && agent.Requests != null && !agent.Requests.TryGetRequester(agent.AgentId, out _)
+                && agent.Ownership != null)
+                agent.Ownership.Assign(_buildTile, SlotId.HouseCount, agent.AgentId, "자가 건축");
+
+            return RunnerResult.Succeeded;
         }
     }
 }

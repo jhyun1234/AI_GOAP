@@ -159,6 +159,11 @@ namespace AIVillage.M0
                  "굶주림 0.5일보다 길게 — 발견→간호 판단의 유예 (명세 §4.5 검산).")]
         public float InjuryDeathAfterDays = 1.5f;
 
+        [Tooltip("안정화(일반 주민 응급조치) 1회가 사망 시계를 멈추는 유예(게임일, M11-I). " +
+                 "안정화만 받은 부상자는 이 기간이 지나면 악화 재개 → 치료사(Medic) 없으면 사망. " +
+                 "1.0 + 사망 문턱 1.5 = 치료사 부재 시 ~2.5일 내 사망 (결정 15).")]
+        public float StabilizeGraceDays = 1f;
+
         [Tooltip("부상 순간 대사 (랜덤 선택). 명령·부탁 거절(부상)도 재사용.")]
         public string[] InjuredLines =
         {

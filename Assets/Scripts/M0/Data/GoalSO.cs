@@ -44,6 +44,11 @@ namespace AIVillage.M0
                  "부상 None이면 이 필드는 판정에 개입하지 않는다 (중립 불변식).")]
         public bool AllowedWhenInjured;
 
+        [Tooltip("이 직업만 후보로 삼는 goal (M11-I, ADR-M11-6 개정 예외). null(기본)이면 직업 무관 " +
+                 "(중립 불변식 — 기존 Select와 동일). **치료 goal + 목수 자가 건축 전용** — 그 밖의 " +
+                 "goal에 설정하면 직업 붕괴 스위치가 되살아난다(ADR-M5-4). 세 번째 용도 = 규칙 재검토 신호.")]
+        public JobSO RequiredJob;
+
         /// <summary>
         /// ADR-M0-7 정합 검사: goal 달성 상태가 trigger를 다시 발동시키면 무한 루프다.
         /// 같은 슬롯에 대해 "목표값이 발동 조건을 만족"하면 에셋 저장 시점에 에러를 띄운다.

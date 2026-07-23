@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   DisplayName: "치료사"
   GoalBoosts:
-  - Goal: {fileID: 11400000, guid: 2f1d5477100a45ccb5631d7349399160, type: 2}
+  - Goal: {fileID: 11400000, guid: b8d24f1a7c3e490582a1d6b0e937c418, type: 2}
     Boost: 30
   GatherCostMult: 1
   FarmCostMult: 1
@@ -22,3 +22,4 @@ MonoBehaviour:
   ExploreCostMult: 1
   RoutineGoal: {fileID: 0}
   TendRecoveryMult: 3
+  CanTreatInjury: 1

@@ -10,20 +10,20 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 115419b6a2ee40dfb0ff48ca0b78b5dc, type: 3}
-  m_Name: TendInjured
+  m_Name: TreatInjured
   m_EditorClassIdentifier:
-  DisplayName: "응급조치"
+  DisplayName: "치료"
   BubbleLines:
-  - "일단 지혈부터"
-  - "여기 가만히 있어"
+  - "이제 치료해 줄게"
+  - "상처를 제대로 봐주자"
   BaseCost: 8
   DurationSec: 0
   Preconditions:
-  - Slot: 30
+  - Slot: 20
     Op: 1
     Value: 1
   Effects:
-  - Slot: 30
+  - Slot: 20
     Op: 2
     Value: 1
   TendRangeTiles: 2

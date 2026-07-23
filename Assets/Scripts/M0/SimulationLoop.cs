@@ -149,13 +149,15 @@ namespace AIVillage.M0
         /// AgentId 사전순 (결정적 — ADR-M10-1). 미간호가 없으면 간호 중인 부상자도 반환 —
         /// 두 번째 간호자는 무해(표시 갱신뿐)하고, 첫 간호자가 P0로 떠날 때 끊김 없이 인계된다.
         /// </summary>
-        public VillagerAgent FindNearestInjured(VillagerAgent tender)
+        public VillagerAgent FindNearestInjured(VillagerAgent tender, bool healerMode)
         {
-            VillagerAgent found = FindInjuredPass(tender, untendedOnly: true);
-            return found != null ? found : FindInjuredPass(tender, untendedOnly: false);
+            // 일반 간호자(응급조치)는 미안정 부상자만 대상 — 안정화 완료자를 계속 붙잡지 않는다
+            // (crowding 해소, M11-I). 치료사(healer)는 전 부상자 대상 (안정화 여부 무관).
+            VillagerAgent found = FindInjuredPass(tender, untendedOnly: true, healerMode);
+            return found != null ? found : FindInjuredPass(tender, untendedOnly: false, healerMode);
         }
 
-        private VillagerAgent FindInjuredPass(VillagerAgent tender, bool untendedOnly)
+        private VillagerAgent FindInjuredPass(VillagerAgent tender, bool untendedOnly, bool healerMode)
         {
             _injuredBuf.Clear();
             _injuredKeyBuf.Clear();
@@ -163,6 +165,7 @@ namespace AIVillage.M0
             {
                 if (a == null || a == tender || a.State == AgentState.Dead
                     || a.Injury == InjurySeverity.None) continue;
+                if (!healerMode && a.IsStabilized) continue; // 일반 간호자는 안정화 완료자 제외
                 if (untendedOnly && a.IsTended) continue;
                 _injuredBuf.Add(a);
                 _injuredKeyBuf.Add((a.AgentId, a.TileX, a.TileY));
@@ -289,6 +292,17 @@ namespace AIVillage.M0
             int n = 0;
             foreach (VillagerAgent a in _agents)
                 if (a != null && a.State != AgentState.Dead && a.Injury != InjurySeverity.None) n++;
+            return n;
+        }
+
+        /// <summary>미안정 부상자 수 집계 (M11-I) — UntendedInjuredCount 파생 슬롯의 유일한 원천.
+        /// 응급조치(안정화)를 받으면 여기서 빠져 Goal_TendInjured 트리거가 꺼진다 → 군중 해산.</summary>
+        public int CountUntendedInjured()
+        {
+            int n = 0;
+            foreach (VillagerAgent a in _agents)
+                if (a != null && a.State != AgentState.Dead
+                    && a.Injury != InjurySeverity.None && !a.IsStabilized) n++;
             return n;
         }
 
@@ -425,7 +439,7 @@ namespace AIVillage.M0
             // 식량 수지 (M9-G, M11-D 개인화) — 가치표는 config.FoodSources에서 파생, 인원 입력은
             // 제거됨 (식량은 개인 단위). 부상 수(M10-A)는 provider 패턴 — 파생 슬롯의 원천은 집계 하나뿐
             World        = new WorldModel(Discovery, _worldConfig, Farm, Season,
-                                         _agentConfig, CountInjured);
+                                         _agentConfig, CountInjured, CountUntendedInjured);
             Construction = new ConstructionService(World);
             Zones        = new ZoneService(); // M9-A — 배치 결정자 (군집 휴리스틱 대체, ADR-M9-1)
             Planner      = new PlannerGateway(_catalog, _agentConfig); // M11-A — 개인 상한 전제 주입 (ADR-M11-3)

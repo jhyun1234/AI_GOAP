@@ -25,15 +25,18 @@ namespace AIVillage.M0
         private readonly (SlotId slot, int gain)[] _foodValues;
         private readonly float _decayPerDay;            // AgentConfig.SatietyDecayPerGameDay
         private readonly System.Func<int> _injuredCount; // 부상 주민 수 (M10-A) — 원천 = SimulationLoop.CountInjured
+        private readonly System.Func<int> _untendedInjuredCount; // 미안정 부상자 수 (M11-I) — SimulationLoop.CountUntendedInjured
 
         public WorldModel(DiscoveryService discovery, WorldConfigSO config, FarmService farm = null,
                           SeasonService season = null, AgentConfigSO agentCfg = null,
-                          System.Func<int> injuredCount = null)
+                          System.Func<int> injuredCount = null,
+                          System.Func<int> untendedInjuredCount = null)
         {
             _discovery = discovery;
             _farm = farm;
             _season = season;
             _injuredCount = injuredCount;
+            _untendedInjuredCount = untendedInjuredCount;
             _decayPerDay = agentCfg != null ? agentCfg.SatietyDecayPerGameDay : 0f;
             if (config != null)
             {
@@ -193,6 +196,8 @@ namespace AIVillage.M0
             // 부상 주민 수 (M10-A) — 파생 슬롯, 원천은 SimulationLoop 집계뿐. 미배선이면 0 (중립 —
             // Goal_TendInjured 트리거 "≥1" 영구 불발 = M9 동작).
             slots[(int)SlotId.InjuredCount] = _injuredCount != null ? _injuredCount() : 0;
+            // 미안정 부상자 수 (M11-I) — Goal_TendInjured(응급조치) 트리거. 미배선이면 0 (중립).
+            slots[(int)SlotId.UntendedInjuredCount] = _untendedInjuredCount != null ? _untendedInjuredCount() : 0;
             // 위협 근접 (M10-D) — My* 계열 개인 파생 슬롯 (에이전트가 개인 감지 배율로 계산해
             // 인자로 넘긴다, MySatiety 패턴). 기본 false = 0 (중립 — Goal_Flee 영구 불발).
             slots[(int)SlotId.ThreatNear] = threatNear ? 1 : 0;

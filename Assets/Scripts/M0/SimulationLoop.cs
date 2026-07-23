@@ -436,7 +436,7 @@ namespace AIVillage.M0
             HomeStorage  = new HomeStorageService(); // M11-A — 집 저장 (타일 키, ADR-M11-1)
             Requests     = new RequestService(_worldConfig, _agentConfig, Relationship,
                                               Ownership, Construction, _agents,
-                                              Chatter, World); // M8-D — 부탁 선반 (대화 쿨다운·보상 스톡)
+                                              Chatter); // M8-D — 부탁 선반 (보상은 개인 잔고, M11-H)
             // 대화 → 관계 축적의 유일한 배선 (M8-A, ADR-M8-1) — 본체는 ApplyChat (게이트 대상)
             Chatter.OnChatted += (c, speaker, target) => Relationship.ApplyChat(c, speaker.AgentId, target.AgentId);
 

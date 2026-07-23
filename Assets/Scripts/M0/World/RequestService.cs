@@ -18,7 +18,6 @@ namespace AIVillage.M0
         private readonly OwnershipService _ownership;
         private readonly ConstructionService _construction;
         private readonly ChatterService _chatter; // 대화 쿨다운 공유 — 장면 연쇄 방지 (2026-07-17 피드백)
-        private readonly WorldModel _worldModel;  // 주민 간 보상의 스톡 차감 (M8 후속 — TrySpendStock만)
         private readonly IReadOnlyList<VillagerAgent> _agents; // SimulationLoop 소유 리스트 (살아있는 참조)
 
         private float _nextScanAt;
@@ -29,15 +28,16 @@ namespace AIVillage.M0
             new Dictionary<string, (RequestSO, string, bool)>(4);
         // 보상 미정산 빚 (조각 Y, 2026-07-18): 수행자 ID → (부탁, 의뢰인 ID, 선불 여부).
         // 일 완수 순간 기록되고, 수행자와 의뢰인이 자연스럽게 마주치면(TickRewardSettlement) 정산·소멸한다.
-        // 쫓아가지 않으므로 타임아웃 소실 없음 — 정리는 이탈(ReleaseBy)뿐. 저장 불필요(연출·로드 후 소멸).
+        // 쫓아가지 않으므로 타임아웃 소실 없음 — 정리는 이탈(ReleaseBy)뿐.
+        // 세이브 대상으로 승격 (ADR-M11-10, M11-H): 이제 빚은 연출이 아니라 실제 식량이다 —
+        // 로드 후 소멸시키면 지급이 소실된다.
         private readonly Dictionary<string, (RequestSO so, string requesterId, bool prepaid)> _pendingReports =
             new Dictionary<string, (RequestSO, string, bool)>(4);
         private readonly List<VillagerAgent> _scratch = new List<VillagerAgent>(16);
 
         public RequestService(WorldConfigSO world, AgentConfigSO agentCfg, RelationshipService relationship,
                               OwnershipService ownership, ConstructionService construction,
-                              IReadOnlyList<VillagerAgent> agents, ChatterService chatter = null,
-                              WorldModel worldModel = null)
+                              IReadOnlyList<VillagerAgent> agents, ChatterService chatter = null)
         {
             _world = world;
             _agentCfg = agentCfg;
@@ -46,7 +46,6 @@ namespace AIVillage.M0
             _construction = construction;
             _agents = agents;
             _chatter = chatter;
-            _worldModel = worldModel;
         }
 
         /// <summary>정보줄용 (M8 후속) — agentId가 수락해 진행 중인 부탁의 (의뢰인, 할 일 라벨).</summary>
@@ -159,7 +158,12 @@ namespace AIVillage.M0
             requester.FaceForChat(target.transform.position, _agentCfg.ChatPauseSec);
             target.FaceForChat(requester.transform.position, _agentCfg.ChatPauseSec);
 
-            VillagerAgent.RequestResult verdict = target.TryGiveRequest(r, requester.AgentId);
+            // 선불 가용성 판정도 개인 잔고로 (M11-H) — 전역 스톡 조회는 폐지됐다.
+            // 가난한 의뢰인은 선불 성격 수행자에게 RefusedNoReward (기존 대사 재사용).
+            bool canPayNow = r.RewardCostAmount > 0
+                             && requester.CanPayReward(r.RewardCostSlot, r.RewardCostAmount)
+                             && target.HasRoomFor(r.RewardCostSlot, r.RewardCostAmount);
+            VillagerAgent.RequestResult verdict = target.TryGiveRequest(r, requester.AgentId, canPayNow);
             target.ShowTransientDelayed(Pick(ReplyLinesFor(r, target, verdict)), _agentCfg.ReplyDelaySec);
 
             _requesterCooldownUntil[requester.AgentId] = nowSec + _world.RequestCooldownSec;
@@ -174,14 +178,11 @@ namespace AIVillage.M0
                 // 선불 성격 (ADR-보상2): 수락 즉시 지급 — 판정(가용성 검사)과 같은 틱이라 안전.
                 // 선불 완료 부탁은 보고 장면에서 지급·떼먹기 판정 없음 (prepaid — 이중 지급 차단)
                 bool prepaid = target.Personality != null && target.Personality.DemandsRewardUpfront
-                               && r.RewardCostAmount > 0 && _worldModel != null
-                               && _worldModel.TrySpendStock(r.RewardCostSlot, r.RewardCostAmount);
+                               && canPayNow
+                               && requester.TransferTo(target, r.RewardCostSlot, r.RewardCostAmount);
                 if (prepaid)
-                {
-                    target.ApplyNeedEffect(SlotId.MySatiety, EffectOp.Add, r.RewardSatietyGain);
                     Debug.Log($"[Request] 선불 — {requester.AgentId}→{target.AgentId}: " +
-                              $"{r.RewardCostSlot} -{r.RewardCostAmount}, 포만 +{r.RewardSatietyGain}");
-                }
+                              $"{r.RewardCostSlot} {r.RewardCostAmount}개 이전");
                 _inFlight[target.AgentId] = (r, requester.AgentId, prepaid);
             }
             else
@@ -271,10 +272,39 @@ namespace AIVillage.M0
             _pendingReports[builderId] = (rec.so, rec.requesterId, rec.prepaid);
         }
 
+        /// <summary>정산 결과 (M11-H) — Defer는 빚을 남기고 장면 자체를 열지 않는다.</summary>
+        public enum Settlement { Thanks, Stiff, Pay, Defer }
+
+        /// <summary>
+        /// 정산 분기 (순수 — 게이트 M11-T7, ADR-M11-4). 판정 순서가 곧 설계다:
+        /// 보상 없음/선불 완료 → 감사 / **떼먹기(성격 경로, 잔고 무관 — 파산 ≠ 떼먹기)** /
+        /// 낼 수 있고 받을 공간 있으면 지급 / 아니면 연기 (빚 유지).
+        /// </summary>
+        public static Settlement ResolveSettlement(bool noReward, bool prepaid, bool stiff,
+                                                   bool canPay, bool hasRoom)
+        {
+            if (noReward || prepaid) return Settlement.Thanks;
+            if (stiff) return Settlement.Stiff;
+            return canPay && hasRoom ? Settlement.Pay : Settlement.Defer;
+        }
+
+        /// <summary>장면 전 분기 판정 — 순수 규칙에 현재 잔고·관계를 먹인다.</summary>
+        private Settlement Resolve(RequestSO so, bool prepaid, VillagerAgent requester, VillagerAgent builder)
+            => ResolveSettlement(
+                so.RewardCostAmount <= 0, prepaid,
+                ShouldStiffReward(requester.Personality,
+                                  _relationship.AffinityOf(requester.AgentId, builder.AgentId)),
+                requester.CanPayReward(so.RewardCostSlot, so.RewardCostAmount),
+                builder.HasRoomFor(so.RewardCostSlot, so.RewardCostAmount));
+
+        // 연기 로그 1회용 (같은 빚이 매 틱 로그를 도배하지 않도록) — 정산·이탈 시 해제
+        private readonly HashSet<string> _deferLogged = new HashSet<string>();
+
         /// <summary>
         /// 보상 정산 장면 (조각 Y) — TickRewardSettlement가 목수·의뢰인이 마주쳤을 때 호출.
-        /// 수행자 완수 대사 → 의뢰인 보상/감사 대사 (지연 응수). 보상 = 공용 스톡 차감 + 수행자
-        /// 포만 (밥 대접 — 개인 인벤토리 없음). 재고 부족이면 지급 생략 + 감사 대사 (로그로 구분).
+        /// 수행자 완수 대사 → 의뢰인 보상/감사 대사 (지연 응수). 보상 = 의뢰인 잔고(몸+집)에서
+        /// 수행자 몸으로의 **실제 식량 이전** (M11-H, 결정 10 — 포만 직접 지급은 폐지).
+        /// 잔고·공간이 모자라면 장면 없이 연기하고 빚을 남긴다 (소실 없음 — 조각 Y 계승).
         /// </summary>
         public void PlayReport(VillagerAgent builder)
         {
@@ -282,27 +312,33 @@ namespace AIVillage.M0
             if (!_pendingReports.TryGetValue(builder.AgentId,
                     out (RequestSO so, string requesterId, bool prepaid) rec))
                 return; // 정산할 빚 없음
+
+            VillagerAgent payer = FindAgent(rec.requesterId);
+            Settlement how = payer != null ? Resolve(rec.so, rec.prepaid, payer, builder)
+                                           : Settlement.Thanks; // 의뢰인 부재 = 장면만 정리
+            if (how == Settlement.Defer)
+            {
+                if (_deferLogged.Add(builder.AgentId))
+                    Debug.Log($"[Request] 정산 연기 — {rec.requesterId} 잔고/공간 부족 " +
+                              $"({rec.so.RewardCostSlot} {rec.so.RewardCostAmount}). 빚 유지");
+                return; // 빚 유지 · 장면 없음 (다음 마주침에 재시도)
+            }
             _pendingReports.Remove(builder.AgentId);
+            _deferLogged.Remove(builder.AgentId);
 
             // 목수 완수 대사도 지연 경로로 (2026-07-18 버그 수정): 즉시 ShowTransient는 정산
             // 순간(마주침=이동 중단)의 AbortPlan.Clear에 지워져 목수만 침묵하고 의뢰인 감사만
             // 남았다. 의뢰인 응수와 동일하게 clear-후-표시라 그 Clear를 비껴간다. 0f = 곧바로
             // (의뢰인 ReplyDelaySec보다 먼저 = "목수 먼저, 의뢰인 응수" 순서 보존).
             builder.ShowTransientDelayed(Pick(rec.so.FulfillLines), 0f);
-            VillagerAgent requester = FindAgent(rec.requesterId);
+            VillagerAgent requester = payer; // 분기 판정에 쓴 그 사람 — 재조회하면 판정과 어긋날 수 있다
             if (requester != null)
             {
                 builder.FaceForChat(requester.transform.position, _agentCfg.ChatPauseSec);
                 requester.FaceForChat(builder.transform.position, _agentCfg.ChatPauseSec);
 
-                // 응수 분기: 보상 없음/선불 완료 → 감사 / 떼먹는 성격+낮은 친밀 → 떼먹기 (ADR-보상1)
-                // / 그 외 → 지급 시도 (재고 부족이면 감사)
-                if (rec.so.RewardCostAmount <= 0 || rec.prepaid)
-                {
-                    requester.ShowTransientDelayed(Pick(rec.so.ThanksLines), _agentCfg.ReplyDelaySec);
-                }
-                else if (ShouldStiffReward(requester.Personality,
-                                           _relationship.AffinityOf(rec.requesterId, builder.AgentId)))
+                // 응수 분기 (M11-H) — 판정은 Resolve가 이미 했다 (장면 전 결정, 연기는 여기 안 온다)
+                if (how == Settlement.Stiff)
                 {
                     requester.ShowTransientDelayed(
                         Pick(FirstNonEmpty(requester.Personality.StiffRewardLines, _agentCfg.StiffRewardLines)),
@@ -312,19 +348,18 @@ namespace AIVillage.M0
                     Debug.Log($"[Request] 보상 떼먹음 — {rec.requesterId} " +
                               $"(수행자 {builder.AgentId} 관계 {rec.so.StiffedDelta})");
                 }
-                else if (_worldModel != null
-                         && _worldModel.TrySpendStock(rec.so.RewardCostSlot, rec.so.RewardCostAmount))
+                else if (how == Settlement.Pay
+                         && requester.TransferTo(builder, rec.so.RewardCostSlot, rec.so.RewardCostAmount))
                 {
-                    builder.ApplyNeedEffect(SlotId.MySatiety, EffectOp.Add, rec.so.RewardSatietyGain);
                     requester.ShowTransientDelayed(Pick(FirstNonEmpty(rec.so.RewardLines, rec.so.ThanksLines)),
                                                    _agentCfg.ReplyDelaySec);
                     Debug.Log($"[Request] 보상 — {rec.requesterId}→{builder.AgentId}: " +
-                              $"{rec.so.RewardCostSlot} -{rec.so.RewardCostAmount}, 포만 +{rec.so.RewardSatietyGain}");
+                              $"{rec.so.RewardCostSlot} {rec.so.RewardCostAmount}개 이전");
                 }
                 else
                 {
+                    // 보상 없는 부탁·선불 완료 = 감사만 (Resolve가 Thanks로 판정한 경로)
                     requester.ShowTransientDelayed(Pick(rec.so.ThanksLines), _agentCfg.ReplyDelaySec);
-                    Debug.Log($"[Request] 보상 생략 — {rec.so.RewardCostSlot} 재고 부족 (감사 대사만)");
                 }
                 _chatter?.RecordChat(builder.AgentId, requester.AgentId, Time.time); // 보고 장면도 대화
             }
@@ -373,7 +408,10 @@ namespace AIVillage.M0
                 if (kv.Key == agentId || kv.Value.requesterId == agentId)
                     _keysToRemove.Add(kv.Key);
             foreach (string key in _keysToRemove)
+            {
                 _pendingReports.Remove(key); // 목수든 의뢰인이든 이탈 → 정산 불가, 빚 소멸
+                _deferLogged.Remove(key);    // 연기 로그 표식도 함께 (M11-H)
+            }
         }
 
         private VillagerAgent FindAgent(string agentId)

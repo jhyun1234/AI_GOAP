@@ -1066,15 +1066,13 @@ namespace AIVillage.M0
         /// (ADR-M8-4: 새 실행 경로 없음, Select의 request 칸). 말풍선·관계 델타·사유 로그는
         /// 호출자(RequestService)가 수행 (ADR-M8-5의 단일 지점).
         /// </summary>
-        public RequestResult TryGiveRequest(RequestSO r, string requesterId)
+        public RequestResult TryGiveRequest(RequestSO r, string requesterId, bool upfrontAvailable = false)
         {
             if (r == null || r.InjectGoal == null) return RequestResult.RefusedBusy; // 방어 — 에셋 오류
             // 부상 거절 (M10-A) — 명령과 동일한 앞단 조기 반환 (JudgeRequest 순수 함수 무변경)
             if (Injury != InjurySeverity.None) return RequestResult.RefusedInjured;
-            // 선불 가용성 (ADR-보상2) — 보상이 있고 지금 재고가 충분해야. 판정과 차감이 같은
-            // 시뮬 틱이라 검사~지급 사이 경쟁 없음 (지급은 RequestService.Ask 수락 경로)
-            bool upfrontAvailable = r.RewardCostAmount > 0
-                                    && World.GetStock(r.RewardCostSlot) >= r.RewardCostAmount;
+            // 선불 가용성 (ADR-보상2)은 호출자(RequestService)가 의뢰인 개인 잔고로 판정해 넘긴다
+            // (M11-H — 전역 스톡 조회 폐지. 판정과 이전이 같은 시뮬 틱이라 검사~지급 경쟁 없음)
             RequestResult verdict = JudgeRequest(_request != null, Satiety, Fatigue,
                 _sim.Relationship.AffinityOf(AgentId, requesterId), _cfg, Personality, r,
                 upfrontAvailable);
@@ -1281,6 +1279,79 @@ namespace AIVillage.M0
             if (slot == SlotId.MyRawFood) MyRaw = next;
             else MyCooked = next;
             return true;
+        }
+
+        /// <summary>지급 능력 (순수 — 게이트 M11-T7): 몸 우선, 부족분은 집 저장에서.
+        /// amount ≤ 0은 항상 true (보상 없는 부탁 — 지급할 것이 없다).</summary>
+        public static bool CanPay(int bodyStock, int homeStock, int amount)
+            => amount <= 0 || bodyStock + homeStock >= amount;
+
+        /// <summary>내 잔고(몸+집)로 amount를 낼 수 있는가 (M11-H 보상 정산의 판정 창구).</summary>
+        public bool CanPayReward(SlotId slot, int amount)
+            => CanPay(GetPersonalStock(slot), HomeStockOf(slot), amount);
+
+        /// <summary>수령 공간 — 상한은 슬롯별이다 (M11-A 개정). 몸에만 받는다 (집은 걸어가야 하므로).</summary>
+        public bool HasRoomFor(SlotId slot, int amount)
+            => amount <= 0 || _cfg.BodyCarryCap - GetPersonalStock(slot) >= amount;
+
+        /// <summary>내 집 저장 잔량 — 무주택·미배선이면 0.</summary>
+        private int HomeStockOf(SlotId slot)
+        {
+            SlotId homeSlot = slot == SlotId.MyRawFood ? SlotId.MyHomeRawFood
+                            : slot == SlotId.MyCookedFood ? SlotId.MyHomeCookedFood : slot;
+            if (homeSlot == slot) return 0; // 개인 스톡이 아니면 집 몫 없음
+            return HomeStorage != null && TryGetHomeTile(out Vector2Int home)
+                ? HomeStorage.GetStock(home, homeSlot) : 0;
+        }
+
+        /// <summary>
+        /// 개인 재화 이전 (M11-H) — 보상의 실체. 새 쓰기 경로가 아니다 (ADR-M11-1): 차감은
+        /// ApplyPersonalStock·HomeStorage.TrySpend, 지급은 ApplyPersonalStock을 그대로 지난다.
+        /// 원자성: 선검사(지급 능력 + 수령 공간) 통과 후에만 손을 댄다 — 부분 이전 없음.
+        /// 몸에서 먼저 빼고 부족분만 집에서 꺼낸다 (몸이 마르면 다시 채우는 리듬 유지).
+        /// </summary>
+        public bool TransferTo(VillagerAgent to, SlotId slot, int amount)
+        {
+            if (to == null || amount <= 0 || !SlotIds.IsPersonalStock(slot)) return false;
+            if (!CanPayReward(slot, amount) || !to.HasRoomFor(slot, amount)) return false;
+
+            int fromBody = Mathf.Min(GetPersonalStock(slot), amount);
+            int fromHome = amount - fromBody;
+            if (fromBody > 0 && !ApplyPersonalStock(slot, EffectOp.SubClamp0, fromBody)) return false;
+            if (fromHome > 0)
+            {
+                SlotId homeSlot = slot == SlotId.MyRawFood ? SlotId.MyHomeRawFood : SlotId.MyHomeCookedFood;
+                if (!TryGetHomeTile(out Vector2Int home)
+                    || !HomeStorage.TrySpend(home, homeSlot, fromHome))
+                {
+                    // 선검사를 통과하고도 실패 = 잔고 판정과 저장 문의 이원화 (버그)
+                    if (fromBody > 0) ApplyPersonalStock(slot, EffectOp.Add, fromBody); // 되돌림
+                    Debug.LogWarning($"[Inventory] {AgentId}: 집 저장 차감 실패 — 이전 취소 (판정 이원화 의심)");
+                    return false;
+                }
+            }
+            if (!to.ApplyPersonalStock(slot, EffectOp.Add, amount))
+            {
+                // 선검사(HasRoomFor)를 통과하고도 실패 = 버그. 식량이 사라지는 쪽이 더 나쁘므로
+                // 차감분을 전부 되돌린다 (몸→집 순, 집 복귀 실패분은 경고로 드러낸다).
+                RefundSelf(slot, fromBody, fromHome);
+                Debug.LogWarning($"[Inventory] {to.AgentId}: 수령 실패 — 공간 선검사 누락 의심 (이전 취소)");
+                return false;
+            }
+            return true;
+        }
+
+        /// <summary>이전 취소 시 차감분 복원 (TransferTo 전용) — 뺀 순서의 역순.</summary>
+        private void RefundSelf(SlotId slot, int fromBody, int fromHome)
+        {
+            if (fromHome > 0 && TryGetHomeTile(out Vector2Int home) && HomeStorage != null)
+            {
+                SlotId homeSlot = slot == SlotId.MyRawFood ? SlotId.MyHomeRawFood : SlotId.MyHomeCookedFood;
+                if (!HomeStorage.TryAdd(home, homeSlot, fromHome, _cfg.HomeStorageCap))
+                    Debug.LogWarning($"[Inventory] {AgentId}: 집 저장 복원 실패 {fromHome} — 소실");
+            }
+            if (fromBody > 0 && !ApplyPersonalStock(slot, EffectOp.Add, fromBody))
+                Debug.LogWarning($"[Inventory] {AgentId}: 몸 소지 복원 실패 {fromBody} — 소실");
         }
 
         /// <summary>피격 경험 (M11-G, MyWasAttacked 슬롯의 유일한 원천) — 쓰기는 Injure뿐이고

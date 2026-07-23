@@ -58,14 +58,17 @@ namespace AIVillage.M0
         public int StiffedDelta = -10;
 
         [Header("주민 간 보상 (M8 후속 — 완공 보고 장면에서 의뢰인이 대접. 0 = 보상 없음, 중립)")]
-        [Tooltip("보고 시점에 마을 스톡에서 차감할 슬롯 (개인 소유가 없으므로 공용 스톡 — 밥 대접)")]
-        public SlotId RewardCostSlot = SlotId.CookedFoodStock;
+        [Tooltip("보고 시점에 의뢰인 잔고(몸+집)에서 차감해 수행자에게 넘길 개인 슬롯 (M11-H — " +
+                 "보상 = 실제 식량 이전. 전역 스톡 차감은 폐지됐다)")]
+        public SlotId RewardCostSlot = SlotId.MyRawFood;
 
-        [Tooltip("차감량. 0이면 보상 없음 (감사 대사만). 보고 시점 재고 부족이면 지급 생략 + 감사 대사")]
+        [Tooltip("이전량. 0이면 보상 없음 (감사 대사만). 의뢰인 잔고나 수행자 수령 공간이 " +
+                 "모자라면 지급이 아니라 '연기' — 빚은 남고 다음 마주침에 다시 시도한다")]
         public int RewardCostAmount;
 
-        [Tooltip("수행자가 받는 포만 (RewardSO.SatietyGain과 동일 개념)")]
-        public int RewardSatietyGain = 30;
+        [Tooltip("휴면 필드 (M11-H 폐지) — 포만 직접 지급 경로는 삭제됐다. 수행자는 받은 식량을 " +
+                 "먹어서 포만을 얻는다 (결정 10). 0으로 둘 것")]
+        public int RewardSatietyGain;
 
         [Header("대사 (배고픔·피로 거절은 성격 RefuseLines 재사용 — 이중 기입 금지)")]
         public string[] AskLines;
@@ -89,8 +92,13 @@ namespace AIVillage.M0
                 Debug.LogError($"[RequestSO] {name}: OwnershipSlot({OwnershipSlot})은 수량형(수치) 슬롯이어야 합니다.", this);
             if (InjectGoal == null)
                 Debug.LogWarning($"[RequestSO] {name}: InjectGoal이 비어 있음 — 성립해도 아무 일도 일어나지 않습니다.", this);
-            if (RewardCostAmount > 0 && !SlotIds.IsStock(RewardCostSlot))
-                Debug.LogError($"[RequestSO] {name}: RewardCostSlot({RewardCostSlot})은 스톡 슬롯이어야 합니다.", this);
+            // M11-H: 보상은 의뢰인 개인 잔고에서 나간다 — 개인 스톡이 정상, 전역 스톡은 휴면 경고.
+            if (RewardCostAmount > 0 && !SlotIds.IsPersonalStock(RewardCostSlot))
+                Debug.LogError($"[RequestSO] {name}: RewardCostSlot({RewardCostSlot})은 개인 스톡 슬롯이어야 " +
+                               "합니다 (M11-H — 보상 = 실제 식량 이전. 전역 스톡은 휴면).", this);
+            if (RewardSatietyGain != 0)
+                Debug.LogWarning($"[RequestSO] {name}: RewardSatietyGain({RewardSatietyGain})은 휴면 필드입니다 " +
+                                 "— 포만 직접 지급은 M11-H에서 폐지됐습니다 (수행자는 받은 식량을 먹는다). 0 권장.", this);
         }
     }
 }

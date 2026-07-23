@@ -30,9 +30,9 @@ MonoBehaviour:
   AcceptDelta: 5
   FulfillDelta: 15
   RefusedDelta: -5
-  RewardCostSlot: 10
-  RewardCostAmount: 1
-  RewardSatietyGain: 30
+  RewardCostSlot: 22
+  RewardCostAmount: 5
+  RewardSatietyGain: 0
   AskLines:
   - "집 좀 지어줄 수 있어?"
   - "나도 내 집이 있었으면 좋겠는데... 부탁해도 될까?"

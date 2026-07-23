@@ -64,6 +64,7 @@ namespace AIVillage.M0
         public FarmService Farm => _sim.Farm;
         public HomeStorageService HomeStorage => _sim.HomeStorage; // 집 저장 (M11-A — EffectApplier 창구)
         public RequestService Requests => _sim.Requests; // 부탁 (M11-F — 택지의 의뢰인 조회)
+        public ThreatService Threats => _sim.Threats;   // 위협 (M11-G — 노숙 도피 방향). null = 위협 없음
         public WorldConfigSO WorldConfig => _sim.WorldConfig;
         public AgentConfigSO AgentConfig => _cfg; // 러너용 읽기 창구 (M10-B — TendLines 등 대사 에셋)
 
@@ -411,7 +412,8 @@ namespace AIVillage.M0
                 hasHome, // MyHasHome (M8-C)
                 _sim.Threats != null && _sim.Threats.IsNearThreat(TileX, TileY,
                     Personality != null ? Personality.FleeRadiusMult : 1f),    // ThreatNear (M10-D)
-                MyRaw, MyCooked, homeRaw, homeCooked);                         // 개인 인벤토리 (M11-A)
+                MyRaw, MyCooked, homeRaw, homeCooked,                          // 개인 인벤토리 (M11-A)
+                MyWasAttacked);                                                // 피격 경험 (M11-G)
         }
 
         /// <summary>
@@ -470,6 +472,9 @@ namespace AIVillage.M0
             }
             else if (State == AgentState.Moving || State == AgentState.Acting)
                 AbortPlan("부상 — 하던 일 중단", warn: false, cooldown: false);
+            // 피격 경험은 영구다 (M11-G) — 회복해도 잊지 않는다. "노숙자가 늑대에 물리고
+            // 나서야 집을 원한다"는 서사의 실체 (결정 6). 세이브 대상 (ADR-M11-10).
+            MyWasAttacked = true;
             ShowTransient(Pick(_cfg.InjuredLines));
             Debug.LogWarning($"[Injury] {AgentId}: 부상 ({severity})");
             _sim.Hud?.Notify($"{ShortName}이(가) 다쳤습니다");
@@ -1277,6 +1282,10 @@ namespace AIVillage.M0
             else MyCooked = next;
             return true;
         }
+
+        /// <summary>피격 경험 (M11-G, MyWasAttacked 슬롯의 유일한 원천) — 쓰기는 Injure뿐이고
+        /// 되돌리는 경로는 없다 (영구). 회복·간호는 이 값을 건드리지 않는다.</summary>
+        public bool MyWasAttacked { get; private set; }
 
         /// <summary>내 집 타일 (M11-A) — 집 저장 라우팅·피난 목적지 공용 창구. 원천 = OwnershipService.</summary>
         public bool TryGetHomeTile(out Vector2Int tile)

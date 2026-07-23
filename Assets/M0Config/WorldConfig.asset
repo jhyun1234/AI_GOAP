@@ -49,6 +49,7 @@ MonoBehaviour:
   GrudgeThreshold: -20
   Requests:
   - {fileID: 11400000, guid: 34af30806cdc45afbd0a0f59baf4d853, type: 2}
+  - {fileID: 11400000, guid: 9c4b27e6a1d840f3b85c0e97d2461fa8, type: 2}
   - {fileID: 11400000, guid: 4fdca1c64979469496b3211ddb80c0ef, type: 2}
   RequestIntervalSec: 5
   RequestCooldownSec: 90

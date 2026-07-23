@@ -10,17 +10,17 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 82223cb9257b4086a4ad8987f8822d45, type: 3}
-  m_Name: Request_BuildMyHouse
+  m_Name: Request_House_Urgent
   m_EditorClassIdentifier:
-  DisplayName: "집 부탁"
+  DisplayName: "다급한 집 부탁"
   TaskLabel: "집 지어주기"
   RequesterConditions:
   - Slot: 17
     Op: 0
     Value: 0
-  - Slot: 22
-    Op: 1
-    Value: 5
+  - Slot: 26
+    Op: 0
+    Value: 1
   TargetJob: {fileID: 11400000, guid: fda218a4d94842849b31a189131a4926, type: 2}
   InjectGoal: {fileID: 11400000, guid: 985a7498ebc14268bb07b6118224dccc, type: 2}
   RadiusTiles: 6
@@ -34,31 +34,30 @@ MonoBehaviour:
   RewardCostAmount: 1
   RewardSatietyGain: 30
   AskLines:
-  - "집 좀 지어줄 수 있어?"
-  - "나도 내 집이 있었으면 좋겠는데... 부탁해도 될까?"
-  - "밤마다 한데서 자는 것도 지긋지긋해. 집 하나만 부탁해"
+  - "늑대한테 물렸어... 나도 집이 있어야겠어. 지어줄 수 있어?"
+  - "한데서 자다간 죽겠어. 집 좀 부탁해"
+  - "무서워서 못 자겠어. 벽이라도 있어야지"
   AcceptLines:
-  - "좋아, 맡겨 둬"
-  - "그래, 자재만 모이면 바로 지어줄게"
-  - "마침 손이 비었어. 지어주지"
+  - "그런 일이 있었구나. 지어줄게"
+  - "당장 시작하지. 걱정 마"
+  - "그래, 몸부터 챙겨. 집은 내가 맡을게"
   RefuseBusyLines:
   - "지금 다른 일을 맡았어"
   - "미안, 먼저 받은 부탁부터 끝내야 해"
   RefuseLowAffinityLines:
   - "너랑은 말 섞기 싫어"
-  - "네 부탁은 안 들어줘"
-  - "나한테 그렇게 굴고 이제 와서 부탁이야?"
+  - "딱하긴 한데, 네 부탁은 안 들어줘"
   FulfillLines:
-  - "다 지었어. 잘 살아!"
-  - "약속한 집이야. 튼튼하게 지었어"
-  - "네 집 완성됐어! 보러 와"
+  - "다 지었어. 이제 안에서 자"
+  - "네 집이야. 이제 물릴 일 없어"
+  - "튼튼하게 지었어. 문 꼭 닫고 자라"
   RewardLines:
   - "고생했어! 밥은 내가 대접할게"
   - "정말 고마워, 이거 먹고 가!"
   ThanksLines:
-  - "정말 고마워... 지금은 줄 게 없네"
-  - "이 은혜는 꼭 갚을게"
+  - "지금은 줄 게 없어... 꼭 갚을게"
+  - "이 은혜는 잊지 않을게"
   RefuseNoRewardLines:
   - "빈손으로 부탁하는 거야?"
   - "선불 없이는 안 해"
-  - "보상부터 준비해 와"
+  - "딱한 건 알겠는데, 나도 먹고살아야지"

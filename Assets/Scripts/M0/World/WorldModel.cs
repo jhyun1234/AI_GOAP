@@ -152,7 +152,8 @@ namespace AIVillage.M0
         public WorldSnapshot BuildSnapshot(int satiety, int fatigue, bool hasHome = false,
                                            bool threatNear = false,
                                            int myRaw = 0, int myCooked = 0,
-                                           int homeRaw = 0, int homeCooked = 0)
+                                           int homeRaw = 0, int homeCooked = 0,
+                                           bool wasAttacked = false)
         {
             var slots = new int[PlanningConfig.TotalSlots];
 
@@ -186,6 +187,9 @@ namespace AIVillage.M0
             slots[(int)SlotId.MyCookedFood]     = myCooked;
             slots[(int)SlotId.MyHomeRawFood]    = homeRaw;
             slots[(int)SlotId.MyHomeCookedFood] = homeCooked;
+            // 피격 경험 (M11-G) — 원천 = VillagerAgent.Injure. 기본 false = 0 (중립: 집 동기
+            // goal·긴급 부탁이 영구 불발 = M11-F 동작).
+            slots[(int)SlotId.MyWasAttacked] = wasAttacked ? 1 : 0;
             // 부상 주민 수 (M10-A) — 파생 슬롯, 원천은 SimulationLoop 집계뿐. 미배선이면 0 (중립 —
             // Goal_TendInjured 트리거 "≥1" 영구 불발 = M9 동작).
             slots[(int)SlotId.InjuredCount] = _injuredCount != null ? _injuredCount() : 0;

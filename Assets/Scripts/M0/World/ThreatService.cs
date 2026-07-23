@@ -304,6 +304,23 @@ namespace AIVillage.M0
         public static bool WithinDanger(int manhattanDist, int dangerRadiusTiles, float personalRadiusMult)
             => manhattanDist <= Mathf.CeilToInt(dangerRadiusTiles * personalRadiusMult);
 
+        /// <summary>최근접 활성 위협의 좌표 (M11-G 노숙 도피의 방향 기준) — 맨해튼 최근접.
+        /// 활성 위협이 없으면 false (호출처는 제자리 완료 — 기지 폴백 부활 금지, ⚠️③).</summary>
+        public bool TryGetNearestThreatPos(int x, int y, out Vector2Int pos)
+        {
+            pos = default;
+            int best = int.MaxValue;
+            foreach (ThreatAgent t in _active)
+            {
+                if (t == null) continue;
+                int d = Mathf.Abs(x - t.TileX) + Mathf.Abs(y - t.TileY);
+                if (d >= best) continue;
+                best = d;
+                pos = new Vector2Int(t.TileX, t.TileY);
+            }
+            return best != int.MaxValue;
+        }
+
         /// <summary>내 근처에 활성 위협이 있는가 (M10-D ThreatNear 슬롯의 유일한 원천).
         /// personalRadiusMult = 성격 감지 배율 (고집쟁이 0.6 = 늦게 알아챈다).</summary>
         public bool IsNearThreat(int x, int y, float personalRadiusMult)

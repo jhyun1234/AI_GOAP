@@ -22,6 +22,7 @@ MonoBehaviour:
   GoalBoosts:
   - Goal: {fileID: 11400000, guid: 0fd7741aeb03452b871f58e57e4c4233, type: 2}
     Boost: 5
+  HomeOutskirtsBias: 0
   MoodLines:
   - "다들 힘내세요!"
   - "오늘도 평화롭네요"

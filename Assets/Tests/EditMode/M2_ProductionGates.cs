@@ -46,7 +46,7 @@ namespace AIVillage.Tests.EditMode
             var world = new WorldModel(new DiscoveryService(), Config(10, 0));
             var construction = new ConstructionService(world);
             int fired = 0;
-            construction.OnCompleted += (b, x, y) => fired++;
+            construction.OnCompleted += (b, x, y, _) => fired++;
 
             Assert.IsTrue(construction.Complete(FarmBuilding(), 2, 2), "1번째 완공 — 중복 거부 없음");
             Assert.IsTrue(construction.Complete(FarmBuilding(), 8, 8), "2번째 완공 — 중복 거부 없음");
@@ -124,8 +124,8 @@ namespace AIVillage.Tests.EditMode
         public void M2_T3_Farm_StateMachine_RoundTrip_And_SingleClaim()
         {
             var farm = new FarmService(growthDays: 1.5f);
-            farm.RegisterPlot(3, 3);
-            farm.RegisterPlot(6, 6);
+            farm.RegisterPlot(3, 3, "A");
+            farm.RegisterPlot(6, 6, "A");
             int events = 0;
             farm.OnPlotStateChanged += _ => events++;
 
@@ -165,7 +165,7 @@ namespace AIVillage.Tests.EditMode
             var world = new WorldModel(new DiscoveryService(), Config(0, 0), farm);
             Assert.AreEqual(0, world.BuildSnapshot(50, 50).Get(SlotId.EmptyFarmPlot), "밭 없음 → 0");
 
-            farm.RegisterPlot(1, 1);
+            farm.RegisterPlot(1, 1, "A");
             Assert.AreEqual(1, world.BuildSnapshot(50, 50).Get(SlotId.EmptyFarmPlot), "빈 밭 존재 → 1");
 
             farm.TryPlant(farm.NearestEmpty(0, 0));
@@ -184,18 +184,22 @@ namespace AIVillage.Tests.EditMode
             Assert.IsNotNull(goal, "Goal_BuildFarm 에셋 없음");
             var selector = new GoalSelector(new[] { goal });
 
+            // M11-E 개정: 선행 조건이 모닥불 → **내 집**으로 바뀌었다 (밭은 내 집 곁에 선다).
+            // Tech Tree 게이트의 정신은 그대로 — 선행이 없으면 goal이 뜨지 않는다. 모닥불 전제는
+            // 이제 집 goal(BuildMyHouse·RequestHouse)이 지므로 MyHasHome==1이 그걸 전이 보장한다.
             var slots = new int[PlanningConfig.TotalSlots];
             slots[(int)SlotId.WoodStock] = 50;
             slots[(int)SlotId.MySatiety] = 80;
-            Assert.IsNull(selector.Select(new WorldSnapshot(slots)),
-                          "모닥불 미완공이면 밭 goal 미발동 (M2-S4 Tech Tree 첫 사례)");
-
             slots[(int)SlotId.CampfireBuilt] = 1;
-            Assert.AreEqual("Goal_BuildFarm", selector.Select(new WorldSnapshot(slots)).name,
-                            "모닥불 완공 후 발동");
+            Assert.IsNull(selector.Select(new WorldSnapshot(slots)),
+                          "집이 없으면 밭 goal 미발동 (M2-S4 Tech Tree 게이트 — M11-E 선행 교체)");
 
-            slots[(int)SlotId.FarmPlotCount] = 2;
-            Assert.IsNull(selector.Select(new WorldSnapshot(slots)), "목표 2개 도달 시 재발동 없음");
+            slots[(int)SlotId.MyHasHome] = 1;
+            Assert.AreEqual("Goal_BuildFarm", selector.Select(new WorldSnapshot(slots)).name,
+                            "내 집이 생긴 뒤 발동");
+
+            slots[(int)SlotId.MyFarmPlotCount] = 1;
+            Assert.IsNull(selector.Select(new WorldSnapshot(slots)), "내 밭 1개 도달 시 재발동 없음");
         }
 
         [Test]

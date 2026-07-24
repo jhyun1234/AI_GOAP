@@ -37,7 +37,7 @@ namespace AIVillage.Tests.EditMode
             var world = new WorldModel(discovery, Config(10, 30));
             var construction = new ConstructionService(world);
             int fired = 0;
-            construction.OnCompleted += (b, x, y) => fired++;
+            construction.OnCompleted += (b, x, y, _) => fired++;
 
             Assert.IsTrue(construction.Complete(CampfireBuilding(), 3, 4));
             Assert.AreEqual(5, world.GetStock(SlotId.WoodStock), "Wood 10 - 비용 5");
@@ -56,7 +56,7 @@ namespace AIVillage.Tests.EditMode
             var world = new WorldModel(new DiscoveryService(), Config(3, 0));
             var construction = new ConstructionService(world);
             int fired = 0;
-            construction.OnCompleted += (b, x, y) => fired++;
+            construction.OnCompleted += (b, x, y, _) => fired++;
 
             Assert.IsFalse(construction.Complete(CampfireBuilding(), 0, 0));
             Assert.AreEqual(3, world.GetStock(SlotId.WoodStock), "부족 시 차감 없음 (원자성)");

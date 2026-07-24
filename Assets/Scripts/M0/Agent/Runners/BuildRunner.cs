@@ -40,6 +40,25 @@ namespace AIVillage.M0
             // 맵 경계 — MapBounds 단일 출처 (M3-F)
             MapBounds.Get(out int minX, out int maxX, out int minY, out int maxY);
 
+            // 집 곁 배치 (M11-E) — 개인 소유물(밭)은 제 집 둘레에 모인다. 집이 없으면 실패:
+            // goal 트리거(MyHasHome==1)가 이미 막지만, 배치 규칙 자체도 집을 전제한다.
+            if (_so.Building.PlaceNearOwnedHome)
+            {
+                if (!agent.TryGetHomeTile(out Vector2Int home))
+                {
+                    FailReason = $"{_so.Building.DisplayName}: 내 집이 없어 곁에 지을 수 없음";
+                    return false;
+                }
+                int r = agent.WorldConfig != null ? agent.WorldConfig.FarmNearHomeRadius : 2;
+                if (!TryFindFreeTileNear(Occupied, home.x, home.y, minX, maxX, minY, maxY, r, out _buildTile))
+                {
+                    FailReason = $"{_so.Building.DisplayName}: 집 주변(반경 {r}) 만원 — 빈 자리 없음";
+                    return false;
+                }
+                MoveTarget = _buildTile; // 밭은 비차단이라 그 자리에 서서 짓는다
+                return true;
+            }
+
             // 택지 (M11-F, ADR-M11-5) — MinSpacingTiles > 0 건물(집)은 구역 대신 택지가 결정자다.
             // 앵커는 마을 기지 고정, 밀집은 기존 완공과의 최소 간격이 막는다.
             if (_so.Building.IsCountable && _so.Building.MinSpacingTiles > 0)
@@ -206,7 +225,8 @@ namespace AIVillage.M0
                 return Fail($"{_so.Building.DisplayName} 건설 타일에 주민 체류 — 재계획");
 
             // 완공 위치 = Prepare에서 정한 건설 타일 (비차단은 도착 타일과 동일, 차단은 인접에서 시공)
-            if (!agent.Construction.Complete(_so.Building, _buildTile.x, _buildTile.y))
+            // builderId 전달 = 밭 소유 등록의 원천 (M11-E) — 완공 이벤트가 소유자를 실어 나른다
+            if (!agent.Construction.Complete(_so.Building, _buildTile.x, _buildTile.y, agent.AgentId))
                 return Fail($"{_so.Building.DisplayName} 완공 실패 (비용 부족 또는 중복)");
 
             // 목수 자가 건축 (M11-I) — 부탁이 아닌 집 완공은 지은 본인이 소유한다. 부탁 완수 집은

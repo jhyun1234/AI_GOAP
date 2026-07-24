@@ -20,8 +20,9 @@ namespace AIVillage.M0
         private readonly Dictionary<SlotId, List<Vector2Int>> _builtTileLists =
             new Dictionary<SlotId, List<Vector2Int>>();
 
-        /// <summary>완공 후처리 (building, tileX, tileY). M0SimulationLoop가 시각 스폰을 구독한다.</summary>
-        public event Action<BuildingSO, int, int> OnCompleted;
+        /// <summary>완공 후처리 (building, tileX, tileY, builderId). M0SimulationLoop가 시각 스폰을 구독한다.
+        /// builderId는 M11-E 밭 소유 등록용 — 관심 없는 구독자는 인자를 무시한다 (완공 단일 지점 유지).</summary>
+        public event Action<BuildingSO, int, int, string> OnCompleted;
 
         /// <summary>수량형 건물 제거 알림 (countSlot, tileX, tileY) — M9-B. 시각 파괴(BuildingVisualizer)·
         /// FarmService.RemovePlot가 구독한다 (완공 OnCompleted와 대칭, ADR-M9-3 소멸 경로 단일성).</summary>
@@ -98,7 +99,7 @@ namespace AIVillage.M0
         /// 건설 완료 처리. 원자성 보장: 비용 전 항목 선검사 후 일괄 차감 (부분 성공 없음, 舊 ADR-2 계승).
         /// 이미 완공된 건물이면 false (중복 완공 방지).
         /// </summary>
-        public bool Complete(BuildingSO building, int tileX, int tileY)
+        public bool Complete(BuildingSO building, int tileX, int tileY, string builderId = null)
         {
             if (building == null)
             {
@@ -143,7 +144,7 @@ namespace AIVillage.M0
                 _world.SetBuiltFlag(building.BuiltFlagSlot, true);
                 _builtTiles[building.BuiltFlagSlot] = new Vector2Int(tileX, tileY);
             }
-            OnCompleted?.Invoke(building, tileX, tileY);
+            OnCompleted?.Invoke(building, tileX, tileY, builderId);
 
             Debug.Log($"[ConstructionService] {building.DisplayName} 완공 @ ({tileX}, {tileY})");
             return true;

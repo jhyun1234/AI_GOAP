@@ -13,8 +13,13 @@ namespace AIVillage.M0
         public FarmState State { get; internal set; }
         public float Growth { get; internal set; } // Growing 누적 게임일
 
-        /// <summary>점유 주민 ID (1인 점유, ResourceNode.TryOccupy 미러). null = 비점유.</summary>
+        /// <summary>점유 주민 ID (1인 점유, ResourceNode.TryOccupy 미러). null = 비점유.
+        /// 소유(OwnerId)와 다르다 — 점유는 "지금 이 밭에서 일하는 중", 소유는 영구 귀속.</summary>
         public string OccupantId { get; private set; }
+
+        /// <summary>소유 주민 ID (M11-E) — 등록 시 1회 기입 후 불변. 개간·파종·수확 전부 이 사람의 일.
+        /// null인 밭은 존재해선 안 된다 (아무도 못 가꾸는 유령 밭 — RegisterPlot이 필수 인자로 막는다).</summary>
+        public string OwnerId { get; internal set; }
 
         public bool TryClaim(string agentId)
         {
@@ -50,10 +55,16 @@ namespace AIVillage.M0
             _growthDays = Mathf.Max(0.01f, growthDays);
         }
 
-        /// <summary>밭 완공 등록. 유일한 호출처 = ConstructionService.OnCompleted 구독 (SimulationLoop 조립).</summary>
-        public void RegisterPlot(int tileX, int tileY)
+        /// <summary>밭 완공 등록. 유일한 호출처 = ConstructionService.OnCompleted 구독 (SimulationLoop 조립).
+        /// ownerId는 필수다 (M11-E ⚠️③ — 기본값을 주면 소유 없는 유령 밭이 생긴다).</summary>
+        public void RegisterPlot(int tileX, int tileY, string ownerId)
         {
-            var plot = new FarmPlot { Tile = new Vector2Int(tileX, tileY), State = FarmState.Empty };
+            if (string.IsNullOrEmpty(ownerId))
+                Debug.LogWarning($"[Farm] ({tileX},{tileY}) 소유자 없는 밭 등록 — 아무도 가꾸지 않는다 (배선 오류 의심)");
+            var plot = new FarmPlot
+            {
+                Tile = new Vector2Int(tileX, tileY), State = FarmState.Empty, OwnerId = ownerId,
+            };
             _plots.Add(plot);
             OnPlotStateChanged?.Invoke(plot);
         }
@@ -91,19 +102,50 @@ namespace AIVillage.M0
             return n;
         }
 
+        // ── 소유 필터 조회 (M11-E) — 개인 밭 축. 전역 Count*/Nearest*는 휴면 보존 ──
+
+        /// <summary>내 밭 수 — MyFarmPlotCount 슬롯의 원천. 전역 FarmPlotCount(11)는 별개로 유지된다
+        /// (위협 사다리 규모 산정의 분모, ⚠️①).</summary>
+        public int CountPlotsOf(string ownerId) => CountOf(ownerId, null);
+
+        /// <summary>내 빈 밭 수 — MyEmptyPlot 슬롯의 원천.</summary>
+        public int CountEmptyOf(string ownerId) => CountOf(ownerId, FarmState.Empty);
+
+        /// <summary>내 익은 밭 수 — MyRipeCrop 슬롯의 원천.</summary>
+        public int CountRipeOf(string ownerId) => CountOf(ownerId, FarmState.Ripe);
+
+        private int CountOf(string ownerId, FarmState? state)
+        {
+            if (string.IsNullOrEmpty(ownerId)) return 0;
+            int n = 0;
+            foreach (FarmPlot p in _plots)
+                if (p.OwnerId == ownerId && (state == null || p.State == state.Value)) n++;
+            return n;
+        }
+
         /// <summary>최근접 빈 밭. 타인 점유 밭은 제외 — 같은 밭에 두 주민이 몰리는 헛걸음 완화.</summary>
-        public FarmPlot NearestEmpty(int fromX, int fromY) => Nearest(FarmState.Empty, fromX, fromY);
+        public FarmPlot NearestEmpty(int fromX, int fromY) => Nearest(FarmState.Empty, fromX, fromY, null);
 
         /// <summary>최근접 익은 밭. 타인 점유 밭은 제외.</summary>
-        public FarmPlot NearestRipe(int fromX, int fromY) => Nearest(FarmState.Ripe, fromX, fromY);
+        public FarmPlot NearestRipe(int fromX, int fromY) => Nearest(FarmState.Ripe, fromX, fromY, null);
 
-        private FarmPlot Nearest(FarmState state, int fromX, int fromY)
+        /// <summary>내 소유 최근접 빈 밭 (M11-E) — 타인 밭은 아예 후보가 아니다 (남의 밭 노동 0).</summary>
+        public FarmPlot NearestEmptyOf(string ownerId, int fromX, int fromY)
+            => Nearest(FarmState.Empty, fromX, fromY, ownerId);
+
+        /// <summary>내 소유 최근접 익은 밭 (M11-E).</summary>
+        public FarmPlot NearestRipeOf(string ownerId, int fromX, int fromY)
+            => Nearest(FarmState.Ripe, fromX, fromY, ownerId);
+
+        /// <summary>ownerId가 null이면 소유 무관 (전역 조회 — 휴면 경로), 아니면 그 사람 밭만.</summary>
+        private FarmPlot Nearest(FarmState state, int fromX, int fromY, string ownerId)
         {
             FarmPlot best = null;
             int bestD = int.MaxValue;
             foreach (FarmPlot p in _plots)
             {
                 if (p.State != state || p.OccupantId != null) continue;
+                if (ownerId != null && p.OwnerId != ownerId) continue;
                 int dx = p.Tile.x - fromX, dy = p.Tile.y - fromY;
                 int d = dx * dx + dy * dy;
                 if (d < bestD) { bestD = d; best = p; }

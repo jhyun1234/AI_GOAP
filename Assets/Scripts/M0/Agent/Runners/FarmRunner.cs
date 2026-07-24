@@ -20,15 +20,17 @@ namespace AIVillage.M0
 
         public override bool Prepare(VillagerAgent agent)
         {
+            // 내 밭만 후보 (M11-E) — 개간·파종·수확은 전부 집주인 본인의 일이다. 남의 밭은
+            // 아예 조회되지 않으므로 "타인 밭 노동"이 구조적으로 불가능하다.
             _plot = _so.Kind == FarmActionKind.Plant
-                ? agent.Farm.NearestEmpty(agent.TileX, agent.TileY)
-                : agent.Farm.NearestRipe(agent.TileX, agent.TileY);
+                ? agent.Farm.NearestEmptyOf(agent.AgentId, agent.TileX, agent.TileY)
+                : agent.Farm.NearestRipeOf(agent.AgentId, agent.TileX, agent.TileY);
 
             if (_plot == null)
             {
                 FailReason = _so.Kind == FarmActionKind.Plant
-                    ? "빈 밭 없음 (전부 점유/재배 중)"
-                    : "익은 밭 없음 (전부 점유/미성숙)";
+                    ? "내 빈 밭 없음 (전부 점유/재배 중)"
+                    : "내 익은 밭 없음 (전부 점유/미성숙)";
                 return false;
             }
             if (!_plot.TryClaim(agent.AgentId))

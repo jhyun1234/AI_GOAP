@@ -164,7 +164,7 @@ namespace AIVillage.Tests.EditMode
         public void M9_T2_BlightCrop_GrowingRipeToEmpty_ReleasesOccupant()
         {
             var farm = new FarmService(growthDays: 1.5f);
-            farm.RegisterPlot(3, 3);
+            farm.RegisterPlot(3, 3, "A");
             FarmPlot p = farm.NearestEmpty(0, 0);
 
             Assert.IsFalse(farm.BlightCrop(p), "Empty는 소실 대상 아님 (작물 없음)");
@@ -187,7 +187,7 @@ namespace AIVillage.Tests.EditMode
         public void M9_T2_RemovedPlot_Invalidated_NoGhostPlantOrHarvest()
         {
             var farm = new FarmService(growthDays: 1.5f);
-            farm.RegisterPlot(4, 4);
+            farm.RegisterPlot(4, 4, "A");
             FarmPlot p = farm.NearestEmpty(0, 0);
             farm.TryPlant(p);
             farm.TickGrowth(2f);
@@ -212,9 +212,9 @@ namespace AIVillage.Tests.EditMode
             var farm = new FarmService(growthDays: 1.5f);
             var world = new WorldModel(new DiscoveryService(), Config(10), farm);
             var c = new ConstructionService(world);
-            c.OnCompleted += (b, x, y) =>
+            c.OnCompleted += (b, x, y, _) =>
             {
-                if (b.IsCountable && b.CountSlot == SlotId.FarmPlotCount) farm.RegisterPlot(x, y);
+                if (b.IsCountable && b.CountSlot == SlotId.FarmPlotCount) farm.RegisterPlot(x, y, "A");
             };
             c.OnRemoved += (slot, x, y) =>
             {

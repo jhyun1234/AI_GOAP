@@ -85,7 +85,7 @@ namespace AIVillage.Tests.EditMode
             var farmer   = AssetDatabase.LoadAssetAtPath<PersonalitySO>("Assets/M0Config/Personalities/Personality_Farmer.asset");
             var wanderer = AssetDatabase.LoadAssetAtPath<PersonalitySO>("Assets/M0Config/Personalities/Personality_Wanderer.asset");
             WorldSnapshot snap = Snap((SlotId.MySatiety, 80), (SlotId.RawFoodStock, 10),
-                                      (SlotId.RipeCropAvailable, 1), (SlotId.NearDiscoveredFood, 1));
+                                      (SlotId.MyRipeCrop, 1), (SlotId.NearDiscoveredFood, 1));
 
             (PlanStatus fs, ActionSO[] fp) = RunPlan(snap, goal, PersonalityCost.Build(catalog, farmer, null));
             Assert.AreEqual(PlanStatus.Success, fs);

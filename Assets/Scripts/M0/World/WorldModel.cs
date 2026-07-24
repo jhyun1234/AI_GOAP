@@ -156,7 +156,8 @@ namespace AIVillage.M0
                                            bool threatNear = false,
                                            int myRaw = 0, int myCooked = 0,
                                            int homeRaw = 0, int homeCooked = 0,
-                                           bool wasAttacked = false)
+                                           bool wasAttacked = false,
+                                           int myPlots = 0, int myEmptyPlots = 0, int myRipeCrops = 0)
         {
             var slots = new int[PlanningConfig.TotalSlots];
 
@@ -193,6 +194,11 @@ namespace AIVillage.M0
             // 피격 경험 (M11-G) — 원천 = VillagerAgent.Injure. 기본 false = 0 (중립: 집 동기
             // goal·긴급 부탁이 영구 불발 = M11-F 동작).
             slots[(int)SlotId.MyWasAttacked] = wasAttacked ? 1 : 0;
+            // 개인 밭 (M11-E) — 원천 = FarmService 소유 필터. 전역 EmptyFarmPlot(12)·RipeCropAvailable(13)은
+            // 위에서 계속 채워지지만 참조 goal이 0이라 휴면이다 (⚠️① 전역 FarmPlotCount는 위협 규모 분모).
+            slots[(int)SlotId.MyFarmPlotCount] = myPlots;
+            slots[(int)SlotId.MyEmptyPlot]     = myEmptyPlots;
+            slots[(int)SlotId.MyRipeCrop]      = myRipeCrops;
             // 부상 주민 수 (M10-A) — 파생 슬롯, 원천은 SimulationLoop 집계뿐. 미배선이면 0 (중립 —
             // Goal_TendInjured 트리거 "≥1" 영구 불발 = M9 동작).
             slots[(int)SlotId.InjuredCount] = _injuredCount != null ? _injuredCount() : 0;

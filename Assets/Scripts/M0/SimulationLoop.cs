@@ -467,7 +467,7 @@ namespace AIVillage.M0
             }
 
             _visualizer = new BuildingVisualizer(transform);
-            Construction.OnCompleted += (b, x, y) => _visualizer.Spawn(b, x, y);
+            Construction.OnCompleted += (b, x, y, _) => _visualizer.Spawn(b, x, y);
             Construction.OnRemoved += (slot, x, y) => _visualizer.Remove(slot, x, y); // M9-B 시각 파괴
             // 밭 시설 소실 → FarmService.RemovePlot (RemovePlot의 유일한 호출 경로, ADR-M9-3 대칭)
             Construction.OnRemoved += (slot, x, y) =>
@@ -480,7 +480,7 @@ namespace AIVillage.M0
                 if (slot == SlotId.HouseCount) HomeStorage.ReleaseTile(new Vector2Int(x, y));
             };
             // 구역 확정 = 첫 완공 (M9-A, ADR-M9-2) — NotifyBuilt가 첫 완공만 앵커로 잡는다
-            Construction.OnCompleted += (b, x, y) => Zones.NotifyBuilt(b, x, y);
+            Construction.OnCompleted += (b, x, y, _) => Zones.NotifyBuilt(b, x, y);
             // 구역 테두리 (표현 전용) — 확정 순간 앵커 둘레에 외곽선
             _zoneBorderView = new ZoneBorderView(transform);
             Zones.OnZoneEstablished += (slot, anchor, radius) => _zoneBorderView.Draw(slot, anchor, radius);
@@ -489,14 +489,14 @@ namespace AIVillage.M0
             // ZoneService는 휴면 보존 (테두리 뷰·재해 대사 앵커가 여전히 읽는다, ⚠️②).
             Ownership.OnAssigned += (tile, slot, ownerId) => ShowHousewarming(tile, slot, ownerId);
             // 밭 완공 → FarmService 등록 (RegisterPlot의 유일한 호출 경로, ADR-M2-4)
-            Construction.OnCompleted += (b, x, y) =>
+            Construction.OnCompleted += (b, x, y, builderId) =>
             {
                 if (b.IsCountable && b.CountSlot == SlotId.FarmPlotCount)
-                    Farm.RegisterPlot(x, y);
+                    Farm.RegisterPlot(x, y, builderId); // 소유자 = 지은 사람 (M11-E)
             };
             _farmView = new FarmPlotView(transform, _cropSprites, Farm); // M2-D 성장 표현 (이벤트 구독)
             // 통행 차단 건물 → Walkable 갱신의 유일한 지점 (ADR-M3-3) — JPS는 이 배열만 보고 우회한다
-            Construction.OnCompleted += (b, x, y) =>
+            Construction.OnCompleted += (b, x, y, _) =>
             {
                 if (b.BlocksMovement && MapBounds.ToArrayIndex(x, y, out int ax, out int ay))
                     Walkable[ax, ay] = false;

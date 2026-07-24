@@ -15,14 +15,14 @@ MonoBehaviour:
   DisplayName: "씨앗 심기"
   Priority: 22
   TriggerConditions:
-  - Slot: 12
+  - Slot: 28
     Op: 1
     Value: 1
   - Slot: 19
     Op: 2
     Value: 3
   GoalConditions:
-  - Slot: 12
+  - Slot: 28
     Op: 0
     Value: 0
   DirectActionPool: []

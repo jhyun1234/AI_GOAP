@@ -49,6 +49,11 @@ namespace AIVillage.M0
                  "기존 건물과 이 간격 이상 떨어진 자리를 고른다. 집 3 = 밀집·PathBlocked 완화.")]
         public int MinSpacingTiles;
 
+        [Tooltip("true면 짓는 사람의 **내 집 곁**에 배치한다 (M11-E, 반경 = WorldConfig.FarmNearHomeRadius). " +
+                 "밭이 이것 — 개인 소유물은 제 집 곁에 모인다. 집이 없으면 배치 실패 (goal 트리거가 " +
+                 "MyHasHome==1로 이미 막지만 방어선). ZoneRadius·MinSpacingTiles와 배타.")]
+        public bool PlaceNearOwnedHome;
+
         [Tooltip("완공 시 스폰할 프리팹. 비우면 MarkerSprite → 원형 마커 순으로 폴백.")]
         public GameObject Prefab;
 
@@ -75,10 +80,11 @@ namespace AIVillage.M0
             // 간격도 수량형 전용 — 기존 완공 목록(CountSlot)이 없으면 비교 대상이 없다 (M11-F)
             if (!IsCountable && MinSpacingTiles > 0)
                 Debug.LogWarning($"[BuildingSO] {name}: MinSpacingTiles({MinSpacingTiles})는 수량형(IsCountable) 건물에만 적용됩니다 — 무시됨.", this);
-            // 택지(간격)와 구역(반경)은 배타 — 둘 다 켜면 배치 결정자가 둘이 된다 (M11-F ⚠️)
-            if (MinSpacingTiles > 0 && ZoneRadius > 0)
-                Debug.LogError($"[BuildingSO] {name}: MinSpacingTiles와 ZoneRadius는 동시 사용 불가 " +
-                               "— 택지(HomePicker)와 구역(ZoneService) 중 하나만 배치를 결정합니다.", this);
+            // 배치 결정자는 하나뿐이어야 한다 (M11-E/F ⚠️) — 택지·구역·집 곁이 겹치면 규칙이 이원화된다
+            int placers = (MinSpacingTiles > 0 ? 1 : 0) + (ZoneRadius > 0 ? 1 : 0) + (PlaceNearOwnedHome ? 1 : 0);
+            if (placers > 1)
+                Debug.LogError($"[BuildingSO] {name}: 배치 결정자는 하나만 — MinSpacingTiles(택지)·" +
+                               "ZoneRadius(구역)·PlaceNearOwnedHome(집 곁) 중 하나만 설정하세요.", this);
         }
     }
 }

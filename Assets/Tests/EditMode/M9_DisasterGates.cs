@@ -87,9 +87,9 @@ namespace AIVillage.Tests.EditMode
             d.OffsetDays = 1.5f;
 
             var farm = new FarmService(growthDays: 1.5f);
-            farm.RegisterPlot(1, 1);
-            farm.RegisterPlot(2, 2);
-            farm.RegisterPlot(3, 3);
+            farm.RegisterPlot(1, 1, "A");
+            farm.RegisterPlot(2, 2, "A");
+            farm.RegisterPlot(3, 3, "A");
             foreach (FarmPlot p in farm.Plots) farm.TryPlant(p); // 전부 Growing (작물 대상)
 
             var world = new WorldModel(new DiscoveryService(), Config(), farm);
@@ -121,7 +121,7 @@ namespace AIVillage.Tests.EditMode
             winter.DurationDays = 4f;
 
             var farm = new FarmService(1.5f);
-            farm.RegisterPlot(1, 1);
+            farm.RegisterPlot(1, 1, "A");
             var world = new WorldModel(new DiscoveryService(), Config(), farm);
             var construction = new ConstructionService(world);
 

@@ -29,6 +29,10 @@ namespace AIVillage.M0
                  "(밖 = 마을이 아님). 만원이면 건설 실패 = 보이는 소프트 상한(구역 만원 계승).")]
         public int VillageRadius = 10;
 
+        [Tooltip("개인 밭이 설 수 있는 내 집 주변 반경 (M11-E, 체비쇼프). 제안치 2 — 집 곁에 " +
+                 "제 밭이 모인다. 이 반경이 꽉 차면 더는 못 넓힌다 (개인 밭의 소프트 상한).")]
+        public int FarmNearHomeRadius = 2;
+
         [Header("농사 (M2)")]
         [Tooltip("작물 성장 기간 (게임일). 제안치 1.5 (M2 §4) — 방치 시 사이클이 눈에 2~3회 보이는 속도.")]
         public float FarmGrowthDays = 1.5f;

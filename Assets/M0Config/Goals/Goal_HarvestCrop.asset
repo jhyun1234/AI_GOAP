@@ -15,7 +15,7 @@ MonoBehaviour:
   DisplayName: "작물 수확"
   Priority: 24
   TriggerConditions:
-  - Slot: 13
+  - Slot: 29
     Op: 1
     Value: 1
   - Slot: 22

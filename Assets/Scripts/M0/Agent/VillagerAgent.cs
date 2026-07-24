@@ -418,7 +418,10 @@ namespace AIVillage.M0
                 _sim.Threats != null && _sim.Threats.IsNearThreat(TileX, TileY,
                     Personality != null ? Personality.FleeRadiusMult : 1f),    // ThreatNear (M10-D)
                 MyRaw, MyCooked, homeRaw, homeCooked,                          // 개인 인벤토리 (M11-A)
-                MyWasAttacked);                                                // 피격 경험 (M11-G)
+                MyWasAttacked,                                                 // 피격 경험 (M11-G)
+                Farm != null ? Farm.CountPlotsOf(AgentId) : 0,                 // 개인 밭 (M11-E)
+                Farm != null ? Farm.CountEmptyOf(AgentId) : 0,
+                Farm != null ? Farm.CountRipeOf(AgentId) : 0);
         }
 
         /// <summary>

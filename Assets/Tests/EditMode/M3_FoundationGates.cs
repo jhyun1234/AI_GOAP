@@ -76,7 +76,7 @@ namespace AIVillage.Tests.EditMode
 
             var slots = new int[PlanningConfig.TotalSlots];
             slots[(int)SlotId.MySatiety] = 80;
-            slots[(int)SlotId.RipeCropAvailable] = 3;
+            slots[(int)SlotId.MyRipeCrop] = 3; // M11-E: 익은 밭도 내 것만 센다 (전역 13은 휴면)
             PlannerGateway.PendingPlan pending = gw.RequestPlan(new WorldSnapshot(slots), goal);
             gw.CompleteNow(pending);
             Assert.IsTrue(gw.TryGetResult(pending, out PlanStatus status, out ActionSO[] plan, out _));
@@ -91,9 +91,9 @@ namespace AIVillage.Tests.EditMode
         {
             var farm = new FarmService(growthDays: 1.5f);
             var world = new WorldModel(new DiscoveryService(), Config(0, 0), farm);
-            farm.RegisterPlot(1, 1);
-            farm.RegisterPlot(2, 2);
-            farm.RegisterPlot(3, 3);
+            farm.RegisterPlot(1, 1, "A");
+            farm.RegisterPlot(2, 2, "A");
+            farm.RegisterPlot(3, 3, "A");
             Assert.AreEqual(3, world.BuildSnapshot(50, 50).Get(SlotId.EmptyFarmPlot), "빈 밭 개수 반영");
 
             farm.TryPlant(farm.NearestEmpty(0, 0));
@@ -165,18 +165,30 @@ namespace AIVillage.Tests.EditMode
         [Test]
         public void M3_T5b_MaxWorkers_AssetPolicy()
         {
-            // ADR-M3-4: P0 생존·명령은 무제한(0), 건설·비축 goal은 1
+            // ADR-M3-4 (M11-E 정밀화): 정원 제한의 목적은 **초과 달성 방지**다 —
+            // 목표가 전역값인 goal에만 의미가 있다. 목표가 개인값이면 각자 제 몫만 채우고 끝나므로
+            // 초과 달성이 구조적으로 불가능하고, 정원을 걸면 "한 번에 한 사람만"이라는 잘못된
+            // 직렬화가 된다 (남은 주민은 제 밭을 아예 못 만든다).
             foreach (string free in new[] { "Goal_P0_Hunger", "Goal_P0_Fatigue", "Order_ChopWood", "Order_MineStone", "Order_HarvestBerries" })
             {
                 var g = AssetDatabase.LoadAssetAtPath<GoalSO>($"Assets/M0Config/Goals/{free}.asset");
                 Assert.IsNotNull(g, $"{free} 에셋 없음");
                 Assert.AreEqual(0, g.MaxWorkers, $"{free}: 생존·명령은 인원 제한 금지");
             }
-            foreach (string limited in new[] { "Goal_BuildFarm", "Goal_ExpandFarm", "Goal_CookAhead", "Goal_BuildHouse" })
+            // 개인 목표 goal — 정원 금지 (M11-E 개인 밭 전환으로 이 칸으로 이동)
+            foreach (string personal in new[] { "Goal_BuildFarm", "Goal_ExpandFarm" })
+            {
+                var g = AssetDatabase.LoadAssetAtPath<GoalSO>($"Assets/M0Config/Goals/{personal}.asset");
+                Assert.IsNotNull(g, $"{personal} 에셋 없음");
+                Assert.AreEqual(0, g.MaxWorkers,
+                                $"{personal}: 목표가 개인값(MyFarmPlotCount) — 정원은 잘못된 직렬화");
+            }
+            // 전역 목표 goal — 초과 달성 방지 정원 1 유지
+            foreach (string limited in new[] { "Goal_CookAhead", "Goal_BuildHouse" })
             {
                 var g = AssetDatabase.LoadAssetAtPath<GoalSO>($"Assets/M0Config/Goals/{limited}.asset");
                 Assert.IsNotNull(g, $"{limited} 에셋 없음");
-                Assert.AreEqual(1, g.MaxWorkers, $"{limited}: 초과 달성 방지 정원 1");
+                Assert.AreEqual(1, g.MaxWorkers, $"{limited}: 전역 목표 — 초과 달성 방지 정원 1");
             }
         }
 
@@ -233,20 +245,25 @@ namespace AIVillage.Tests.EditMode
             Assert.IsNotNull(goal, "Goal_ExpandFarm 에셋 없음");
             var selector = new GoalSelector(new[] { goal });
 
+            // M11-E 개정: 전역 재고 절대값 → 개인 식량 일수 (M9 잔여관찰 "ExpandFarm 절대값 트리거" 해소)
             var slots = new int[PlanningConfig.TotalSlots];
             slots[(int)SlotId.MySatiety] = 80;
-            slots[(int)SlotId.CampfireBuilt] = 1;
-            slots[(int)SlotId.FarmPlotCount] = 2;
-            slots[(int)SlotId.RawFoodStock] = 8;
+            slots[(int)SlotId.MyHasHome] = 1;
+            slots[(int)SlotId.MyFarmPlotCount] = 1;
+            slots[(int)SlotId.MyFoodDaysLeft] = 3;
             Assert.AreEqual("Goal_ExpandFarm", selector.Select(new WorldSnapshot(slots)).name,
-                            "식량 압박(생식 8 ≤ 10) → 밭 확장 발동");
+                            "식량 압박(3일치 ≤ 5) + 내 밭 1개 → 확장 발동");
 
-            slots[(int)SlotId.RawFoodStock] = 30;
+            slots[(int)SlotId.MyFoodDaysLeft] = 9;
             Assert.IsNull(selector.Select(new WorldSnapshot(slots)), "식량 여유 → 미발동");
 
-            slots[(int)SlotId.RawFoodStock] = 8;
-            slots[(int)SlotId.FarmPlotCount] = 4;
-            Assert.IsNull(selector.Select(new WorldSnapshot(slots)), "목표 4개 도달 → 재발동 없음");
+            slots[(int)SlotId.MyFoodDaysLeft] = 3;
+            slots[(int)SlotId.MyFarmPlotCount] = 2;
+            Assert.IsNull(selector.Select(new WorldSnapshot(slots)), "내 밭 2개 도달 → 재발동 없음");
+
+            slots[(int)SlotId.MyFarmPlotCount] = 1;
+            slots[(int)SlotId.MyHasHome] = 0;
+            Assert.IsNull(selector.Select(new WorldSnapshot(slots)), "집 없으면 확장도 없음 (M11-E)");
         }
     }
 }

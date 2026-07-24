@@ -19,7 +19,8 @@ MonoBehaviour:
   BuiltFlagSlot: 0
   IsCountable: 1
   CountSlot: 11
-  ZoneRadius: 3
+  ZoneRadius: 0
+  PlaceNearOwnedHome: 1
   Prefab: {fileID: 0}
   FallbackColor: {r: 0.55, g: 0.38, b: 0.18, a: 1}
   FallbackSize: 1

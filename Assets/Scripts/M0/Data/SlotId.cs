@@ -61,11 +61,15 @@ namespace AIVillage.M0
         MyEmptyPlot       = 28, // 수치형 — 내 빈 밭 수
         MyRipeCrop        = 29, // 수치형 — 내 익은 밭 수
         UntendedInjuredCount = 30, // 수치형 — 미안정 부상자 수 (안정화 goal 트리거 — crowding 해소 축, M11-I 배선). 예산 52칸 중 31.
+
+        // ── M11-K 확장 (탈중심 마을 — 개인 모닥불) ──
+        CampfireCount     = 31, // 수치형 — 개인 모닥불 카운트 (소유 키. 舊 CampfireBuilt 단일 플래그 대체)
+        MyHasCampfire     = 32, // 논리형 — 내 모닥불 소유 (원천 = OwnershipService, MyHasHome 패턴). 조리 전제
     }
 
     public static class SlotIds
     {
-        public const int Count = 31;
+        public const int Count = 33;
 
         /// <summary>전역 스톡 슬롯 여부 — EffectApplier/러너가 공유하는 유일한 판정.
         /// ⚠️ 개인 스톡(MyRawFood 등)을 여기 넣으면 안 된다 (명세 M11-A ⚠️①) —
@@ -96,7 +100,8 @@ namespace AIVillage.M0
             || slot == SlotId.MyRawFood || slot == SlotId.MyCookedFood
             || slot == SlotId.MyHomeRawFood || slot == SlotId.MyHomeCookedFood
             || slot == SlotId.MyFarmPlotCount || slot == SlotId.MyEmptyPlot
-            || slot == SlotId.MyRipeCrop || slot == SlotId.UntendedInjuredCount;
+            || slot == SlotId.MyRipeCrop || slot == SlotId.UntendedInjuredCount
+            || slot == SlotId.CampfireCount; // MyHasCampfire(32)는 논리형이라 제외
 
         /// <summary>자원 타입 → 스톡 슬롯. M0 미지원 타입이면 null (Iron/Copper/Silver는 M1).</summary>
         public static SlotId? StockOf(ResourceType type)

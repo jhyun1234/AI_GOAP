@@ -25,9 +25,23 @@ namespace AIVillage.M0
         [Tooltip("게임 시작 시 기지 주변 자동 발견 반경 (舊 _baseDiscoverRadius 12)")]
         public int BaseDiscoverRadius = 12;
 
-        [Tooltip("마을 반경 (M11-F 택지) — 기지 기준 체비쇼프. 집은 이 안에만 선다 " +
-                 "(밖 = 마을이 아님). 만원이면 건설 실패 = 보이는 소프트 상한(구역 만원 계승).")]
-        public int VillageRadius = 10;
+        [Tooltip("마을 반경 = 맵 절반 크기의 이 비율 (M11-K, 0~1). 기지 기준 체비쇼프. 집은 이 안에만 " +
+                 "선다. 절대값이 아니라 비율이라 맵이 커지면 마을도 자동으로 넓게 퍼진다(사용자 지시). " +
+                 "0.8 = 맵 100이면 반경 ~39(가장자리 여백 남김). 실효 반경 = EffectiveVillageRadius().")]
+        [Range(0.1f, 1f)]
+        public float VillageRadiusFraction = 0.8f;
+
+        /// <summary>실효 마을 반경(체비쇼프 타일, M11-K) — 맵 절반 크기 × 비율. 맵 커지면 따라 커진다.
+        /// 순수 산식은 게이트 대상(HomePlacementMath). 여기선 MapBounds에서 맵 크기를 읽어 곱한다.</summary>
+        public int EffectiveVillageRadius()
+        {
+            MapBounds.Get(out int minX, out int maxX, out int minY, out int maxY);
+            int half = Mathf.Min(maxX - minX, maxY - minY) / 2; // 맵 절반 크기
+            return WorldConfigMath.VillageRadius(half, VillageRadiusFraction);
+        }
+
+        /// <summary>성격 선호 거리(비율) → 실효 절대 거리 (M11-K) — 맵 커지면 함께 스케일.</summary>
+        public int PreferredHomeDist(float fraction) => WorldConfigMath.PreferredDist(EffectiveVillageRadius(), fraction);
 
         [Tooltip("개인 밭이 설 수 있는 내 집 주변 반경 (M11-E, 체비쇼프). 제안치 2 — 집 곁에 " +
                  "제 밭이 모인다. 이 반경이 꽉 차면 더는 못 넓힌다 (개인 밭의 소프트 상한).")]
@@ -109,5 +123,18 @@ namespace AIVillage.M0
 
         [Tooltip("[DEPRECATED — 조각 Y로 대체, 미사용] 보고 심부름 마감 초.")]
         public float ReportTimeoutSec = 60f;
+    }
+
+    /// <summary>맵-비례 배치 산식 (M11-K, 순수 — 게이트 대상). 맵이 커지면 마을·선호 거리가
+    /// 비율로 따라 커진다(사용자 지시 — 맵 확장 대비). WorldConfigSO가 맵 크기를 먹여 호출.</summary>
+    public static class WorldConfigMath
+    {
+        /// <summary>마을 반경 = 맵 절반 크기 × 비율 (최소 1 — 반경 0 방어).</summary>
+        public static int VillageRadius(int mapHalfExtent, float fraction)
+            => Mathf.Max(1, Mathf.RoundToInt(mapHalfExtent * Mathf.Clamp01(fraction)));
+
+        /// <summary>선호 거리 = 마을 반경 × 성격 비율 (0 이하 = 중립·최근접, HomePicker가 처리).</summary>
+        public static int PreferredDist(int villageRadius, float fraction)
+            => fraction <= 0f ? 0 : Mathf.RoundToInt(villageRadius * Mathf.Clamp01(fraction));
     }
 }

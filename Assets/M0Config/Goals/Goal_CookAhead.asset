@@ -15,7 +15,7 @@ MonoBehaviour:
   DisplayName: "요리 비축"
   Priority: 18
   TriggerConditions:
-  - Slot: 6
+  - Slot: 32
     Op: 0
     Value: 1
   - Slot: 19

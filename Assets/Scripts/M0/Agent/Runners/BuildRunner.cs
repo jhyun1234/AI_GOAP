@@ -112,15 +112,19 @@ namespace AIVillage.M0
                 && requester != null)
                 owner = requester;
 
-            float preferred = HomePicker.PreferredDist(owner.Personality, owner.Job);
+            // 맵-비례 (M11-K): 반경·선호 거리 모두 맵 크기에 비례. 성격 값은 비율(0~1)이라
+            // 실효 반경을 곱해 절대 거리로 바꾼다. 맵이 커지면 마을이 자동으로 넓게 퍼진다.
+            int radius = agent.WorldConfig.EffectiveVillageRadius();
+            float preferredFrac = HomePicker.PreferredDist(owner.Personality, owner.Job);
+            int preferred = agent.WorldConfig.PreferredHomeDist(preferredFrac);
             int seed = HomePicker.StableSeed(owner.AgentId); // 집주인 신원 → 대역 내 결정적 자리
             var anchor = new Vector2Int(agent.WorldConfig.BaseTileX, agent.WorldConfig.BaseTileY);
 
             if (!HomePicker.PickHomesite(occupied, agent.Construction.BuiltTilesOf(_so.Building.CountSlot),
-                    anchor, agent.WorldConfig.VillageRadius, _so.Building.MinSpacingTiles, preferred, seed,
+                    anchor, radius, _so.Building.MinSpacingTiles, preferred, seed,
                     minX, maxX, minY, maxY, out _buildTile))
             {
-                FailReason = $"{_so.Building.DisplayName}: 마을(반경 {agent.WorldConfig.VillageRadius}) 만원 — " +
+                FailReason = $"{_so.Building.DisplayName}: 마을(반경 {radius}) 만원 — " +
                              $"간격 {_so.Building.MinSpacingTiles} 이상 빈 택지 없음";
                 return false;
             }
@@ -230,13 +234,14 @@ namespace AIVillage.M0
             if (!agent.Construction.Complete(_so.Building, _buildTile.x, _buildTile.y, agent.AgentId))
                 return Fail($"{_so.Building.DisplayName} 완공 실패 (비용 부족 또는 중복)");
 
-            // 목수 자가 건축 (M11-I) — 부탁이 아닌 집 완공은 지은 본인이 소유한다. 부탁 완수 집은
-            // RequestService.NotifyFulfilled가 의뢰인에게 배정하므로 여기서 건드리지 않는다
-            // (구분 = 진행 중 부탁의 수행자인가). 배정 쓰기는 여전히 Assign 하나 (ADR-M8-3 불변).
-            if (_so.Building.IsCountable && _so.Building.CountSlot == SlotId.HouseCount
+            // 자가 소유 건축 (M11-I 집 → M11-K 일반화) — OwnedBuilding 완공은 지은 본인이 소유한다
+            // (집·모닥불). 부탁 완수 집은 RequestService.NotifyFulfilled가 의뢰인에게 배정하므로
+            // 부탁 수행 중이면 건너뛴다(모닥불은 부탁 대상이 아니라 항상 자가). 배정 쓰기는 여전히
+            // Assign 하나 (ADR-M8-3 불변). CountSlot을 소유 키로 넘긴다(집=HouseCount, 모닥불=CampfireCount).
+            if (_so.Building.OwnedBuilding && _so.Building.IsCountable
                 && agent.Requests != null && !agent.Requests.TryGetRequester(agent.AgentId, out _)
                 && agent.Ownership != null)
-                agent.Ownership.Assign(_buildTile, SlotId.HouseCount, agent.AgentId, "자가 건축");
+                agent.Ownership.Assign(_buildTile, _so.Building.CountSlot, agent.AgentId, "자가 건축");
 
             return RunnerResult.Succeeded;
         }

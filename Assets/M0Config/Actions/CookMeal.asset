@@ -22,7 +22,7 @@ MonoBehaviour:
   BaseCost: 6
   DurationSec: 3
   Preconditions:
-  - Slot: 6
+  - Slot: 32
     Op: 0
     Value: 1
   - Slot: 22
@@ -40,5 +40,5 @@ MonoBehaviour:
     Value: 1
   EatAtAnchor: 1
   AnchorPriority:
-  - 6
+  - 31
   AnchorRadius: 1

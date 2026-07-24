@@ -12,17 +12,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 33fdfa0cd09f4e98b5f035ae8ed6614b, type: 3}
   m_Name: Goal_BuildCampfire
   m_EditorClassIdentifier:
-  DisplayName: "모닥불 건설"
+  DisplayName: "내 모닥불 짓기"
   Priority: 50
   TriggerConditions:
-  - Slot: 6
+  - Slot: 17
+    Op: 0
+    Value: 1
+  - Slot: 32
     Op: 0
     Value: 0
   - Slot: 0
     Op: 1
     Value: 5
   GoalConditions:
-  - Slot: 6
+  - Slot: 32
     Op: 0
     Value: 1
-  MaxWorkers: 1
+  MaxWorkers: 0

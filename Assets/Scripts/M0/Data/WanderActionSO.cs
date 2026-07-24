@@ -15,7 +15,7 @@ namespace AIVillage.M0
 
         [Tooltip("기준점 건물 우선순위 (ADR-M2-2) — 완공 플래그 슬롯 목록, 앞이 우선. " +
                  "후반 전용 건물 도입 시 맨 앞에 추가만 하면 이주 완료 — 코드 0줄.")]
-        public SlotId[] AnchorPriority = { SlotId.CampfireBuilt };
+        public SlotId[] AnchorPriority = { SlotId.CampfireCount };
 
         [Tooltip("기준점 반경 (타일). 제안치 — 산책 5, 모닥불 곁 2.")]
         public int WanderRadius = 5;

@@ -14,7 +14,7 @@ namespace AIVillage.M0
     {
         [Tooltip("피신처 건물 우선순위 (ADR-M2-2 앵커 패턴) — 내 소유 우선(ResolveAnchor). " +
                  "전부 미완공이면 방향 도피 (M11-G).")]
-        public SlotId[] AnchorPriority = { SlotId.HouseCount, SlotId.CampfireBuilt };
+        public SlotId[] AnchorPriority = { SlotId.HouseCount, SlotId.CampfireCount };
 
         [Tooltip("피신 위치 산개 반경(타일) — 같은 타일 몰림·예약 충돌 방지 (식사 앵커 패턴).")]
         public int AnchorRadius = 2;

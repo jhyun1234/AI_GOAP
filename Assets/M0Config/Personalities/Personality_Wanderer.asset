@@ -19,7 +19,7 @@ MonoBehaviour:
   FarmCostMult: 1.2
   BuildCostMult: 1
   ExploreCostMult: 0.8
-  HomePreferredDist: 9
+  HomePreferredDist: 0.95
   MoodLines:
   - "발길 닿는 대로"
   - "저 너머엔 뭐가 있을까"

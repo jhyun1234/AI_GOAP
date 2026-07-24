@@ -49,6 +49,11 @@ namespace AIVillage.M0
                  "기존 건물과 이 간격 이상 떨어진 자리를 고른다. 집 3 = 밀집·PathBlocked 완화.")]
         public int MinSpacingTiles;
 
+        [Tooltip("완공 시 지은 본인에게 소유를 배정한다 (M11-K, OwnershipService). 집·모닥불이 true. " +
+                 "부탁 완수 집은 의뢰인 소유(NotifyFulfilled)라 자가 배정을 건너뛴다(부탁 수행 중이면 스킵). " +
+                 "밭은 false — 밭 소유는 FarmService가 별도로 등록한다(축 분리).")]
+        public bool OwnedBuilding;
+
         [Tooltip("true면 짓는 사람의 **내 집 곁**에 배치한다 (M11-E, 반경 = WorldConfig.FarmNearHomeRadius). " +
                  "밭이 이것 — 개인 소유물은 제 집 곁에 모인다. 집이 없으면 배치 실패 (goal 트리거가 " +
                  "MyHasHome==1로 이미 막지만 방어선). ZoneRadius·MinSpacingTiles와 배타.")]

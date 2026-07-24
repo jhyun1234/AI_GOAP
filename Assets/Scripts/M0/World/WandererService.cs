@@ -94,11 +94,10 @@ namespace AIVillage.M0
             uint seed = StableHash.Fnv1a(_arriveSerial.ToString(), "wanderer");
             Vector2Int entry = ThreatService.EntryPoint(seed, minX, maxX, minY, maxY);
 
-            // 목적지 = 모닥불 곁 (마을 어귀) — 미완공이면 기지. 통행 가능 타일만 (건물 위 금지)
-            Vector2Int dest;
-            if (!_sim.Construction.TryGetAnchorTileForSlot(SlotId.CampfireBuilt, entry.x, entry.y, out Vector2Int fire))
-                fire = new Vector2Int(_config.BaseTileX, _config.BaseTileY);
-            dest = MapBounds.PickWalkableNear(IsWalkable, fire.x, fire.y, 3);
+            // 목적지 = 마을 중심(기지) 곁 (M11-K — 공용 모닥불이 사라져 방랑자 초점은 기지다).
+            // 통행 가능 타일만 (건물 위 금지)
+            var fire = new Vector2Int(_config.BaseTileX, _config.BaseTileY);
+            Vector2Int dest = MapBounds.PickWalkableNear(IsWalkable, fire.x, fire.y, 3);
 
             PathResult path = _sim.Pathfinder.FindPath(entry.x, entry.y, dest.x, dest.y);
             if (path.Kind == PathResultKind.Unreachable)

@@ -16,7 +16,11 @@ MonoBehaviour:
   Costs:
   - StockSlot: 0
     Amount: 5
-  BuiltFlagSlot: 6
+  BuiltFlagSlot: 0
+  IsCountable: 1
+  CountSlot: 31
+  OwnedBuilding: 1
+  PlaceNearOwnedHome: 1
   Prefab: {fileID: 0}
   FallbackColor: {r: 1, g: 0.55, b: 0.15, a: 1}
   FallbackSize: 1

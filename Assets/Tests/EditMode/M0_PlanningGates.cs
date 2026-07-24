@@ -104,12 +104,15 @@ namespace AIVillage.Tests.EditMode
             build.CollectPreconditions(precs);
             build.CollectEffects(effs);
 
-            // 파생 전제: 미완공(CampfireBuilt==0) + 재고(WoodStock>=5)
-            Assert.IsTrue(precs.Exists(c => c.Slot == SlotId.CampfireBuilt && c.Op == CompareOp.Equal && c.Value == 0));
+            // M11-K: 모닥불이 개인 수량형(IsCountable)이 됐다 → BuiltFlag 전제 없음, 재고 전제만.
+            // 파생 전제: 재고(WoodStock>=5). 수량형은 중복 완공이 정상이라 미완공 전제를 생략한다.
             Assert.IsTrue(precs.Exists(c => c.Slot == SlotId.WoodStock && c.Op == CompareOp.GreaterOrEqual && c.Value == 5));
-            // 파생 효과: 재고 차감 + 완공 플래그
+            Assert.IsFalse(precs.Exists(c => c.Slot == SlotId.CampfireBuilt), "수량형은 BuiltFlag 전제 없음");
+            // 파생 효과: 재고 차감(BuildingSO) + 카운트 +1(수량형) + 소유 픽션(에셋 Effects의 MyHasCampfire Set 1)
             Assert.IsTrue(effs.Exists(e => e.Slot == SlotId.WoodStock && e.Op == EffectOp.SubClamp0 && e.Value == 5));
-            Assert.IsTrue(effs.Exists(e => e.Slot == SlotId.CampfireBuilt && e.Op == EffectOp.Set && e.Value == 1));
+            Assert.IsTrue(effs.Exists(e => e.Slot == SlotId.CampfireCount && e.Op == EffectOp.Add && e.Value == 1));
+            Assert.IsTrue(effs.Exists(e => e.Slot == SlotId.MyHasCampfire && e.Op == EffectOp.Set && e.Value == 1),
+                          "BuildCampfire 액션 자체 Effects의 개인 모닥불 픽션 (BuildMyHouse 패턴)");
         }
 
         // ── M0-T2: 플래너 스모크 (실제 잡 실행) ──────────────────────────────
@@ -172,17 +175,19 @@ namespace AIVillage.Tests.EditMode
             };
             var selector = new GoalSelector(goals);
 
+            // M11-K: 모닥불 개인화 → 트리거가 MyHasHome==1 & MyHasCampfire==0. 옛 CampfireBuilt 자리.
             // 전부 만족/미발동 → null (정상 Idle). 舊 BuildStructure 루프 방지의 핵심.
             WorldSnapshot allDone = Snap((SlotId.MySatiety, 80), (SlotId.MyFatigue, 10),
-                                         (SlotId.CampfireBuilt, 1), (SlotId.WoodStock, 50));
+                                         (SlotId.MyHasCampfire, 1), (SlotId.WoodStock, 50));
             Assert.IsNull(selector.Select(allDone), "모든 goal 만족 시 null이어야 함");
 
-            // 목재 5 + 미완공 → BuildCampfire가 GatherWood보다 우선
-            WorldSnapshot canBuild = Snap((SlotId.MySatiety, 80), (SlotId.WoodStock, 5));
+            // 집 있음 + 목재 5 + 화덕 없음 → 내 모닥불 짓기가 GatherWood보다 우선 (P50)
+            WorldSnapshot canBuild = Snap((SlotId.MySatiety, 80), (SlotId.MyHasHome, 1), (SlotId.WoodStock, 5));
             Assert.AreEqual("Goal_BuildCampfire", selector.Select(canBuild).name);
 
-            // 완공 후에는 BuildCampfire 재선택 금지 → GatherWood로 넘어감
-            WorldSnapshot built = Snap((SlotId.MySatiety, 80), (SlotId.WoodStock, 5), (SlotId.CampfireBuilt, 1));
+            // 화덕 완공 후에는 재선택 금지 → GatherWood로 넘어감
+            WorldSnapshot built = Snap((SlotId.MySatiety, 80), (SlotId.MyHasHome, 1),
+                                       (SlotId.WoodStock, 5), (SlotId.MyHasCampfire, 1));
             Assert.AreEqual("Goal_GatherWood", selector.Select(built).name);
 
             // 배고픔은 모든 것에 우선

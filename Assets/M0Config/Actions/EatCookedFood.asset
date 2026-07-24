@@ -32,7 +32,7 @@ MonoBehaviour:
   - Slot: 2
     Op: 1
     Value: 35
-  EatAtAnchor: 1
+  EatAtAnchor: 0
   AnchorPriority:
-  - 6
+  - 31
   AnchorRadius: 1

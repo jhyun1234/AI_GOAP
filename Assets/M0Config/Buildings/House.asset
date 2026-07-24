@@ -21,6 +21,7 @@ MonoBehaviour:
   BuiltFlagSlot: 0
   IsCountable: 1
   CountSlot: 14
+  OwnedBuilding: 1
   ZoneRadius: 0
   MinSpacingTiles: 3
   BlocksMovement: 1

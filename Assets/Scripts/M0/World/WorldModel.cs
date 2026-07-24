@@ -157,7 +157,8 @@ namespace AIVillage.M0
                                            int myRaw = 0, int myCooked = 0,
                                            int homeRaw = 0, int homeCooked = 0,
                                            bool wasAttacked = false,
-                                           int myPlots = 0, int myEmptyPlots = 0, int myRipeCrops = 0)
+                                           int myPlots = 0, int myEmptyPlots = 0, int myRipeCrops = 0,
+                                           bool hasCampfire = false)
         {
             var slots = new int[PlanningConfig.TotalSlots];
 
@@ -199,6 +200,8 @@ namespace AIVillage.M0
             slots[(int)SlotId.MyFarmPlotCount] = myPlots;
             slots[(int)SlotId.MyEmptyPlot]     = myEmptyPlots;
             slots[(int)SlotId.MyRipeCrop]      = myRipeCrops;
+            // 내 모닥불 소유 (M11-K) — 원천 = OwnershipService. 조리 전제·정착 진행 축. 기본 0 = 중립.
+            slots[(int)SlotId.MyHasCampfire]   = hasCampfire ? 1 : 0;
             // 부상 주민 수 (M10-A) — 파생 슬롯, 원천은 SimulationLoop 집계뿐. 미배선이면 0 (중립 —
             // Goal_TendInjured 트리거 "≥1" 영구 불발 = M9 동작).
             slots[(int)SlotId.InjuredCount] = _injuredCount != null ? _injuredCount() : 0;

@@ -15,7 +15,7 @@ MonoBehaviour:
   DisplayName: "부탁받은 요리"
   Priority: 18
   TriggerConditions:
-  - Slot: 6
+  - Slot: 32
     Op: 0
     Value: 1
   - Slot: 22

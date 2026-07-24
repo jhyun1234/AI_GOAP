@@ -413,6 +413,7 @@ namespace AIVillage.M0
             bool hasHome = TryGetHomeTile(out Vector2Int home);
             (int homeRaw, int homeCooked) = hasHome && HomeStorage != null
                 ? HomeStorage.Get(home) : (0, 0);
+            bool hasCampfire = _sim.Ownership.TryGetOwned(AgentId, SlotId.CampfireCount, out _); // M11-K
             return World.BuildSnapshot(Mathf.RoundToInt(Satiety), Mathf.RoundToInt(Fatigue),
                 hasHome, // MyHasHome (M8-C)
                 _sim.Threats != null && _sim.Threats.IsNearThreat(TileX, TileY,
@@ -421,7 +422,8 @@ namespace AIVillage.M0
                 MyWasAttacked,                                                 // 피격 경험 (M11-G)
                 Farm != null ? Farm.CountPlotsOf(AgentId) : 0,                 // 개인 밭 (M11-E)
                 Farm != null ? Farm.CountEmptyOf(AgentId) : 0,
-                Farm != null ? Farm.CountRipeOf(AgentId) : 0);
+                Farm != null ? Farm.CountRipeOf(AgentId) : 0,
+                hasCampfire);                                                  // 내 모닥불 (M11-K)
         }
 
         /// <summary>

@@ -15,9 +15,6 @@ MonoBehaviour:
   DisplayName: "부탁받은 집 짓기"
   Priority: 36
   TriggerConditions:
-  - Slot: 6
-    Op: 0
-    Value: 1
   - Slot: 0
     Op: 1
     Value: 20

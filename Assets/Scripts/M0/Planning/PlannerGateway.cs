@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using AIVillage.Core.GOAP;
 using Unity.Collections;
 using Unity.Jobs;
@@ -64,7 +65,8 @@ namespace AIVillage.M0
         /// 0으로 나눈다 (Burst 예외 = 진단 불가능한 크래시). Equal 목표는 나눗셈을 하지 않아 제외.
         /// false를 반환할 상황은 전부 에셋 결함이다 — 로그가 어느 goal·슬롯인지 지목한다.
         /// </summary>
-        public static bool HasReachableGoalSlots(GoalSO goal, float[] maxGain, float[] maxDrop)
+        public static bool HasReachableGoalSlots(GoalSO goal, float[] maxGain, float[] maxDrop,
+                                                 List<string> reasons = null)
         {
             bool ok = true;
             foreach (SlotCondition c in goal.GoalConditions)
@@ -72,19 +74,21 @@ namespace AIVillage.M0
                 int s = (int)c.Slot;
                 if (c.Op == CompareOp.GreaterOrEqual && (maxGain == null || s >= maxGain.Length || maxGain[s] <= 0f))
                 {
-                    Debug.LogError($"[PlannerGateway] {goal.name}: 목표 슬롯 {c.Slot}을(를) 올리는 액션이 " +
-                                   "카탈로그에 없습니다 — 플래너 픽션 효과 누락 (에셋 결함).", goal);
+                    reasons?.Add($"{c.Slot} 올리는 액션 없음");
                     ok = false;
                 }
                 else if (c.Op == CompareOp.LessOrEqual && (maxDrop == null || s >= maxDrop.Length || maxDrop[s] <= 0f))
                 {
-                    Debug.LogError($"[PlannerGateway] {goal.name}: 목표 슬롯 {c.Slot}을(를) 내리는 액션이 " +
-                                   "카탈로그에 없습니다 — 플래너 픽션 효과 누락 (에셋 결함).", goal);
+                    reasons?.Add($"{c.Slot} 내리는 액션 없음");
                     ok = false;
                 }
             }
             return ok;
         }
+
+        // 도달 불가 사유 버퍼 (RequestPlan 전용) — 순수 판정 함수는 로그하지 않는다(부작용 0),
+        // 로그는 여기서 낸다 (게이트 테스트가 콘솔을 더럽히지 않게 — 2026-07-23).
+        private readonly List<string> _reachReasons = new List<string>(4);
 
         /// <summary>
         /// 플랜 요청. 실패(잘못된 입력/OOM) 시 null. 메인 스레드 전용.
@@ -102,7 +106,13 @@ namespace AIVillage.M0
             // 목표 슬롯을 개선하는 액션이 카탈로그에 하나도 없으면 CalculateHeuristic이
             // 부족량 ÷ 0을 수행해 Burst 잡에서 DivideByZeroException으로 터진다.
             // 원인은 항상 에셋 결함(목표 슬롯에 대응하는 효과 누락)이므로 에러로 드러낸다.
-            if (!HasReachableGoalSlots(goal, _maxGain, _maxDrop)) return null;
+            _reachReasons.Clear();
+            if (!HasReachableGoalSlots(goal, _maxGain, _maxDrop, _reachReasons))
+            {
+                Debug.LogError($"[PlannerGateway] {goal.name}: 목표 슬롯을 움직일 액션이 카탈로그에 없습니다 " +
+                               $"({string.Join(", ", _reachReasons)}) — 플래너 픽션 효과 누락 (에셋 결함).", goal);
+                return null;
+            }
 
             const Allocator alloc = Allocator.Persistent;
             int totalSlots = PlanningConfig.TotalSlots;

@@ -3,7 +3,6 @@ using AIVillage.M0;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
-using UnityEngine.TestTools;
 
 namespace AIVillage.Tests.EditMode
 {
@@ -74,10 +73,11 @@ namespace AIVillage.Tests.EditMode
             var gain = new float[PlanningConfig.TotalSlots];
             gain[(int)SlotId.MyFarmPlotCount] = 1f;
 
-            LogAssert.ignoreFailingMessages = true; // 에러 로그는 의도된 산출물
-            Assert.IsFalse(PlannerGateway.HasReachableGoalSlots(goal, zero, zero), "생산 액션 없음 = 거부");
+            // 순수 판정 함수는 로그하지 않는다(부작용 0) — 콘솔을 더럽히지 않고 반환값만 검증.
+            var reasons = new System.Collections.Generic.List<string>();
+            Assert.IsFalse(PlannerGateway.HasReachableGoalSlots(goal, zero, zero, reasons), "생산 액션 없음 = 거부");
+            Assert.IsNotEmpty(reasons, "사유 목록에 원인 슬롯이 담긴다");
             Assert.IsTrue(PlannerGateway.HasReachableGoalSlots(goal, gain, zero), "생산 액션 있음 = 통과");
-            LogAssert.ignoreFailingMessages = false;
 
             Object.DestroyImmediate(goal);
         }

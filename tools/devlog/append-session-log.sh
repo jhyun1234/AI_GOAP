@@ -16,7 +16,11 @@ log_err() {
     printf '%s %s\n' "$(date -Iseconds 2>/dev/null || date)" "$1" >> "$ERR_FILE" 2>/dev/null
 }
 
-trap 'log_err "line $LINENO: $BASH_COMMAND"; exit 0' ERR
+# ⚠️ ERR 트랩에서 exit 하지 않는다 (2026-07-24 버그 수정): 예전엔 'exit 0'이 있어
+# 첫 non-zero 명령(예: 빈 줄에서 [ -n "$f" ]=false)에 훅이 조기 종료 → 맨 끝의
+# STATE_FILE 갱신에 도달 못 함 → 상태가 고정돼 매 Bash 호출마다 같은 커밋 범위를
+# 무한 재처리(세션 로그 수백 배 중복). set +e가 이미 중단을 막으므로 트랩은 로깅만 한다.
+trap 'log_err "line $LINENO: $BASH_COMMAND"' ERR
 
 current_head=$(git rev-parse HEAD 2>/dev/null)
 [ -z "$current_head" ] && exit 0
@@ -96,18 +100,18 @@ process_commit() {
         {
             printf -- '- (+%s) %s\n' "$hhmm" "$msg"
             printf '%s\n' "$files" | while IFS= read -r f; do
-                [ -n "$f" ] && printf '  - %s\n' "$f"
+                if [ -n "$f" ]; then printf '  - %s\n' "$f"; fi
             done
         } >> "$session_file"
     else
         {
-            [ -s "$session_file" ] && printf '\n'
+            if [ -s "$session_file" ]; then printf '\n'; fi
             printf '## [%s] %s\n\n' "$hhmm" "$msg"
             printf '**태그:** %s\n\n' "$tag"
             printf '**무엇을 했나:**\n- %s\n\n' "$msg"
             printf '**변경 파일:**\n'
             printf '%s\n' "$files" | while IFS= read -r f; do
-                [ -n "$f" ] && printf '  - %s\n' "$f"
+                if [ -n "$f" ]; then printf '  - %s\n' "$f"; fi
             done
             printf '\n'
         } >> "$session_file"

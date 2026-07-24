@@ -885,7 +885,7 @@ MonoBehaviour:
     Order: {fileID: 11400000, guid: dc8f3c7de40c45f0af2d460adbc03529, type: 2}
   - Resource: 0
     Order: {fileID: 11400000, guid: e7f06572b81c4aa9876912d436eef31b, type: 2}
-  _rewardOnOrder: {fileID: 11400000, guid: e3acacc3f8ca4219a25371dcbf231ad5, type: 2}
+  _rewardOnOrder: {fileID: 0}
   _villagerPickRadius: 0.8
   _nodePickRadius: 1.5
 --- !u!1660057539 &9223372036854775807

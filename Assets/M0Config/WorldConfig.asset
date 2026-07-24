@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: WorldConfig
   m_EditorClassIdentifier:
   InitialWoodStock: 10
-  InitialRawFoodStock: 20
+  InitialRawFoodStock: 0
   InitialStoneStock: 5
   GameTimeScale: 0.01
   BaseTileX: 0

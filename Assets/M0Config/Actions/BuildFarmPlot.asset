@@ -22,5 +22,8 @@ MonoBehaviour:
   BaseCost: 15
   DurationSec: 3
   Preconditions: []
-  Effects: []
+  Effects:
+  - Slot: 27
+    Op: 1
+    Value: 1
   Building: {fileID: 11400000, guid: a3e51f7c29d8462fb0c74a86e19d3b52, type: 2}

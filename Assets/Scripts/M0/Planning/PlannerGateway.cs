@@ -59,6 +59,34 @@ namespace AIVillage.M0
         }
 
         /// <summary>
+        /// 목표 슬롯 도달 가능성 검사 (순수 — 게이트 대상). GreaterEq 목표는 그 슬롯을 올리는
+        /// 액션이, LessEq 목표는 내리는 액션이 카탈로그에 있어야 한다. 없으면 잡의 휴리스틱이
+        /// 0으로 나눈다 (Burst 예외 = 진단 불가능한 크래시). Equal 목표는 나눗셈을 하지 않아 제외.
+        /// false를 반환할 상황은 전부 에셋 결함이다 — 로그가 어느 goal·슬롯인지 지목한다.
+        /// </summary>
+        public static bool HasReachableGoalSlots(GoalSO goal, float[] maxGain, float[] maxDrop)
+        {
+            bool ok = true;
+            foreach (SlotCondition c in goal.GoalConditions)
+            {
+                int s = (int)c.Slot;
+                if (c.Op == CompareOp.GreaterOrEqual && (maxGain == null || s >= maxGain.Length || maxGain[s] <= 0f))
+                {
+                    Debug.LogError($"[PlannerGateway] {goal.name}: 목표 슬롯 {c.Slot}을(를) 올리는 액션이 " +
+                                   "카탈로그에 없습니다 — 플래너 픽션 효과 누락 (에셋 결함).", goal);
+                    ok = false;
+                }
+                else if (c.Op == CompareOp.LessOrEqual && (maxDrop == null || s >= maxDrop.Length || maxDrop[s] <= 0f))
+                {
+                    Debug.LogError($"[PlannerGateway] {goal.name}: 목표 슬롯 {c.Slot}을(를) 내리는 액션이 " +
+                                   "카탈로그에 없습니다 — 플래너 픽션 효과 누락 (에셋 결함).", goal);
+                    ok = false;
+                }
+            }
+            return ok;
+        }
+
+        /// <summary>
         /// 플랜 요청. 실패(잘못된 입력/OOM) 시 null. 메인 스레드 전용.
         /// costMult = 카탈로그 인덱스별 성격 비용 배율 (M4-B, null=중립) — 잡에 넘길 사본에만
         /// 구워지는 것이 유일한 주입 지점 (ADR-M4-1). 공유 _defs 원본은 무변경.
@@ -70,6 +98,11 @@ namespace AIVillage.M0
                 Debug.LogWarning($"[PlannerGateway] RequestPlan: 입력이 유효하지 않습니다. goal={(goal != null ? goal.name : "null")}");
                 return null;
             }
+            // 휴리스틱 0-나눗셈 방어 (ADR-M0-4: 잡은 동결 — 입력이 안 맞으면 여기서 막는다).
+            // 목표 슬롯을 개선하는 액션이 카탈로그에 하나도 없으면 CalculateHeuristic이
+            // 부족량 ÷ 0을 수행해 Burst 잡에서 DivideByZeroException으로 터진다.
+            // 원인은 항상 에셋 결함(목표 슬롯에 대응하는 효과 누락)이므로 에러로 드러낸다.
+            if (!HasReachableGoalSlots(goal, _maxGain, _maxDrop)) return null;
 
             const Allocator alloc = Allocator.Persistent;
             int totalSlots = PlanningConfig.TotalSlots;

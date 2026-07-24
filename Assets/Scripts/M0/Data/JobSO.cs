@@ -45,9 +45,9 @@ namespace AIVillage.M0
                  "(결정 15 — crowding 해소 + 사망 착탄). Job_Medic만 true.")]
         public bool CanTreatInjury;
 
-        [Tooltip("택지 점수 가산 (M11-F, HomePicker). 0 = 중립(마을 안쪽), 1 초과 = 바깥 선호. " +
-                 "성격 값과 합산 — 나무꾼·광부처럼 자원 곁에 살고 싶은 직업의 축.")]
-        public float HomeOutskirtsBias;
+        [Tooltip("택지 선호 거리 가산 (M11-F → M11-J, HomePicker). 0 = 중립. 성격 값과 합산. " +
+                 "현재 전 직업 0(보류) — 앵커가 기지 고정이라 '숲 근처' 같은 방향은 표현 불가.")]
+        public float HomePreferredDist;
 
         /// <summary>이 직업의 goal 보정치. 참조 동일성 비교만 — 이름 문자열 비교 금지 (ADR-M0-1 정신).</summary>
         public int BoostFor(GoalSO goal)

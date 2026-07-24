@@ -101,7 +101,7 @@ namespace AIVillage.M0
 
         /// <summary>
         /// 택지 경로 (M11-F) — 집처럼 최소 간격이 있는 건물의 Prepare 분기.
-        /// 취향(HomeOutskirtsBias)은 **의뢰인**(집주인이 될 사람) 것이다 — 목수가 자기 취향으로
+        /// 취향(HomePreferredDist)은 **의뢰인**(집주인이 될 사람) 것이다 — 목수가 자기 취향으로
         /// 지으면 "목수 취향의 남의 집"이 된다 (⚠️①). 부탁이 아니면(자기 집) 본인 취향.
         /// </summary>
         private bool PrepareHomesite(VillagerAgent agent, System.Func<int, int, bool> occupied,
@@ -112,11 +112,12 @@ namespace AIVillage.M0
                 && requester != null)
                 owner = requester;
 
-            float bias = HomePicker.OutskirtsBias(owner.Personality, owner.Job);
+            float preferred = HomePicker.PreferredDist(owner.Personality, owner.Job);
+            int seed = HomePicker.StableSeed(owner.AgentId); // 집주인 신원 → 대역 내 결정적 자리
             var anchor = new Vector2Int(agent.WorldConfig.BaseTileX, agent.WorldConfig.BaseTileY);
 
             if (!HomePicker.PickHomesite(occupied, agent.Construction.BuiltTilesOf(_so.Building.CountSlot),
-                    anchor, agent.WorldConfig.VillageRadius, _so.Building.MinSpacingTiles, bias,
+                    anchor, agent.WorldConfig.VillageRadius, _so.Building.MinSpacingTiles, preferred, seed,
                     minX, maxX, minY, maxY, out _buildTile))
             {
                 FailReason = $"{_so.Building.DisplayName}: 마을(반경 {agent.WorldConfig.VillageRadius}) 만원 — " +

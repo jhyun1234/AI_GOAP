@@ -22,7 +22,7 @@ MonoBehaviour:
   GoalBoosts:
   - Goal: {fileID: 11400000, guid: 0fd7741aeb03452b871f58e57e4c4233, type: 2}
     Boost: 15
-  HomeOutskirtsBias: 0.5
+  HomePreferredDist: 2
   MoodLines:
   - "흙냄새가 최고야"
   - "작물은 정직하지"

@@ -25,9 +25,6 @@ MonoBehaviour:
   - Slot: 22
     Op: 2
     Value: 3
-  - Slot: 23
-    Op: 2
-    Value: 2
   DirectActionPool: []
   RelativeToCurrent: 0
   SkipFailureCooldown: 0

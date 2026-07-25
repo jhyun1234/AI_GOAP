@@ -27,8 +27,11 @@ namespace AIVillage.M0
                  "다른 goal에 남용 금지, 플래너 우회 뒷문이 된다).")]
         public ActionSO[] DirectActionPool;
 
-        [Tooltip("true면 GoalConditions.Value를 '수신 시점 현재값 + Value(증분)'로 해석 (명령 goal 전용, M1-C). " +
-                 "'창고를 30까지'가 아니라 '지금보다 10 더'가 플레이어의 의도 — 수신 시 절대값 사본으로 고정된다.")]
+        [Tooltip("true면 GoalConditions.Value를 '수신 시점 현재값 + Value(증분)'로 해석 (M1-C 명령 → M9-H 씬 " +
+                 "goal → 생존 goal로 확장). '창고를 30까지'가 아니라 '지금보다 10 더'가 의도일 때. " +
+                 "⚠️ 생존 goal에 특히 중요: 절대 목표(예: 포만 70)는 식량이 모자라면 **도달 불가라 플래너가 " +
+                 "아무 계획도 못 세워 식량을 쥐고도 굶는다**. 증분(+15=한 끼)은 1개만 있어도 항상 성립한다 " +
+                 "(2026-07-24 Play 실측: 생식 2개 보유 중 아사).")]
         public bool RelativeToCurrent;
 
         [Tooltip("P0 생존 goal 전용 (ADR-M2-5): 플랜 실패 후 재시도 쿨다운을 면제한다 — " +
@@ -61,6 +64,10 @@ namespace AIVillage.M0
         private void OnValidate()
         {
             if (TriggerConditions == null || GoalConditions == null) return;
+            // 상대 goal은 검사 제외 — GoalConditions.Value가 절대 목표가 아니라 증분이라
+            // 발동 조건과 직접 비교하는 것이 범주 오류다 (해석은 ResolveRelativeGoal이 수행,
+            // 실효 목표 = 현재값 + 증분이므로 항상 현재값보다 높아 재발동 루프가 성립하지 않는다).
+            if (RelativeToCurrent) return;
 
             foreach (SlotCondition g in GoalConditions)
             {

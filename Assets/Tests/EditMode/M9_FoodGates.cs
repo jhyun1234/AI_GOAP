@@ -191,5 +191,40 @@ namespace AIVillage.Tests.EditMode
             StringAssert.DoesNotContain("FF6B6B", SeasonHud.Compose(4.2f, null, 3f, 3),
                 "3일치는 강조 없음");
         }
+
+        /// <summary>
+        /// 생존 goal 도달 가능성 게이트 (M4 승격 — 2026-07-24 Play 실측에서 배움):
+        /// P0 생존 goal이 **절대 목표**를 쓰면 식량이 모자랄 때 플래너가 해를 못 찾아
+        /// "생식 2개를 쥐고도 한 입도 안 먹고 아사"한다 (포만 20 + 2×15 = 50 &lt; 목표 70).
+        /// 증분 목표(RelativeToCurrent)는 1개만 있어도 항상 성립한다 — 굶주림 goal의 불변식.
+        /// </summary>
+        [Test]
+        public void M9_SurvivalGoal_MustBeReachableWithOneMeal()
+        {
+            var hunger = UnityEditor.AssetDatabase.LoadAssetAtPath<GoalSO>(
+                "Assets/M0Config/Goals/Goal_P0_Hunger.asset");
+            Assert.IsNotNull(hunger, "Goal_P0_Hunger.asset 을 찾을 수 없다");
+            Assert.IsTrue(hunger.RelativeToCurrent,
+                "굶주림 goal은 증분 목표여야 한다 — 절대 목표는 식량 부족 시 도달 불가라 " +
+                "플래너가 아무 계획도 못 세워 식량을 쥐고도 굶는다");
+            Assert.IsNotNull(hunger.GoalConditions);
+            Assert.AreEqual(1, hunger.GoalConditions.Length, "증분 목표는 포만 1개만");
+            Assert.AreEqual(SlotId.MySatiety, hunger.GoalConditions[0].Slot);
+            Assert.LessOrEqual(hunger.GoalConditions[0].Value, 15,
+                "증분은 생식 한 끼(+15) 이하여야 한 개만 있어도 성립한다");
+
+            // 상대 goal은 ADR-M0-7 정합 검사 면제 — 증분을 절대 목표로 비교하면 범주 오류
+            var rel = ScriptableObject.CreateInstance<GoalSO>();
+            rel.RelativeToCurrent = true;
+            rel.TriggerConditions = new[]
+                { new SlotCondition { Slot = SlotId.MySatiety, Op = CompareOp.LessOrEqual, Value = 20 } };
+            rel.GoalConditions = new[]
+                { new SlotCondition { Slot = SlotId.MySatiety, Op = CompareOp.GreaterOrEqual, Value = 15 } };
+            Assert.DoesNotThrow(() => rel.GetType()
+                .GetMethod("OnValidate", System.Reflection.BindingFlags.NonPublic
+                                       | System.Reflection.BindingFlags.Instance)
+                .Invoke(rel, null), "상대 goal은 정합 검사에서 에러를 내지 않아야 한다");
+            Object.DestroyImmediate(rel);
+        }
     }
 }

@@ -141,11 +141,21 @@ namespace AIVillage.M0
                  "겨울 비축 실패의 결과. 포만이 문턱 위로 회복되면 누적은 리셋.")]
         public float DepartAfterStarvingDays = 0.5f;
 
-        [Tooltip("이탈 직전 마지막 대사 (랜덤 선택)")]
+        [Tooltip("이탈 직전 마지막 대사 (랜덤 선택). ⚠️ 2026-07-24 현재 휴면 — 굶주림은 이탈이 아니라 " +
+                 "아사로 결말이 바뀌었다(ADR-M10-3 개정, StarveLines 사용). 다른 이탈 사유가 생기면 재사용.")]
         public string[] DepartLines =
         {
             "더는 못 버티겠어… 미안해요.",
             "이 마을엔 겨울을 날 음식이 없어.",
+        };
+
+        [Tooltip("아사 직전 마지막 대사 (랜덤 선택 — ADR-M10-3 개정). 부상 사망(DieLines)과 분리: " +
+                 "같은 죽음이라도 원인이 다르면 남기는 말이 다르다.")]
+        public string[] StarveLines =
+        {
+            "배가… 고파…",
+            "먹을 게… 조금만 더 있었어도…",
+            "미안해… 더는 못 일어나겠어…",
         };
 
         [Header("부상 (M10-A — 최초의 사망 축. 전부 제안치, 명세 §4.4)")]

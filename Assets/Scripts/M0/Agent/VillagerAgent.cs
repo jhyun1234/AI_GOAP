@@ -350,12 +350,12 @@ namespace AIVillage.M0
             float decayMult = (_sim.Season != null ? _sim.Season.SatietyDecayMult : 1f) * _decayJitter;
             Satiety = Mathf.Max(0f, Satiety - SatietyDecay(_cfg.SatietyDecayPerGameDay, decayMult, deltaGameDays));
 
-            // 굶주림 이탈 (M6-D) — 계절 분기 없음: 굶주림은 계절 무관 사실 (⚠️③).
+            // 아사 (M6-D → ADR-M10-3 개정) — 계절 분기 없음: 굶주림은 계절 무관 사실 (⚠️③).
             // 대기 가드 금지 (M4 교훈 — 동상·데드락) — 판정은 누적 시간 하나뿐.
             _starvingDays = NextStarvingDays(_starvingDays, Satiety, _cfg.StarvingBelowSatiety, deltaGameDays);
-            if (ShouldDepart(_starvingDays, _cfg))
+            if (ShouldStarveToDeath(_starvingDays, _cfg))
             {
-                Depart();
+                StarveToDeath();
                 return;
             }
 
@@ -608,23 +608,28 @@ namespace AIVillage.M0
                                              float deltaGameDays)
             => satiety < starvingBelow ? current + deltaGameDays : 0f;
 
-        /// <summary>이탈 판정 (순수, 게이트 M6-T3) — 문턱은 에셋 값 (ADR-M0-2).</summary>
-        public static bool ShouldDepart(float starvingDays, AgentConfigSO cfg)
+        /// <summary>아사 판정 (순수, 게이트 M6-T3) — 문턱은 에셋 값 (ADR-M0-2).
+        /// 舊 ShouldDepart에서 개명 (ADR-M10-3 개정 — 굶주림의 결말이 이탈에서 아사로 바뀜).</summary>
+        public static bool ShouldStarveToDeath(float starvingDays, AgentConfigSO cfg)
             => starvingDays >= cfg.DepartAfterStarvingDays;
 
         /// <summary>
-        /// 마을 이탈 — 최초의 실패 상태 (M6-D). 상태만 Dead(시뮬 종료 의미 재사용, ADR-M6-3)로
-        /// 바꾸고 지연 파괴한다. 클레임·타일·플래너·명령·보상 정리는 전부 OnDestroy 단일 경로 —
-        /// 여기서 직접 해제 금지 (두 번째 정리 경로가 된다).
+        /// 아사 (ADR-M10-3 개정 2026-07-24 — 舊 굶주림 이탈). 상태만 Dead(ADR-M6-3)로 바꾸고 지연
+        /// 파괴한다. 클레임·타일·플래너·명령·보상 정리는 전부 OnDestroy 단일 경로 — 여기서 직접
+        /// 해제 금지 (두 번째 정리 경로가 된다).
+        ///
+        /// 개정 사유(사용자 결정): "배고파서 마을을 이탈하는 게 아니라 사망(아사)으로 가는 게 서사상
+        /// 좋다". 떠난 주민은 어딘가 살아 있다는 여지를 남겨 상실이 희석되지만, 아사는 무덤이라는
+        /// 영구 흔적을 남긴다 — 부상 사망(Die)과 같은 문(RecordDeath)을 쓰되 원인·대사만 분리한다.
         /// </summary>
-        private void Depart()
+        private void StarveToDeath()
         {
-            Debug.LogWarning($"[VillagerAgent] {AgentId}: 굶주림 이탈 — 포만 {Satiety:F0} " +
+            Debug.LogWarning($"[VillagerAgent] {AgentId}: 아사 — 포만 {Satiety:F0} " +
                              $"(< {_cfg.StarvingBelowSatiety}) 지속 {_starvingDays:F2}일 " +
-                             $"(이탈 문턱 {_cfg.DepartAfterStarvingDays}일)");
-            _sim.RecordDepart(); // 기록 카운터 (M10-F) — 사망(RecordDeath)과 이원화 (ADR-M10-3)
-            _sim.Hud?.Notify($"{AgentId}이(가) 마을을 떠났습니다");
-            ShowTransient(Pick(_cfg.DepartLines));
+                             $"(문턱 {_cfg.DepartAfterStarvingDays}일)");
+            _sim.RecordDeath(TileX, TileY); // 부상 사망과 같은 문 — 무덤·카운터 (원인만 이원)
+            _sim.Hud?.Notify($"{ShortName}이(가) 굶어 숨을 거뒀습니다");
+            ShowTransient(Pick(_cfg.StarveLines));
             State = AgentState.Dead;      // SimTick 차단 — 새 상태 추가 금지 (ADR-M6-3)
             Destroy(gameObject, _cfg.TransientLineSec); // 마지막 대사 노출 후 소멸 (ShowTransient와 동일 에셋 값)
         }

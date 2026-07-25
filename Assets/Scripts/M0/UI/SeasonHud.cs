@@ -224,8 +224,12 @@ namespace AIVillage.M0
         /// 전멸 종료 요약 문구 (순수 — 게이트 M10-T6). 마을의 마지막 날 기록 —
         /// 사망·이탈·정착이 각자 집계된다 (결말 이원화는 기록에서도 유지, ADR-M10-3).
         /// </summary>
+        /// 이탈 0이면 항목을 감춘다 — 굶주림이 아사로 바뀐 뒤(ADR-M10-3 개정) 이탈은 휴면이라
+        /// "이탈 0"이 매번 뜨면 잡음이다. 다른 이탈 사유가 생기면 자동으로 다시 표시된다.
         public static string ComposeGameOver(int day, int deaths, int departs, int settles)
-            => $"마을의 마지막 날 — Day {day}\n사망 {deaths} · 이탈 {departs} · 정착 {settles}\n\n아무도 남지 않았다.";
+            => $"마을의 마지막 날 — Day {day}\n사망 {deaths}"
+             + (departs > 0 ? $" · 이탈 {departs}" : string.Empty)
+             + $" · 정착 {settles}\n\n아무도 남지 않았다.";
 
         private GameObject _gameOver; // 전멸 오버레이 (1회 생성 — 재건은 M11)
 

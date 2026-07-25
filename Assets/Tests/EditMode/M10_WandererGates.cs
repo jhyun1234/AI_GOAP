@@ -72,8 +72,13 @@ namespace AIVillage.Tests.EditMode
             string s = SeasonHud.ComposeGameOver(day: 42, deaths: 3, departs: 1, settles: 2);
             StringAssert.Contains("Day 42", s);
             StringAssert.Contains("사망 3", s);
-            StringAssert.Contains("이탈 1", s, "이탈·사망 이원화가 기록에서도 유지 (ADR-M10-3)");
+            StringAssert.Contains("이탈 1", s, "이탈 사유가 남아 있으면 기록에 표시된다");
             StringAssert.Contains("정착 2", s);
+
+            // ADR-M10-3 개정(2026-07-24): 굶주림 = 아사라 이탈은 휴면. 0이면 항목을 감춰 잡음 제거.
+            string noDepart = SeasonHud.ComposeGameOver(day: 20, deaths: 4, departs: 0, settles: 0);
+            StringAssert.DoesNotContain("이탈", noDepart, "이탈 0 = 항목 자체를 감춘다");
+            StringAssert.Contains("사망 4", noDepart);
         }
 
         [Test]

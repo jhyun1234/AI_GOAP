@@ -16,6 +16,7 @@ namespace AIVillage.M0
 
         private readonly SeasonSO[] _cycle; // null 제거 복사본
         private readonly float _totalDays;  // 사이클 총 게임일 (서수 계산용 캐시)
+        private readonly float _prologueDays; // 첫 사이클 유예 (0 = 중립 = 기존 동작)
         private int _lastIndex = -1;
 
         /// <summary>계절 서수 (M9-C) — 사이클 누적 인덱스 (cyclesElapsed × 계절수 + 현재 인덱스).
@@ -51,8 +52,14 @@ namespace AIVillage.M0
         /// <summary>계절 전환 시 1회 (첫 Tick 포함) — HUD·전환 로그 구독용.</summary>
         public event System.Action<SeasonSO> OnSeasonChanged;
 
-        public SeasonService(SeasonSO[] cycle)
+        /// <param name="prologueDays">첫 겨울까지의 유예 (게임일). 계절 시계 자체를 이만큼 늦춰
+        /// **첫 사이클의 준비 기간만** 늘린다 — 이후 사이클 간격은 그대로다. **기본 0 = 미사용.**
+        /// 겨울은 목수가 있으면 집 곳간(15)으로 넘기고 없으면 무너지는 것이 의도된 구조다
+        /// (2026-07-24 사용자 확인 — 목수 없는 판의 전멸은 결함이 아니라 시나리오). 이 손잡이는
+        /// 계절 길이·인원 등 구조가 바뀔 때만 검토하고, 죽음을 막는 용도로 켜지 않는다.</param>
+        public SeasonService(SeasonSO[] cycle, float prologueDays = 0f)
         {
+            _prologueDays = Mathf.Max(0f, prologueDays);
             var list = new System.Collections.Generic.List<SeasonSO>();
             if (cycle != null)
                 foreach (SeasonSO s in cycle)
@@ -66,11 +73,17 @@ namespace AIVillage.M0
         {
             if (_cycle.Length == 0) return; // 비활성 — 방어 (정상 경로는 서비스 미생성)
 
-            Compute(_cycle, gameTime, out int index, out float days, out float left);
-            DaysToCrisis = days;
-            DaysLeftInSeason = left;
+            // 첫 사이클 유예 — 계절 시계를 통째로 늦춘다. 유예 중엔 시계가 0에 머물러 첫 계절이
+            // 그만큼 길어지고, 이후 사이클 간격은 영향 없다 (Compute는 순수 유지 — 게이트 M6-T1).
+            float seasonTime = Mathf.Max(0f, gameTime - _prologueDays);
+            float graceLeft = Mathf.Max(0f, _prologueDays - gameTime); // 유예 잔여 (예고·HUD 보정)
+
+            Compute(_cycle, seasonTime, out int index, out float days, out float left);
+            // 유예분을 더해 카운트다운을 정직하게 — 유예 중 "위기까지"가 멈춰 보이면 안 된다.
+            DaysToCrisis = days >= NO_CRISIS ? NO_CRISIS : days + graceLeft;
+            DaysLeftInSeason = left + graceLeft;
             // 서수 = 누적 사이클 × 계절수 + 현재 인덱스 (M9-C). gameTime 단조 증가라 단조 증가.
-            int cyclesElapsed = _totalDays > 0f ? Mathf.FloorToInt(gameTime / _totalDays) : 0;
+            int cyclesElapsed = _totalDays > 0f ? Mathf.FloorToInt(seasonTime / _totalDays) : 0;
             SeasonOrdinal = cyclesElapsed * _cycle.Length + index;
             if (index != _lastIndex)
             {

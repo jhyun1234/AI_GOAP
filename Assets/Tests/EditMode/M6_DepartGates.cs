@@ -24,16 +24,22 @@ namespace AIVillage.Tests.EditMode
             Assert.AreEqual(0f, VillagerAgent.NextStarvingDays(0.45f, 50f, BELOW, 0.1f), "회복 = 리셋");
         }
 
+        /// <summary>아사 문턱 (舊 이탈 — ADR-M10-3 개정 2026-07-24: 굶주림의 결말이 이탈에서
+        /// 아사로 바뀌었다. 문턱 산식·에셋 필드는 그대로, 결말만 사망으로).</summary>
         [Test]
-        public void M6_T3_ShouldDepart_ThresholdBoundary()
+        public void M6_T3_ShouldStarveToDeath_ThresholdBoundary()
         {
             var cfg = ScriptableObject.CreateInstance<AgentConfigSO>();
             cfg.DepartAfterStarvingDays = 0.5f;
 
-            Assert.IsFalse(VillagerAgent.ShouldDepart(0f, cfg), "굶주림 없음");
-            Assert.IsFalse(VillagerAgent.ShouldDepart(0.49f, cfg), "문턱 직전");
-            Assert.IsTrue(VillagerAgent.ShouldDepart(0.5f, cfg), "문턱 도달 = 이탈");
-            Assert.IsTrue(VillagerAgent.ShouldDepart(2f, cfg), "초과분도 이탈");
+            Assert.IsFalse(VillagerAgent.ShouldStarveToDeath(0f, cfg), "굶주림 없음");
+            Assert.IsFalse(VillagerAgent.ShouldStarveToDeath(0.49f, cfg), "문턱 직전");
+            Assert.IsTrue(VillagerAgent.ShouldStarveToDeath(0.5f, cfg), "문턱 도달 = 아사");
+            Assert.IsTrue(VillagerAgent.ShouldStarveToDeath(2f, cfg), "초과분도 아사");
+
+            // 아사 대사는 부상 사망(DieLines)과 분리 — 원인이 다르면 남기는 말도 다르다
+            Assert.IsNotNull(cfg.StarveLines);
+            Assert.Greater(cfg.StarveLines.Length, 0, "아사 대사 기본값 존재");
 
             Object.DestroyImmediate(cfg);
         }

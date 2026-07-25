@@ -422,7 +422,7 @@ namespace AIVillage.M0
             Discovery    = new DiscoveryService();
             Farm         = new FarmService(_worldConfig.FarmGrowthDays);
             // 계절 시계 (M6-A) — 사이클이 비면 서비스 자체를 null로 (중립 불변식, M6-T1b)
-            var season = new SeasonService(_worldConfig.SeasonCycle);
+            var season = new SeasonService(_worldConfig.SeasonCycle, _worldConfig.SeasonPrologueDays);
             if (season.IsActive)
             {
                 Season = season;
@@ -435,6 +435,7 @@ namespace AIVillage.M0
                     Hud?.Notify(s.ForageFrozen
                         ? $"계절이 바뀌었습니다 — {s.DisplayName} · 열매가 얼어 채집할 수 없습니다"
                         : $"계절이 바뀌었습니다 — {s.DisplayName}");
+                    if (s.ForageFrozen) LogWinterReadiness(s);
                 };
             }
             else
@@ -683,6 +684,30 @@ namespace AIVillage.M0
                               $"{Discovery.HasDiscovered(ResourceType.Stone)}/" +
                               $"{Discovery.HasDiscovered(ResourceType.RawFood)} — {threatStr}");
                 }
+            }
+        }
+
+        /// <summary>
+        /// 겨울 진입 대비 점검 로그 (M13 탐지기 — 2026-07-24 Day 20 전멸 진단용). "왜 다 죽었나"를
+        /// 다음 관측 1회로 판정하기 위해, 봉쇄 계절이 시작되는 순간 주민별 비축을 남긴다.
+        /// 집·모닥불이 없으면 몸 소지 상한(BodyCarryCap)이 곧 한계라 겨울을 물리적으로 못 난다 —
+        /// 그 판정을 로그만 보고 내릴 수 있어야 한다. 값은 전부 공개 스냅샷에서 읽는다(판정 이원화 금지).
+        /// </summary>
+        private void LogWinterReadiness(SeasonSO s)
+        {
+            float need = s.DurationDays * _agentConfig.SatietyDecayPerGameDay * s.SatietyDecayMult;
+            Debug.Log($"[M0Sim] 겨울 대비 점검 — {s.DisplayName} {s.DurationDays:0.#}일 · " +
+                      $"1인 수요 ≈ {need:F0} 포만 (생식 {Mathf.CeilToInt(need / 15f)}개 상당) · " +
+                      $"몸 상한 {_agentConfig.BodyCarryCap} · 집 곳간 상한 {_agentConfig.HomeStorageCap}");
+            foreach (VillagerAgent a in _agents)
+            {
+                if (a == null || a.State == AgentState.Dead) continue;
+                WorldSnapshot snap = a.BuildSnapshot();
+                Debug.Log($"[M0Sim]   {a.AgentId}: 집={(snap.Get(SlotId.MyHasHome) == 1 ? "O" : "X")} " +
+                          $"모닥불={(snap.Get(SlotId.MyHasCampfire) == 1 ? "O" : "X")} · " +
+                          $"몸 생식{snap.Get(SlotId.MyRawFood)}/조리{snap.Get(SlotId.MyCookedFood)} · " +
+                          $"집 생식{snap.Get(SlotId.MyHomeRawFood)}/조리{snap.Get(SlotId.MyHomeCookedFood)} · " +
+                          $"식량일수={snap.Get(SlotId.MyFoodDaysLeft)}");
             }
         }
 

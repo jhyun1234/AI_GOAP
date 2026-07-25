@@ -28,6 +28,40 @@ namespace AIVillage.Tests.EditMode
             foreach (Object o in objs) Object.DestroyImmediate(o);
         }
 
+        /// <summary>
+        /// 첫 사이클 유예 (2026-07-24) — 준비 기간만 늘리고 이후 리듬은 불변. 0 = 중립 불변식.
+        /// 사유: 겨울 수요 ≈ 생식 12개 > 몸 상한 8이라 집 곳간·조리 없이는 불가한데, 첫 겨울이
+        /// Day 8이면 갖출 시간이 없어 전멸이 확정된다 (Play 실측: Day 11 이탈 4명 종료).
+        /// </summary>
+        [Test]
+        public void M6_SeasonPrologue_DelaysOnlyFirstCycle()
+        {
+            SeasonSO mild = MakeSeason("온화", 3f, false);
+            SeasonSO winter = MakeSeason("겨울", 4f, true);
+            var cycle = new[] { mild, winter }; // 사이클 7일, 겨울 = Day 3~7
+
+            // 중립 불변식: 유예 0 = 기존 동작 (첫 겨울 Day 3)
+            var plain = new SeasonService(cycle);
+            plain.Tick(3.5f);
+            Assert.AreSame(winter, plain.Current, "유예 0 = 기존대로 Day 3.5는 겨울");
+
+            // 유예 8: 계절 시계가 8일 밀려 Day 3.5는 아직 첫 계절
+            var delayed = new SeasonService(cycle, 8f);
+            delayed.Tick(3.5f);
+            Assert.AreSame(mild, delayed.Current, "유예 중 = 첫 계절이 이어진다");
+            Assert.AreEqual(7.5f, delayed.DaysToCrisis, 1e-3f,
+                "카운트다운은 유예분을 포함해 정직해야 한다 (유예 잔여 4.5 + 겨울까지 3)");
+
+            delayed.Tick(11.5f); // 8 + 3.5 → 겨울
+            Assert.AreSame(winter, delayed.Current, "유예 후 첫 겨울 = Day 11.5");
+
+            // 이후 사이클 간격은 불변 — 두 번째 겨울은 유예만큼만 밀린다 (간격 7일 유지)
+            delayed.Tick(18.5f); // 8 + 10.5 = 사이클2의 겨울 구간
+            Assert.AreSame(winter, delayed.Current, "다음 겨울도 같은 간격(7일)으로 온다");
+
+            DestroyAll(mild, winter);
+        }
+
         // ── M6 겨울 채집 봉쇄 (ADR-M6-1 개정 — ForageFrozen, 겨울 위기감) ───────
 
         [Test]

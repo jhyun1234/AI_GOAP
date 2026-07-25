@@ -554,6 +554,52 @@ namespace AIVillage.Tests.EditMode
                 "동률은 TraitId 순 → 근면 풀");
         }
 
+        // ── M12-T9: 조리 goal의 트리거 ↔ 목표 정합 (2026-07-26 Play 관측 회귀 방지) ──
+
+        [Test]
+        public void M12_T9_CookGoals_TriggerGuaranteesEnoughRawForTarget()
+        {
+            // Play 관측: Goal_WinterPrep이 겨울에 NoSolutionFound(노드 4096/4096) — 탐색 폭발.
+            // 원인: 트리거는 생식 5를 보장하는데 목표가 조리 +2였고, 겨울 레시피(CookMealScarce)는
+            // 생식 5 -> 조리 1이라 +2에는 생식 10이 필요했다. 몸 소지 상한이 8이라 집 저장분이
+            // 없으면 **구조적으로 도달 불가** -> A*가 전 공간을 뒤진다.
+            // 겨울 채집 봉쇄(ForageFrozen)가 이 goal들을 도달 불가로 만들었는데 ADR-M6-2 예외는
+            // 식량 goal 3개에만 달려 있었다 = 조리·비축 goal 누락.
+            var scarce = AssetDatabase.LoadAssetAtPath<ActionSO>("Assets/M0Config/Actions/CookMealScarce.asset");
+            Assert.IsNotNull(scarce, "위기 레시피 로드");
+
+            int rawPerCook = 0, cookedPerBatch = 0;
+            foreach (SlotEffect e in scarce.Effects)
+            {
+                if (e.Slot == SlotId.MyRawFood && e.Op == EffectOp.SubClamp0) rawPerCook = e.Value;
+                if (e.Slot == SlotId.MyCookedFood && e.Op == EffectOp.Add) cookedPerBatch = e.Value;
+            }
+            Assert.Greater(rawPerCook, 0, "위기 레시피의 생식 소모");
+            Assert.Greater(cookedPerBatch, 0, "위기 레시피의 조리 산출");
+
+            foreach (string name in new[] { "Goal_WinterPrep", "Goal_CookAhead", "Goal_CookExtra" })
+            {
+                var g = AssetDatabase.LoadAssetAtPath<GoalSO>($"Assets/M0Config/Goals/{name}.asset");
+                Assert.IsNotNull(g, $"{name} 로드");
+
+                int need = 0;
+                foreach (SlotCondition c in g.GoalConditions)
+                    if (c.Slot == SlotId.MyCookedFood) need = c.Value;
+                int guaranteed = 0;
+                foreach (SlotCondition c in g.TriggerConditions)
+                    if (c.Slot == SlotId.MyRawFood && c.Op == CompareOp.GreaterOrEqual) guaranteed = c.Value;
+
+                Assert.Greater(need, 0, $"{name}: 조리 목표량");
+                Assert.Greater(guaranteed, 0, $"{name}: 트리거가 생식 보유를 보장해야 한다");
+
+                int batches = Mathf.CeilToInt(need / (float)cookedPerBatch);
+                Assert.LessOrEqual(batches * rawPerCook, guaranteed,
+                    $"{name}: 목표 조리 {need}개에 생식 {batches * rawPerCook}이 필요한데 트리거는 " +
+                    $"{guaranteed}만 보장한다 — 위기철에 도달 불가가 되어 탐색이 폭발한다 " +
+                    "(발동했으면 달성 가능해야 한다, ADR-M0-7의 정신)");
+            }
+        }
+
         // ── M12-T4: 제한 플래그의 문언 ↔ 실사용 대조 (ADR 낡음 탐지기, 2026-07-26) ────
 
         /// <summary>

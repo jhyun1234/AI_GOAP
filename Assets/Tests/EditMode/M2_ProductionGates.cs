@@ -115,9 +115,13 @@ namespace AIVillage.Tests.EditMode
             Assert.IsTrue(gw.TryGetResult(pending, out PlanStatus status, out ActionSO[] plan, out _));
 
             Assert.AreEqual(PlanStatus.Success, status);
-            Assert.AreEqual(2, plan.Length, "EatCookedFood ×2(비용 10, +100)가 생식 조합보다 저렴해야 함");
+            // 목표가 증분 +15로 바뀐 뒤(2026-07-24)에도 **선호의 근거는 그대로 비용**이다:
+            // 조리 한 끼(비용 5·+35)가 생식 한 끼(비용 8·+15)보다 싸므로 한 끼면 충족되는 상황에서도
+            // 조리식이 선택된다. 즉 goal 수정 없이 비용·효율의 자연 결과라는 M2-S2·ADR-M2-6 사상은 불변.
+            Assert.AreEqual(1, plan.Length, "증분 목표(+15) = 한 끼로 충족");
             foreach (ActionSO a in plan)
-                Assert.AreEqual("EatCookedFood", a.name, "배고픔 플랜이 생식 대신 조리 식사를 선택 (M2-S2)");
+                Assert.AreEqual("EatCookedFood", a.name,
+                    "한 끼여도 생식(8)보다 싼 조리식(5)을 고른다 — 조리 선호는 비용의 결과 (M2-S2)");
         }
 
         [Test]

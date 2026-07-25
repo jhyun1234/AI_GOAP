@@ -123,14 +123,23 @@ namespace AIVillage.Tests.EditMode
             ActionCatalog catalog = LoadCatalog();
             var gw = new PlannerGateway(catalog);
 
-            // 포만감 10 (발동 20 이하), 몸 소지 생식 5 (M11-B 개인화) → 목표 70: +15 × 4회 식사
+            // 포만감 10 (발동 20 이하), 몸 소지 생식 5 (M11-B 개인화).
+            // 목표는 **증분 +15 = 한 끼** (2026-07-24 개정). 舊 절대 목표(포만 70)는 식량이 모자라면
+            // 도달 불가라 플래너가 아무 계획도 못 세웠고, 그래서 생식을 쥐고도 한 입 못 먹고 굶었다.
+            // 넉넉할 때 70까지 채우는 몫은 Goal_Snack(트리거 ≤35 → 목표 70)이 이어받는다.
             WorldSnapshot snap = Snap((SlotId.MySatiety, 10), (SlotId.MyRawFood, 5));
             (PlanStatus status, ActionSO[] plan) = RunPlan(gw, snap, LoadGoal("Goal_P0_Hunger"));
 
             Assert.AreEqual(PlanStatus.Success, status);
-            Assert.AreEqual(4, plan.Length, "70 도달에 EatRawFood 4회가 최적");
+            Assert.AreEqual(1, plan.Length, "증분 목표(+15) = 생식 한 끼로 충족");
             foreach (ActionSO a in plan)
                 Assert.IsInstanceOf<ConsumeActionSO>(a, $"플랜에 식사 외 액션: {a.name}");
+
+            // 핵심 불변식 — 식량이 딱 1개여도 계획이 선다 (舊 절대 목표에선 4개 미만이면 NoSolution).
+            WorldSnapshot scarce = Snap((SlotId.MySatiety, 10), (SlotId.MyRawFood, 1));
+            (PlanStatus s2, ActionSO[] p2) = RunPlan(gw, scarce, LoadGoal("Goal_P0_Hunger"));
+            Assert.AreEqual(PlanStatus.Success, s2, "생식 1개여도 굶지 않는다 — 증분 목표의 존재 이유");
+            Assert.AreEqual(1, p2.Length);
         }
 
         [Test]

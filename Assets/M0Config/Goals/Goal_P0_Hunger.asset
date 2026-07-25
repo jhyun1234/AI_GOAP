@@ -24,3 +24,4 @@ MonoBehaviour:
     Value: 70
   SkipFailureCooldown: 1
   AllowedWhenInjured: 1
+  MayHaveNoSolution: 1

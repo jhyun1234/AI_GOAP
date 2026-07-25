@@ -25,3 +25,4 @@ MonoBehaviour:
   DirectActionPool: []
   RelativeToCurrent: 0
   AllowedWhenInjured: 1
+  MayHaveNoSolution: 1

@@ -18,6 +18,7 @@ MonoBehaviour:
   RegenMult: 1
   GrowthMult: 1
   SatietyDecayMult: 1
+  ForageFrozen: 0
   ForecastLines:
   - "올여름 볕이 심상치 않아."
   - "냇물이 벌써 줄었어."

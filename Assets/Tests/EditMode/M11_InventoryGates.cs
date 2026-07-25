@@ -168,7 +168,7 @@ namespace AIVillage.Tests.EditMode
             Assert.IsFalse(SlotIds.IsPersonalStock(SlotId.MyHomeRawFood), "집 저장은 별도 판정 (ADR-M11-2)");
             Assert.IsTrue(SlotIds.IsHomeStock(SlotId.MyHomeRawFood));
             Assert.IsTrue(SlotIds.IsHomeStock(SlotId.MyHomeCookedFood));
-            Assert.AreEqual(33, SlotIds.Count, "슬롯 예산 33/52 (M11-K 모닥불 2종 추가: CampfireCount·MyHasCampfire)");
+            Assert.AreEqual(34, SlotIds.Count, "슬롯 예산 34/52 (겨울 채집 봉쇄 ForageFrozen 추가 — 2026-07-24)");
         }
     }
 }

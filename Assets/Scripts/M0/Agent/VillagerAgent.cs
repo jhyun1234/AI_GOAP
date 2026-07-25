@@ -728,10 +728,15 @@ namespace AIVillage.M0
                     break;
 
                 default: // NoSolution — ADR-3: 버그 증상. MAX_NODES 인상 금지, 로그로 노출.
-                    // 노드 수 병기 (2026-07-22 석재 goal 폭발 진단의 교훈): 4096 = 탐색 폭발
-                    // (휴리스틱 수축·대부족량 goal), 그 미만 = 진짜 해 없음 (에셋 정합·발견 체인 순).
-                    Debug.LogWarning($"[VillagerAgent] {AgentId}: NoSolutionFound (goal={_goal.name}, " +
-                                     $"노드 {nodes}/{PlanningConfig.MaxNodes}) — ADR-3 진단 필요");
+                    // 단 식량 goal의 '먹을 것이 없음'은 정상 (ADR-M6-1 개정 게임건강 예외 — 겨울 채집
+                    // 봉쇄 + 저장분 0 = 굶주림, 버그 아님). MayHaveNoSolution면 정보 로그로 강등한다.
+                    if (_goal.MayHaveNoSolution)
+                        Debug.Log($"[VillagerAgent] {AgentId}: {_goal.DisplayName} — 먹을 것이 없다 (굶주림)");
+                    else
+                        // 노드 수 병기 (2026-07-22 석재 goal 폭발 진단의 교훈): 4096 = 탐색 폭발
+                        // (휴리스틱 수축·대부족량 goal), 그 미만 = 진짜 해 없음 (에셋 정합·발견 체인 순).
+                        Debug.LogWarning($"[VillagerAgent] {AgentId}: NoSolutionFound (goal={_goal.name}, " +
+                                         $"노드 {nodes}/{PlanningConfig.MaxNodes}) — ADR-3 진단 필요");
                     ToIdle(2f);
                     break;
             }

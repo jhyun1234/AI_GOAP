@@ -35,6 +35,11 @@ namespace AIVillage.M0
                  "굶는데 여가를 가는 상황 원천 차단. 다른 goal에 켜면 공회전 방지가 무력화된다.")]
         public bool SkipFailureCooldown;
 
+        [Tooltip("이 goal은 해가 없어도 정상 (ADR-M6-1 개정 게임건강 예외) — 식량 goal 전용: 겨울에 " +
+                 "채집이 얼고 저장분도 없으면 '먹을 것이 없다'는 버그가 아니라 굶주림이다. true면 " +
+                 "NoSolution을 경고 대신 정보로 로그한다. 기본 false = 버그 탐지(경고) 유지.")]
+        public bool MayHaveNoSolution;
+
         [Tooltip("동시 수행 인원 제한 (0=무제한, ADR-M3-4). 건설·비축 goal의 초과 달성 방지용. " +
                  "P0 생존 goal·명령에 설정 금지 — 생존과 플레이어 의지는 인원 제한 대상이 아니다.")]
         public int MaxWorkers;

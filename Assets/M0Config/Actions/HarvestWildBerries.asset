@@ -25,6 +25,9 @@ MonoBehaviour:
   - Slot: 5
     Op: 0
     Value: 1
+  - Slot: 33
+    Op: 0
+    Value: 0
   Effects:
   - Slot: 22
     Op: 1

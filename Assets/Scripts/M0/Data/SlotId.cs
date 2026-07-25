@@ -65,11 +65,17 @@ namespace AIVillage.M0
         // ── M11-K 확장 (탈중심 마을 — 개인 모닥불) ──
         CampfireCount     = 31, // 수치형 — 개인 모닥불 카운트 (소유 키. 舊 CampfireBuilt 단일 플래그 대체)
         MyHasCampfire     = 32, // 논리형 — 내 모닥불 소유 (원천 = OwnershipService, MyHasHome 패턴). 조리 전제
+
+        // ── 겨울 채집 봉쇄 (ADR-M6-1 개정 2026-07-24) ──
+        ForageFrozen      = 33, // 논리형 — 이 계절 야생 채집 봉쇄 (원천 = SeasonService.ForageFrozen).
+                                // ⚠️ **어떤 액션도 이 슬롯에 효과를 가지면 안 된다** — 플래너가 위조할 수
+                                // 없어야 봉쇄가 성립한다. NearDiscoveredFood(5)로 막던 舊 시도는 Explore가
+                                // 그 슬롯을 Set 1 하는 바람에 "Explore→채집" 우회 플랜이 나와 실패했다.
     }
 
     public static class SlotIds
     {
-        public const int Count = 33;
+        public const int Count = 34;
 
         /// <summary>전역 스톡 슬롯 여부 — EffectApplier/러너가 공유하는 유일한 판정.
         /// ⚠️ 개인 스톡(MyRawFood 등)을 여기 넣으면 안 된다 (명세 M11-A ⚠️①) —

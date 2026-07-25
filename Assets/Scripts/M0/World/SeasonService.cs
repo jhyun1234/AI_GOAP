@@ -44,6 +44,10 @@ namespace AIVillage.M0
         public float GrowthMult       => Current != null ? Current.GrowthMult       : 1f;
         public float SatietyDecayMult => Current != null ? Current.SatietyDecayMult : 1f;
 
+        /// <summary>이 계절 야생 채집 봉쇄 여부 (M6 겨울 위기 — ADR-M6-1 개정). Current 없으면 false(중립).
+        /// WorldModel.BuildSnapshot이 이걸 읽어 NearDiscoveredFood를 0으로 만든다.</summary>
+        public bool ForageFrozen      => Current != null && Current.ForageFrozen;
+
         /// <summary>계절 전환 시 1회 (첫 Tick 포함) — HUD·전환 로그 구독용.</summary>
         public event System.Action<SeasonSO> OnSeasonChanged;
 

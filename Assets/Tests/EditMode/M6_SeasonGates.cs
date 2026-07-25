@@ -1,3 +1,4 @@
+using AIVillage.Core;
 using AIVillage.Core.GOAP;
 using AIVillage.M0;
 using NUnit.Framework;
@@ -25,6 +26,77 @@ namespace AIVillage.Tests.EditMode
         private static void DestroyAll(params Object[] objs)
         {
             foreach (Object o in objs) Object.DestroyImmediate(o);
+        }
+
+        // ── M6 겨울 채집 봉쇄 (ADR-M6-1 개정 — ForageFrozen, 겨울 위기감) ───────
+
+        [Test]
+        public void M6_ForageFrozen_NeutralAndFrozen()
+        {
+            // 중립 불변식 — Tick 전(Current null) 서비스는 봉쇄 아님(false = 기존 동작)
+            var svc = new SeasonService(new SeasonSO[0]);
+            Assert.IsFalse(svc.ForageFrozen, "Current null = 봉쇄 아님 (중립)");
+
+            // 신규 필드 기본값 = false (에셋 미기입분 = 중립, 단 YAML은 명시 기입 권장 — Unity 함정)
+            var s = ScriptableObject.CreateInstance<SeasonSO>();
+            Assert.IsFalse(s.ForageFrozen, "SeasonSO 신규 bool 기본 false");
+            Object.DestroyImmediate(s);
+
+            // ── 봉쇄의 실증: 전용 슬롯 ForageFrozen(33)이 계절에서 주입되는가 ──
+            // 같은 발견 노드·같은 WorldModel 구성에서 계절만 갈아끼워 대조한다 (변인 1개).
+            var mild = MakeSeason("온화", 6f, false);          // ForageFrozen false
+            var frozen = MakeSeason("겨울", 4f, true); frozen.ForageFrozen = true;
+            var cfg = ScriptableObject.CreateInstance<WorldConfigSO>();
+
+            var d = new DiscoveryService();
+            d.AddResourceNode(new ResourceNode("berry", ResourceType.RawFood, 3, 3, 50f, isDiscovered: true));
+
+            var mildSvc = new SeasonService(new[] { mild }); mildSvc.Tick(0f);
+            WorldSnapshot mildSnap = new WorldModel(d, cfg, null, mildSvc).BuildSnapshot(50, 50);
+            Assert.AreEqual(0, mildSnap.Get(SlotId.ForageFrozen), "미봉쇄 계절 = 0 (중립 불변식)");
+            Assert.AreEqual(1, mildSnap.Get(SlotId.NearDiscoveredFood), "발견 슬롯은 계절과 무관");
+
+            var winterSvc = new SeasonService(new[] { frozen }); winterSvc.Tick(0f);
+            WorldSnapshot winterSnap = new WorldModel(d, cfg, null, winterSvc).BuildSnapshot(50, 50);
+            Assert.AreEqual(1, winterSnap.Get(SlotId.ForageFrozen), "봉쇄 계절 = 1");
+            Assert.AreEqual(1, winterSnap.Get(SlotId.NearDiscoveredFood),
+                "⚠️ 발견 슬롯은 봉쇄와 무관하게 유지 — 이걸 0으로 조작하면 Explore(Set 1)가 되돌려 우회된다");
+
+            DestroyAll(mild, frozen, cfg);
+        }
+
+        /// <summary>
+        /// 봉쇄 우회 방지 게이트 (M4 승격 — 2026-07-24 실패에서 배움): 어떤 액션도 ForageFrozen 슬롯에
+        /// 효과를 가지면 안 된다. 舊 시도는 NearDiscoveredFood(5)를 0으로 만들어 막으려 했는데
+        /// Explore가 그 슬롯을 Set 1 하는 바람에 "Explore→채집" 플랜으로 우회돼 봉쇄가 무력했다.
+        /// 위조 가능한 슬롯으로는 봉쇄가 성립하지 않는다.
+        /// </summary>
+        [Test]
+        public void M6_ForageFrozen_NoActionMayForgeTheSlot()
+        {
+            var effBuf = new System.Collections.Generic.List<SlotEffect>();
+            bool berryGated = false;
+            foreach (string guid in AssetDatabase.FindAssets("t:ActionSO"))
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guid);
+                var so = AssetDatabase.LoadAssetAtPath<ActionSO>(path);
+                if (so == null) continue;
+
+                effBuf.Clear();
+                so.CollectEffects(effBuf);
+                foreach (SlotEffect e in effBuf)
+                    Assert.AreNotEqual(SlotId.ForageFrozen, e.Slot,
+                        $"{so.name}이(가) ForageFrozen에 효과를 가진다 — 플래너가 봉쇄를 위조할 수 있게 된다");
+
+                // 열매 채집은 반드시 봉쇄 전제를 달고 있어야 한다 (봉쇄의 실제 배선점)
+                if (so is GatherActionSO g && g.TargetResource == ResourceType.RawFood
+                    && so.Preconditions != null)
+                    foreach (SlotCondition c in so.Preconditions)
+                        if (c.Slot == SlotId.ForageFrozen && c.Op == CompareOp.Equal && c.Value == 0)
+                            berryGated = true;
+            }
+            Assert.IsTrue(berryGated,
+                "RawFood 채집 액션에 'ForageFrozen == 0' 전제가 없다 — 겨울 봉쇄가 배선되지 않았다");
         }
 
         // ── M6-T1: Compute 순수 계산 (사이클 순환 + 위기 카운트다운) ─────────

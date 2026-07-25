@@ -184,6 +184,10 @@ namespace AIVillage.M0
                 ? Mathf.CeilToInt(_season.DaysToCrisis) : (int)SeasonService.NO_CRISIS;
             slots[(int)SlotId.CrisisActive] = _season != null && _season.Current != null
                                               && _season.Current.IsCrisis ? 1 : 0;
+            // 겨울 채집 봉쇄 (ADR-M6-1 개정) — 열매가 언 계절엔 1. HarvestWildBerries가 "==0"을 전제로
+            // 걸어 플래너 단계에서 빠진다. ⚠️ 어떤 액션도 이 슬롯에 효과를 두지 말 것 — 위조 가능하면
+            // Explore가 NearDiscoveredFood를 되세우던 우회가 재현된다. 밭·조리·저장분은 무관(안 막힘).
+            slots[(int)SlotId.ForageFrozen] = _season != null && _season.ForageFrozen ? 1 : 0;
             // 내 식량 일수 (M11-D — 마을 합산에서 개인 파생으로 전환. 트리거 전용 ADR-M9-9 유지).
             slots[(int)SlotId.MyFoodDaysLeft] = EstimatePersonalFoodDays(myRaw, myCooked, homeRaw, homeCooked);
             // 개인 인벤토리 (M11-A) — 몸 소지는 VillagerAgent, 집 저장은 HomeStorageService가 원천.

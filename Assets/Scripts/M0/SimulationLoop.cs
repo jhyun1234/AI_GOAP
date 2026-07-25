@@ -428,8 +428,13 @@ namespace AIVillage.M0
                 Season = season;
                 Season.OnSeasonChanged += s =>
                 {
-                    Debug.Log($"[M0Sim] 계절 전환 — {s.DisplayName} (Day {(int)GameTime}, 위기={s.IsCrisis})");
-                    Hud?.Notify($"계절이 바뀌었습니다 — {s.DisplayName}");
+                    // 채집 봉쇄 상태를 계절 전환마다 노출 — "봉쇄가 실제로 켜졌는가"를 로그 한 줄로
+                    // 판정할 수 있어야 한다 (M13 탐지기: 겨울인데 봉쇄=꺼짐이면 에셋 미기입 즉시 발각).
+                    Debug.Log($"[M0Sim] 계절 전환 — {s.DisplayName} (Day {(int)GameTime}, 위기={s.IsCrisis}, " +
+                              $"야생채집={(s.ForageFrozen ? "봉쇄(열매가 언다)" : "가능")})");
+                    Hud?.Notify(s.ForageFrozen
+                        ? $"계절이 바뀌었습니다 — {s.DisplayName} · 열매가 얼어 채집할 수 없습니다"
+                        : $"계절이 바뀌었습니다 — {s.DisplayName}");
                 };
             }
             else

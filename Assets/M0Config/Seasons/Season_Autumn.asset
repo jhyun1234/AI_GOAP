@@ -18,4 +18,5 @@ MonoBehaviour:
   RegenMult: 1
   GrowthMult: 1.2
   SatietyDecayMult: 1
+  ForageFrozen: 0
   ForecastLines: []

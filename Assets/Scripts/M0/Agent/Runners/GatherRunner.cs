@@ -62,11 +62,14 @@ namespace AIVillage.M0
             _node = null;
         }
 
+        /// <summary>수확량 = SO Effects의 Add 값 — 전역 스톡(나무·돌·조리식) 또는 개인 스톡
+        /// (열매 = MyRawFood, M11-A 이전분). ⚠️ 개인 스톡을 빠뜨리면 열매 노드가 안 줄어 무한 생성된다
+        /// (M11 슬롯 이전 파급 누락 — 노드 고갈 무력화 근본 원인, 2026-07-24 수정).</summary>
         private int HarvestAmount()
         {
             if (_so.Effects != null)
                 foreach (SlotEffect e in _so.Effects)
-                    if (e.Op == EffectOp.Add && SlotIds.IsStock(e.Slot))
+                    if (e.Op == EffectOp.Add && (SlotIds.IsStock(e.Slot) || SlotIds.IsPersonalStock(e.Slot)))
                         return e.Value;
             return 0;
         }

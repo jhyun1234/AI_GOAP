@@ -18,6 +18,7 @@ MonoBehaviour:
   RegenMult: 0
   GrowthMult: 0
   SatietyDecayMult: 1.75
+  ForageFrozen: 1
   ForecastLines:
   - "겨울이 오고 있어..."
   - "먹을 걸 모아둬야 할 텐데."

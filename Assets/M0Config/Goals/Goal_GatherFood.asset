@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   DisplayName: "식량 비축"
   Priority: 20
+  MayHaveNoSolution: 1
   TriggerConditions: []
   GoalConditions:
   - Slot: 22

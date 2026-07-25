@@ -15,6 +15,40 @@ metadata:
 
 ## 최신 사용 커밋
 
+- `latest_commit`: `ee165a5` (docs(method) 방법론 개념 노트 성좌 — 3개 커밋 중 타임스탬프
+  기준 가장 최신, 2026-07-18 04:21)
+- `selected_commits_range`: `1ab4f9c`(docs(method) 개발 방법론 명세서, 04:00) ~ `ee165a5`
+  (docs(method) 방법론 개념 노트 성좌, 04:21) — 3커밋 전부: `1ab4f9c`(docs(method) 개발
+  방법론 명세서, 04:00) · `ae9d393`(docs(method) 방법론 다이어그램, 04:07) · `ee165a5`
+  (docs(method) 방법론 개념 노트 성좌, 04:21). 기획팀 브리프(`01_planner_brief.md`)
+  commit_refs 전체 반영.
+  ⚠️ **git 계보 caveat**: 이 3커밋은 유효한 커밋 객체로 존재하고 내용도 현재 저장소
+  파일과 일치하지만, `git merge-base --is-ancestor <hash> HEAD` 검사는 실패한다 — main이
+  스쿼시/재작성되며 `bc18e15`(balance(season), 678개 파일·377,003줄 대형 스쿼시 커밋)를
+  통해 원본 3커밋의 개별 정체성 없이 내용만 main 계보에 합류했다. 산출물 파일
+  (Docs/개발_방법론_명세서.md, Docs/개발_방법론.canvas, Docs/방법론/*.md 12개)은
+  origin/main HEAD에 실제로 존재함을 직접 확인했고, 이를 근거로 소재 진위·존재를
+  판단했다 — 상세는 `01_planner_brief.md`의 `git_lineage_caveat` 참조.
+- `cycle_date`: 2026-07-24 (마스터 1차·2차 승인 후 게시팀 Step 7 발행, 격일 auto-run)
+- `publish_status`: PUBLISHED (Blogger published: 2026-07-24 04:24 UTC / 2026-07-23 21:24
+  PDT, status: LIVE)
+- `blogger_post_id`: 6860975822353124027
+- `blog_url`: https://gamedevclaude.blogspot.com/2026/07/claude-code-ai-unity-goap-ai-ai.html
+- `title`: Claude Code 게임 개발 AI 페어 프로그래밍 후기: Unity GOAP AI 인디게임 개발일지 —
+  AI에게 "나처럼 판단해줘"를 문서 한 장으로 남기기까지
+- `labels`: Claude Code 게임 개발, AI 페어 프로그래밍 후기, Unity GOAP AI, 인디게임 개발일지
+- `local_archive`: tools/blog-automation/published/2026-07-24-unity-goap-methodology-spec-constellation.html
+  (POST 응답 직후 별도 GET 요청을 `Buffer.concat` 후 `toString('utf8')`로 재조회해 저장 —
+  재조회한 content가 원본 05_final.md의 html_content(마크다운 서식 제거본)와 문자열 완전
+  일치(byte-identical, md5 동일, 11,564 bytes)함을 직접 확인했고 U+FFFD 없음도 확인.)
+- `비고`: 개발 방법론 명세서 소재(1ab4f9c~ee165a5). 코드가 아니라 "AI가 이 프로젝트에서
+  어떻게 판단하는가"를 방법론 명세서 1건 + mermaid 다이어그램 2종 + 옵시디언 Canvas 1개 +
+  위키링크 개념 노트 12개로 박제한 메타 회차. M9/M10/M11(공간·재해/야생 위협/개인화 경제)은
+  이번 글에서 다루지 않음 — 전부 devlog 서술 미비로 승격 보류 상태(아래 다음 회차 소재
+  판단 참조).
+
+### 이전 회차 이력 (2026-07-22, M8 후속 보완 + M9 명세)
+
 - `latest_commit`: `897605c` (fix(social) 완공 보고 "쫓아가기"→"마주치면 정산"(조각 Y) +
   IPathfinder 경계 — 4개 커밋 중 타임스탬프 기준 가장 최신, 2026-07-18 14:48)
 - `selected_commits_range`: `db4424a`(spec(m9) 공간 축과 재해 실행명세서, 02:27) ~

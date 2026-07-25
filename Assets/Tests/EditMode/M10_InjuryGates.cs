@@ -83,6 +83,26 @@ namespace AIVillage.Tests.EditMode
                 $"카탈로그 최소 BaseCost 붕괴 — '{minName}'({min})이 휴리스틱 바닥을 뚫는다 (본 게이트 주석 참조)");
         }
 
+        [Test]
+        public void M10_T2_EffectiveCost_NeverBreaksHeuristicFloor()
+        {
+            // 위 게이트의 사각지대 보강 (2026-07-26): 에셋 BaseCost가 5 이상이어도 성격×직업×편차의
+            // 곱셈 누적이 실효 비용을 그 아래로 끌어내린다 — 오늘도 농사꾼 성격 0.7 × 농부 직업 0.6
+            // × 편차 0.9 = 0.378이라 BaseCost 5 액션이 실효 1.89다. 하한 = 카탈로그 min.
+            const float catalogMin = 5f;
+
+            Assert.AreEqual(catalogMin, PlannerGateway.EffectiveCost(5f, 0.378f, catalogMin), 0.001f,
+                "최저 배율에서도 실효 비용이 카탈로그 min 아래로 못 내려간다");
+            Assert.AreEqual(catalogMin, PlannerGateway.EffectiveCost(5f, 0.26f, catalogMin), 0.001f,
+                "성향 축이 곱을 하나 더 얹어도(0.378×0.7) 바닥 불변");
+            Assert.AreEqual(7f, PlannerGateway.EffectiveCost(10f, 0.7f, catalogMin), 0.001f,
+                "min보다 비싼 액션은 배율이 그대로 작동한다 (차별화 보존)");
+            Assert.AreEqual(15f, PlannerGateway.EffectiveCost(10f, 1.5f, catalogMin), 0.001f,
+                "비용 증가 배율은 하한과 무관");
+            Assert.AreEqual(10f, PlannerGateway.EffectiveCost(10f, 1f, 0f), 0.001f,
+                "카탈로그 min 0(미배선) = 하한 없음 — 중립 불변식");
+        }
+
         // ── M10-T2 간호 (M10-B) ───────────────────────────────────────────────
 
         [Test]

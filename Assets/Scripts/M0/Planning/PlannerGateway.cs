@@ -30,6 +30,7 @@ namespace AIVillage.M0
         private readonly GOAPActionDef[] _defs;     // 시작 시 1회 컴파일 — 공유 원본 (배율은 사본에만, ADR-M4-1)
         private readonly float[] _maxGain;
         private readonly float[] _maxDrop;
+        private readonly float _minBaseCost;        // 배율 적용 후 실효 비용의 하한 (휴리스틱 바닥 보호)
 
         public sealed class PendingPlan
         {
@@ -57,7 +58,30 @@ namespace AIVillage.M0
                 agentCfg != null ? agentCfg.BodyCarryCap : 0,
                 agentCfg != null ? agentCfg.HomeStorageCap : 0);
             ActionCompiler.ComputeMaxGainDrop(_defs, PlanningConfig.TotalSlots, out _maxGain, out _maxDrop);
+            _minBaseCost = MinBaseCost(_defs);
         }
+
+        /// <summary>카탈로그 최소 BaseCost (순수 — 게이트 대상). 빈 배열이면 0 = 하한 없음.</summary>
+        public static float MinBaseCost(GOAPActionDef[] defs)
+        {
+            if (defs == null || defs.Length == 0) return 0f;
+            float min = float.MaxValue;
+            for (int i = 0; i < defs.Length; i++)
+                if (defs[i].BaseCost < min) min = defs[i].BaseCost;
+            return min;
+        }
+
+        /// <summary>
+        /// 배율 적용 후 실효 비용 (순수 — 게이트 대상, 2026-07-26).
+        /// 잡의 휴리스틱은 h = 스텝 추정 × min(BaseCost)라, 배율이 최소 비용을 끌어내리면
+        /// 휴리스틱이 수축해 노드가 폭발한다 (MAX_NODES 소진 → NoSolutionFound 오탐 —
+        /// 2026-07-22 석재 goal 사고와 같은 실패 모드). 성격×직업×편차가 곱셈 누적이라
+        /// 오늘도 농사꾼 성격 0.7 × 농부 직업 0.6 × 편차 0.9 = 0.378까지 내려간다.
+        /// 하한을 카탈로그 min으로 잡으면 min이 절대 내려가지 않아 휴리스틱이 불변이고,
+        /// 배율은 min보다 비싼 액션들 사이에서 정상 작동한다 (차별화 보존).
+        /// </summary>
+        public static float EffectiveCost(float baseCost, float mult, float catalogMin)
+            => Mathf.Max(catalogMin, baseCost * Mathf.Max(0.1f, mult));
 
         /// <summary>
         /// 목표 슬롯 도달 가능성 검사 (순수 — 게이트 대상). GreaterEq 목표는 그 슬롯을 올리는
@@ -137,13 +161,13 @@ namespace AIVillage.M0
                 p.Actions = new NativeArray<GOAPActionDef>(_defs, alloc);
                 if (costMult != null)
                 {
-                    // 성격 배율을 per-request 사본에 굽는다 (ADR-M4-1). 잡이 min(BaseCost)를
-                    // 실측하므로 휴리스틱 정합 자동 유지. 0 이하 방지 클램프.
+                    // 성격 배율을 per-request 사본에 굽는다 (ADR-M4-1). 실효 비용의 하한은
+                    // 카탈로그 min — 배율이 휴리스틱 바닥을 뚫지 못하게 한다 (EffectiveCost 주석).
                     for (int i = 0; i < _defs.Length && i < costMult.Length; i++)
                     {
                         if (Mathf.Approximately(costMult[i], 1f)) continue;
                         GOAPActionDef d = p.Actions[i];
-                        d.BaseCost = _defs[i].BaseCost * Mathf.Max(0.1f, costMult[i]);
+                        d.BaseCost = EffectiveCost(_defs[i].BaseCost, costMult[i], _minBaseCost);
                         p.Actions[i] = d;
                     }
                 }

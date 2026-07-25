@@ -20,3 +20,10 @@ MonoBehaviour:
   - Slot: 22
     Op: 1
     Value: 4
+  TraitWeights:
+  - Trait: 0
+    Weight: 0.5
+  - Trait: 1
+    Weight: 0.3
+  - Trait: 3
+    Weight: 0.2

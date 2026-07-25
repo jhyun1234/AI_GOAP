@@ -18,3 +18,8 @@ MonoBehaviour:
   GoalConditions: []
   DirectActionPool:
   - {fileID: 11400000, guid: 0c244d25169647bebffdc2b4e0368210, type: 2}
+  TraitWeights:
+  - Trait: 0
+    Weight: 0.5
+  - Trait: 3
+    Weight: -0.4

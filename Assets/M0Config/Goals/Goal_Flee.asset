@@ -24,3 +24,7 @@ MonoBehaviour:
     Value: 0
   SkipFailureCooldown: 1
   AllowedWhenInjured: 1
+  TraitWeights:
+  - Trait: 5
+    Weight: 0.8
+  PriorityScale: 6

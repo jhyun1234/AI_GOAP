@@ -1,5 +1,9 @@
+using System.Collections.Generic;
+using System.Linq;
 using AIVillage.M0;
 using NUnit.Framework;
+using UnityEditor;
+using UnityEngine;
 
 namespace AIVillage.Tests.EditMode
 {
@@ -127,6 +131,114 @@ namespace AIVillage.Tests.EditMode
             Assert.AreEqual(TraitVector.Threshold(existing, new TraitBias { Weights = before, Sensitivity = 15f }, 30f),
                             TraitVector.Threshold(existing, bias, 30f), 0.0001f,
                 "③문턱에서도 동일");
+        }
+
+        // ── M12-T3: ①우선순위 goal 태그 (M12-B) ──────────────────────────────
+
+        private const string GOALS_DIR = "Assets/M0Config/Goals";
+
+        /// <summary>먹는 행동 + 플레이어 명령 = 성향 면제 대상 (ADR-M12-4 / ③문턱이 담당).</summary>
+        private static readonly string[] ExemptGoals =
+        {
+            "Goal_P0_Hunger", "Goal_P0_Fatigue", "Goal_Snack",
+            "Order_ChopWood", "Order_HarvestBerries", "Order_MineStone",
+        };
+
+        private static List<GoalSO> LoadAllGoals()
+        {
+            var goals = AssetDatabase.FindAssets("t:GoalSO", new[] { GOALS_DIR })
+                .Select(AssetDatabase.GUIDToAssetPath)
+                .Select(AssetDatabase.LoadAssetAtPath<GoalSO>)
+                .Where(g => g != null)
+                .ToList();
+            Assert.IsNotEmpty(goals, $"{GOALS_DIR}에서 goal 에셋 로드");
+            return goals;
+        }
+
+        /// <summary>모든 축이 극단인 벡터 — 유도값의 최댓값을 실측하는 데 쓴다.</summary>
+        private static TraitValue[] Extreme(int sign) => System.Enum.GetValues(typeof(TraitId))
+            .Cast<TraitId>().Select(t => V(t, 100 * sign)).ToArray();
+
+        [Test]
+        public void M12_T3_GoalTraitWeights_CoverageAndEatingExempt()
+        {
+            List<GoalSO> goals = LoadAllGoals();
+            var tagged = goals.Where(g => g.TraitWeights != null && g.TraitWeights.Length > 0).ToList();
+
+            // S1: 성향이 닿는 goal 수 — 착수 전 3개(WinterPrep·SaveForHome·StoreFood)에서 대폭 확대.
+            Assert.GreaterOrEqual(tagged.Count, 24,
+                $"성향이 닿는 goal이 {tagged.Count}개뿐 — 면제 대상(먹는 행동 3 + 명령 3)을 뺀 전부에 붙어야 한다 (S1)");
+
+            // 면제 대상은 반드시 비어 있어야 한다 (ADR-M12-4 — 굶주림 앞에 성격 없음)
+            foreach (string name in ExemptGoals)
+            {
+                GoalSO g = goals.FirstOrDefault(x => x.name == name);
+                Assert.IsNotNull(g, $"{name} 에셋 존재");
+                Assert.IsTrue(g.TraitWeights == null || g.TraitWeights.Length == 0,
+                    $"{name}: 성향 면제 대상인데 TraitWeights가 있다 (ADR-M12-4 / 명령은 ③문턱이 담당)");
+            }
+
+            // 면제 대상을 뺀 나머지는 전부 태그돼야 한다 (빠뜨림 탐지)
+            foreach (GoalSO g in goals)
+            {
+                if (ExemptGoals.Contains(g.name)) continue;
+                Assert.IsTrue(g.TraitWeights != null && g.TraitWeights.Length > 0,
+                    $"{g.name}: 성향 가중치가 없다 — 이 goal에서는 모든 성격이 똑같이 행동한다");
+            }
+        }
+
+        [Test]
+        public void M12_T3_TraitBoost_NeutralAndWithinP0Guard()
+        {
+            List<GoalSO> goals = LoadAllGoals();
+            GoalSO hunger = goals.First(g => g.name == "Goal_P0_Hunger");
+            TraitValue[] hi = Extreme(+1), lo = Extreme(-1);
+
+            foreach (GoalSO g in goals)
+            {
+                // 중립 불변식: 벡터가 없으면(성격 미배선) 언제나 0
+                Assert.AreEqual(0, g.TraitBoost(null), $"{g.name}: 벡터 없음 = 보정 0");
+
+                int up = g.TraitBoost(hi), down = g.TraitBoost(lo);
+
+                // ADR-M12-7: |boost| ≤ 30
+                Assert.LessOrEqual(Mathf.Abs(up), 30, $"{g.name}: 유도값 {up}이 상한 30 초과 (ADR-M12-7)");
+                Assert.LessOrEqual(Mathf.Abs(down), 30, $"{g.name}: 유도값 {down}이 상한 30 초과 (ADR-M12-7)");
+
+                // P0 보호: 어떤 성격도 배고픔보다 다른 일을 앞세우지 못한다.
+                // 피신(92)이 P0에 가까워 진폭을 따로 줄여 뒀다 — 이 게이트가 그 근거다.
+                if (g == hunger) continue;
+                Assert.Less(g.Priority + Mathf.Max(up, down), hunger.Priority,
+                    $"{g.name}: 극단 성격에서 실효 우선순위가 배고픔({hunger.Priority})을 넘는다 " +
+                    "— 굶으면서 다른 일을 하러 간다 (ADR-M12-4의 수치적 보증)");
+            }
+        }
+
+        [Test]
+        public void M12_T3_Willfulness_SplitsCommunalAndPersonalGoals()
+        {
+            // 결함 5의 처방(결정 16): 자존이 ③문턱에만 있으면 고집쟁이·새침이는 방치 시 평범하다.
+            // ①에 자리를 만들어 "저 사람은 마을 일을 안 도와"가 눈에 보이게 한다.
+            var communal = new[] { "Goal_GatherWood", "Goal_GatherStone", "Goal_BuildHouse",
+                                   "Goal_RequestHouse", "Goal_TendInjured", "Goal_TreatInjured" };
+            var personal = new[] { "Goal_BuildMyHouse", "Goal_SaveForHome", "Goal_StoreFood",
+                                   "Goal_Plant", "Goal_HarvestCrop" };
+
+            List<GoalSO> goals = LoadAllGoals();
+            float WillfulnessOf(string n)
+            {
+                GoalSO g = goals.First(x => x.name == n);
+                return g.TraitWeights.Where(w => w.Trait == TraitId.Willfulness).Sum(w => w.Weight);
+            }
+
+            foreach (string n in communal)
+            {
+                Assert.Less(WillfulnessOf(n), 0f, $"{n}: 공용 goal은 자존 음수여야 한다");
+                // 파생 2 방어: 너무 크면 자존↑ 판에서 공용 건물이 아예 안 선다 (M10 '규모 8 정체' 재현)
+                Assert.GreaterOrEqual(WillfulnessOf(n), -0.5f, $"{n}: 자존 음수 폭이 -0.5를 넘는다 (공용 건물 정체 위험)");
+            }
+            foreach (string n in personal)
+                Assert.Greater(WillfulnessOf(n), 0f, $"{n}: 개인 goal은 자존 양수여야 한다");
         }
     }
 }

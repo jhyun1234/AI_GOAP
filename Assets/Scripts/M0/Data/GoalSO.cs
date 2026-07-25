@@ -16,6 +16,29 @@ namespace AIVillage.M0
         [Tooltip("높을수록 먼저 평가된다.")]
         public int Priority;
 
+        [Header("성향 보정 (M12-B — ①우선순위. 이 goal을 어느 기질이 얼마나 원하는가)")]
+        [Tooltip("실효 우선순위 = Priority + round(bias × PriorityScale). 비면 성향 무관 = 중립.\n" +
+                 "⚠️ 이것은 **순위**에만 개입한다 — TriggerConditions에는 절대 쓰지 않는다 (ADR-M12-2): " +
+                 "성향이 발동 임계값을 옮기면 OnValidate의 정적 검사(아래)가 런타임 이동을 못 봐 " +
+                 "'달성 즉시 재발동' 무한 루프가 된다.\n" +
+                 "⚠️ 먹는 행동(P0 식사·간식)에는 비워 둔다 — 굶주림 앞에 성격 없음 (ADR-M12-4).")]
+        public TraitWeight[] TraitWeights;
+
+        [Tooltip("이 goal의 성향 진폭. |boost| ≤ 30 (ADR-M12-7) — P0 생존 goal(우선순위 100)이 " +
+                 "성향으로 밀리면 굶으면서 일하러 간다. 제안치 20. 원래 우선순위가 P0에 가까운 " +
+                 "goal(피신 92)은 더 작게 잡아 P0 순서를 보존할 것.")]
+        [Range(0f, 30f)]
+        public float PriorityScale = 20f;
+
+        /// <summary>
+        /// ①우선순위 유도 (M12-B, 순수 — 게이트 M12-T3). 가중치가 비면 0 = 중립.
+        /// 반올림은 순위 비교가 정수라서다 (GoalSelector.Consider).
+        /// </summary>
+        public int TraitBoost(TraitValue[] traits)
+            => TraitWeights == null || TraitWeights.Length == 0
+                ? 0
+                : Mathf.RoundToInt(TraitVector.Bias(traits, TraitWeights) * PriorityScale);
+
         [Tooltip("이 조건 전부 만족 시 goal 후보로 발동. 비우면 항상 후보.")]
         public SlotCondition[] TriggerConditions;
 
@@ -67,6 +90,11 @@ namespace AIVillage.M0
         /// </summary>
         private void OnValidate()
         {
+            // ADR-M12-7: ①유도값 상한 — 진폭이 크면 성향이 P0 생존 순서를 뒤집는다.
+            if (PriorityScale > 30f)
+                Debug.LogError($"[GoalSO] {name}: PriorityScale({PriorityScale})이 30을 넘습니다 — " +
+                               "성향이 P0 생존 goal을 밀어낼 수 있습니다 (ADR-M12-7).", this);
+
             if (TriggerConditions == null || GoalConditions == null) return;
             // 상대 goal은 검사 제외 — GoalConditions.Value가 절대 목표가 아니라 증분이라
             // 발동 조건과 직접 비교하는 것이 범주 오류다 (해석은 ResolveRelativeGoal이 수행,

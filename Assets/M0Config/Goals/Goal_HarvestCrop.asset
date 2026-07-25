@@ -27,3 +27,10 @@ MonoBehaviour:
     Value: 6
   DirectActionPool: []
   RelativeToCurrent: 0
+  TraitWeights:
+  - Trait: 0
+    Weight: 0.5
+  - Trait: 4
+    Weight: 0.3
+  - Trait: 3
+    Weight: -0.3

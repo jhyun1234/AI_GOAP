@@ -29,3 +29,8 @@ MonoBehaviour:
     Op: 0
     Value: 1
   MaxWorkers: 0
+  TraitWeights:
+  - Trait: 4
+    Weight: 0.3
+  - Trait: 0
+    Weight: 0.3

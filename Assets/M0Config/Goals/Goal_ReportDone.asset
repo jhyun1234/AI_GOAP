@@ -21,3 +21,8 @@ MonoBehaviour:
   RelativeToCurrent: 0
   SkipFailureCooldown: 0
   MaxWorkers: 0
+  TraitWeights:
+  - Trait: 2
+    Weight: 0.5
+  - Trait: 4
+    Weight: -0.3

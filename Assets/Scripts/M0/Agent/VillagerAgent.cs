@@ -128,8 +128,10 @@ namespace AIVillage.M0
         {
             if (job == null && personality == null) return null;
             if (personality == null) return job.BoostFor;
-            if (job == null) return personality.BoostFor;
-            return g => job.BoostFor(g) + personality.BoostFor(g);
+            // 성격 = 舊 나열(GoalBoosts) + 新 벡터(TraitWeights). M12-F에서 나열을 비우면
+            // 벡터만 남는다 — 합산 지점은 이 함수 하나뿐이다 (ADR-M12-5).
+            if (job == null) return g => personality.BoostFor(g) + g.TraitBoost(personality.Traits);
+            return g => job.BoostFor(g) + personality.BoostFor(g) + g.TraitBoost(personality.Traits);
         }
 
         // 직업 일과 goal (M5-C, ADR-M5-2) — 개인 사다리 주입, 씬 _goals에 넣지 않는다.

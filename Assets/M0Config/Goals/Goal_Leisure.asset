@@ -19,3 +19,8 @@ MonoBehaviour:
   DirectActionPool:
   - {fileID: 11400000, guid: e11cc4ecc1eb4dff8f0ed62fde065321, type: 2}
   - {fileID: 11400000, guid: 8a821d0f47f24b7c933844352917f4bd, type: 2}
+  TraitWeights:
+  - Trait: 0
+    Weight: -0.8
+  - Trait: 3
+    Weight: 0.3

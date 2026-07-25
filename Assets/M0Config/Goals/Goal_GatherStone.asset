@@ -19,3 +19,8 @@ MonoBehaviour:
   - Slot: 8
     Op: 1
     Value: 30
+  TraitWeights:
+  - Trait: 0
+    Weight: 0.6
+  - Trait: 4
+    Weight: -0.4

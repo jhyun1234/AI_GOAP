@@ -34,3 +34,10 @@ MonoBehaviour:
   DirectActionPool: []
   RelativeToCurrent: 0
   MaxWorkers: 1
+  TraitWeights:
+  - Trait: 0
+    Weight: 0.5
+  - Trait: 1
+    Weight: 0.4
+  - Trait: 4
+    Weight: -0.4

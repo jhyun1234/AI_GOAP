@@ -28,3 +28,8 @@ MonoBehaviour:
   MaxWorkers: 0
   AllowedWhenInjured: 0
   RequiredJob: {fileID: 11400000, guid: 2a8a1a9cacd9443e9e7c6848a75cf98f, type: 2}
+  TraitWeights:
+  - Trait: 2
+    Weight: 0.7
+  - Trait: 4
+    Weight: -0.3

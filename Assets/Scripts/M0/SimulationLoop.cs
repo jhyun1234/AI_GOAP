@@ -522,14 +522,14 @@ namespace AIVillage.M0
             // 부상·파괴는 문(Injure/RemoveCountableAt)을 지난다 — 서비스가 상태를 직접 쓰지 않는다.
             if (_worldConfig.Threats != null && _worldConfig.Threats.Length > 0)
             {
-                Threats = new ThreatService(_worldConfig.Threats, World, Zones, Construction,
+                Threats = new ThreatService(_worldConfig.Threats, Zones, Construction,
                                             _agents, _worldConfig, () => Pathfinder, transform);
                 Threats.OnForecast += t =>
                     Hud?.Notify($"{t.DisplayName}이(가) 다가옵니다 — {t.WarnDays:0.#}일 뒤");
-                Threats.OnStruck += (t, n, tile) =>
+                Threats.OnStruck += (t, struckVillagers, n, tile) =>
                 {
-                    Hud?.Notify(t.TargetVillagers ? $"{t.DisplayName} 습격 — 부상 {n}명"
-                                                  : $"{t.DisplayName} 습격 — 밭 {n}개 소실");
+                    Hud?.Notify(struckVillagers ? $"{t.DisplayName} 습격 — 부상 {n}명"
+                                                : $"{t.DisplayName} 습격 — 밭 {n}개 소실");
                     ShowThreatStrikeLines(t, tile);
                 };
             }
@@ -660,8 +660,8 @@ namespace AIVillage.M0
                     _lastLoggedDay = day;
                     string seasonStr = Season?.Current != null
                         ? $"{Season.Current.DisplayName}(위기까지 {Mathf.CeilToInt(Season.DaysToCrisis)}일)" : "-";
-                    // 위협 경주 게이지 (M10 관측용) — 규모 산식·활성 티어를 매일 노출.
-                    // "티어2가 왜 안 오나"류 진단이 로그 한 줄로 끝나야 한다 (2026-07-22 관측 사이클 교훈).
+                    // 위협 경주 게이지 (M10R 관측용) — 마을 크기(정보)와 게임일 래칫 활성밴드를 매일 노출.
+                    // 활성밴드는 게임일 기준이라 사망해도 강등되지 않는다 (ADR-M10R-1 실측 지표).
                     string threatStr = "-";
                     if (Threats != null)
                     {
@@ -670,9 +670,9 @@ namespace AIVillage.M0
                             if (a != null && a.State != AgentState.Dead) alive++;
                         int farms = World.GetStock(SlotId.FarmPlotCount);
                         int houses = World.GetStock(SlotId.HouseCount);
-                        int scale = ThreatService.VillageScale(alive, farms, houses);
-                        ThreatSO tier = ThreatService.PickTier(_worldConfig.Threats, scale);
-                        threatStr = $"규모 {scale}(주민{alive}+밭{farms}+집{houses}) 티어={(tier != null ? tier.DisplayName : "없음")}";
+                        int scale = ThreatService.VillageScale(alive, farms, houses); // 정보용 — 게이팅 아님
+                        ThreatSO tier = ThreatService.PickTier(_worldConfig.Threats, GameTime); // 시간 래칫
+                        threatStr = $"마을{scale}(주민{alive}+밭{farms}+집{houses}) 활성위협={(tier != null ? tier.DisplayName : "없음")}(Day{day})";
                     }
                     Debug.Log($"[M0Sim] Day {day} [{seasonStr}] — Wood {World.GetStock(SlotId.WoodStock)}, " +
                               $"Stone {World.GetStock(SlotId.StoneStock)}, " +

@@ -13,10 +13,10 @@ MonoBehaviour:
   m_Name: Threat_Tier3_Bear
   m_EditorClassIdentifier:
   DisplayName: "큰 곰"
-  MinVillageScale: 16
-  PeriodDays: 5
+  UnlockDay: 30
+  PeriodDays: 4
   WarnDays: 1.5
-  TargetVillagers: 1
+  VillagerTargetChance: 0.75
   StrikeRadiusTiles: 4
   DangerRadiusTiles: 7
   BaseLossPct: 0.35

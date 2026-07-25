@@ -13,10 +13,10 @@ MonoBehaviour:
   m_Name: Threat_Tier1_Wolf
   m_EditorClassIdentifier:
   DisplayName: "외로운 늑대"
-  MinVillageScale: 0
+  UnlockDay: 0
   PeriodDays: 6
   WarnDays: 1
-  TargetVillagers: 0
+  VillagerTargetChance: 0
   StrikeRadiusTiles: 3
   DangerRadiusTiles: 6
   BaseLossPct: 0.25

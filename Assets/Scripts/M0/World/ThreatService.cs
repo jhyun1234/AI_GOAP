@@ -10,7 +10,8 @@ namespace AIVillage.M0
     /// 문(Construction.RemoveCountableAt / VillagerAgent.Injure)을 호출한다 (ADR-M9-3 사상).
     /// 확정 발동·확정 착탄 (ADR-M10-1): 스케줄·희생 선정에 확률 없음 — 주민 희생은 거리순
     /// (도망 행동과의 인과), 밭 희생은 StableHash 시드 셔플 (재해와 동일).
-    /// 활성 티어 = 마을 규모 충족 중 최대 1개 (ADR-M10-6 등록제 플래토 — 등록 밖 티어는 없다).
+    /// 활성 밴드 = 게임일 UnlockDay 충족 중 최신 1개 (ADR-M10R-1 시간 래칫 — 사망해도 강등 없음).
+    /// 타깃 종류(밭/주민)는 밴드 고정이 아니라 출몰별 시드 롤 (ADR-M10R-3 — 곰도 밭을 칠 수 있다).
     /// Threats가 비면 SimulationLoop이 서비스 자체를 null로 둔다 (중립 불변식, DisasterService 패턴).
     /// 세이브 대상 = _lastStrikeDay·_strikeOrdinal (ADR-M10-10). 진행 중 개체·예고 상태는 저장 안 함
     /// (로드 후 다음 스케줄에서 재출몰).
@@ -18,7 +19,6 @@ namespace AIVillage.M0
     public sealed class ThreatService
     {
         private readonly ThreatSO[] _threats;
-        private readonly WorldModel _world;
         private readonly ZoneService _zones;
         private readonly ConstructionService _construction;
         private readonly IReadOnlyList<VillagerAgent> _agents;
@@ -39,18 +39,17 @@ namespace AIVillage.M0
         /// <summary>예고 알림 (1회/발동) — HUD 경보 구독 (표현).</summary>
         public event Action<ThreatSO> OnForecast;
 
-        /// <summary>타격 알림 (위협, 피해 수, 타격 타일) — HUD·근처 반응 대사 구독 (표현).</summary>
-        public event Action<ThreatSO, int, Vector2Int> OnStruck;
+        /// <summary>타격 알림 (위협, 주민타격 여부, 피해 수, 타격 타일) — HUD·근처 반응 대사 구독 (표현).</summary>
+        public event Action<ThreatSO, bool, int, Vector2Int> OnStruck;
 
         /// <summary>예고 구간 진행 중인 위협 (주민 술렁임 판독용 — Season.NextCrisis 패턴). null = 평시.</summary>
         public ThreatSO Forecasting => _pending;
 
-        public ThreatService(ThreatSO[] threats, WorldModel world, ZoneService zones,
+        public ThreatService(ThreatSO[] threats, ZoneService zones,
                              ConstructionService construction, IReadOnlyList<VillagerAgent> agents,
                              WorldConfigSO config, Func<IPathfinder> pathfinder, Transform parent)
         {
             _threats = threats ?? Array.Empty<ThreatSO>();
-            _world = world;
             _zones = zones;
             _construction = construction;
             _agents = agents;
@@ -65,18 +64,31 @@ namespace AIVillage.M0
         public static int VillageScale(int aliveCount, int farmPlots, int houses)
             => aliveCount + farmPlots + houses;
 
-        /// <summary>활성 티어 (순수, ADR-M10-6): MinVillageScale ≤ scale 중 최대. 동률은 배열 앞.
-        /// 충족 티어가 없으면 null (전부 미달 — 위협 없음), 등록 밖 상위는 존재하지 않는다 (플래토).</summary>
-        public static ThreatSO PickTier(ThreatSO[] threats, int scale)
+        /// <summary>활성 밴드 (순수, ADR-M10R-1): UnlockDay ≤ day 중 최신(최대 UnlockDay). 동률은 배열 앞.
+        /// 충족 밴드가 없으면 null. 게임일은 단조 증가 → 한 번 열린 밴드는 닫히지 않는다(래칫 — 사망해도
+        /// 위협이 강등되지 않는다, §0 음성 피드백 루프 해소).</summary>
+        public static ThreatSO PickTier(ThreatSO[] threats, float day)
         {
             ThreatSO best = null;
             if (threats != null)
                 foreach (ThreatSO t in threats)
                 {
-                    if (t == null || t.MinVillageScale > scale) continue;
-                    if (best == null || t.MinVillageScale > best.MinVillageScale) best = t;
+                    if (t == null || t.UnlockDay > day) continue;
+                    if (best == null || t.UnlockDay > best.UnlockDay) best = t;
                 }
             return best;
+        }
+
+        /// <summary>이번 출몰이 주민을 노리는가 (순수·결정적, ADR-M10R-2·3): 출몰 서수 시드로 [0,1) 분수를
+        /// 만들어 chance와 비교. 진입점 시드와 다른 솔트("|tgt")로 상관 차단 (동쪽=항상 주민 같은 편향 방지).
+        /// 0=항상 밭, 1=항상 주민. 매 출몰 1회만 롤한다 (ADR-M10R-4 — 재타겟은 종류를 안 바꾼다).</summary>
+        public static bool RollTargetsVillagers(ThreatSO so, int ordinal)
+        {
+            if (so.VillagerTargetChance <= 0f) return false;
+            if (so.VillagerTargetChance >= 1f) return true;
+            uint h = StableHash.Fnv1a(ordinal.ToString(), so.DisplayName + "|tgt");
+            float r = (h & 0xFFFFFFu) / (float)0x1000000; // [0,1)
+            return r < so.VillagerTargetChance;
         }
 
         /// <summary>가장자리 진입점 (순수·결정적): 시드로 4변 중 택1, 변 중앙. 같은 시드 = 같은 지점.</summary>
@@ -123,11 +135,11 @@ namespace AIVillage.M0
 
         public void Tick(float gameTime)
         {
-            // 예고 진입 — 티어는 예고 시점 규모로 확정하고 발동까지 고정 (예고한 그놈이 온다)
+            // 예고 진입 — 밴드는 예고 시점 게임일로 확정하고 발동까지 고정 (예고한 그놈이 온다)
             if (_pending == null)
             {
-                ThreatSO tier = PickTier(_threats, CurrentScale());
-                if (tier == null) return; // 전 티어 미달 — 위협 없음 (스케줄도 흐르지 않는다)
+                ThreatSO tier = PickTier(_threats, gameTime); // 규모 아님 — 시간 래칫 (ADR-M10R-1)
+                if (tier == null) return; // 전 밴드 미달 — 위협 없음 (스케줄도 흐르지 않는다)
                 if (gameTime >= _lastStrikeDay + tier.PeriodDays - tier.WarnDays)
                 {
                     _pending = tier;
@@ -147,24 +159,16 @@ namespace AIVillage.M0
             }
         }
 
-        private int CurrentScale()
-        {
-            int alive = 0;
-            foreach (VillagerAgent a in _agents)
-                if (a != null && a.State != AgentState.Dead) alive++;
-            return VillageScale(alive, _world.GetStock(SlotId.FarmPlotCount),
-                                _world.GetStock(SlotId.HouseCount));
-        }
-
         // ── 출몰·타격 (개체는 표현+이동, 판정은 여기 — 명세 M10-C ⚠️③) ─────────
 
         private void Spawn(ThreatSO so)
         {
             _strikeOrdinal++;
+            bool targetsVillagers = RollTargetsVillagers(so, _strikeOrdinal); // 출몰 시 1회 확정 (ADR-M10R-4)
             MapBounds.Get(out int minX, out int maxX, out int minY, out int maxY);
             uint seed = StableHash.Fnv1a(_strikeOrdinal.ToString(), so.DisplayName);
             Vector2Int entry = EntryPoint(seed, minX, maxX, minY, maxY);
-            Vector2Int target = PickTargetTile(so, entry);
+            Vector2Int target = PickTargetTile(so, targetsVillagers, entry);
 
             PathResult path = _pathfinder().FindPath(entry.x, entry.y, target.x, target.y);
             if (path.Kind == PathResultKind.Unreachable)
@@ -180,16 +184,17 @@ namespace AIVillage.M0
             ThreatAgent agent = go.AddComponent<ThreatAgent>();
             agent.Init(so, this, entry, target,
                        path.Kind == PathResultKind.PathFound ? path.Waypoints : null,
-                       _pathfinder()); // 추격 재경로용 (주민 타격형 — M10-C 개정)
+                       _pathfinder(), targetsVillagers); // 추격 재경로용 + 이번 출몰 타깃 종류 (M10R)
             _active.Add(agent);
-            Debug.Log($"[Threat] 출몰 — {so.DisplayName} @ ({entry.x},{entry.y}) → ({target.x},{target.y})");
+            Debug.Log($"[Threat] 출몰 — {so.DisplayName} @ ({entry.x},{entry.y}) → ({target.x},{target.y}) " +
+                      $"[{(targetsVillagers ? "주민" : "밭")} 타깃]");
         }
 
         /// <summary>목표 타일: 주민 타격 = 진입점 최근접 생존 주민, 밭 타격 = 밭 구역 앵커.
         /// 폴백(주민 0·구역 미확정)은 기지 — 위협은 항상 마을 심장부로 향한다.</summary>
-        private Vector2Int PickTargetTile(ThreatSO so, Vector2Int entry)
+        private Vector2Int PickTargetTile(ThreatSO so, bool targetsVillagers, Vector2Int entry)
         {
-            if (so.TargetVillagers)
+            if (targetsVillagers)
             {
                 CollectVictimCandidates(entry, int.MaxValue, excludeInjured: false);
                 if (_victimKeyBuf.Count > 0)
@@ -235,7 +240,7 @@ namespace AIVillage.M0
         public void NotifyArrived(ThreatAgent agent)
         {
             var strikeTile = new Vector2Int(agent.TileX, agent.TileY);
-            ExecuteStrike(agent.So, strikeTile);
+            ExecuteStrike(agent.So, agent.TargetsVillagers, strikeTile);
             PathResult exit = _pathfinder().FindPath(strikeTile.x, strikeTile.y,
                                                      agent.EntryTile.x, agent.EntryTile.y);
             if (exit.Kind == PathResultKind.PathFound) agent.SetExitPath(exit.Waypoints);
@@ -249,10 +254,10 @@ namespace AIVillage.M0
             Debug.Log($"[Threat] 퇴장 — {agent.So.DisplayName}");
         }
 
-        private void ExecuteStrike(ThreatSO so, Vector2Int tile)
+        private void ExecuteStrike(ThreatSO so, bool targetsVillagers, Vector2Int tile)
         {
             int hit = 0;
-            if (so.TargetVillagers)
+            if (targetsVillagers)
             {
                 // 후보 = 타격 반경 내 생존·비부상 주민 (기존 부상자 제외 — 중복 부상 방지, 게이트)
                 CollectVictimCandidates(tile, so.StrikeRadiusTiles, excludeInjured: true);
@@ -280,7 +285,7 @@ namespace AIVillage.M0
                                                         _plotBuf[idx].x, _plotBuf[idx].y)) hit++;
                 Debug.Log($"[Threat] 발동 — {so.DisplayName}: 밭 {hit}/{_plotBuf.Count} 소실");
             }
-            OnStruck?.Invoke(so, hit, tile);
+            OnStruck?.Invoke(so, targetsVillagers, hit, tile);
         }
 
         /// <summary>부상 후보 수집 — 생존 주민 중 기준점 radius(맨해튼) 이내. excludeInjured면

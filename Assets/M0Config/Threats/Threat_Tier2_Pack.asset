@@ -13,10 +13,10 @@ MonoBehaviour:
   m_Name: Threat_Tier2_Pack
   m_EditorClassIdentifier:
   DisplayName: "늑대 무리"
-  MinVillageScale: 8
-  PeriodDays: 6
+  UnlockDay: 12
+  PeriodDays: 5
   WarnDays: 1.5
-  TargetVillagers: 1
+  VillagerTargetChance: 0.5
   StrikeRadiusTiles: 3
   DangerRadiusTiles: 6
   BaseLossPct: 0.25

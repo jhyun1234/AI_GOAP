@@ -28,6 +28,10 @@ namespace AIVillage.M0
         public Vector2Int EntryTile { get; private set; }
         public Vector2Int TargetTile { get; private set; }
 
+        /// <summary>이번 출몰이 주민을 노리는가 (M10R, ADR-M10R-4) — 출몰 시 서비스가 롤해 주입.
+        /// 이동 모드(추격/고정)·타격·HUD 분기가 모두 이 값을 읽는다. 밴드 고정 아님.</summary>
+        public bool TargetsVillagers { get; private set; }
+
         /// <summary>현재 논리 타일 — IsNearThreat(감지)·사거리·타격 지점의 기준 (표현 위치의 반올림).</summary>
         public int TileX => Mathf.RoundToInt(transform.position.x);
         public int TileY => Mathf.RoundToInt(transform.position.y);
@@ -42,12 +46,13 @@ namespace AIVillage.M0
         private Vector2Int _lastChaseTile;
 
         public void Init(ThreatSO so, ThreatService svc, Vector2Int entry, Vector2Int target,
-                         List<Vector2Int> waypoints, IPathfinder pathfinder)
+                         List<Vector2Int> waypoints, IPathfinder pathfinder, bool targetsVillagers)
         {
             So = so;
             _svc = svc;
             EntryTile = entry;
             TargetTile = target;
+            TargetsVillagers = targetsVillagers;
             _path = waypoints; // null = 이미 목표 (AlreadyThere)
             _wp = 0;
             _pathfinder = pathfinder;
@@ -67,7 +72,7 @@ namespace AIVillage.M0
             if (So == null) return; // Init 전 방어
 
             // 추격 틱 (주민 타격형만) — 사거리·재타겟 판정. 타격으로 전환되면 이번 프레임 종료.
-            if (!_exiting && So.TargetVillagers && Time.time >= _nextRetargetAt)
+            if (!_exiting && TargetsVillagers && Time.time >= _nextRetargetAt)
             {
                 _nextRetargetAt = Time.time + RETARGET_SEC;
                 TickChase();
@@ -77,7 +82,7 @@ namespace AIVillage.M0
             if (_path == null || _wp >= _path.Count)
             {
                 if (_exiting) { DespawnNow(); return; }              // 퇴장 경로 소진 = 가장자리 도달
-                if (!So.TargetVillagers) { StrikeAndExit(); return; } // 밭형: 고정 목표 도착 = 타격
+                if (!TargetsVillagers) { StrikeAndExit(); return; } // 밭형: 고정 목표 도착 = 타격
                 return; // 주민형: 경로 소진 = 제자리 대기 — 다음 재타겟 틱이 잇는다
             }
 

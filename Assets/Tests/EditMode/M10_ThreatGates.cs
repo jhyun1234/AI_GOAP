@@ -12,33 +12,63 @@ namespace AIVillage.Tests.EditMode
     /// </summary>
     public class M10_ThreatGates
     {
-        private static ThreatSO Tier(string name, int minScale)
+        private static ThreatSO Tier(string name, float unlockDay)
         {
             var t = ScriptableObject.CreateInstance<ThreatSO>();
             t.name = name;
             t.DisplayName = name;
-            t.MinVillageScale = minScale;
+            t.UnlockDay = unlockDay;
             return t;
         }
 
         [Test]
         public void M10_T3_PickTier_LadderAndPlateau()
         {
+            // 축 = 게임일 (ADR-M10R-1 시간 래칫). 0/12/16 은 잠금 게임일.
             ThreatSO t1 = Tier("T1", 0), t2 = Tier("T2", 12), t3 = Tier("T3", 16);
             var threats = new[] { t1, t2, t3 };
 
-            Assert.AreSame(t1, ThreatService.PickTier(threats, 10), "규모 10 = 티어1 (12 미달)");
-            Assert.AreSame(t2, ThreatService.PickTier(threats, 12), "임계 도달 = 티어2");
-            Assert.AreSame(t3, ThreatService.PickTier(threats, 16), "규모 16 = 티어3");
-            Assert.AreSame(t3, ThreatService.PickTier(threats, 999), "등록 밖 상위 없음 = 최고 티어 반복 (플래토, ADR-M10-6)");
-            Assert.IsNull(ThreatService.PickTier(new ThreatSO[0], 10), "빈 등록 = 위협 없음 (중립 불변식)");
-            Assert.IsNull(ThreatService.PickTier(new[] { Tier("T5", 50) }, 10), "전 티어 미달 = null");
+            Assert.AreSame(t1, ThreatService.PickTier(threats, 10f), "Day 10 = 밴드1 (12 미달)");
+            Assert.AreSame(t2, ThreatService.PickTier(threats, 12f), "잠금일 도달 = 밴드2");
+            Assert.AreSame(t3, ThreatService.PickTier(threats, 16f), "Day 16 = 밴드3");
+            Assert.AreSame(t3, ThreatService.PickTier(threats, 999f), "등록 밖 상위 없음 = 최신 밴드 반복 (플래토, ADR-M10R-1)");
+            Assert.IsNull(ThreatService.PickTier(new ThreatSO[0], 10f), "빈 등록 = 위협 없음 (중립 불변식)");
+            Assert.IsNull(ThreatService.PickTier(new[] { Tier("T5", 50f) }, 10f), "전 밴드 미달 = null");
 
             // 동률 = 배열 앞 우선 (결정적)
-            ThreatSO dupA = Tier("A", 5), dupB = Tier("B", 5);
-            Assert.AreSame(dupA, ThreatService.PickTier(new[] { dupA, dupB }, 10), "MinScale 동률 = 배열 앞");
+            ThreatSO dupA = Tier("A", 5f), dupB = Tier("B", 5f);
+            Assert.AreSame(dupA, ThreatService.PickTier(new[] { dupA, dupB }, 10f), "UnlockDay 동률 = 배열 앞");
 
             foreach (ThreatSO t in new[] { t1, t2, t3, dupA, dupB }) Object.DestroyImmediate(t);
+        }
+
+        [Test]
+        public void M10_T3_RollTargetsVillagers_Deterministic()
+        {
+            var so = ScriptableObject.CreateInstance<ThreatSO>();
+            so.DisplayName = "늑대 무리"; so.VillagerTargetChance = 0.5f;
+
+            // 결정성 (ADR-M10R-2): 같은 서수 = 같은 결과
+            for (int ord = 1; ord <= 5; ord++)
+                Assert.AreEqual(ThreatService.RollTargetsVillagers(so, ord),
+                                ThreatService.RollTargetsVillagers(so, ord), $"서수 {ord} 재현");
+
+            // 경계: 0 = 항상 밭, 1 = 항상 주민
+            so.VillagerTargetChance = 0f;
+            for (int ord = 1; ord <= 20; ord++)
+                Assert.IsFalse(ThreatService.RollTargetsVillagers(so, ord), "확률 0 = 밭만");
+            so.VillagerTargetChance = 1f;
+            for (int ord = 1; ord <= 20; ord++)
+                Assert.IsTrue(ThreatService.RollTargetsVillagers(so, ord), "확률 1 = 주민만");
+
+            // 분포 sanity: 0.5에서 100 서수 중 극단 치우침 없음
+            so.VillagerTargetChance = 0.5f;
+            int villagerHits = 0;
+            for (int ord = 1; ord <= 100; ord++)
+                if (ThreatService.RollTargetsVillagers(so, ord)) villagerHits++;
+            Assert.That(villagerHits, Is.InRange(25, 75), "0.5 확률이 전무·전량으로 치우치지 않음");
+
+            Object.DestroyImmediate(so);
         }
 
         [Test]

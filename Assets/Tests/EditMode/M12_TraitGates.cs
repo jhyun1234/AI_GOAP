@@ -169,7 +169,7 @@ namespace AIVillage.Tests.EditMode
             Assert.GreaterOrEqual(tagged.Count, 24,
                 $"성향이 닿는 goal이 {tagged.Count}개뿐 — 면제 대상(먹는 행동 3 + 명령 3)을 뺀 전부에 붙어야 한다 (S1)");
 
-            // 면제 대상은 반드시 비어 있어야 한다 (ADR-M12-4 — 굶주림 앞에 성격 없음)
+            // 면제 대상은 반드시 비어 있어야 한다 (ADR-M12-4 ① 몸값 불가침)
             foreach (string name in ExemptGoals)
             {
                 GoalSO g = goals.FirstOrDefault(x => x.name == name);
@@ -211,14 +211,38 @@ namespace AIVillage.Tests.EditMode
                 if (g == hunger || g == flee) continue;
                 Assert.Less(g.Priority + Mathf.Max(up, down), hunger.Priority,
                     $"{g.name}: 극단 성격에서 실효 우선순위가 배고픔({hunger.Priority})을 넘는다 " +
-                    "— 굶으면서 다른 일을 하러 간다 (ADR-M12-4의 수치적 보증)");
+                    "— 굶으면서 다른 일을 하러 간다 (ADR-M12-4 ②③의 수치적 보증)");
+            }
+        }
+
+        /// <summary>
+        /// P0 배고픔보다 높이 설 수 있는 goal의 사전 승인 목록 (ADR-M12-8).
+        /// 여기 추가하려면 ADR-M12-4 ③의 3조건을 논증해야 한다 —
+        /// ⓐ외부 세계 상태가 발동 ⓑ그 상태가 사라지면 자기 종료 ⓒ굶주림보다 빠른 치사.
+        /// </summary>
+        private static readonly string[] MayOutrankHunger = { "Goal_Flee" };
+
+        [Test]
+        public void M12_T3_OnlyApprovedGoalsMayOutrankHunger()
+        {
+            // ADR-M12-4 ③의 이빨. 이 게이트가 없으면 "일중독은 굶어도 일한다" 같은 축이
+            // 조용히 P0 위로 올라와 성격 때문에 굶어 죽는 판이 만들어진다.
+            List<GoalSO> goals = LoadAllGoals();
+            GoalSO hunger = goals.First(g => g.name == "Goal_P0_Hunger");
+
+            foreach (GoalSO g in goals)
+            {
+                if (g == hunger || MayOutrankHunger.Contains(g.name)) continue;
+                Assert.LessOrEqual(g.Priority, hunger.Priority,
+                    $"{g.name}: 우선순위 {g.Priority}이 배고픔({hunger.Priority})보다 높다 — " +
+                    "P0를 초월하려면 ADR-M12-4 ③의 3조건을 논증하고 승인 목록에 올려야 한다");
             }
         }
 
         [Test]
         public void M12_T3_Flee_OutranksHungerExceptForTheReckless()
         {
-            // ADR-M12-8 — 위험 앞에서는 밥보다 도망이 먼저다. 단 겁이 아주 낮은 주민만 예외.
+            // ADR-M12-4 ② 급박성 사다리의 첫 사례 — 즉사급(위협)이 시간급(굶주림) 위에 선다.
             // 개정 전(피신 92 < 배고픔 100): 포만 20 이하 주민에게 늑대가 와도 배고픔이 이기고,
             // P0의 SkipFailureCooldown 때문에 겨울엔 재선택이 무한 반복돼 피신이 영영 안 뽑혔다
             // = 굶주린 주민이 늑대 앞에 굳어 서서 물린다.

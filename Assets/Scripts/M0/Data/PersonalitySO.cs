@@ -6,7 +6,9 @@ namespace AIVillage.M0
     /// 주민 성격 아키타입 (M4). 거부 오프셋·작업 비용 배율·대사 톤의 단일 출처 —
     /// 성격 추가/삭제 = 이 에셋 1개 + 스폰 풀 등록 (코드 0줄, M4-S4).
     /// null 또는 전 필드 중립이면 M3와 동작이 완전히 동일해야 한다 (중립 불변식, ADR-M4-2).
-    /// 소비·휴식 계열 배율 필드는 의도적으로 없다 — 굶주림 앞에 성격 없음 (ADR-M4-3).
+    /// 소비·휴식 계열 배율 필드는 의도적으로 없다 — **몸값 불가침** (ADR-M12-4 ①, 舊 ADR-M4-3 개정:
+    /// "굶주림 앞에 성격 없음"이 순위 주장으로 굳어 늑대 앞의 굶주린 주민을 굳게 만들었다).
+    /// 성향은 '무엇을 할지'를 바꾸고 '몸이 무엇을 할 수 있는지'는 못 바꾼다.
     /// </summary>
     [CreateAssetMenu(menuName = "AIVillage/M0/Personality", fileName = "Personality")]
     public sealed class PersonalitySO : ScriptableObject
@@ -28,7 +30,7 @@ namespace AIVillage.M0
         [Tooltip("-면 더 쉽게 피로 거부 (문턱 하향)")]
         public float RefuseFatigueOffset;
 
-        [Header("작업 비용 배율 (1=중립, <1=선호. 생존 계열 필드 없음 — ADR-M4-3)")]
+        [Header("작업 비용 배율 (1=중립, <1=선호. 생존 계열 필드 없음 — 몸값 불가침 ADR-M12-4 ①)")]
         public float GatherCostMult = 1f;
         public float FarmCostMult = 1f;
         public float BuildCostMult = 1f;

@@ -3,7 +3,8 @@ namespace AIVillage.M0
     /// <summary>
     /// 성격 → 카탈로그 인덱스별 비용 배율 (M4-B, 순수 — 게이트 대상).
     /// 계열 판정은 ActionSO 서브타입 is-검사만 (ADR-M4-4 — 이름/문자열 분기 금지).
-    /// 소비·휴식·배회는 항상 중립 1 — 굶주림 앞에 성격 없음 (ADR-M4-3).
+    /// 소비·휴식·배회는 항상 중립 1 — **몸값 불가침**(ADR-M12-4 ①, 舊 ADR-M4-3 개정):
+    /// 성향은 '무엇을 할지'를 바꾸고 '몸이 무엇을 할 수 있는지'는 못 바꾼다. 영구 고정이다.
     /// </summary>
     public static class PersonalityCost
     {
@@ -39,7 +40,7 @@ namespace AIVillage.M0
                 case FarmActionSO _:    return Mul(p != null ? p.FarmCostMult    : 1f, job != null ? job.FarmCostMult    : 1f, jitter, JITTER_FARM);
                 case BuildActionSO _:   return Mul(p != null ? p.BuildCostMult   : 1f, job != null ? job.BuildCostMult   : 1f, jitter, JITTER_BUILD);
                 case ExploreActionSO _: return Mul(p != null ? p.ExploreCostMult : 1f, job != null ? job.ExploreCostMult : 1f, jitter, JITTER_EXPLORE);
-                default:                return 1f; // Consume/Rest/Wander — 생존·여가 중립 (ADR-M4-3·ADR-M5-3)
+                default:                return 1f; // Consume/Rest/Wander — 몸값 불가침 (ADR-M12-4 ①·ADR-M5-3)
             }
         }
 

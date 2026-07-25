@@ -16,7 +16,7 @@ namespace AIVillage.M0
     /// 직업 추가/삭제 = 이 에셋 1개 + 스폰 풀 등록 (코드 0줄, M5-S5).
     /// null 또는 전 필드 중립이면 M4와 goal 선택이 완전히 동일해야 한다 (중립 불변식, M5-S3).
     /// 직업은 강한 선호 + 공용 폴백 — 어떤 goal도 직업 전용으로 잠그지 않는다 (ADR-M5-4).
-    /// 소비·휴식 계열 배율 필드는 의도적으로 없다 (ADR-M5-3 — ADR-M4-3 계승).
+    /// 소비·휴식 계열 배율 필드는 의도적으로 없다 (ADR-M5-3 — 몸값 불가침 ADR-M12-4 ① 계승).
     /// 대사(MoodLines)는 성격 담당 — 직업에 넣지 않는다 (축 분리).
     /// </summary>
     [CreateAssetMenu(menuName = "AIVillage/M0/Job", fileName = "Job")]

@@ -14,6 +14,13 @@ namespace AIVillage.M0
         [Tooltip("표시명 (예: 고집쟁이) — 스폰 로그·추후 UI용")]
         public string DisplayName;
 
+        [Header("성향 벡터 (M12-A) — 아래 개별 필드들을 대체해 갈 축. 비면 전 축 0 = 중립")]
+        [Tooltip("이 성격이 어떤 기질인가. 행동에는 4작용형식(①우선순위 ②비용 ③문턱 ④대상)으로만 " +
+                 "작용한다 (ADR-M12-1). 미등록 축은 0 — 축을 새로 추가해도 이 에셋은 무변경 (ADR-M12-3).\n" +
+                 "⚠️ M12-F 전까지는 아래 개별 필드와 **병존**한다 (효과가 합산되므로 이식 커밋에서 " +
+                 "개별 필드를 비운다). 지금 개별 필드를 지우면 중간 커밋에서 행동이 붕괴한다.")]
+        public TraitValue[] Traits;
+
         [Header("명령 거부 (AgentConfig 문턱에 더하는 오프셋 — ADR-M1-2 결정적 판정 유지)")]
         [Tooltip("+면 더 쉽게 배고픔 거부 (문턱 상향)")]
         public float RefuseSatietyOffset;

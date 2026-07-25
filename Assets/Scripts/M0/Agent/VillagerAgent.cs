@@ -733,16 +733,42 @@ namespace AIVillage.M0
                     break;
 
                 default: // NoSolution — ADR-3: 버그 증상. MAX_NODES 인상 금지, 로그로 노출.
-                    // 단 식량 goal의 '먹을 것이 없음'은 정상 (ADR-M6-1 개정 게임건강 예외 — 겨울 채집
-                    // 봉쇄 + 저장분 0 = 굶주림, 버그 아님). MayHaveNoSolution면 정보 로그로 강등한다.
+                    // 단 MayHaveNoSolution goal은 예외 (ADR-M6-2 게임건강 예외):
+                    //   ① 식량 goal — 겨울 봉쇄 + 저장분 0 = 굶주림이지 버그가 아니다.
+                    //   ② 명령 goal — 플레이어가 불가능한 걸 시킨 것이지 결함이 아니다(2026-07-24 확장).
+                    //      실패는 주민의 거부 대사·HUD로 이미 플레이어에게 보이므로 경고가 중복이다.
+                    //      예: "명령: 식량"은 +5를 요구하는데 채집 전제가 MyRawFood ≤ 3(상한 8 − 수확 5)이라
+                    //      소지 4 이상이면 애초에 달성 불가이고, 겨울엔 채집 자체가 봉쇄다.
+                    bool giveUpOrder = _goal == _order; // ToIdle이 _goal을 비우기 전에 포착
+                    string failedName = _goal.DisplayName;
                     if (_goal.MayHaveNoSolution)
-                        Debug.Log($"[VillagerAgent] {AgentId}: {_goal.DisplayName} — 먹을 것이 없다 (굶주림)");
+                        Debug.Log($"[VillagerAgent] {AgentId}: {failedName} — 지금은 달성할 방법이 없다 " +
+                                  $"(정상 — 굶주림이거나, 불가능한 명령을 받았거나)");
                     else
                         // 노드 수 병기 (2026-07-22 석재 goal 폭발 진단의 교훈): 4096 = 탐색 폭발
                         // (휴리스틱 수축·대부족량 goal), 그 미만 = 진짜 해 없음 (에셋 정합·발견 체인 순).
                         Debug.LogWarning($"[VillagerAgent] {AgentId}: NoSolutionFound (goal={_goal.name}, " +
                                          $"노드 {nodes}/{PlanningConfig.MaxNodes}) — ADR-3 진단 필요");
+
+                    // 실패 쿨다운을 여기서도 기록한다 (AbortPlan과 같은 판정 — 누락이던 것).
+                    // 없으면 도달 불가 goal이 2초마다 4096노드 탐색을 반복해 경고·CPU를 갉는다.
+                    // P0 생존 goal은 SkipFailureCooldown으로 면제라 즉시 재시도가 유지된다.
+                    if (!giveUpOrder && ShouldRecordFailureCooldown(_goal, true))
+                        _goalRetryAt[_goal] = Time.time + _cfg.GoalRetryCooldownSec;
+
                     ToIdle(2f);
+
+                    // 달성 불가 명령은 붙들지 않는다 — 쿨다운만으론 무한 재시도가 끝나지 않는다.
+                    // 구조적 불가가 실재한다: 겨울 채집 봉쇄, 또는 "지금보다 +5"가 몸 소지 상한(8)을
+                    // 넘는 경우(채집 전제가 ≤3이라 소지 4 이상이면 애초에 달성 불가). 주민이 못 하겠다고
+                    // 말하고 자율로 돌아간다 — "주민은 명령을 거부할 수 있다"는 게임 정체성과도 맞는다.
+                    if (giveUpOrder)
+                    {
+                        Debug.Log($"[VillagerAgent] {AgentId}: 명령 포기 — {failedName} (달성 불가)");
+                        _sim.Hud?.Notify($"{ShortName}: 그 일은 못 하겠어요");
+                        ShowTransient(Pick(_cfg.OrderGiveUpLines));
+                        CancelOrder();
+                    }
                     break;
             }
         }

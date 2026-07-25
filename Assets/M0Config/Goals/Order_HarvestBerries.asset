@@ -21,3 +21,4 @@ MonoBehaviour:
     Value: 5
   DirectActionPool: []
   RelativeToCurrent: 1
+  MayHaveNoSolution: 1

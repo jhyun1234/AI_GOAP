@@ -38,9 +38,13 @@ namespace AIVillage.M0
                  "굶는데 여가를 가는 상황 원천 차단. 다른 goal에 켜면 공회전 방지가 무력화된다.")]
         public bool SkipFailureCooldown;
 
-        [Tooltip("이 goal은 해가 없어도 정상 (ADR-M6-1 개정 게임건강 예외) — 식량 goal 전용: 겨울에 " +
-                 "채집이 얼고 저장분도 없으면 '먹을 것이 없다'는 버그가 아니라 굶주림이다. true면 " +
-                 "NoSolution을 경고 대신 정보로 로그한다. 기본 false = 버그 탐지(경고) 유지.")]
+        [Tooltip("이 goal은 해가 없어도 정상 (ADR-M6-2 게임건강 예외). true면 NoSolution을 경고 대신 " +
+                 "정보로 로그한다. 기본 false = 버그 탐지(경고) 유지.\n" +
+                 "① 식량 goal: 겨울 봉쇄 + 저장분 0 = 버그가 아니라 굶주림.\n" +
+                 "② 명령 goal: 플레이어가 불가능한 걸 시킨 것 — 실패는 주민의 거부 대사·HUD로 이미 " +
+                 "보이므로 경고가 중복이다.\n" +
+                 "⚠️ 남용 금지 — 켜는 순간 그 goal의 진짜 결함도 조용해진다. '해가 없는 게 정상인 상황'을 " +
+                 "설명할 수 있을 때만.")]
         public bool MayHaveNoSolution;
 
         [Tooltip("동시 수행 인원 제한 (0=무제한, ADR-M3-4). 건설·비축 goal의 초과 달성 방지용. " +

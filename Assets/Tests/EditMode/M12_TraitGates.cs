@@ -485,6 +485,75 @@ namespace AIVillage.Tests.EditMode
             finally { Object.DestroyImmediate(a); Object.DestroyImmediate(b); }
         }
 
+        // ── M12-T8: 6성격 이식 + 축별 대사 풀 (M12-F) ────────────────────────
+
+        private const string PERSONALITY_DIR = "Assets/M0Config/Personalities";
+
+        private static List<PersonalitySO> LoadAllPersonalities()
+        {
+            var list = AssetDatabase.FindAssets("t:PersonalitySO", new[] { PERSONALITY_DIR })
+                .Select(AssetDatabase.GUIDToAssetPath)
+                .Select(AssetDatabase.LoadAssetAtPath<PersonalitySO>)
+                .Where(p => p != null).ToList();
+            Assert.IsNotEmpty(list, "성격 에셋 로드");
+            return list;
+        }
+
+        [Test]
+        public void M12_T8_AllPersonalitiesMigratedAndLegacyFieldsNeutral()
+        {
+            foreach (PersonalitySO p in LoadAllPersonalities())
+            {
+                Assert.IsTrue(p.Traits != null && p.Traits.Length > 0,
+                    $"{p.name}: 성향 벡터가 비었다 — 이 성격은 아무 기질도 없다");
+
+                // 舊 개별 필드는 전부 중립이어야 한다. 아니면 벡터와 이중 적용된다.
+                Assert.AreEqual(1f, p.GatherCostMult,  1e-5f, $"{p.name}: 舊 채집 배율 잔존");
+                Assert.AreEqual(1f, p.FarmCostMult,    1e-5f, $"{p.name}: 舊 농사 배율 잔존");
+                Assert.AreEqual(1f, p.BuildCostMult,   1e-5f, $"{p.name}: 舊 건설 배율 잔존");
+                Assert.AreEqual(1f, p.ExploreCostMult, 1e-5f, $"{p.name}: 舊 탐험 배율 잔존");
+                Assert.AreEqual(0f, p.RefuseSatietyOffset, 1e-5f, $"{p.name}: 舊 배고픔 오프셋 잔존");
+                Assert.AreEqual(0f, p.RefuseFatigueOffset, 1e-5f, $"{p.name}: 舊 피로 오프셋 잔존");
+                Assert.AreEqual(1f, p.FleeRadiusMult, 1e-5f, $"{p.name}: 舊 감지 배율 잔존");
+                Assert.AreEqual(0f, p.HomePreferredDist, 1e-5f, $"{p.name}: 舊 택지 거리 잔존");
+                Assert.AreEqual(-100, p.SkipRewardBelowAffinity, $"{p.name}: 舊 떼먹기 문턱 잔존");
+                Assert.IsFalse(p.DemandsRewardUpfront, $"{p.name}: 舊 선불 플래그 잔존");
+                Assert.IsTrue(p.GoalBoosts == null || p.GoalBoosts.Length == 0,
+                    $"{p.name}: 舊 GoalBoosts 잔존 — 벡터와 이중 적용된다");
+
+                // 축 값은 정의 범위 안 (에셋 손편집 사고 방지)
+                foreach (TraitValue t in p.Traits)
+                    Assert.That(t.Value, Is.InRange(-100, 100), $"{p.name}: {t.Trait} 값이 범위 밖");
+            }
+        }
+
+        [Test]
+        public void M12_T8_MoodPool_DeterministicAndFallsBackToSilenceNotCrash()
+        {
+            TraitRulesSO rules = LoadRules();
+
+            // 전 축 0 / 벡터 없음 → null (호출자가 성격 전용 대사로 폴백, 침묵은 마지막)
+            Assert.IsNull(rules.MoodPoolFor(null), "벡터 없음 = 풀 없음");
+            Assert.IsNull(rules.MoodPoolFor(new[] { V(TraitId.Caution, 0) }), "전 축 0 = 풀 없음");
+
+            // 최고 |값| 축이 선택된다 — 부호까지 맞는 풀
+            string[] timid = rules.MoodPoolFor(new[] { V(TraitId.Caution, 90), V(TraitId.Diligence, 20) });
+            Assert.IsNotNull(timid, "겁 +90 → 겁쟁이 풀");
+            string[] brave = rules.MoodPoolFor(new[] { V(TraitId.Caution, -90) });
+            Assert.IsNotNull(brave, "겁 -90 → 무모한자 풀");
+            Assert.AreNotSame(timid, brave, "같은 축이라도 부호가 다르면 다른 풀");
+
+            // 결정성: 벡터 항목 순서가 달라도 같은 풀
+            Assert.AreSame(timid,
+                rules.MoodPoolFor(new[] { V(TraitId.Diligence, 20), V(TraitId.Caution, 90) }),
+                "항목 순서 무관 (결정적)");
+
+            // 동률이면 TraitId 작은 쪽 — 근면(0) vs 겁(5)
+            string[] tie = rules.MoodPoolFor(new[] { V(TraitId.Caution, 80), V(TraitId.Diligence, 80) });
+            Assert.AreSame(rules.MoodPoolFor(new[] { V(TraitId.Diligence, 80) }), tie,
+                "동률은 TraitId 순 → 근면 풀");
+        }
+
         // ── M12-T4: 제한 플래그의 문언 ↔ 실사용 대조 (ADR 낡음 탐지기, 2026-07-26) ────
 
         /// <summary>

@@ -13,18 +13,16 @@ MonoBehaviour:
   m_Name: Personality_Stubborn
   m_EditorClassIdentifier:
   DisplayName: "고집쟁이"
-  RefuseSatietyOffset: 8
-  RefuseFatigueOffset: -15
+  RefuseSatietyOffset: 0
+  RefuseFatigueOffset: 0
   GatherCostMult: 1
   FarmCostMult: 1
   BuildCostMult: 1
   ExploreCostMult: 1
-  GoalBoosts:
-  - Goal: {fileID: 11400000, guid: 0fd7741aeb03452b871f58e57e4c4233, type: 2}
-    Boost: -25
-  HomePreferredDist: 0.5
-  SkipRewardBelowAffinity: 25
-  DemandsRewardUpfront: 1
+  GoalBoosts: []
+  HomePreferredDist: 0
+  SkipRewardBelowAffinity: -100
+  DemandsRewardUpfront: 0
   StiffRewardLines:
   - "보상? 흥, 나중에 생각해 보지"
   - "일 다 끝난 마당에 무슨 보상이야"
@@ -53,4 +51,17 @@ MonoBehaviour:
   - "쉬는 것도 내 마음대로야."
   - "오늘은 여기까지 하기로 정했어."
   MoodLineChance: 0.2
-  FleeRadiusMult: 0.6
+  FleeRadiusMult: 1
+  Traits:
+  - Trait: 0
+    Value: 40
+  - Trait: 1
+    Value: -30
+  - Trait: 2
+    Value: -40
+  - Trait: 3
+    Value: 0
+  - Trait: 4
+    Value: 90
+  - Trait: 5
+    Value: -60

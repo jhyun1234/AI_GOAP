@@ -352,7 +352,9 @@ namespace AIVillage.Tests.EditMode
                 var p = AssetDatabase.LoadAssetAtPath<PersonalitySO>(
                     $"Assets/M0Config/Personalities/Personality_{n}.asset");
                 Assert.IsNotNull(p, $"성격 에셋 없음: {n}");
-                int boost = p.BoostFor(prep);
+                // M12-F: 보정의 출처가 나열(GoalBoosts)에서 성향 벡터로 옮겨졌다. 검사하는 성질은 같다 —
+                // "성격마다 겨울 비축 실효 우선순위가 갈리는가"이지 어느 필드에서 나오는가가 아니다.
+                int boost = p.BoostFor(prep) + prep.TraitBoost(p.Traits);
                 distinct.Add(boost);
                 if (boost < 0) anyNegative = true;
                 Assert.Less(prep.Priority + boost, 60,

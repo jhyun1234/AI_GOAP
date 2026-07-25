@@ -830,10 +830,16 @@ namespace AIVillage.M0
             // 성격 혼잣말 (M4-D) — 표현 전용, 확률·문구 전부 에셋 값. 비면 표시 없음 (중립 경로).
             // ShowTransient가 잠시 덮고 다음 갱신에서 플랜 문구로 복귀 — 거부 대사와 같은 통로.
             // 대화 장면 중엔 침묵 (InConversation — 대화 흐름 보호, 2026-07-18)
-            if (!InConversation
-                && Personality != null && Personality.MoodLines != null && Personality.MoodLines.Length > 0
-                && Random.value < Personality.MoodLineChance)
-                ShowTransient(Pick(Personality.MoodLines));
+            // M12-F: 성격 전용 대사가 우선, 없으면 **축별 풀**에서 뽑는다 — 새 성격이 대사 0줄로도
+            // 말이 통하게 (에셋 1개로 성격 추가라는 약속의 마지막 조각). 둘 다 없으면 침묵(중립).
+            if (!InConversation && Personality != null && Random.value < Personality.MoodLineChance)
+            {
+                string[] pool = Personality.MoodLines != null && Personality.MoodLines.Length > 0
+                    ? Personality.MoodLines
+                    : (_sim.WorldConfig != null && _sim.WorldConfig.TraitRules != null
+                        ? _sim.WorldConfig.TraitRules.MoodPoolFor(Personality.Traits) : null);
+                if (pool != null && pool.Length > 0) ShowTransient(Pick(pool));
+            }
 
             // 위기 예고 술렁임 (M6-C) — 혼잣말과 같은 통로. 예고 구간(위기 전)에만, 위기 중은 제외.
             // 대사·확률 전부 에셋 값 (SeasonSO.ForecastLines / AgentConfig.ForecastMoodChance).

@@ -65,6 +65,21 @@ namespace AIVillage.M0
     }
 
     /// <summary>
+    /// 축별 혼잣말 풀 한 칸 (M12-F). 축 하나의 한쪽 끝(높음/낮음)에 대응한다 —
+    /// "부지런한 사람의 혼잣말"과 "게으른 사람의 혼잣말"은 다른 풀이다.
+    /// </summary>
+    [Serializable]
+    public struct TraitMoodPool
+    {
+        public TraitId Trait;
+
+        [Tooltip("true = 이 축이 **높은** 주민의 대사, false = 낮은 주민의 대사")]
+        public bool ForHighValue;
+
+        public string[] Lines;
+    }
+
+    /// <summary>
     /// 성향 조건 (M12-A). 부탁 성립처럼 **결과 상태(스톡)만 읽던 판정 경로**에 기질을 들이는
     /// 창구다 — 성격 페널티가 통째로 우회되던 구조(2026-07-24 관측)의 차단점.
     /// ⚠️ GoalSO.TriggerConditions에는 쓰지 않는다 (ADR-M12-2).

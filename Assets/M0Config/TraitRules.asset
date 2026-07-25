@@ -38,3 +38,46 @@ MonoBehaviour:
     - Trait: 2
       Weight: -1
     Sensitivity: 0.95
+  MoodPools:
+  - Trait: 5
+    ForHighValue: 1
+    Lines:
+    - "저 소리... 들었어?"
+    - "오늘은 멀리 안 갈래"
+    - "등 뒤가 자꾸 신경 쓰여"
+    - "무사히만 넘어가면 좋겠는데"
+  - Trait: 5
+    ForHighValue: 0
+    Lines:
+    - "겁먹을 거 없어"
+    - "와 봐야 별거 아니야"
+    - "도망은 내 취향이 아니라서"
+    - "다들 왜 그렇게 호들갑이야"
+  - Trait: 2
+    ForHighValue: 1
+    Lines:
+    - "누구 얘기 좀 할 사람 없나"
+    - "다들 잘 지내려나"
+    - "혼자 있으면 심심해"
+    - "도울 일 있으면 불러요"
+  - Trait: 2
+    ForHighValue: 0
+    Lines:
+    - "...혼자가 편해"
+    - "말 시키지 마"
+    - "적당히 거리를 두자고"
+    - "사람 많은 데는 질색이야"
+  - Trait: 0
+    ForHighValue: 1
+    Lines:
+    - "쉴 시간이 어딨어"
+    - "손이 놀면 좀이 쑤셔"
+    - "하나만 더 끝내고"
+    - "오늘 몫은 오늘 안에"
+  - Trait: 1
+    ForHighValue: 1
+    Lines:
+    - "쟁여둬서 손해 볼 일 없지"
+    - "겨울이 금방이야"
+    - "모자란 것보단 남는 게 낫지"
+    - "이건 아껴뒀다가"

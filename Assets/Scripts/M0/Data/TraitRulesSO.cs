@@ -33,6 +33,42 @@ namespace AIVillage.M0
                  "모험↑ 외딴집 / 사교↑ 이웃 곁.")]
         public TraitBias HomeDistanceBias;
 
+        [Header("축별 혼잣말 풀 (M12-F — 새 성격이 대사 0줄로도 말이 통하게)")]
+        [Tooltip("성격 전용 MoodLines가 있으면 그것이 우선하고, 없을 때 여기서 뽑는다. " +
+                 "같은 축을 공유하는 성격끼리 말투가 닮아 '계열'이 느껴지는 부수효과가 있다.")]
+        public TraitMoodPool[] MoodPools;
+
+        /// <summary>
+        /// 이 벡터를 가장 잘 대표하는 축의 혼잣말 풀 (순수 — 게이트 M12-T8).
+        /// 선택 규칙은 **결정적**이다: |값|이 가장 큰 축 → 동률이면 TraitId 순 → 그 축의 부호와
+        /// 맞는 풀. 전 축 0이거나 맞는 풀이 없으면 null (호출자가 기본 대사로 폴백 — 침묵 금지).
+        /// </summary>
+        public string[] MoodPoolFor(TraitValue[] traits)
+        {
+            if (MoodPools == null || MoodPools.Length == 0 || traits == null) return null;
+
+            // |값| 최대 축 (동률이면 TraitId 작은 쪽 — 열거 순서가 아니라 값으로 판정해야 결정적)
+            bool found = false;
+            TraitId best = default;
+            int bestAbs = 0, bestVal = 0;
+            for (int i = 0; i < traits.Length; i++)
+            {
+                int abs = Mathf.Abs(traits[i].Value);
+                if (abs == 0) continue;
+                if (!found || abs > bestAbs || (abs == bestAbs && traits[i].Trait < best))
+                {
+                    found = true; best = traits[i].Trait; bestAbs = abs; bestVal = traits[i].Value;
+                }
+            }
+            if (!found) return null;
+
+            for (int i = 0; i < MoodPools.Length; i++)
+                if (MoodPools[i].Trait == best && MoodPools[i].ForHighValue == (bestVal > 0)
+                    && MoodPools[i].Lines != null && MoodPools[i].Lines.Length > 0)
+                    return MoodPools[i].Lines;
+            return null;
+        }
+
         /// <summary>
         /// ②비용 유도 (순수 — 게이트 M12-T5). 규칙표·성격 어느 쪽이 없어도 1 = 중립.
         /// 클램프는 안전망 — CostScale ≤ 0.5면 |bias| ≤ 1이라 실제로는 닿지 않는다.

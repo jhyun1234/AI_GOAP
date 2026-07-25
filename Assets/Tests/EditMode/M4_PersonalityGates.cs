@@ -32,10 +32,15 @@ namespace AIVillage.Tests.EditMode
             var wanderer = AssetDatabase.LoadAssetAtPath<PersonalitySO>("Assets/M0Config/Personalities/Personality_Wanderer.asset");
             Assert.IsNotNull(docile); Assert.IsNotNull(stubborn); Assert.IsNotNull(farmer); Assert.IsNotNull(wanderer);
 
-            Assert.Less(docile.RefuseSatietyOffset, 0f, "순둥이는 덜 거부 (문턱 하향)");
-            Assert.Greater(stubborn.RefuseSatietyOffset, 0f, "고집쟁이는 더 거부 (문턱 상향)");
-            Assert.Less(farmer.FarmCostMult, 1f, "농사꾼은 밭 선호");
-            Assert.Less(wanderer.GatherCostMult, 1f, "떠돌이는 채집 선호");
+            // M12-F 이식: 축 배치는 이제 개별 필드가 아니라 **성향 벡터**가 갖는다.
+            // 같은 성질을 벡터 표현으로 검사한다 — 규칙이 바뀐 것이 아니라 표현이 바뀐 것이다.
+            int Trait(PersonalitySO p, TraitId t) => TraitVector.ValueOf(p.Traits, t);
+
+            Assert.Less(Trait(docile, TraitId.Willfulness), 0, "순둥이는 자존이 낮다 = 덜 거부");
+            Assert.Greater(Trait(stubborn, TraitId.Willfulness), 0, "고집쟁이는 자존이 높다 = 더 거부");
+            Assert.Greater(Trait(farmer, TraitId.Diligence), 0, "농사꾼은 근면 = 노동 선호");
+            Assert.Less(Trait(farmer, TraitId.Wanderlust), 0, "농사꾼은 정주 = 밭 선호(모험 음수)");
+            Assert.Greater(Trait(wanderer, TraitId.Wanderlust), 0, "떠돌이는 모험 = 채집·탐험 선호");
         }
 
         private static (PlanStatus status, ActionSO[] plan) RunPlan(WorldSnapshot snap, GoalSO goal, float[] costMult)
@@ -87,20 +92,23 @@ namespace AIVillage.Tests.EditMode
             WorldSnapshot snap = Snap((SlotId.MySatiety, 80), (SlotId.RawFoodStock, 10),
                                       (SlotId.MyRipeCrop, 1), (SlotId.NearDiscoveredFood, 1));
 
-            (PlanStatus fs, ActionSO[] fp) = RunPlan(snap, goal, PersonalityCost.Build(catalog, farmer, null));
+            var rules = AssetDatabase.LoadAssetAtPath<TraitRulesSO>("Assets/M0Config/TraitRules.asset");
+            (PlanStatus fs, ActionSO[] fp) = RunPlan(snap, goal, PersonalityCost.Build(catalog, farmer, null, null, rules));
             Assert.AreEqual(PlanStatus.Success, fs);
-            Assert.AreEqual("HarvestCrop", fp[0].name, "농사꾼은 밭 수확 선호 (8×0.7=5.6 < 10×1.15)");
+            Assert.AreEqual("HarvestCrop", fp[0].name, "농사꾼(근면.6/정주)은 밭 수확 선호 — 8×0.76 < 10×0.95");
 
-            (PlanStatus ws, ActionSO[] wp) = RunPlan(snap, goal, PersonalityCost.Build(catalog, wanderer, null));
+            (PlanStatus ws, ActionSO[] wp) = RunPlan(snap, goal, PersonalityCost.Build(catalog, wanderer, null, null, rules));
             Assert.AreEqual(PlanStatus.Success, ws);
-            Assert.AreEqual("HarvestWildBerries", wp[0].name, "떠돌이는 열매 채집 선호 (10×0.75=7.5 < 8×1.2)");
+            Assert.AreEqual("HarvestWildBerries", wp[0].name, "떠돌이(모험.9)는 열매 채집 선호 — 10×0.86 < 8×1.14");
         }
 
         [Test]
         public void M4_T3_JudgeOrder_PersonalityOffsets()
         {
             // AgentConfig 기본 문턱 실측값: satiety < 35 거부 / fatigue > 70 거부 (M4-C 착수 시 확인)
-            var cfg = ScriptableObject.CreateInstance<AgentConfigSO>();
+            // M12-F: 성향 문턱이 실제 에셋(AgentConfig)에 배선돼 있으므로 빈 인스턴스가 아니라 에셋을 쓴다 —
+            // 빈 인스턴스는 TraitBias가 비어 있어 성격이 무력해진다(그 자체가 중립 불변식의 증명이기도 하다).
+            var cfg = AssetDatabase.LoadAssetAtPath<AgentConfigSO>("Assets/M0Config/AgentConfig.asset");
             var docile   = AssetDatabase.LoadAssetAtPath<PersonalitySO>("Assets/M0Config/Personalities/Personality_Docile.asset");
             var stubborn = AssetDatabase.LoadAssetAtPath<PersonalitySO>("Assets/M0Config/Personalities/Personality_Stubborn.asset");
 

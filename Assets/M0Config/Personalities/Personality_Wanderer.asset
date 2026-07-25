@@ -13,13 +13,13 @@ MonoBehaviour:
   m_Name: Personality_Wanderer
   m_EditorClassIdentifier:
   DisplayName: "떠돌이"
-  RefuseSatietyOffset: 3
+  RefuseSatietyOffset: 0
   RefuseFatigueOffset: 0
-  GatherCostMult: 0.75
-  FarmCostMult: 1.2
+  GatherCostMult: 1
+  FarmCostMult: 1
   BuildCostMult: 1
-  ExploreCostMult: 0.8
-  HomePreferredDist: 0.95
+  ExploreCostMult: 1
+  HomePreferredDist: 0
   MoodLines:
   - "발길 닿는 대로"
   - "저 너머엔 뭐가 있을까"
@@ -44,3 +44,16 @@ MonoBehaviour:
   - "신발 끈 좀 다시 묶고요... 핑계 맞아요"
   - "다리가 파업했어요"
   MoodLineChance: 0.2
+  Traits:
+  - Trait: 0
+    Value: 0
+  - Trait: 1
+    Value: -10
+  - Trait: 2
+    Value: -20
+  - Trait: 3
+    Value: 90
+  - Trait: 4
+    Value: 20
+  - Trait: 5
+    Value: 0

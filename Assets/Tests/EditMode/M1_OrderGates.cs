@@ -116,5 +116,28 @@ namespace AIVillage.Tests.EditMode
                     $"{file}: 재생률 코드 상수 부활 금지 — ResourceNodeSpawnConfig 에셋이 단일 출처 (ADR-M1-4)");
             }
         }
+
+        // ── M1-T4: 상대 목표 × 몸 소지 상한 (M1-C 개정 2026-07-26) ────────────
+
+        [Test]
+        public void M1_T4_ResolveRelativeTarget_ClampsToBodyCapOnlyWhenItStillDemandsProgress()
+        {
+            const int cap = 8, delta = 5; // 실제 에셋 값(BodyCarryCap 8 / 명령: 식량 +5)과 같은 형상
+
+            // 결함이던 구간: 소지 4~7이면 목표가 상한을 넘어 여름에도 계획이 안 섰다
+            Assert.AreEqual(cap, VillagerAgent.ResolveRelativeTarget(4, delta, cap), "소지 4 → 상한으로 클램프");
+            Assert.AreEqual(cap, VillagerAgent.ResolveRelativeTarget(7, delta, cap), "소지 7 → 상한으로 클램프");
+
+            // 상한 안에 들어오면 손대지 않는다
+            Assert.AreEqual(5, VillagerAgent.ResolveRelativeTarget(0, delta, cap), "소지 0 → 그대로 +5");
+            Assert.AreEqual(8, VillagerAgent.ResolveRelativeTarget(3, delta, cap), "소지 3 → 정확히 상한");
+
+            // 이미 가득이면 클램프하지 않는다 — 도달 불가로 남겨 기존 '포기' 경로가 처리한다.
+            // (클램프하면 목표=현재가 되어 선택기가 스킵 → 명령이 영영 완수되지 않고 보상이 묶인다)
+            Assert.AreEqual(13, VillagerAgent.ResolveRelativeTarget(8, delta, cap), "소지 8(가득) → 원래 목표 유지");
+
+            // 상한 없음(전역 스톡·미배선) = 기존 동작 그대로 (중립 불변식)
+            Assert.AreEqual(15, VillagerAgent.ResolveRelativeTarget(10, delta, 0), "cap 0 = 클램프 없음");
+        }
     }
 }

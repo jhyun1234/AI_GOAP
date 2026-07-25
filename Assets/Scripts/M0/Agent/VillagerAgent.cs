@@ -1095,6 +1095,22 @@ namespace AIVillage.M0
         /// 상대 목표 해석 공용 헬퍼 (M1-C · M8-D) — RelativeToCurrent면 수신 시점 절대값으로
         /// 고정한 런타임 사본을 만든다 (에셋 무변경). isClone이면 소멸 시 Destroy 필수.
         /// </summary>
+        /// <summary>
+        /// 상대 목표의 실효 목표치 (순수 — 게이트 대상, M1-C 개정 2026-07-26).
+        /// "지금보다 +N"은 몸 소지 상한을 모르는 표현이라, 개인 스톡에서는 소지 4~7일 때
+        /// 목표가 상한을 넘어 **여름에도 항상 달성 불가**였다 (채집의 상한 전제 ADR-M11-3과 충돌 —
+        /// 상한 8, 수확 +5면 전제가 ≤3이라 소지 4부터 계획이 안 선다).
+        /// 상한으로 클램프하되 **진전을 요구할 때만** — 이미 상한이면 원래 목표(도달 불가)를 남겨
+        /// 기존 '달성 불가 → 포기' 경로가 처리한다 (완료 경로를 새로 만들지 않는다, ADR-M0-3).
+        /// cap ≤ 0 = 상한 없음(전역 스톡·미배선) = 기존 동작 그대로 (중립 불변식).
+        /// </summary>
+        public static int ResolveRelativeTarget(int current, int delta, int cap)
+        {
+            int want = current + delta;
+            if (cap <= 0 || want <= cap) return want;
+            return cap > current ? cap : want;
+        }
+
         private GoalSO ResolveRelativeGoal(GoalSO goal, out bool isClone)
         {
             if (goal.RelativeToCurrent && goal.GoalConditions != null)
@@ -1104,8 +1120,12 @@ namespace AIVillage.M0
                 resolved.name = goal.name; // 로그·비교 가독성 (에셋은 무변경)
                 resolved.RelativeToCurrent = false;
                 for (int i = 0; i < resolved.GoalConditions.Length; i++)
-                    resolved.GoalConditions[i].Value = snap.Get(resolved.GoalConditions[i].Slot)
-                                                       + goal.GoalConditions[i].Value;
+                {
+                    SlotId slot = resolved.GoalConditions[i].Slot;
+                    resolved.GoalConditions[i].Value = ResolveRelativeTarget(
+                        snap.Get(slot), goal.GoalConditions[i].Value,
+                        SlotIds.IsPersonalStock(slot) ? _cfg.BodyCarryCap : 0);
+                }
                 isClone = true;
                 return resolved;
             }

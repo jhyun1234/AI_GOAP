@@ -192,6 +192,7 @@ namespace AIVillage.Tests.EditMode
         {
             List<GoalSO> goals = LoadAllGoals();
             GoalSO hunger = goals.First(g => g.name == "Goal_P0_Hunger");
+            GoalSO flee = goals.First(g => g.name == "Goal_Flee");
             TraitValue[] hi = Extreme(+1), lo = Extreme(-1);
 
             foreach (GoalSO g in goals)
@@ -205,13 +206,37 @@ namespace AIVillage.Tests.EditMode
                 Assert.LessOrEqual(Mathf.Abs(up), 30, $"{g.name}: 유도값 {up}이 상한 30 초과 (ADR-M12-7)");
                 Assert.LessOrEqual(Mathf.Abs(down), 30, $"{g.name}: 유도값 {down}이 상한 30 초과 (ADR-M12-7)");
 
-                // P0 보호: 어떤 성격도 배고픔보다 다른 일을 앞세우지 못한다.
-                // 피신(92)이 P0에 가까워 진폭을 따로 줄여 뒀다 — 이 게이트가 그 근거다.
-                if (g == hunger) continue;
+                // P0 보호: 어떤 성격도 배고픔보다 '일'을 앞세우지 못한다.
+                // 피신은 유일한 예외 — 아래에서 따로 검사한다 (ADR-M12-8).
+                if (g == hunger || g == flee) continue;
                 Assert.Less(g.Priority + Mathf.Max(up, down), hunger.Priority,
                     $"{g.name}: 극단 성격에서 실효 우선순위가 배고픔({hunger.Priority})을 넘는다 " +
                     "— 굶으면서 다른 일을 하러 간다 (ADR-M12-4의 수치적 보증)");
             }
+        }
+
+        [Test]
+        public void M12_T3_Flee_OutranksHungerExceptForTheReckless()
+        {
+            // ADR-M12-8 — 위험 앞에서는 밥보다 도망이 먼저다. 단 겁이 아주 낮은 주민만 예외.
+            // 개정 전(피신 92 < 배고픔 100): 포만 20 이하 주민에게 늑대가 와도 배고픔이 이기고,
+            // P0의 SkipFailureCooldown 때문에 겨울엔 재선택이 무한 반복돼 피신이 영영 안 뽑혔다
+            // = 굶주린 주민이 늑대 앞에 굳어 서서 물린다.
+            List<GoalSO> goals = LoadAllGoals();
+            GoalSO hunger = goals.First(g => g.name == "Goal_P0_Hunger");
+            GoalSO flee = goals.First(g => g.name == "Goal_Flee");
+
+            Assert.Greater(flee.Priority, hunger.Priority,
+                "중립 주민은 배고파도 먼저 도망친다");
+
+            var brave = new[] { V(TraitId.Caution, -100) };
+            Assert.Less(flee.Priority + flee.TraitBoost(brave), hunger.Priority,
+                "겁이 최저인 주민(무모한자)은 배고프면 위험을 무시하고 밥부터 — M10 '용맹은 늦게 피신 " +
+                "= 결정적 부상' 설계가 감지 반경만이 아니라 행동으로도 살아난다");
+
+            var timid = new[] { V(TraitId.Caution, 100) };
+            Assert.Greater(flee.Priority + flee.TraitBoost(timid), flee.Priority,
+                "겁이 높으면 더 확실히 도망 우선");
         }
 
         [Test]

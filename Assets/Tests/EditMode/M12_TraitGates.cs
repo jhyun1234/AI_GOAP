@@ -263,6 +263,87 @@ namespace AIVillage.Tests.EditMode
                 "겁이 높으면 더 확실히 도망 우선");
         }
 
+        // ── M12-T5: ②비용 유도 (M12-C) ───────────────────────────────────────
+
+        private static TraitRulesSO LoadRules()
+        {
+            var r = AssetDatabase.LoadAssetAtPath<TraitRulesSO>("Assets/M0Config/TraitRules.asset");
+            Assert.IsNotNull(r, "TraitRules 에셋 로드");
+            return r;
+        }
+
+        [Test]
+        public void M12_T5_TraitCost_NeutralWhenUnwired()
+        {
+            var rules = LoadRules();
+            var lazy = new[] { V(TraitId.Diligence, -80) };
+
+            // 중립 불변식 3경로: 규칙표 미배선 / 가중치 빈 계열 / 벡터 없는 성격
+            Assert.AreEqual(1f, rules.CostMult(lazy, null), 1e-5f, "가중치 없는 계열 = 중립");
+            Assert.AreEqual(1f, rules.CostMult(lazy, new TraitWeight[0]), 1e-5f, "빈 가중치 = 중립");
+            Assert.AreEqual(1f, rules.CostMult(null, rules.GatherWeights), 1e-5f, "벡터 없는 성격 = 중립");
+        }
+
+        [Test]
+        public void M12_T5_TraitCost_DirectionAndClampNeverBinds()
+        {
+            var rules = LoadRules();
+            var diligent = new[] { V(TraitId.Diligence, 100) };
+            var lazy = new[] { V(TraitId.Diligence, -100) };
+
+            // 방향: 근면↑는 노동이 싸지고, 태만은 비싸진다
+            Assert.Less(rules.CostMult(diligent, rules.BuildWeights), 1f, "근면 +100 → 건설이 싸다");
+            Assert.Greater(rules.CostMult(lazy, rules.BuildWeights), 1f, "근면 -100 → 건설이 비싸다");
+
+            // 근면 가중치 1.0인 계열(건설)은 정확히 1 ∓ CostScale
+            Assert.AreEqual(1f - rules.CostScale, rules.CostMult(diligent, rules.BuildWeights), 1e-5f);
+            Assert.AreEqual(1f + rules.CostScale, rules.CostMult(lazy, rules.BuildWeights), 1e-5f);
+
+            // 모험은 채집·탐험을 싸게, 농사를 비싸게 (§3 정의표)
+            var nomad = new[] { V(TraitId.Wanderlust, 100) };
+            Assert.Less(rules.CostMult(nomad, rules.ExploreWeights), 1f, "모험 +100 → 탐험이 싸다");
+            Assert.Less(rules.CostMult(nomad, rules.GatherWeights), 1f, "모험 +100 → 야외채집이 싸다");
+            Assert.Greater(rules.CostMult(nomad, rules.FarmWeights), 1f, "모험 +100 → 농사가 비싸다");
+
+            // 🔑 클램프는 안전망이지 일상 경로가 아니다 — CostScale ≤ 0.5면 |bias| ≤ 1이라 절대 안 닿는다.
+            // 닿기 시작하면 서로 다른 성격이 같은 배율로 뭉개져 차별화가 죽는다.
+            Assert.LessOrEqual(rules.CostScale, 0.5f, "CostScale이 0.5를 넘으면 클램프가 성격을 뭉갠다");
+            foreach (var w in new[] { rules.GatherWeights, rules.FarmWeights, rules.BuildWeights, rules.ExploreWeights })
+                foreach (int sign in new[] { 1, -1 })
+                {
+                    float m = rules.CostMult(Extreme(sign), w);
+                    Assert.Greater(m, 0.5f + 1e-6f, "하한 클램프에 닿았다");
+                    Assert.Less(m, 1.5f - 1e-6f, "상한 클램프에 닿았다");
+                }
+        }
+
+        [Test]
+        public void M12_T5_TraitCost_SurvivalActionsStayNeutral()
+        {
+            // ADR-M12-4 ① 몸값 불가침 — 소비·휴식·배회는 성향과 무관하게 항상 1.
+            var catalog = AssetDatabase.LoadAssetAtPath<ActionCatalog>("Assets/M0Config/ActionCatalog.asset");
+            Assert.IsNotNull(catalog, "카탈로그 로드");
+
+            var extreme = ScriptableObject.CreateInstance<PersonalitySO>();
+            extreme.Traits = Extreme(+1);
+            try
+            {
+                float[] mult = PersonalityCost.Build(catalog, extreme, null, null, LoadRules());
+                Assert.IsNotNull(mult, "성격만으로도 배열 생성");
+
+                for (int i = 0; i < catalog.Actions.Length; i++)
+                {
+                    ActionSO a = catalog.Actions[i];
+                    bool labor = a is GatherActionSO || a is FarmActionSO
+                              || a is BuildActionSO || a is ExploreActionSO;
+                    if (labor) continue;
+                    Assert.AreEqual(1f, mult[i], 1e-5f,
+                        $"{a.name}: 노동 계열이 아닌데 성향이 비용을 바꿨다 (ADR-M12-4 ① 몸값 불가침)");
+                }
+            }
+            finally { Object.DestroyImmediate(extreme); }
+        }
+
         // ── M12-T4: 제한 플래그의 문언 ↔ 실사용 대조 (ADR 낡음 탐지기, 2026-07-26) ────
 
         /// <summary>

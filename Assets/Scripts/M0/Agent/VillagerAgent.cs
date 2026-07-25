@@ -273,7 +273,8 @@ namespace AIVillage.M0
             _goalBias = BuildGoalBias(Job, Personality); // 직업+성격 합산 (M6 후속, ADR-M5-6 동일 인자 유지)
             _routine = Job != null ? Job.RoutineGoal : null;
             // 배율 배열 1회 캐시 (M4-B) — 성격·직업 둘 다 null이면 null = 중립 (RequestPlan이 무시)
-            _costMult = PersonalityCost.Build(_sim.Catalog, Personality, Job, _multJitter);
+            _costMult = PersonalityCost.Build(_sim.Catalog, Personality, Job, _multJitter,
+                                             _sim.WorldConfig != null ? _sim.WorldConfig.TraitRules : null);
             _motion = new MoveMotion(_cfg, AgentId);
             SetupView();
             SetupBubble();

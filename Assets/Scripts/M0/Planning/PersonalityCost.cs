@@ -21,31 +21,40 @@ namespace AIVillage.M0
         /// <summary>
         /// 성격×직업×편차 → 배율 배열 (ADR-M5-3 — 배율 결합 지점은 여기가 유일).
         /// 성격·직업 둘 다 null이면 null 반환 = 완전 중립 (ADR-M4-2 불변식 경로).
+        /// rules(M12-C) = 성향 벡터의 계열 가중치표. null이면 벡터 유도 없음 = 기존 동작.
+        /// ⚠️ 성격의 舊 개별 필드(GatherCostMult 등)와 성향 벡터는 **M12-F까지 병존**하며 곱해진다 —
+        /// 이식 커밋에서 개별 필드를 1로 비우면 벡터만 남는다.
         /// </summary>
-        public static float[] Build(ActionCatalog catalog, PersonalitySO p, JobSO job, float[] jitter)
+        public static float[] Build(ActionCatalog catalog, PersonalitySO p, JobSO job, float[] jitter,
+                                    TraitRulesSO rules = null)
         {
             if ((p == null && job == null) || catalog == null || catalog.Actions == null) return null;
 
             var mult = new float[catalog.Actions.Length];
             for (int i = 0; i < mult.Length; i++)
-                mult[i] = MultiplierFor(catalog.Actions[i], p, job, jitter);
+                mult[i] = MultiplierFor(catalog.Actions[i], p, job, jitter, rules);
             return mult;
         }
 
-        private static float MultiplierFor(ActionSO action, PersonalitySO p, JobSO job, float[] jitter)
+        private static float MultiplierFor(ActionSO action, PersonalitySO p, JobSO job, float[] jitter,
+                                           TraitRulesSO rules)
         {
             switch (action)
             {
-                case GatherActionSO _:  return Mul(p != null ? p.GatherCostMult  : 1f, job != null ? job.GatherCostMult  : 1f, jitter, JITTER_GATHER);
-                case FarmActionSO _:    return Mul(p != null ? p.FarmCostMult    : 1f, job != null ? job.FarmCostMult    : 1f, jitter, JITTER_FARM);
-                case BuildActionSO _:   return Mul(p != null ? p.BuildCostMult   : 1f, job != null ? job.BuildCostMult   : 1f, jitter, JITTER_BUILD);
-                case ExploreActionSO _: return Mul(p != null ? p.ExploreCostMult : 1f, job != null ? job.ExploreCostMult : 1f, jitter, JITTER_EXPLORE);
+                case GatherActionSO _:  return Mul(p != null ? p.GatherCostMult  : 1f, job != null ? job.GatherCostMult  : 1f, jitter, JITTER_GATHER,  Trait(p, rules, rules != null ? rules.GatherWeights  : null));
+                case FarmActionSO _:    return Mul(p != null ? p.FarmCostMult    : 1f, job != null ? job.FarmCostMult    : 1f, jitter, JITTER_FARM,    Trait(p, rules, rules != null ? rules.FarmWeights    : null));
+                case BuildActionSO _:   return Mul(p != null ? p.BuildCostMult   : 1f, job != null ? job.BuildCostMult   : 1f, jitter, JITTER_BUILD,   Trait(p, rules, rules != null ? rules.BuildWeights   : null));
+                case ExploreActionSO _: return Mul(p != null ? p.ExploreCostMult : 1f, job != null ? job.ExploreCostMult : 1f, jitter, JITTER_EXPLORE, Trait(p, rules, rules != null ? rules.ExploreWeights : null));
                 default:                return 1f; // Consume/Rest/Wander — 몸값 불가침 (ADR-M12-4 ①·ADR-M5-3)
             }
         }
 
-        private static float Mul(float personalityMult, float jobMult, float[] jitter, int idx)
-            => personalityMult * jobMult * J(jitter, idx);
+        /// <summary>성향 벡터의 계열 배율 (M12-C). 규칙표·성격 어느 쪽이 없으면 1 = 중립.</summary>
+        private static float Trait(PersonalitySO p, TraitRulesSO rules, TraitWeight[] weights)
+            => rules == null || p == null ? 1f : rules.CostMult(p.Traits, weights);
+
+        private static float Mul(float personalityMult, float jobMult, float[] jitter, int idx, float traitMult)
+            => personalityMult * jobMult * traitMult * J(jitter, idx);
 
         private static float J(float[] jitter, int idx)
             => jitter != null && jitter.Length > idx ? jitter[idx] : 1f;

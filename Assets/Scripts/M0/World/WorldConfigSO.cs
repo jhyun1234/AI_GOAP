@@ -88,6 +88,11 @@ namespace AIVillage.M0
                  "비면 FoodDaysLeft 항상 99 (중립 — 기존 동작과 완전 동일).")]
         public ConsumeActionSO[] FoodSources;
 
+        [Header("성향 규칙 (M12-C — 4작용형식 중 계열 단위 유도표의 집)")]
+        [Tooltip("성향 → ②비용(노동 4계열)·④대상(택지 거리)의 전역 가중치표. " +
+                 "비면 성향이 비용·거리에 개입하지 않는다 (중립 — M11 동작과 완전 동일).")]
+        public TraitRulesSO TraitRules;
+
         [Header("상호대화 (M7 — ADR-M7-6: 대화 목록의 집. 전부 제안치)")]
         [Tooltip("대화 상황 에셋 목록. 비면 상호대화 없음 (중립 — M6 동작).")]
         public ChatterSO[] Chatters;

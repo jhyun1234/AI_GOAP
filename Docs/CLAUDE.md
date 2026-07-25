@@ -24,30 +24,37 @@ Unity 탑다운 마을 생존 시뮬레이션. GOAP(Burst Job A*) 기반 주민 
 
 ## 불변 규칙 — ADR-M0 (위반 금지, 변경하려면 사유를 커밋 메시지에)
 
-1. **액션 단일 응집**: 액션 1개의 계획 데이터(전제/효과/비용)·실행 파라미터·말풍선 문구는
+> **번호 규약 (2026-07-26 단일화):** 정식 번호는 백틱으로 병기한 `ADR-M0-N`이고, **정본은
+> `Docs/M0_재설계_실행명세서.md`**다. 아래 1~10은 읽기 순서일 뿐 번호가 아니다 —
+> 코드 주석·커밋이 인용하는 것은 언제나 `ADR-M0-N` 쪽이다.
+> (개정 사유: 이 목록의 순번과 명세서의 ADR 번호가 어긋나 있어, 코드의 `ADR-M0-7`을 이 목록
+> 7번에서 찾으면 엉뚱한 규칙이 나왔다. 찾아볼 수 없는 규칙은 규칙이 아니다.)
+> 명세서에만 있고 여기 없는 것: `ADR-M0-4` **폐기 = 삭제** (`_Deprecated` 폴더 금지, git이 히스토리다).
+
+1. **액션 단일 응집** `ADR-M0-1`: 액션 1개의 계획 데이터(전제/효과/비용)·실행 파라미터·말풍선 문구는
    ActionSO 에셋 하나에만 존재한다. **액션 이름으로 분기하는 switch/if를 쓰는 순간 반려** —
    실행은 IActionRunner 다형 디스패치뿐이다. (게이트: M0-T3)
-2. **수치 단일 출처 = SO 에셋**: 게임 밸런스 수치는 에셋에만. 코드 상수는 알고리즘 상수만
+2. **수치 단일 출처 = SO 에셋** `ADR-M0-2`: 게임 밸런스 수치는 에셋에만. 코드 상수는 알고리즘 상수만
    허용. 판정 기준: "플레이어가 밸런스 패치로 바꿀 값인가?" — 예이면 SO. 새 수치는
    발명하지 말고 舊 값을 git 히스토리에서 찾거나, 제안치임을 명시하고 승인받는다.
-3. **상태 쓰기 단일 지점**: 완공은 ConstructionService.Complete()만, 스톡은 WorldModel만,
+3. **상태 쓰기 단일 지점** `ADR-M0-3`: 완공은 ConstructionService.Complete()만, 스톡은 WorldModel만,
    효과 해석은 EffectApplier만(BuildRunner 예외는 AppliesOwnEffects로 명시). 두 번째
    경로가 필요해 보이면 설계 오류 — 멈추고 질문. (게이트: M0-T3 SetBuiltFlag 1건)
-4. **플래너 잡 동결**: GOAPPlannerJob의 A* 알고리즘(Closed Set·FNV-1a·MAX_NODES 4096·
+4. **플래너 잡 동결** `ADR-M0-5`: GOAPPlannerJob의 A* 알고리즘(Closed Set·FNV-1a·MAX_NODES 4096·
    MAX_DEPTH 12) 수정 금지. 입력 형식이 안 맞으면 ActionCompiler가 잡에 맞춘다.
    NoSolutionFound는 버그 증상 — MAX_NODES 인상으로 해결 금지, 진단 순서:
    ① goal/에셋 정합 ② Explore 발견 체인 ③ GoalSelector 후보 제외 여부.
-5. **플랜 인덱스 신원**: 플랜 결과 = ActionCatalog 배열 인덱스. 이름 해시 역매핑 금지.
-6. **Goal 목표치·발동 임계값 동일 에셋**: GoalSO의 두 필드 + OnValidate 정합 검사.
+5. **플랜 인덱스 신원** `ADR-M0-6`: 플랜 결과 = ActionCatalog 배열 인덱스. 이름 해시 역매핑 금지.
+6. **Goal 목표치·발동 임계값 동일 에셋** `ADR-M0-7`: GoalSO의 두 필드 + OnValidate 정합 검사.
    목표 달성 상태가 발동 조건을 만족하면 무한 루프다.
-7. **이동 실패 first-class** (舊 ADR-8/9 계승): Unreachable/PathBlocked → 좌표 스냅 없이
+7. **이동 실패 first-class** `ADR-M0-11` (舊 ADR-8/9 계승): Unreachable/PathBlocked → 좌표 스냅 없이
    AbortPlan → 재계획. `TileX = target...` 강제 대입 금지. (게이트: M0-T3)
-8. **타일 두 셀 소유** (舊 ADR-T3~T6 계승): 현재+다음 타일만 예약, 실패·파괴 시
+8. **타일 두 셀 소유** `ADR-M0-8` (舊 ADR-T3~T6 계승): 현재+다음 타일만 예약, 실패·파괴 시
    ReleaseAllBy. 원자성(舊 ADR-2): 자원 차감은 선검사 후 일괄 — 부분 성공 금지.
-9. **좌표계**: 2D X-Y 평면, `new Vector3(x, y, 0f)`. 슬롯 확장은 SlotId enum 뒤에만
+9. **좌표계** `ADR-M0-9`: 2D X-Y 평면, `new Vector3(x, y, 0f)`. 슬롯 확장은 SlotId enum 뒤에만
    append (기존 인덱스 불변 — 에셋 호환). 맵 경계·배열 변환은 MapBounds가 유일한 출처
    (게이트: M0-T3 mapOffset 단일 참조).
-10. **세이브 원칙 (ADR-M3-5, 구현은 M4+)**: 저장 대상 = 서비스 상태만 (WorldModel·Farm·
+10. **세이브 원칙** `ADR-M0-10` (ADR-M3-5 계승, 구현은 M4+): 저장 대상 = 서비스 상태만 (WorldModel·Farm·
     Discovery·Construction·에이전트 욕구/위치). 플랜·러너·쿨다운은 저장하지 않는다 —
     로드 후 재계획. 신규 런타임 상태를 추가할 때 "세이브 대상인가"를 주석으로 선언.
 

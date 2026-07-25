@@ -263,6 +263,64 @@ namespace AIVillage.Tests.EditMode
                 "겁이 높으면 더 확실히 도망 우선");
         }
 
+        // ── M12-T4: 제한 플래그의 문언 ↔ 실사용 대조 (ADR 낡음 탐지기, 2026-07-26) ────
+
+        /// <summary>
+        /// "제한적으로만 쓰라"는 플래그의 **실제 사용 목록**. ADR 문언과 어긋나면 실패한다.
+        ///
+        /// 전수 감사(2026-07-26)에서 발견한 것: 금지형 ADR을 **허용 목록**으로 쓰면 콘텐츠가
+        /// 늘 때마다 조용히 낡는다 — ADR-M2-5는 "P0 2종에만"인데 실제로 3개였고(피신),
+        /// DirectActionPool 툴팁은 "여가 전용"인데 4개였다. 문서가 거짓말을 하면 다음 세션이
+        /// 그걸 믿고 잘못 판단한다.
+        ///
+        /// 이 게이트가 실패하면 선택지는 둘뿐이다:
+        ///   ① 그 goal에서 플래그를 끈다  ② ADR 문언을 개정하고 이 목록을 함께 고친다.
+        /// **목록만 조용히 고치는 것은 감사를 무력화한다** — 반드시 ADR 본문도 함께 본다.
+        /// </summary>
+        private static readonly Dictionary<string, string[]> RestrictedFlagUsage = new Dictionary<string, string[]>
+        {
+            // ADR-M2-5 (쿨다운 면제 = 물러설 수 없는 goal의 자격)
+            ["SkipFailureCooldown"] = new[] { "Goal_P0_Hunger", "Goal_P0_Fatigue", "Goal_Flee" },
+            // GoalSO.DirectActionPool 툴팁의 자격 3조건
+            ["DirectActionPool"] = new[] { "Goal_Leisure", "Goal_ReportDone", "Goal_Routine_Explorer", "Goal_Routine_Farmer" },
+            // ADR-M5-4 (폴백 불변식) — "세 번째 용도 = 규칙 재검토 신호"라는 자폭 트리거 내장
+            ["RequiredJob"] = new[] { "Goal_TreatInjured", "Goal_BuildMyHouse" },
+            // ADR-M6-2 (게임건강 예외) — 식량 goal 3 + 명령 goal 3
+            ["MayHaveNoSolution"] = new[] { "Goal_P0_Hunger", "Goal_Snack", "Goal_GatherFood",
+                                            "Order_ChopWood", "Order_HarvestBerries", "Order_MineStone" },
+        };
+
+        [Test]
+        public void M12_T4_RestrictedFlags_UsageMatchesADR()
+        {
+            List<GoalSO> goals = LoadAllGoals();
+
+            bool Uses(GoalSO g, string flag)
+            {
+                switch (flag)
+                {
+                    case "SkipFailureCooldown": return g.SkipFailureCooldown;
+                    case "DirectActionPool":    return g.DirectActionPool != null && g.DirectActionPool.Length > 0;
+                    case "RequiredJob":         return g.RequiredJob != null;
+                    case "MayHaveNoSolution":   return g.MayHaveNoSolution;
+                    default: throw new System.ArgumentException($"미등록 플래그 {flag}");
+                }
+            }
+
+            foreach (var kv in RestrictedFlagUsage)
+            {
+                var actual = goals.Where(g => Uses(g, kv.Key)).Select(g => g.name).OrderBy(n => n).ToArray();
+                var expected = kv.Value.OrderBy(n => n).ToArray();
+
+                CollectionAssert.AreEqual(expected, actual,
+                    $"'{kv.Key}' 사용처가 ADR 문언과 어긋난다.\n" +
+                    $"  문언: [{string.Join(", ", expected)}]\n" +
+                    $"  실제: [{string.Join(", ", actual)}]\n" +
+                    "→ 플래그를 끄거나, ADR 본문을 개정하고 이 목록을 함께 고칠 것. " +
+                    "목록만 고치면 감사가 무력화된다.");
+            }
+        }
+
         [Test]
         public void M12_T3_Willfulness_SplitsCommunalAndPersonalGoals()
         {

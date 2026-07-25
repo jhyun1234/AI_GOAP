@@ -143,6 +143,16 @@ namespace AIVillage.M0
         private int EffectivePriority(GoalSO g)
             => g.Priority + (_goalBias != null ? _goalBias(g) : 0);
 
+        /// <summary>
+        /// 내 위협 감지 반경 배율 (M10-D 성격 필드 × M12-D 성향 편향 — M12-F까지 병존).
+        /// 같은 늑대를 봐도 겁 많은 주민이 먼저 알아챈다. 성향 가중치가 비면 Threshold가 1을
+        /// 그대로 돌려주므로 현행 동작과 완전히 같다 (중립 불변식).
+        /// </summary>
+        private float FleeRadius()
+            => (Personality != null ? Personality.FleeRadiusMult : 1f)
+               * TraitVector.Threshold(Personality != null ? Personality.Traits : null,
+                                       _cfg.FleeRadiusBias, 1f);
+
         /// <summary>배율 개체 편차 [채집, 농사, 건설, 탐험] — 스폰 1회 고정, M4-B 비용 배열 계산에 사용.</summary>
         public float[] MultJitter => _multJitter;
         private float[] _multJitter;
@@ -420,7 +430,7 @@ namespace AIVillage.M0
             return World.BuildSnapshot(Mathf.RoundToInt(Satiety), Mathf.RoundToInt(Fatigue),
                 hasHome, // MyHasHome (M8-C)
                 _sim.Threats != null && _sim.Threats.IsNearThreat(TileX, TileY,
-                    Personality != null ? Personality.FleeRadiusMult : 1f),    // ThreatNear (M10-D)
+                    FleeRadius()),                                             // ThreatNear (M10-D + M12-D)
                 MyRaw, MyCooked, homeRaw, homeCooked,                          // 개인 인벤토리 (M11-A)
                 MyWasAttacked,                                                 // 피격 경험 (M11-G)
                 Farm != null ? Farm.CountPlotsOf(AgentId) : 0,                 // 개인 밭 (M11-E)
@@ -1012,9 +1022,14 @@ namespace AIVillage.M0
         public static OrderResult JudgeOrder(float satiety, float fatigue, AgentConfigSO cfg,
                                              PersonalitySO p, RewardSO r)
         {
-            float satLimit = cfg.OrderRefuseSatiety + (p != null ? p.RefuseSatietyOffset : 0f)
+            // 문턱 = 기준값 + 성향 편향(M12-D) + 舊 개별 오프셋(M12-F까지 병존) + 보상 오프셋.
+            // 성향 가중치가 비면 Threshold가 기준값을 그대로 돌려주므로 현행 판정과 완전히 같다.
+            TraitValue[] traits = p != null ? p.Traits : null;
+            float satLimit = TraitVector.Threshold(traits, cfg.RefuseSatietyBias, cfg.OrderRefuseSatiety)
+                                                    + (p != null ? p.RefuseSatietyOffset : 0f)
                                                     + (r != null ? r.RefuseSatietyOffset : 0f);
-            float fatLimit = cfg.OrderRefuseFatigue + (p != null ? p.RefuseFatigueOffset : 0f)
+            float fatLimit = TraitVector.Threshold(traits, cfg.RefuseFatigueBias, cfg.OrderRefuseFatigue)
+                                                    + (p != null ? p.RefuseFatigueOffset : 0f)
                                                     + (r != null ? r.RefuseFatigueOffset : 0f);
             if (satiety < satLimit) return OrderResult.RefusedHungry;
             if (fatigue > fatLimit) return OrderResult.RefusedTired;
@@ -1167,7 +1182,7 @@ namespace AIVillage.M0
             if (body == OrderResult.RefusedTired) return RequestResult.RefusedTired;
             if (r != null && affinityTowardRequester < r.RefuseAffinityBelow)
                 return RequestResult.RefusedLowAffinity;
-            if (p != null && p.DemandsRewardUpfront && !upfrontAvailable)
+            if (cfg != null && cfg.DemandsUpfront(p) && !upfrontAvailable)
                 return RequestResult.RefusedNoReward;
             return RequestResult.Accepted;
         }

@@ -181,7 +181,7 @@ namespace AIVillage.M0
                                           $"{r.DisplayName} 수락");
                 // 선불 성격 (ADR-보상2): 수락 즉시 지급 — 판정(가용성 검사)과 같은 틱이라 안전.
                 // 선불 완료 부탁은 보고 장면에서 지급·떼먹기 판정 없음 (prepaid — 이중 지급 차단)
-                bool prepaid = target.Personality != null && target.Personality.DemandsRewardUpfront
+                bool prepaid = _agentCfg != null && _agentCfg.DemandsUpfront(target.Personality)
                                && canPayNow
                                && requester.TransferTo(target, r.RewardCostSlot, r.RewardCostAmount);
                 if (prepaid)

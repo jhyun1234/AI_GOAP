@@ -344,6 +344,83 @@ namespace AIVillage.Tests.EditMode
             finally { Object.DestroyImmediate(extreme); }
         }
 
+        // ── M12-T6: ③문턱 소비처 환산 (M12-D) ────────────────────────────────
+
+        private static AgentConfigSO LoadCfg()
+        {
+            var c = AssetDatabase.LoadAssetAtPath<AgentConfigSO>("Assets/M0Config/AgentConfig.asset");
+            Assert.IsNotNull(c, "AgentConfig 에셋 로드");
+            return c;
+        }
+
+        [Test]
+        public void M12_T6_RefuseThresholds_WillfulRefusesBothWays()
+        {
+            // 실사(2026-07-26)에서 확인한 성질: 두 거부 필드는 **부호 규약이 반대**일 뿐
+            // 6성격 전부 방향이 일관된다 — 자존 1축으로 설명된다.
+            // 그래서 같은 가중치를 쓰고 Sensitivity의 부호만 소비처가 뒤집는다.
+            AgentConfigSO cfg = LoadCfg();
+            var willful = new[] { V(TraitId.Willfulness, 100) };
+            var meek = new[] { V(TraitId.Willfulness, -100) };
+
+            float satW = TraitVector.Threshold(willful, cfg.RefuseSatietyBias, cfg.OrderRefuseSatiety);
+            float fatW = TraitVector.Threshold(willful, cfg.RefuseFatigueBias, cfg.OrderRefuseFatigue);
+            Assert.Greater(satW, cfg.OrderRefuseSatiety, "자존↑ → 배고픔 문턱 상승 = 더 쉽게 거부");
+            Assert.Less(fatW, cfg.OrderRefuseFatigue, "자존↑ → 피로 문턱 하강 = 더 쉽게 거부 (부호 규약 반대)");
+
+            float satM = TraitVector.Threshold(meek, cfg.RefuseSatietyBias, cfg.OrderRefuseSatiety);
+            float fatM = TraitVector.Threshold(meek, cfg.RefuseFatigueBias, cfg.OrderRefuseFatigue);
+            Assert.Less(satM, cfg.OrderRefuseSatiety, "자존↓ → 배고파도 참는다");
+            Assert.Greater(fatM, cfg.OrderRefuseFatigue, "자존↓ → 피곤해도 참는다");
+
+            // 중립 불변식: 벡터 없는 성격은 현행 기준값 그대로
+            Assert.AreEqual(cfg.OrderRefuseSatiety,
+                TraitVector.Threshold(null, cfg.RefuseSatietyBias, cfg.OrderRefuseSatiety), 1e-5f);
+            Assert.AreEqual(cfg.OrderRefuseFatigue,
+                TraitVector.Threshold(null, cfg.RefuseFatigueBias, cfg.OrderRefuseFatigue), 1e-5f);
+        }
+
+        [Test]
+        public void M12_T6_FleeRadius_TimidNoticesEarlier()
+        {
+            AgentConfigSO cfg = LoadCfg();
+            float timid = TraitVector.Threshold(new[] { V(TraitId.Caution, 100) }, cfg.FleeRadiusBias, 1f);
+            float brave = TraitVector.Threshold(new[] { V(TraitId.Caution, -100) }, cfg.FleeRadiusBias, 1f);
+
+            Assert.Greater(timid, 1f, "겁↑ → 감지 반경 확대 (먼저 알아챈다)");
+            Assert.Less(brave, 1f, "겁↓ → 늦게 알아챈다 (밭을 지키다 물리는 서사)");
+            Assert.Greater(brave, 0f, "배율이 0 이하로 내려가면 감지가 아예 죽는다");
+            Assert.AreEqual(1f, TraitVector.Threshold(null, cfg.FleeRadiusBias, 1f), 1e-5f, "중립 = 1배");
+        }
+
+        [Test]
+        public void M12_T6_DemandsUpfront_DiscretizedDeterministically()
+        {
+            // 불린 통로의 이산화 — 랜덤 금지(ADR-M1-2), 경계는 '이상'(>=).
+            AgentConfigSO cfg = LoadCfg();
+            var p = ScriptableObject.CreateInstance<PersonalitySO>();
+            try
+            {
+                Assert.IsFalse(cfg.DemandsUpfront(null), "성격 없음 = 요구 안 함");
+
+                p.Traits = new[] { V(TraitId.Willfulness, 0) };
+                Assert.IsFalse(cfg.DemandsUpfront(p), "중립 자존 = 후불 수용");
+
+                // 경계: 문턱 × 100이 정확히 임계값 (가중치 1.0 기준)
+                int edge = Mathf.RoundToInt(cfg.UpfrontBiasThreshold * 100f);
+                p.Traits = new[] { V(TraitId.Willfulness, edge) };
+                Assert.IsTrue(cfg.DemandsUpfront(p), $"자존 {edge} = 경계값은 '이상'이므로 요구");
+                p.Traits = new[] { V(TraitId.Willfulness, edge - 1) };
+                Assert.IsFalse(cfg.DemandsUpfront(p), $"자존 {edge - 1} = 경계 바로 아래는 요구 안 함");
+
+                // 舊 개별 필드와의 OR (M12-F까지 병존)
+                p.Traits = null;
+                p.DemandsRewardUpfront = true;
+                Assert.IsTrue(cfg.DemandsUpfront(p), "벡터가 없어도 舊 필드가 켜져 있으면 요구 (병존)");
+            }
+            finally { Object.DestroyImmediate(p); }
+        }
+
         // ── M12-T4: 제한 플래그의 문언 ↔ 실사용 대조 (ADR 낡음 탐지기, 2026-07-26) ────
 
         /// <summary>

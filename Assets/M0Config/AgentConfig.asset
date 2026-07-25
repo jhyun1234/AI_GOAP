@@ -47,3 +47,24 @@ MonoBehaviour:
   - "이 마을엔 겨울을 날 음식이 없어."
   - "여기선 배만 곯다 가네요..."
   - "살 길을 찾아서 갈게요. 다들 잘 지내요."
+  RefuseSatietyBias:
+    Weights:
+    - Trait: 4
+      Weight: 1
+    Sensitivity: 15
+  RefuseFatigueBias:
+    Weights:
+    - Trait: 4
+      Weight: 1
+    Sensitivity: -15
+  FleeRadiusBias:
+    Weights:
+    - Trait: 5
+      Weight: 1
+    Sensitivity: 0.4
+  UpfrontBias:
+    Weights:
+    - Trait: 4
+      Weight: 1
+    Sensitivity: 0
+  UpfrontBiasThreshold: 0.5

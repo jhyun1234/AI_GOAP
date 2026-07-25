@@ -80,6 +80,40 @@ namespace AIVillage.M0
         [Tooltip("피로가 이 값 초과면 명령 거부. P0 발동선(90)보다 여유.")]
         public float OrderRefuseFatigue = 70f;
 
+        [Header("성향 문턱 (M12-D — ③문턱. 전부 비면 현행 개별 필드 경로 = 중립)")]
+        [Tooltip("배고픔 거부 문턱의 성향 편향. Sensitivity **+**면 문턱이 올라가 '더 쉽게 거부'.\n" +
+                 "제안치: 자존 가중치 1.0 · Sensitivity 15 (현행 오프셋 폭 ±15에서 역산).")]
+        public TraitBias RefuseSatietyBias;
+
+        [Tooltip("피로 거부 문턱의 성향 편향. ⚠️ 배고픔과 **부호 규약이 반대**다 — 피로는 문턱이 " +
+                 "**내려가야** '더 쉽게 거부'라 Sensitivity를 음수로 둔다(제안치 −15). " +
+                 "같은 자존 가중치를 쓰면서 소비처가 자기 단위로 환산하는 것이 4작용형식의 요점이다.")]
+        public TraitBias RefuseFatigueBias;
+
+        [Tooltip("위협 감지 반경 배율의 성향 편향 (base 1.0에 더해진다). 제안치: 겁 1.0 · Sensitivity 0.4.\n" +
+                 "⚠️ 이 값이 ThreatSO가 아니라 여기 사는 이유: 감지 예민함은 **주민의 성질**이지 위협의 " +
+                 "성질이 아니고, ThreatSO에 두면 새 위협 에셋마다 이 필드를 채워야 해 O(위협)이 된다 " +
+                 "(명세 M12-D 스케치에서 변경, 사유는 커밋에).")]
+        public TraitBias FleeRadiusBias;
+
+        [Tooltip("보상 선불을 요구하는 성향 편향. 제안치: 자존 1.0.")]
+        public TraitBias UpfrontBias;
+
+        [Range(0f, 1f)]
+        [Tooltip("이 편향 이상이면 선불 요구 = true (불린 이산화, ADR-M1-2 결정적 판정 유지 — 랜덤 금지). " +
+                 "제안치 0.5 = 자존 50 이상. 경계는 '이상'(>=)이다.")]
+        public float UpfrontBiasThreshold = 0.5f;
+
+        /// <summary>
+        /// 선불 요구 판정의 단일 지점 (M12-D). 舊 개별 필드(DemandsRewardUpfront)와 성향 유도의 OR —
+        /// M12-F에서 개별 필드를 끄면 성향만 남는다. 두 호출처(JudgeRequest·RequestService)가
+        /// 각자 이산화하면 규칙이 이원화된다 (ADR-M0-3 정신).
+        /// </summary>
+        public bool DemandsUpfront(PersonalitySO p)
+            => p != null
+               && (p.DemandsRewardUpfront
+                   || TraitVector.Bias(p.Traits, UpfrontBias.Weights) >= UpfrontBiasThreshold);
+
         [Tooltip("배고픔 거부 대사 (랜덤 선택)")]
         public string[] RefuseHungryLines =
         {

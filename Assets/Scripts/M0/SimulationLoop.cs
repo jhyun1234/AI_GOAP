@@ -527,11 +527,19 @@ namespace AIVillage.M0
                                             _agents, _worldConfig, () => Pathfinder, transform);
                 Threats.OnForecast += t =>
                     Hud?.Notify($"{t.DisplayName}이(가) 다가옵니다 — {t.WarnDays:0.#}일 뒤");
-                Threats.OnStruck += (t, struckVillagers, n, tile) =>
+                Threats.OnStruck += (t, struckVillagers, n, tile, victims) =>
                 {
+                    // 빈 타격(0명·0개)은 "아무 일도 없었다" — 알림도 대사도 내지 않는다.
+                    // 추격 실패 후 퇴장이 명시적 설계 경로라 0 타격이 흔하다 (ThreatAgent.TickChase).
+                    if (n <= 0)
+                    {
+                        Hud?.Notify($"{t.DisplayName}이(가) 마을을 훑고 지나갔습니다 — 피해 없음");
+                        return;
+                    }
                     Hud?.Notify(struckVillagers ? $"{t.DisplayName} 습격 — 부상 {n}명"
                                                 : $"{t.DisplayName} 습격 — 밭 {n}개 소실");
-                    ShowThreatStrikeLines(t, tile);
+                    if (struckVillagers) ShowVictimStrikeLines(t, victims); // 화자 = 실제 부상자
+                    else                 ShowFarmStrikeLines(t, tile);      // 화자 = 근처 주민
                 };
             }
 
@@ -554,11 +562,20 @@ namespace AIVillage.M0
             }
         }
 
-        /// <summary>위협 타격 반응 대사 (M10-C, 표현 전용) — 타격 지점 최근접 생존 주민 최대 2명이
-        /// StrikeLines를 내뱉는다 (재해 ShowStrikeLines 패턴 — 릴레이 아님, 대사만 Random 허용).</summary>
-        private void ShowThreatStrikeLines(ThreatSO t, Vector2Int tile)
+        /// <summary>부상 대사 (표현 전용) — **다친 본인**이 내뱉는다. 화자를 "근처 아무나"로 두면
+        /// 상태와 표현이 어긋나 "물렸다는데 아무도 안 다침"이 된다 (2026-07-24 Play 관측).</summary>
+        private void ShowVictimStrikeLines(ThreatSO t, System.Collections.Generic.IReadOnlyList<VillagerAgent> victims)
         {
-            if (t.StrikeLines == null || t.StrikeLines.Length == 0 || _agents.Count == 0) return;
+            if (t.StrikeLinesVillager == null || t.StrikeLinesVillager.Length == 0 || victims == null) return;
+            foreach (VillagerAgent v in victims)
+                v?.ShowTransient(t.StrikeLinesVillager[Random.Range(0, t.StrikeLinesVillager.Length)]);
+        }
+
+        /// <summary>밭 소실 반응 대사 (M10-C, 표현 전용) — 다친 사람이 없으므로 타격 지점 최근접
+        /// 생존 주민 최대 2명이 내뱉는다 (재해 ShowStrikeLines 패턴 — 릴레이 아님, 대사만 Random 허용).</summary>
+        private void ShowFarmStrikeLines(ThreatSO t, Vector2Int tile)
+        {
+            if (t.StrikeLinesFarm == null || t.StrikeLinesFarm.Length == 0 || _agents.Count == 0) return;
             VillagerAgent a1 = null, a2 = null;
             int d1 = int.MaxValue, d2 = int.MaxValue;
             foreach (VillagerAgent a in _agents)
@@ -569,8 +586,8 @@ namespace AIVillage.M0
                 if (dist < d1) { d2 = d1; a2 = a1; d1 = dist; a1 = a; }
                 else if (dist < d2) { d2 = dist; a2 = a; }
             }
-            a1?.ShowTransient(t.StrikeLines[Random.Range(0, t.StrikeLines.Length)]);
-            a2?.ShowTransient(t.StrikeLines[Random.Range(0, t.StrikeLines.Length)]);
+            a1?.ShowTransient(t.StrikeLinesFarm[Random.Range(0, t.StrikeLinesFarm.Length)]);
+            a2?.ShowTransient(t.StrikeLinesFarm[Random.Range(0, t.StrikeLinesFarm.Length)]);
         }
 
         private void Start()

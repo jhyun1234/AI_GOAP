@@ -39,8 +39,14 @@ namespace AIVillage.M0
         /// <summary>예고 알림 (1회/발동) — HUD 경보 구독 (표현).</summary>
         public event Action<ThreatSO> OnForecast;
 
-        /// <summary>타격 알림 (위협, 주민타격 여부, 피해 수, 타격 타일) — HUD·근처 반응 대사 구독 (표현).</summary>
-        public event Action<ThreatSO, bool, int, Vector2Int> OnStruck;
+        /// <summary>타격 알림 (위협, 주민타격 여부, 피해 수, 타격 타일, **실제 부상자**) — HUD·반응 대사 구독.
+        /// victims = 이번 타격으로 Injure된 주민 (밭 타격이면 빈 목록). 대사 화자를 "근처 아무나"가 아니라
+        /// 실제 부상자로 못박기 위한 것 — 상태와 표현이 어긋나면 "물렸다는데 아무도 안 다침"이 된다
+        /// (2026-07-24 Play 관측). 버퍼 재사용이므로 구독자는 동기 소비만 할 것.</summary>
+        public event Action<ThreatSO, bool, int, Vector2Int, IReadOnlyList<VillagerAgent>> OnStruck;
+
+        private static readonly VillagerAgent[] EmptyVictims = Array.Empty<VillagerAgent>();
+        private readonly List<VillagerAgent> _struckBuf = new List<VillagerAgent>(8);
 
         /// <summary>예고 구간 진행 중인 위협 (주민 술렁임 판독용 — Season.NextCrisis 패턴). null = 평시.</summary>
         public ThreatSO Forecasting => _pending;
@@ -264,9 +270,11 @@ namespace AIVillage.M0
                 int loss = DisasterService.LossCount(_victimKeyBuf.Count,
                     so.BaseLossPct, so.PerTargetPct, so.MaxLossPct);
                 PickNearestVictims(tile.x, tile.y, _victimKeyBuf, loss, _victimIdxBuf);
+                _struckBuf.Clear();
                 foreach (int idx in _victimIdxBuf)
                 {
                     _victimAgentBuf[idx].Injure(InjurySeverity.Light); // 부상의 유일한 문 (ADR-M10-2)
+                    _struckBuf.Add(_victimAgentBuf[idx]);              // 대사 화자 = 실제 부상자
                     hit++;
                 }
                 Debug.Log($"[Threat] 발동 — {so.DisplayName}: 부상 {hit}/{_victimKeyBuf.Count}명 @ ({tile.x},{tile.y})");
@@ -285,7 +293,8 @@ namespace AIVillage.M0
                                                         _plotBuf[idx].x, _plotBuf[idx].y)) hit++;
                 Debug.Log($"[Threat] 발동 — {so.DisplayName}: 밭 {hit}/{_plotBuf.Count} 소실");
             }
-            OnStruck?.Invoke(so, targetsVillagers, hit, tile);
+            OnStruck?.Invoke(so, targetsVillagers, hit, tile,
+                             targetsVillagers ? (IReadOnlyList<VillagerAgent>)_struckBuf : EmptyVictims);
         }
 
         /// <summary>부상 후보 수집 — 생존 주민 중 기준점 radius(맨해튼) 이내. excludeInjured면

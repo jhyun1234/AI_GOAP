@@ -71,6 +71,32 @@ namespace AIVillage.Tests.EditMode
             Object.DestroyImmediate(so);
         }
 
+        /// <summary>
+        /// 대사–타깃 정합 게이트 (M4 승격 — 2026-07-24 Play 관측에서 배움): 타깃이 출몰마다 롤되므로
+        /// (ADR-M10R-3) 밴드는 **자기가 칠 수 있는 대상의 대사를 전부** 갖고 있어야 한다. 한 필드로
+        /// 뭉쳐 두면 밭을 친 늑대 무리가 "물렸어!"라고 외쳐 상태와 표현이 어긋난다.
+        /// </summary>
+        [Test]
+        public void M10_T3_StrikeLines_MatchEveryPossibleTarget()
+        {
+            foreach (string guid in UnityEditor.AssetDatabase.FindAssets("t:ThreatSO"))
+            {
+                var so = UnityEditor.AssetDatabase.LoadAssetAtPath<ThreatSO>(
+                    UnityEditor.AssetDatabase.GUIDToAssetPath(guid));
+                if (so == null) continue;
+
+                // 밭은 어떤 밴드든 칠 수 있다 (확률 < 1이면 밭 타격 발생)
+                if (so.VillagerTargetChance < 1f)
+                    Assert.IsTrue(so.StrikeLinesFarm != null && so.StrikeLinesFarm.Length > 0,
+                        $"{so.name}: 밭을 칠 수 있는데(주민확률 {so.VillagerTargetChance}) 밭 대사가 없다");
+
+                // 주민을 칠 수 있으면 부상 대사가 있어야 한다
+                if (so.VillagerTargetChance > 0f)
+                    Assert.IsTrue(so.StrikeLinesVillager != null && so.StrikeLinesVillager.Length > 0,
+                        $"{so.name}: 주민을 칠 수 있는데(주민확률 {so.VillagerTargetChance}) 부상 대사가 없다");
+            }
+        }
+
         [Test]
         public void M10_T3_VillageScale_ThreeAxes()
         {

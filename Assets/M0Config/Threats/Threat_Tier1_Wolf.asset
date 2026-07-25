@@ -28,6 +28,7 @@ MonoBehaviour:
   - "숲에서 늑대 울음이 들려…"
   - "요즘 밭 근처에 짐승 발자국이 있어."
   - "밤에 뭔가 어슬렁거리는 걸 봤어."
-  StrikeLines:
+  StrikeLinesVillager: []
+  StrikeLinesFarm:
   - "늑대다! 밭이 엉망이 됐어!"
   - "저 짐승이 밭을 파헤쳤어…"

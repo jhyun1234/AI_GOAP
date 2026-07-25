@@ -57,8 +57,14 @@ namespace AIVillage.M0
         [Tooltip("예고 구간 주민 술렁임 대사 (M10-D — 계절 ForecastLines 패턴). 비면 술렁임 없음.")]
         public string[] ForecastLines;
 
-        [Tooltip("타격 순간 근처 주민 반응 대사 (재해 StrikeLines 패턴 — 표현 전용, 릴레이 아님).")]
-        public string[] StrikeLines;
+        [Tooltip("주민이 실제로 다친 순간 **다친 본인**이 내뱉는 대사 (예: 물렸어! 도망쳐!). " +
+                 "⚠️ 타깃은 출몰마다 롤되므로(ADR-M10R-3) 밭 대사와 반드시 분리해야 한다 — 한 필드로 두면 " +
+                 "밭을 친 늑대 무리가 '물렸어!'라고 외친다. 부상 0명이면 재생되지 않는다.")]
+        public string[] StrikeLinesVillager;
+
+        [Tooltip("밭이 소실된 순간 **근처 주민**이 내뱉는 대사 (예: 밭이 엉망이 됐어!). " +
+                 "다친 사람이 없으므로 화자는 타격 지점 최근접 주민이다. 소실 0개면 재생되지 않는다.")]
+        public string[] StrikeLinesFarm;
 
         private void OnValidate()
         {

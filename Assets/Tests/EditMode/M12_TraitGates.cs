@@ -421,6 +421,70 @@ namespace AIVillage.Tests.EditMode
             finally { Object.DestroyImmediate(p); }
         }
 
+        // ── M12-T7: ④대상 — 택지 거리 (M12-E) ────────────────────────────────
+
+        [Test]
+        public void M12_T7_HomeDistance_NomadFarFriendlyNear()
+        {
+            TraitRulesSO rules = LoadRules();
+            var nomad = ScriptableObject.CreateInstance<PersonalitySO>();
+            var social = ScriptableObject.CreateInstance<PersonalitySO>();
+            var blank = ScriptableObject.CreateInstance<PersonalitySO>();
+            try
+            {
+                nomad.Traits = new[] { V(TraitId.Wanderlust, 100) };
+                social.Traits = new[] { V(TraitId.Sociability, 100) };
+
+                float far = HomePicker.PreferredDist(nomad, null, rules);
+                float near = HomePicker.PreferredDist(social, null, rules);
+
+                Assert.GreaterOrEqual(far, 0.9f, "모험 +100 → 외딴집 (비율 0.9 이상)");
+                Assert.LessOrEqual(near, 0.2f, "사교 +100 → 이웃 곁 (비율 0.2 이하)");
+
+                // M11-K 대역 규약: 비율은 0~0.95를 벗어나지 않는다 (맵-비례 변환의 전제)
+                foreach (int sign in new[] { 1, -1 })
+                {
+                    var extreme = ScriptableObject.CreateInstance<PersonalitySO>();
+                    extreme.Traits = Extreme(sign);
+                    float f = HomePicker.PreferredDist(extreme, null, rules);
+                    Assert.GreaterOrEqual(f, 0f, "비율 하한");
+                    Assert.LessOrEqual(f, 0.95f, "비율 상한 (M11-K 대역)");
+                    Object.DestroyImmediate(extreme);
+                }
+
+                // 중립 불변식 2경로: 규칙표 미배선 / 벡터 없는 성격 → 舊 필드 값 그대로
+                blank.HomePreferredDist = 0.5f;
+                Assert.AreEqual(0.5f, HomePicker.PreferredDist(blank, null), 1e-5f, "규칙표 없음 = 舊 경로");
+                Assert.AreEqual(0.5f, HomePicker.PreferredDist(blank, null, rules), 1e-5f,
+                    "벡터 없는 성격은 편향 0 → 舊 필드 그대로 (병존)");
+                Assert.AreEqual(0f, HomePicker.PreferredDist(null, null, rules), 1e-5f, "성격 없음 = 최근접");
+            }
+            finally
+            {
+                Object.DestroyImmediate(nomad);
+                Object.DestroyImmediate(social);
+                Object.DestroyImmediate(blank);
+            }
+        }
+
+        [Test]
+        public void M12_T7_HomeDistance_DeterministicForSameVector()
+        {
+            // ④대상은 랜덤이 아니다 (M11-F 규약 계승) — 같은 벡터면 언제나 같은 값.
+            TraitRulesSO rules = LoadRules();
+            var a = ScriptableObject.CreateInstance<PersonalitySO>();
+            var b = ScriptableObject.CreateInstance<PersonalitySO>();
+            try
+            {
+                a.Traits = new[] { V(TraitId.Wanderlust, 40), V(TraitId.Sociability, -20) };
+                b.Traits = new[] { V(TraitId.Sociability, -20), V(TraitId.Wanderlust, 40) }; // 순서만 다름
+                Assert.AreEqual(HomePicker.PreferredDist(a, null, rules),
+                                HomePicker.PreferredDist(b, null, rules), 1e-6f,
+                    "벡터 항목 순서가 달라도 같은 결과 (가중합은 순서 무관)");
+            }
+            finally { Object.DestroyImmediate(a); Object.DestroyImmediate(b); }
+        }
+
         // ── M12-T4: 제한 플래그의 문언 ↔ 실사용 대조 (ADR 낡음 탐지기, 2026-07-26) ────
 
         /// <summary>

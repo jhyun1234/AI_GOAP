@@ -32,5 +32,9 @@ MonoBehaviour:
     Weight: 0.8
   CostScale: 0.4
   HomeDistanceBias:
-    Weights: []
-    Sensitivity: 0
+    Weights:
+    - Trait: 3
+      Weight: 1
+    - Trait: 2
+      Weight: -1
+    Sensitivity: 0.95

@@ -96,9 +96,22 @@ namespace AIVillage.M0
             return true;
         }
 
-        /// <summary>선호 거리 = 성격 + 직업 (순수 — 둘 다 null이면 0 = 중립·최근접).</summary>
-        public static float PreferredDist(PersonalitySO p, JobSO j)
-            => (p != null ? p.HomePreferredDist : 0f) + (j != null ? j.HomePreferredDist : 0f);
+        /// <summary>
+        /// 선호 거리 **비율**(0~1, M11-K) = 성격 + 직업 + 성향 편향 (순수 — 게이트 M12-T7).
+        /// 전부 null이면 0 = 중립·최근접 (기존 동작).
+        ///
+        /// ④대상의 첫 소비처 (M12-E) — 모험은 외딴집, 사교는 이웃 곁으로 민다.
+        /// 상한 0.95는 M11-K 대역 규약(비율 0.1~0.95)의 계승이고, 하한 0은
+        /// "최근접"이라는 기존 의미 그대로다 — 사교가 아주 높으면 자연히 여기로 수렴한다.
+        /// ⚠️ 절대 거리로 바꾸는 것은 WorldConfig.PreferredHomeDist의 몫 (맵-비례, M11-K).
+        /// </summary>
+        public static float PreferredDist(PersonalitySO p, JobSO j, TraitRulesSO rules = null)
+        {
+            float baseFrac = (p != null ? p.HomePreferredDist : 0f) + (j != null ? j.HomePreferredDist : 0f);
+            if (rules == null || p == null) return baseFrac; // 미배선 = 기존 경로 (중립 불변식)
+
+            return Mathf.Clamp(TraitVector.Threshold(p.Traits, rules.HomeDistanceBias, baseFrac), 0f, 0.95f);
+        }
 
         /// <summary>주민 신원 → 안정적 seed (순수 — .NET string.GetHashCode는 프로세스마다 달라
         /// 재현 불가라 FNV-1a로 직접 계산한다). 같은 주민 = 같은 seed = 같은 흩뿌리기 결과.</summary>

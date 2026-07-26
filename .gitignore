@@ -119,3 +119,8 @@ InitTestScene*.unity*
 /tools/blog-automation/credentials/
 # Blog automation pipeline staging (ephemeral working artifacts between steps)
 /tools/blog-automation/.staging/
+
+# 서드파티 아트 에셋 (재배포 라이선스 불명 — 공개 저장소에 올리지 않는다)
+# 조달 방법은 README.md "에셋 조달" 절 참조. 없으면 주민·집·작물 스프라이트가 깨진다.
+/[Aa]ssets/Kenmi/
+/[Aa]ssets/Kenmi.meta

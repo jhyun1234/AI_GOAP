@@ -203,29 +203,35 @@ namespace AIVillage.M0
         /// <summary>
         /// 스폰 시 직업 배정 (M12-H) — 성격·직업 독립 랜덤을 폐기하고 성향으로 편향시킨다.
         /// 여기가 배정의 유일한 창구다 (PickRandomJob은 편향 없는 舊 경로로 남아 있을 뿐).
+        /// ⚠️ 상태를 세지 않는다 — 카운트는 NotifyJobAssigned가 맡는다(아래 사유).
         /// </summary>
         public JobSO PickJobFor(PersonalitySO p)
         {
             if (_jobPool == null || _jobPool.Length == 0) return null; // 중립 — 전원 무직 (M5-S3)
 
-            JobSO picked;
             if (_guaranteedJob != null
                 && MustForceGuaranteedJob(_jobsAssigned, _initialRoster, _guaranteedJobAssigned))
             {
-                picked = _guaranteedJob;
                 Debug.Log($"[M12-H] 최소 보장 — 마지막 시작 주민을 {_guaranteedJob.DisplayName}(으)로 " +
                           "배정했습니다 (없으면 집이 아예 서지 않습니다)");
-            }
-            else
-            {
-                int idx = PickJobIndex(p != null ? p.Traits : null, _jobPool,
-                                       _worldConfig != null ? _worldConfig.TraitRules : null, Random.value);
-                picked = idx >= 0 ? _jobPool[idx] : null;
+                return _guaranteedJob;
             }
 
+            int idx = PickJobIndex(p != null ? p.Traits : null, _jobPool,
+                                   _worldConfig != null ? _worldConfig.TraitRules : null, Random.value);
+            return idx >= 0 ? _jobPool[idx] : null;
+        }
+
+        /// <summary>
+        /// 직업 배정 완료 통보 (M12-H) — 주민이 어느 경로로 직업을 얻었든 스폰 1회 호출한다.
+        /// ⚠️ 이 카운트를 PickJobFor 안에 두면 안 된다: 씬에서 직업을 지정한 주민·주입 스폰(방랑자)은
+        /// PickJobFor를 거치지 않아 카운터가 정원에 영영 못 닿고 **목수 보장이 발동하지 않는다.**
+        /// "무엇을 골랐나"가 아니라 "몇 명이 정해졌나"가 보장의 조건이므로 통보가 맞는 자리다.
+        /// </summary>
+        public void NotifyJobAssigned(JobSO job)
+        {
             _jobsAssigned++;
-            if (picked != null && picked == _guaranteedJob) _guaranteedJobAssigned = true;
-            return picked;
+            if (job != null && job == _guaranteedJob) _guaranteedJobAssigned = true;
         }
 
         public void RegisterAgent(VillagerAgent agent)

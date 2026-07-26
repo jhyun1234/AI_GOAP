@@ -94,6 +94,18 @@ namespace AIVillage.M0
         private JobSO _presetJob;
         private bool _hasPreset;
 
+        // ── 씬 지정 (M12 관측 지원) — 시작 드래프트 UI(백로그)의 UI 없는 버전 ──
+        [Header("씬 지정 (비우면 랜덤 — 관측용)")]
+        [Tooltip("이 주민의 성격을 고정한다. **비우면 기존 랜덤**(중립 불변식).\n" +
+                 "성격이 6종인데 주민이 그보다 적어 랜덤으로는 한 판에 절반밖에 안 나온다 — " +
+                 "성격별 행동 차이를 보려면 관측을 설계할 수 있어야 한다.")]
+        [SerializeField] private PersonalitySO _startPersonality;
+
+        [Tooltip("이 주민의 직업을 고정한다. **비우면 성향 편향 추첨**(M12-H).\n" +
+                 "⚠️ 성격만 지정하고 직업은 비워 두는 것이 기본 관측 자세다 — " +
+                 "'성향이 직업을 얼마나 끌어당기는가'가 M12-H에서 볼 것이기 때문이다.")]
+        [SerializeField] private JobSO _startJob;
+
         /// <summary>
         /// 성격·직업 사전 주입 (SpawnVillager 전용, M10-E) — AddComponent 직후·Start 전에 호출.
         /// null도 유효한 주입이다 (중립 성격·무직 방랑자) — 판정은 _hasPreset 플래그.
@@ -278,10 +290,17 @@ namespace AIVillage.M0
 
             // 성격 할당 (M4-A) — 스폰 1회 고정. 배율 편차 ±10%도 이때 확정 (정체성 — 세이브 대상, ADR-M4-5)
             // 런타임 스폰(M10-E)은 Preset 주입값이 랜덤을 대체 — UI가 보여준 그 사람이 온다 (⚠️①).
-            Personality = PresetOrRandom(_hasPreset, _presetPersonality, _sim.PickRandomPersonality);
+            // 우선순위: 스폰 주입(방랑자 — null도 값이다) > 씬 지정(인스펙터) > 랜덤.
+            // 인스펙터 필드는 **비면 랜덤**이라 주입과 의미가 다르다 — 둘을 한 플래그로 묶지 말 것.
+            Personality = PresetOrRandom(_hasPreset, _presetPersonality,
+                () => _startPersonality != null ? _startPersonality : _sim.PickRandomPersonality());
             // 직업 할당 (M5-A → M12-H) — 이제 성격과 독립이 아니라 성향이 편향시킨다.
             // 성격이 위에서 먼저 확정되므로 그 벡터를 그대로 넘긴다. 스폰 1회 고정 (세이브 대상, ADR-M5-5)
-            Job = PresetOrRandom(_hasPreset, _presetJob, () => _sim.PickJobFor(Personality));
+            Job = PresetOrRandom(_hasPreset, _presetJob,
+                () => _startJob != null ? _startJob : _sim.PickJobFor(Personality));
+            // 배정 완료 통보 — 어느 경로로 정해졌든 한 번씩 (목수 최소 보장의 카운터가 이걸 센다).
+            // ⚠️ PickJobFor 안에서 세면 씬 지정 주민이 카운트를 건너뛰어 보장이 영영 발동하지 않는다.
+            _sim.NotifyJobAssigned(Job);
             _multJitter = new[]
             {
                 Random.Range(0.9f, 1.1f), Random.Range(0.9f, 1.1f),

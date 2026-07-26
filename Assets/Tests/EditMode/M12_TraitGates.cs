@@ -600,6 +600,49 @@ namespace AIVillage.Tests.EditMode
             }
         }
 
+        // ── M12-T10: 서비스 직업의 접근성 (2026-07-26 Play 관측 회귀 방지) ──────
+
+        [Test]
+        public void M12_T10_RequestTargetJobs_LiveNearVillageCenter()
+        {
+            // Play 관측: 떠돌이 성격의 목수가 기지에서 38타일 밖(마을 반경 40 × 비율 0.95)에 집을 지었고,
+            // 주민들이 각자 자기 집 근처에서만 생활하는 탈중심 마을(M11-K)이라 아무도 6타일 안에
+            // 들어오지 못해 **집 부탁이 영구히 성립하지 않았다** -> 집 없는 주민 아사.
+            //
+            // 반경을 늘리는 것은 해법이 아니다 — 부탁 연출이 FaceForChat(양쪽이 멈추고 마주봄)이라
+            // 멀어지면 맵 반대편끼리 허공에 대고 말하는 장면이 된다. 거리는 **배치**로 푼다.
+            //
+            // 규칙을 목록이 아니라 구조로 건다: 부탁 대상이 되는 직업은 마을 중심 쪽에 산다.
+            // 새 부탁 종류(RequestSO)가 생기면 그 대상 직업도 자동으로 이 검사에 걸린다.
+            var requests = AssetDatabase.FindAssets("t:RequestSO", new[] { "Assets/M0Config" })
+                .Select(AssetDatabase.GUIDToAssetPath)
+                .Select(AssetDatabase.LoadAssetAtPath<RequestSO>)
+                .Where(r => r != null).ToList();
+            Assert.IsNotEmpty(requests, "부탁 에셋 로드");
+
+            var serviceJobs = requests.Where(r => r.TargetJob != null).Select(r => r.TargetJob).Distinct().ToList();
+            Assert.IsNotEmpty(serviceJobs, "대상 직업이 지정된 부탁이 하나는 있어야 한다");
+
+            TraitRulesSO rules = LoadRules();
+            var nomad = ScriptableObject.CreateInstance<PersonalitySO>();
+            try
+            {
+                nomad.Traits = new[] { V(TraitId.Wanderlust, 100) }; // 가장 멀리 살려는 기질
+                foreach (JobSO job in serviceJobs)
+                {
+                    Assert.Less(job.HomePreferredDist, 0f,
+                        $"{job.name}: 부탁 대상 직업인데 택지 가산이 중심 쪽이 아니다 — " +
+                        "외딴 곳에 살면 부탁이 물리적으로 닿지 않아 그 서비스가 마을에서 사라진다");
+
+                    float frac = HomePicker.PreferredDist(nomad, job, rules);
+                    Assert.LessOrEqual(frac, 0.25f,
+                        $"{job.name}: 가장 방랑벽 강한 성격과 겹쳐도 마을 반경의 25% 안에 살아야 한다 " +
+                        $"(실효 비율 {frac:F2}) — 성격이 서비스 접근성을 끊으면 안 된다");
+                }
+            }
+            finally { Object.DestroyImmediate(nomad); }
+        }
+
         // ── M12-T4: 제한 플래그의 문언 ↔ 실사용 대조 (ADR 낡음 탐지기, 2026-07-26) ────
 
         /// <summary>

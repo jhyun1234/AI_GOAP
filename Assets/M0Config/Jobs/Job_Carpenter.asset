@@ -23,3 +23,4 @@ MonoBehaviour:
   BuildCostMult: 0.7
   ExploreCostMult: 1
   RoutineGoal: {fileID: 0}
+  HomePreferredDist: -0.75

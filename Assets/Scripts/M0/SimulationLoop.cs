@@ -119,6 +119,9 @@ namespace AIVillage.M0
         /// <summary>등록된 주민 목록 (PlayerInputController 픽킹용, 읽기 전용).</summary>
         public IReadOnlyList<VillagerAgent> Agents => _agents;
 
+        /// <summary>성격별 행동 계측 (M12-J) — 읽기 전용 관측, 세이브 대상 아님.</summary>
+        public BehaviorProfiler Profiler { get; } = new BehaviorProfiler();
+
         /// <summary>스폰 시 성격 랜덤 할당 (M4-A). 풀이 비면 null = 중립 (ADR-M4-2 불변식 경로).</summary>
         public PersonalitySO PickRandomPersonality()
             => _personalityPool != null && _personalityPool.Length > 0
@@ -692,6 +695,8 @@ namespace AIVillage.M0
                         ThreatSO tier = ThreatService.PickTier(_worldConfig.Threats, GameTime); // 시간 래칫
                         threatStr = $"마을{scale}(주민{alive}+밭{farms}+집{houses}) 활성위협={(tier != null ? tier.DisplayName : "없음")}(Day{day})";
                     }
+                    // 성격별 행동 프로파일 (M12-J) — 하루 경계에 얹되 자체 주기로 스스로 솎는다.
+                    Profiler.Tick(GameTime, _worldConfig.ProfilerIntervalDays, _agents);
                     Debug.Log($"[M0Sim] Day {day} [{seasonStr}] — Wood {World.GetStock(SlotId.WoodStock)}, " +
                               $"Stone {World.GetStock(SlotId.StoneStock)}, " +
                               $"RawFood {World.GetStock(SlotId.RawFoodStock)}, " +

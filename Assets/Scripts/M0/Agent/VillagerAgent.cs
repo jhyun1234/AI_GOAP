@@ -684,6 +684,11 @@ namespace AIVillage.M0
                 return;
             }
             _sim.Goals.Claim(_goal); // 착수 선언 (ADR-M3-4) — 해제는 ToIdle 단일 지점
+            // 계측 (M12-J, 읽기 전용) — '노동'은 이름이 아니라 **근면 축이 원하는 goal**로 판정한다
+            // (ADR-M0-1 이름 분기 금지의 정신 — 새 goal도 태그만 달면 자동 분류된다).
+            _sim.Profiler?.RecordGoalPick(Personality, _goal,
+                TraitVector.Bias(new[] { new TraitValue { Trait = TraitId.Diligence, Value = 100 } },
+                                 _goal.TraitWeights) > 0f);
 
             // M1-A DirectActionPool 특례: 여가는 플래너를 태우지 않는다 (ADR-M1-3)
             if (_goal.DirectActionPool != null && _goal.DirectActionPool.Length > 0)
@@ -1069,6 +1074,8 @@ namespace AIVillage.M0
                 return OrderResult.FailedNoStock; // 말풍선 없음 — 주민이 아니라 촌장의 실수
 
             OrderResult verdict = JudgeOrder(Satiety, Fatigue, _cfg, Personality, reward);
+            if (verdict == OrderResult.RefusedHungry || verdict == OrderResult.RefusedTired)
+                _sim.Profiler?.RecordRefusal(Personality); // 계측 (M12-J) — 자존 축의 관측 신호
             if (verdict == OrderResult.RefusedHungry)
             {
                 ShowTransient(Pick(FirstNonEmpty(Personality != null ? Personality.RefuseHungryLines : null, _cfg.RefuseHungryLines)));

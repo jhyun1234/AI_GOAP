@@ -643,6 +643,49 @@ namespace AIVillage.Tests.EditMode
             finally { Object.DestroyImmediate(nomad); }
         }
 
+        // ── M12-T11: 행동 프로파일 계측 (M12-J) ──────────────────────────────
+
+        [Test]
+        public void M12_T11_Profiler_PureHelpersAreDeterministic()
+        {
+            // 계측 주기: 간격 0 = 끄기(중립). 관측 장치가 켜져 있다는 이유로 게임이 달라지면 안 된다.
+            Assert.IsFalse(BehaviorProfiler.ShouldLog(100f, 0f, 0f), "간격 0 = 계측 끄기");
+            Assert.IsFalse(BehaviorProfiler.ShouldLog(6.9f, 7f, 7f), "주기 전");
+            Assert.IsTrue(BehaviorProfiler.ShouldLog(7f, 7f, 7f), "경계는 '이상'");
+            Assert.AreEqual(14f, BehaviorProfiler.AdvanceLogDay(7f, 7f), 1e-5f, "다음 시점");
+            Assert.AreEqual(27f, BehaviorProfiler.AdvanceLogDay(20f, 7f), 1e-5f,
+                "밀렸어도 현재 시점 기준 — 지난 주기를 몰아서 찍지 않는다");
+
+            // 상위 goal 절단: 동률은 이름 순으로 **결정적**이어야 재현 가능한 관측이 된다
+            var picks = new Dictionary<string, int>
+            {
+                ["Goal_Plant"] = 5, ["Goal_Leisure"] = 5, ["Goal_GatherWood"] = 5, ["Goal_Snack"] = 1,
+            };
+            HashSet<string> top3 = BehaviorProfiler.TopGoals(picks, 3);
+            Assert.AreEqual(3, top3.Count);
+            Assert.IsFalse(top3.Contains("Goal_Snack"), "최하위는 잘린다");
+            CollectionAssert.AreEquivalent(top3, BehaviorProfiler.TopGoals(picks, 3), "같은 입력 = 같은 결과");
+
+            Assert.IsEmpty(BehaviorProfiler.TopGoals(null, 3), "기록 없음 = 빈 집합");
+        }
+
+        [Test]
+        public void M12_T11_Profiler_DivergentPairsMeasuresS4()
+        {
+            // S4 판정기: 상위 goal '구성'이 다른 성격 쌍의 수. 순서가 아니라 집합을 본다 —
+            // 1·2위가 뒤바뀐 정도는 노이즈고, 무엇을 주로 하는가가 갈려야 성격이 보이는 것이다.
+            var a = new HashSet<string> { "Goal_Plant", "Goal_HarvestCrop" };
+            var b = new HashSet<string> { "Goal_HarvestCrop", "Goal_Plant" }; // 순서만 다름 = 같은 구성
+            var c = new HashSet<string> { "Goal_Leisure", "Goal_Snack" };
+
+            Assert.AreEqual(0, BehaviorProfiler.DivergentPairs(new[] { a, b }), "같은 구성 = 분화 0");
+            Assert.AreEqual(1, BehaviorProfiler.DivergentPairs(new[] { a, c }), "다른 구성 = 1쌍");
+            Assert.AreEqual(2, BehaviorProfiler.DivergentPairs(new[] { a, b, c }),
+                "3종 중 c만 달라 a-c, b-c 두 쌍");
+            Assert.AreEqual(0, BehaviorProfiler.DivergentPairs(new[] { a }), "1종이면 비교 불가");
+            Assert.AreEqual(0, BehaviorProfiler.DivergentPairs(null), "입력 없음");
+        }
+
         // ── M12-T4: 제한 플래그의 문언 ↔ 실사용 대조 (ADR 낡음 탐지기, 2026-07-26) ────
 
         /// <summary>

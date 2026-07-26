@@ -88,6 +88,10 @@ namespace AIVillage.M0
                  "비면 FoodDaysLeft 항상 99 (중립 — 기존 동작과 완전 동일).")]
         public ConsumeActionSO[] FoodSources;
 
+        [Tooltip("성격별 행동 프로파일 로그 주기(게임일, M12-J). 0 = 계측 끄기(중립). 제안치 7 — " +
+                 "계절 길이(8)와 어긋나게 잡아야 특정 계절만 찍히는 편향이 안 생긴다. 읽기 전용 관측.")]
+        public float ProfilerIntervalDays = 7f;
+
         [Header("성향 규칙 (M12-C — 4작용형식 중 계열 단위 유도표의 집)")]
         [Tooltip("성향 → ②비용(노동 4계열)·④대상(택지 거리)의 전역 가중치표. " +
                  "비면 성향이 비용·거리에 개입하지 않는다 (중립 — M11 동작과 완전 동일).")]

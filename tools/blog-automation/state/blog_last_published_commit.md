@@ -15,6 +15,56 @@ metadata:
 
 ## 최신 사용 커밋
 
+- `latest_commit`: `a351437` (fix(goal) 조리 goal 재료 조건 5 상향 — 위기 레시피와 정합
+  (NoSolution 방어) — 기획팀 브리프(`01_planner_brief.md`) commit_refs 중 타임스탬프 기준
+  가장 최신 커밋)
+- `selected_commits_range`: `afdbc22`(feat(zone) M9-A 구역 선반, ZoneService) ~ `a351437`
+  (fix(goal) 조리 goal 재료 조건 5 상향) — M9-A~J 구현 22커밋 전체:
+  `afdbc22`(M9-A 구역 선반) · `ebab28a`(M9-B 파괴 문) · `db6e00c`(M9-C 재해 선반
+  DisasterSO+DisasterService) · `fe05bfd`(M9-D 에셋 배선 여름·폭염·한파·관개수로) ·
+  `8e27deb`(M9-G FoodDaysLeft 파생 슬롯) · `52e093a`(M9-H RelativeToCurrent 씬 goal 확장) ·
+  `eccf35f`(M9-I HUD 식량 N일치 표기) · `99a61ab`(M9-J 식량 goal 트리거 개편, .cs 0) ·
+  `188bbd4`(fix(food) 밭 재파종 FoodDaysLeft 게이트) · `79f1167`(fix(food) Plant 게이트
+  6→4 하향, 중간 리뷰 ①) · `7863f9d`(test(agent) 이탈 진단 로그 임시) · `c504d4d`
+  (fix(food) 조리식 포만 50→35) · `1082c2e`(refactor(agent) 이탈 진단 로그 제거, 조사
+  종결·실제 이탈 0건) · `a16593a`(chore(scene) 관개수로 goal 파킹) · `5f3de87`
+  (feat(chatter) M9-E N명 대화 릴레이+농부 회의) · `724fafe`(feat(chatter) 회의 장면 연출
+  배속+HUD 알림, 사용자 Play 피드백 대응) · `9240e43`(feat(disaster) M9-F 홍수 리허설,
+  에셋 1개·코드 0줄) · `33dd94b`(fix(disaster) 홍수를 밭 시설 파괴로 전환, 중간 리뷰 ②
+  근본 진단) · `bc18e15`(balance(season) 가을 자원 재생 1.5→1.0) · `07a8bec`
+  (balance(cook) 조리 레시피 계절 분화) · `a351437`(fix(goal) 조리 goal 재료 조건 5 상향).
+  기획팀 브리프(`01_planner_brief.md`) commit_refs 전체 반영 — 명세 2건(`db4424a`·
+  `9980876`)은 #11(2026-07-22 발행)에서 이미 다뤄 배경 참조로만 인용, 이번 글 본문에서는
+  재해설하지 않음.
+- `cycle_date`: 2026-07-26 (마스터 1차·2차 승인 후 게시팀 Step 7 발행, 격일 auto-run —
+  완전 무인 실행)
+- `publish_status`: PUBLISHED (Blogger published: 2026-07-26 04:39 UTC / 2026-07-25 21:39
+  PDT, status: LIVE)
+- `blogger_post_id`: 2543183737716951825
+- `blog_url`: https://gamedevclaude.blogspot.com/2026/07/unity-goap-ai-claude-code-ai.html
+- `title`: Unity GOAP AI 인디게임 개발일지: 마을에 "구역"과 "재해"를 심었더니 홍수가 밭을
+  한 개도 못 태운 이유 (Claude Code 게임 개발 AI 페어 프로그래밍 후기)
+- `labels`: Unity GOAP AI, Claude Code 게임 개발, AI 페어 프로그래밍, 인디게임 개발일지
+- `local_archive`: tools/blog-automation/published/2026-07-26-unity-goap-m9-zone-disaster-flood.html
+  (POST 응답 직후 별도 GET 요청을 `Buffer.concat` 후 `toString('utf8')`로 재조회해 저장 —
+  재조회한 content가 원본 05_final.md의 html_content(마크다운 서식 제거본)와 문자열 완전
+  일치(byte-identical, md5 동일, 25,019 bytes)함을 직접 확인했고 U+FFFD 없음도 확인.)
+- `비고`: M9 "공간과 재해" 소재(afdbc22~a351437). 마을에 처음으로 구역(ZoneService)과
+  재해(DisasterSO/DisasterService)가 생기고, 식량을 개수가 아니라 FoodDaysLeft("며칠
+  버티나")로 말하기 시작한 밀스톤. 핵심 재미 포인트는 홍수가 "작물 0개 소실"만 때리던
+  근본 진단 — 파종 goal의 전제("식량 넉넉하면 파종 중단")와 재해 설계의 전제("잉여를
+  깎는 지렛대")가 서로 반대 방향을 보고 있었던 것. 이번 사이클은 blog_next_material_
+  priority.md가 4회 연속(07-22·07-24·07-25·07-26) "devlog 서술 미비" 게이트로 보류하던
+  것을 사전점검이 직접 해제하고 ACTIVE 지정한 첫 회차다 — 1차 소스를 devlog 세션 로그
+  (M9-A~J 서사 0줄 확인됨, 훅 중복 버그로 고유 헤더 4개뿐)에서 `Docs/M9_공간축과재해_
+  실행명세서`·`Docs/M9_식량수지_보완가이드.md` + 커밋 메시지 원문으로 전환한 것이 이번
+  회차의 핵심 방법론 판단이었다(#12 방법론 명세서 회차와 동일 경로). 회상 테스트 판정과
+  M9 종료·M10 전환 선언은 리포에서 검증 불가능해 본문에서 제외(밸런스 4커밋 적용까지로
+  닫음). M10(야생 위협과 방랑자)·M11(개인화 경제)·M12(성격 축)는 말미 예고 한 문단만
+  허용하고 본문에서 다루지 않음.
+
+### 이전 회차 이력 (2026-07-24, 개발 방법론 명세서)
+
 - `latest_commit`: `ee165a5` (docs(method) 방법론 개념 노트 성좌 — 3개 커밋 중 타임스탬프
   기준 가장 최신, 2026-07-18 04:21)
 - `selected_commits_range`: `1ab4f9c`(docs(method) 개발 방법론 명세서, 04:00) ~ `ee165a5`

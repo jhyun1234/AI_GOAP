@@ -66,6 +66,26 @@ namespace AIVillage.M0
         /// 진행 중 부탁의 의뢰인 본인 (M11-F 택지) — 수행자가 "이 집의 주인이 될 사람"을 찾는 창구.
         /// 부탁 중이 아니거나 의뢰인이 이미 이탈했으면 false (호출처는 본인으로 폴백).
         /// </summary>
+        /// <summary>
+        /// 자가 소유 배정 가능 여부 (순수 — 게이트 M12-T12, 2026-07-26 회귀 수정).
+        /// 판정 기준은 **"누가 무엇을 하는 중인가"가 아니라 "지금 짓는 이 건물이 그 부탁의
+        /// 소유 배정 대상인가"**다.
+        ///
+        /// 舊 판정은 "부탁 수행 중이면 자가 배정 안 함"이라 **부탁이 진행되는 동안 짓는 모든**
+        /// 소유 건물이 주인을 잃었다. 집 부탁을 수락한 목수가 자기 모닥불을 지으면 소유가
+        /// 배정되지 않아 MyHasCampfire가 0으로 남고, Goal_BuildCampfire(50)가 부탁받은 집(36)을
+        /// 계속 이겨 **집 주변이 만원이 될 때까지 모닥불을 반복 건축**했다 (2026-07-26 Play 관측).
+        /// </summary>
+        public static bool ShouldSelfAssign(RequestSO inFlight, SlotId countSlot)
+            => inFlight == null || !inFlight.GrantOwnership || inFlight.OwnershipSlot != countSlot;
+
+        /// <summary>이 주민이 지금 짓는 건물을 자기 것으로 가져도 되는가 (위 순수 판정의 창구).</summary>
+        public bool ShouldSelfAssignFor(string workerId, SlotId countSlot)
+            => ShouldSelfAssign(
+                _inFlight.TryGetValue(workerId, out (RequestSO so, string requesterId, bool prepaid) rec)
+                    ? rec.so : null,
+                countSlot);
+
         public bool TryGetRequester(string workerId, out VillagerAgent requester)
         {
             requester = null;

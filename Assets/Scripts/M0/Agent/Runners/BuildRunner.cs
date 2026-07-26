@@ -239,9 +239,13 @@ namespace AIVillage.M0
             // (집·모닥불). 부탁 완수 집은 RequestService.NotifyFulfilled가 의뢰인에게 배정하므로
             // 부탁 수행 중이면 건너뛴다(모닥불은 부탁 대상이 아니라 항상 자가). 배정 쓰기는 여전히
             // Assign 하나 (ADR-M8-3 불변). CountSlot을 소유 키로 넘긴다(집=HouseCount, 모닥불=CampfireCount).
-            if (_so.Building.OwnedBuilding && _so.Building.IsCountable
-                && agent.Requests != null && !agent.Requests.TryGetRequester(agent.AgentId, out _)
-                && agent.Ownership != null)
+            // ⚠️ 판정은 "부탁 수행 중인가"가 아니라 "**이 건물이** 그 부탁의 소유 배정 대상인가"다
+            // (2026-07-26 회귀 수정 — 舊 판정은 부탁 진행 중 지은 모닥불까지 주인을 잃게 만들어
+            // MyHasCampfire가 안 켜지고 집 주변이 만원 될 때까지 모닥불이 반복 건축됐다).
+            // Requests 미배선이면 부탁 자체가 없으므로 자가 배정이 맞다 (중립 경로 정정).
+            if (_so.Building.OwnedBuilding && _so.Building.IsCountable && agent.Ownership != null
+                && (agent.Requests == null
+                    || agent.Requests.ShouldSelfAssignFor(agent.AgentId, _so.Building.CountSlot)))
                 agent.Ownership.Assign(_buildTile, _so.Building.CountSlot, agent.AgentId, "자가 건축");
 
             return RunnerResult.Succeeded;

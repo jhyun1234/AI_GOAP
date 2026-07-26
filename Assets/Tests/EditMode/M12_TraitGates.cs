@@ -686,6 +686,60 @@ namespace AIVillage.Tests.EditMode
             Assert.AreEqual(0, BehaviorProfiler.DivergentPairs(null), "입력 없음");
         }
 
+        // ── M12-T12: 자가 소유 배정 가드 (2026-07-26 Play 관측 회귀 방지) ──────
+
+        [Test]
+        public void M12_T12_SelfAssign_JudgesTheBuildingNotTheBusyness()
+        {
+            // Play 관측: 집 부탁을 수락한 목수가 자기 모닥불을 짓자 소유가 배정되지 않아
+            // MyHasCampfire가 0으로 남았고, Goal_BuildCampfire(50)가 부탁받은 집(36)을 계속 이겨
+            // **집 주변 반경 2가 만원이 될 때까지 모닥불을 반복 건축**했다.
+            // 원인은 판정 기준이 "부탁 수행 중인가"(누구)였다는 것 — "이 건물이 그 부탁의 소유
+            // 대상인가"(무엇)로 바꿔야 한다.
+            var houseReq = AssetDatabase.LoadAssetAtPath<RequestSO>(
+                "Assets/M0Config/Requests/Request_BuildMyHouse.asset");
+            var cookReq = AssetDatabase.LoadAssetAtPath<RequestSO>(
+                "Assets/M0Config/Requests/Request_CookForMe.asset");
+            Assert.IsNotNull(houseReq, "집 부탁 로드");
+            Assert.IsNotNull(cookReq, "요리 부탁 로드");
+
+            // 부탁 없음 = 지은 사람 것
+            Assert.IsTrue(RequestService.ShouldSelfAssign(null, SlotId.CampfireCount));
+            Assert.IsTrue(RequestService.ShouldSelfAssign(null, SlotId.HouseCount));
+
+            // 집 부탁 수행 중이라도 **모닥불은 내 것** — 이것이 회귀의 핵심
+            Assert.IsTrue(RequestService.ShouldSelfAssign(houseReq, SlotId.CampfireCount),
+                "집 부탁 중에 지은 모닥불은 지은 사람 것이어야 한다 (반복 건축의 원인)");
+
+            // 그 부탁의 대상인 집만 의뢰인 몫으로 남긴다
+            Assert.IsFalse(RequestService.ShouldSelfAssign(houseReq, SlotId.HouseCount),
+                "부탁받아 지은 집은 의뢰인 것 (RequestService.NotifyFulfilled가 배정)");
+
+            // 소유를 안 넘기는 부탁(요리)은 어떤 건물도 막지 않는다
+            Assert.IsTrue(RequestService.ShouldSelfAssign(cookReq, SlotId.HouseCount));
+            Assert.IsTrue(RequestService.ShouldSelfAssign(cookReq, SlotId.CampfireCount));
+        }
+
+        [Test]
+        public void M12_T12_OwnedBuildingGoals_TerminateOnOwnership()
+        {
+            // 반복 건축의 구조적 조건: '소유 건물' goal의 목표가 **소유 플래그**여야 한다.
+            // 목표가 수량(Count)이면 소유 배정이 실패해도 goal이 끝나 조용히 넘어가지만,
+            // 소유 플래그면 배정 누락이 즉시 무한 건축으로 드러난다 — 지금이 그 경우였다.
+            var campfire = AssetDatabase.LoadAssetAtPath<BuildingSO>("Assets/M0Config/Buildings/Campfire.asset");
+            var house = AssetDatabase.LoadAssetAtPath<BuildingSO>("Assets/M0Config/Buildings/House.asset");
+            Assert.IsTrue(campfire.OwnedBuilding && campfire.IsCountable, "모닥불 = 개인 소유 수량형");
+            Assert.IsTrue(house.OwnedBuilding && house.IsCountable, "집 = 개인 소유 수량형");
+
+            var goal = AssetDatabase.LoadAssetAtPath<GoalSO>("Assets/M0Config/Goals/Goal_BuildCampfire.asset");
+            bool targetsOwnership = false;
+            foreach (SlotCondition c in goal.GoalConditions)
+                if (c.Slot == SlotId.MyHasCampfire) targetsOwnership = true;
+            Assert.IsTrue(targetsOwnership,
+                "Goal_BuildCampfire의 목표는 MyHasCampfire(소유)여야 한다 — " +
+                "수량으로 바꾸면 소유 배정 누락이 조용히 숨는다");
+        }
+
         // ── M12-T4: 제한 플래그의 문언 ↔ 실사용 대조 (ADR 낡음 탐지기, 2026-07-26) ────
 
         /// <summary>

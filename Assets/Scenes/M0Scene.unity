@@ -657,6 +657,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: fa059dde74744ce4bf5d001b01420102, type: 2}
   - {fileID: 11400000, guid: fda218a4d94842849b31a189131a4926, type: 2}
   - {fileID: 11400000, guid: 2a8a1a9cacd9443e9e7c6848a75cf98f, type: 2}
+  _guaranteedJob: {fileID: 11400000, guid: fda218a4d94842849b31a189131a4926, type: 2}
   _housewarmingChatter: {fileID: 0}
   _wandererChatter: {fileID: 11400000, guid: 517e7a81c841441fa25ed6b5c4c16e2e, type: 2}
 --- !u!1 &800

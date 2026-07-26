@@ -19,3 +19,8 @@ MonoBehaviour:
   BuildCostMult: 1
   ExploreCostMult: 0.6
   RoutineGoal: {fileID: 11400000, guid: 519bd4c62b75468e9ebe843e585d370b, type: 2}
+  PreferWeights:
+  - Trait: 3
+    Weight: 0.8
+  - Trait: 5
+    Weight: -0.3

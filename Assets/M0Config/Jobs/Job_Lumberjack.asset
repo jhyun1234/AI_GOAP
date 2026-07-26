@@ -21,3 +21,8 @@ MonoBehaviour:
   BuildCostMult: 1
   ExploreCostMult: 1
   RoutineGoal: {fileID: 0}
+  PreferWeights:
+  - Trait: 0
+    Weight: 0.5
+  - Trait: 5
+    Weight: -0.2

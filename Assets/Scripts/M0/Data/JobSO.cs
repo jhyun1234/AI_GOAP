@@ -49,6 +49,13 @@ namespace AIVillage.M0
                  "현재 전 직업 0(보류) — 앵커가 기지 고정이라 '숲 근처' 같은 방향은 표현 불가.")]
         public float HomePreferredDist;
 
+        [Header("성향 선호 (M12-H — 이 직업을 어떤 사람이 원하는가)")]
+        [Tooltip("배정 추첨의 가중치 축 (④대상과 같은 유도식 — 후보 점수화). 비면 이 직업은 " +
+                 "성향과 무관 = 균등 추첨(중립 불변식).\n" +
+                 "⚠️ 편향이지 결정론이 아니다 — 가중치가 아무리 낮아도 0이 되지는 않는다. " +
+                 "'게으른데 손재주는 있는 목수'가 나올 수 있어야 사람이 입체적이다.")]
+        public TraitWeight[] PreferWeights;
+
         /// <summary>이 직업의 goal 보정치. 참조 동일성 비교만 — 이름 문자열 비교 금지 (ADR-M0-1 정신).</summary>
         public int BoostFor(GoalSO goal)
         {

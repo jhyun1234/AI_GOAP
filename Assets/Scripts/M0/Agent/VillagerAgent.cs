@@ -279,8 +279,9 @@ namespace AIVillage.M0
             // 성격 할당 (M4-A) — 스폰 1회 고정. 배율 편차 ±10%도 이때 확정 (정체성 — 세이브 대상, ADR-M4-5)
             // 런타임 스폰(M10-E)은 Preset 주입값이 랜덤을 대체 — UI가 보여준 그 사람이 온다 (⚠️①).
             Personality = PresetOrRandom(_hasPreset, _presetPersonality, _sim.PickRandomPersonality);
-            // 직업 할당 (M5-A) — 성격과 별개 축, 스폰 1회 고정 (세이브 대상, ADR-M5-5)
-            Job = PresetOrRandom(_hasPreset, _presetJob, _sim.PickRandomJob);
+            // 직업 할당 (M5-A → M12-H) — 이제 성격과 독립이 아니라 성향이 편향시킨다.
+            // 성격이 위에서 먼저 확정되므로 그 벡터를 그대로 넘긴다. 스폰 1회 고정 (세이브 대상, ADR-M5-5)
+            Job = PresetOrRandom(_hasPreset, _presetJob, () => _sim.PickJobFor(Personality));
             _multJitter = new[]
             {
                 Random.Range(0.9f, 1.1f), Random.Range(0.9f, 1.1f),

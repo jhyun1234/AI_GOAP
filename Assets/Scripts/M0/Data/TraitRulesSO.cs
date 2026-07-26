@@ -33,6 +33,23 @@ namespace AIVillage.M0
                  "모험↑ 외딴집 / 사교↑ 이웃 곁.")]
         public TraitBias HomeDistanceBias;
 
+        [Header("④ 대상 — 직업 배정 편향 (M12-H)")]
+        [Tooltip("편향(-1~+1)이 추첨 가중치를 얼마나 기울이는가. 가중치 = max(하한, 1 + bias × 이 값).\n" +
+                 "0이면 전 직업 균등 = 현행 독립 랜덤 (중립 불변식). 제안치 1.")]
+        [Range(0f, 2f)]
+        public float JobBiasStrength = 1f;
+
+        [Tooltip("근면이 이 값 미만이면 '무직'이 추첨 후보로 올라온다 (M12-H). 제안치 -50 — " +
+                 "게으름뱅이(근면 -80)만 걸리고 고집쟁이·떠돌이는 안 걸리는 자리.")]
+        [Range(-100, 100)]
+        public int NoJobBelowDiligence = -50;
+
+        [Tooltip("위 문턱에 걸렸을 때 '무직' 후보의 가중치. **0이면 무직 후보 없음 = 현행 동작**이라 " +
+                 "기본값은 0이다 (미배선 중립 — ADR-M4-2). 에셋에서 켠다. 제안치 3 ≈ 직업 하나의 3배.\n" +
+                 "⚠️ 확률이지 규칙이 아니다 — 게으름뱅이도 직업을 가질 수 있다.")]
+        [Min(0f)]
+        public float NoJobWeight;
+
         [Header("축별 혼잣말 풀 (M12-F — 새 성격이 대사 0줄로도 말이 통하게)")]
         [Tooltip("성격 전용 MoodLines가 있으면 그것이 우선하고, 없을 때 여기서 뽑는다. " +
                  "같은 축을 공유하는 성격끼리 말투가 닮아 '계열'이 느껴지는 부수효과가 있다.")]

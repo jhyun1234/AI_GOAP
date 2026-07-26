@@ -46,6 +46,11 @@ namespace AIVillage.M0
         [Tooltip("직업 풀 (M5-A) — 스폰 시 랜덤 할당. 비우면 전원 무직(중립, M4 동작).")]
         [SerializeField] private JobSO[] _jobPool;
 
+        [Tooltip("최소 보장 직업 (M12-H) — 시작 주민 중 아무도 이 직업이 아니면 마지막 한 명을 " +
+                 "강제 배정한다. 목수를 넣을 것: 집은 목수 부탁 전용이라 목수 없는 판은 집이 아예 " +
+                 "서지 않고 M10 '규모 8 정체'(위협 티어 진행 정지)가 재현된다. 비우면 보장 없음(중립).")]
+        [SerializeField] private JobSO _guaranteedJob;
+
         [Tooltip("집들이 연출 (M11-F) — 새 집 소유 배정 순간 집주인+이웃 릴레이. 비우면 집들이 없음(중립). " +
                  "舊 농부 회의(M9-E)의 자리 — 개인 택지 시대엔 마을의 장면이 집들이다.")]
         [SerializeField] private ChatterSO _housewarmingChatter;
@@ -128,11 +133,100 @@ namespace AIVillage.M0
                 ? _personalityPool[Random.Range(0, _personalityPool.Length)]
                 : null;
 
-        /// <summary>스폰 시 직업 랜덤 할당 (M5-A). 풀이 비면 null = 무직(중립, M5-S3 불변식 경로).</summary>
+        /// <summary>스폰 시 직업 랜덤 할당 (M5-A). 풀이 비면 null = 무직(중립, M5-S3 불변식 경로).
+        /// M12-H 이후 직접 호출처는 없다 — PickJobFor가 성향 편향을 얹은 유일한 창구다.</summary>
         public JobSO PickRandomJob()
             => _jobPool != null && _jobPool.Length > 0
                 ? _jobPool[Random.Range(0, _jobPool.Length)]
                 : null;
+
+        /// <summary>가중치 하한 (알고리즘 상수 — 밸런스 아님). 0을 허용하면 편향이 결정론이 되어
+        /// "게으른데 손재주는 있는 목수"가 구조적으로 불가능해진다 (M12-H ⚠️).</summary>
+        private const float MIN_JOB_WEIGHT = 0.05f;
+
+        /// <summary>
+        /// 성향 편향 직업 추첨 (M12-H, 순수 — 게이트 M12-T14). roll01을 주입받아 결정적이다.
+        /// 반환은 pool 인덱스, **-1 = 무직**.
+        ///
+        /// 가중치 = max(하한, 1 + Bias(traits, job.PreferWeights) × JobBiasStrength) — ④대상과
+        /// 같은 유도식(후보 점수화)이고 유도는 TraitVector 한 곳에서만 한다 (ADR-M12-5).
+        /// 전 직업 PreferWeights가 비면 전부 가중치 1 = 균등 = 현행 독립 랜덤 (중립 불변식).
+        ///
+        /// 무직은 근면이 NoJobBelowDiligence 미만일 때만 후보로 **추가**된다 — 게으름뱅이가 보통
+        /// 놀러 다니게 하되(M11의 "게으름 = 대비만" 정의 개정), 규칙이 아니라 확률로 둔다.
+        /// </summary>
+        public static int PickJobIndex(TraitValue[] traits, JobSO[] pool, TraitRulesSO rules, float roll01)
+        {
+            if (pool == null || pool.Length == 0) return -1;
+
+            float strength = rules != null ? rules.JobBiasStrength : 0f;
+            float total = 0f;
+            for (int i = 0; i < pool.Length; i++)
+                total += JobWeight(traits, pool[i], strength);
+
+            // 무직 후보 — 문턱에 걸린 사람에게만, 그것도 가중치일 뿐이다.
+            float noJob = 0f;
+            if (rules != null && rules.NoJobWeight > 0f
+                && TraitVector.ValueOf(traits, TraitId.Diligence) < rules.NoJobBelowDiligence)
+                noJob = rules.NoJobWeight;
+
+            if (total + noJob <= 0f) return -1; // 있을 수 없음(하한 > 0) — 방어
+            float pick = Mathf.Clamp01(roll01) * (total + noJob);
+
+            float acc = 0f;
+            for (int i = 0; i < pool.Length; i++)
+            {
+                acc += JobWeight(traits, pool[i], strength);
+                if (pick < acc) return i;
+            }
+            return noJob > 0f ? -1 : pool.Length - 1; // 부동소수 꼬리는 마지막 후보로
+        }
+
+        private static float JobWeight(TraitValue[] traits, JobSO job, float strength)
+            => job == null ? 0f
+             : Mathf.Max(MIN_JOB_WEIGHT, 1f + TraitVector.Bias(traits, job.PreferWeights) * strength);
+
+        // 목수 최소 보장 상태 (M12-H) — 시작 주민에 한한다. 세이브 대상 아님(배정은 스폰 1회).
+        private int _initialRoster;
+        private int _jobsAssigned;
+        private bool _guaranteedJobAssigned;
+
+        /// <summary>
+        /// 마지막 시작 주민에게 보장 직업을 강제해야 하는가 (순수 — 게이트 M12-T14).
+        /// 성향 편향은 목수가 **한 명도 안 나오는 판**을 만들 수 있는데, 집은 목수 부탁 전용이라
+        /// 그 판은 집이 아예 안 서고 M10의 "규모 8 정체"(위협 티어 진행까지 멈춤)가 재현된다.
+        /// 시작 드래프트 UI(백로그)가 나오기 전까지 이것이 유일한 방어선이다.
+        /// </summary>
+        public static bool MustForceGuaranteedJob(int assigned, int roster, bool alreadyAssigned)
+            => !alreadyAssigned && roster > 0 && assigned == roster - 1;
+
+        /// <summary>
+        /// 스폰 시 직업 배정 (M12-H) — 성격·직업 독립 랜덤을 폐기하고 성향으로 편향시킨다.
+        /// 여기가 배정의 유일한 창구다 (PickRandomJob은 편향 없는 舊 경로로 남아 있을 뿐).
+        /// </summary>
+        public JobSO PickJobFor(PersonalitySO p)
+        {
+            if (_jobPool == null || _jobPool.Length == 0) return null; // 중립 — 전원 무직 (M5-S3)
+
+            JobSO picked;
+            if (_guaranteedJob != null
+                && MustForceGuaranteedJob(_jobsAssigned, _initialRoster, _guaranteedJobAssigned))
+            {
+                picked = _guaranteedJob;
+                Debug.Log($"[M12-H] 최소 보장 — 마지막 시작 주민을 {_guaranteedJob.DisplayName}(으)로 " +
+                          "배정했습니다 (없으면 집이 아예 서지 않습니다)");
+            }
+            else
+            {
+                int idx = PickJobIndex(p != null ? p.Traits : null, _jobPool,
+                                       _worldConfig != null ? _worldConfig.TraitRules : null, Random.value);
+                picked = idx >= 0 ? _jobPool[idx] : null;
+            }
+
+            _jobsAssigned++;
+            if (picked != null && picked == _guaranteedJob) _guaranteedJobAssigned = true;
+            return picked;
+        }
 
         public void RegisterAgent(VillagerAgent agent)
         {
@@ -414,6 +508,11 @@ namespace AIVillage.M0
                 return;
             }
             Instance = this;
+
+            // 시작 주민 정원 (M12-H) — Unity는 모든 Awake가 끝난 뒤에야 첫 Start를 부르므로,
+            // 여기서 센 수는 "직업을 배정받기 전의 전원"이다. 목수 최소 보장이 '마지막 한 명'을
+            // 알아야 하는데 초기 주민은 씬 배치라 스폰 루프가 없어서, 정원을 이 시점에 확정한다.
+            _initialRoster = FindObjectsByType<VillagerAgent>().Length;
 
             if (_worldConfig == null || _agentConfig == null || _catalog == null || _nodeSpawner == null)
             {

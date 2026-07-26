@@ -24,3 +24,8 @@ MonoBehaviour:
   TendRecoveryMult: 3
   CanTreatInjury: 1
   HomePreferredDist: -0.5
+  PreferWeights:
+  - Trait: 2
+    Weight: 0.7
+  - Trait: 4
+    Weight: -0.3

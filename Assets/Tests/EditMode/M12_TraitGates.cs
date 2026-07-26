@@ -898,5 +898,137 @@ namespace AIVillage.Tests.EditMode
             Assert.IsFalse(VillagerAgent.ShouldStarveToDeath(death * c.NearStarvationRatio, c),
                 "기록 시점에는 아직 죽지 않아야 한다 (살아남아야 표시가 쓸모 있다)");
         }
+
+        // ── M12-T14: 직업 배정 성향 편향 + 목수 최소 보장 (M12-H) ──────────────
+        // 명세는 M12_T8로 불렀으나 T8은 이미 6성격 이식이 점유 → 실제 파일 연번을 따른다.
+
+        private const string JOBS_DIR = "Assets/M0Config/Jobs";
+
+        private static JobSO[] LoadAllJobs()
+        {
+            JobSO[] jobs = AssetDatabase.FindAssets("t:JobSO", new[] { JOBS_DIR })
+                .Select(AssetDatabase.GUIDToAssetPath)
+                .Select(AssetDatabase.LoadAssetAtPath<JobSO>)
+                .Where(j => j != null)
+                .OrderBy(j => j.name).ToArray();
+            Assert.IsNotEmpty(jobs, "직업 에셋 로드");
+            return jobs;
+        }
+
+        /// <summary>roll01을 촘촘히 훑어 각 직업이 뽑히는 비율을 실측한다 (확률 편향의 유일한 검증법).</summary>
+        private static Dictionary<string, int> SampleJobs(TraitValue[] traits, JobSO[] pool,
+                                                          TraitRulesSO rules, int samples = 1000)
+        {
+            var hist = new Dictionary<string, int>();
+            for (int i = 0; i < samples; i++)
+            {
+                int idx = M0SimulationLoop.PickJobIndex(traits, pool, rules, (i + 0.5f) / samples);
+                string key = idx >= 0 ? pool[idx].name : "(무직)";
+                hist[key] = hist.TryGetValue(key, out int n) ? n + 1 : 1;
+            }
+            return hist;
+        }
+
+        [Test]
+        public void M12_T14_JobPick_NeutralWhenUnwired()
+        {
+            JobSO[] pool = LoadAllJobs();
+            var diligent = new[] { V(TraitId.Diligence, 100) };
+
+            // rules가 null이면 강도 0 → 전 직업 가중치 1 → 균등 = 현행 독립 랜덤 (중립 불변식).
+            Dictionary<string, int> hist = SampleJobs(diligent, pool, null, pool.Length * 100);
+            Assert.AreEqual(pool.Length, hist.Count, "미배선이면 전 직업이 고르게 나와야 한다");
+            foreach (KeyValuePair<string, int> kv in hist)
+                Assert.AreEqual(100, kv.Value, 1, $"{kv.Key}: 미배선은 균등 추첨이어야 한다");
+            Assert.IsFalse(hist.ContainsKey("(무직)"), "미배선이면 무직 후보가 없다 (현행 동작)");
+
+            // 성향이 전 축 0이어도 균등 — 벡터 없는 주민(성격 null)의 경로.
+            var wired = ScriptableObject.CreateInstance<TraitRulesSO>();
+            wired.JobBiasStrength = 1f;
+            Dictionary<string, int> flat = SampleJobs(null, pool, wired, pool.Length * 100);
+            foreach (KeyValuePair<string, int> kv in flat)
+                Assert.AreEqual(100, kv.Value, 1, $"{kv.Key}: 벡터가 없으면 편향 0 = 균등");
+            Object.DestroyImmediate(wired);
+        }
+
+        [Test]
+        public void M12_T14_JobPick_BiasedButNeverDeterministic()
+        {
+            JobSO[] pool = LoadAllJobs();
+            var rules = AssetDatabase.LoadAssetAtPath<TraitRulesSO>("Assets/M0Config/TraitRules.asset");
+            Assert.IsNotNull(rules, "TraitRules 로드");
+            Assert.Greater(rules.JobBiasStrength, 0f, "편향 강도가 0이면 M12-H가 통째로 휴면이다");
+
+            // 전 직업이 성향을 읽어야 편향이 의미를 갖는다 (한 직업이라도 비면 그 직업만 무색).
+            foreach (JobSO j in pool)
+                Assert.IsNotEmpty(j.PreferWeights, $"{j.name}: PreferWeights 미기입 — 성향과 무관해진다");
+
+            // 모험가는 탐험가를, 사교가는 치료사를 더 자주 고른다 (축이 실제로 갈리는지).
+            var nomad = new[] { V(TraitId.Wanderlust, 100) };
+            var social = new[] { V(TraitId.Sociability, 100) };
+            Dictionary<string, int> nomadHist = SampleJobs(nomad, pool, rules);
+            Dictionary<string, int> socialHist = SampleJobs(social, pool, rules);
+
+            Assert.Greater(nomadHist.GetValueOrDefault("Job_Explorer"),
+                           socialHist.GetValueOrDefault("Job_Explorer"),
+                           "모험 축이 높으면 탐험가가 더 자주 나와야 한다");
+            Assert.Greater(socialHist.GetValueOrDefault("Job_Medic"),
+                           nomadHist.GetValueOrDefault("Job_Medic"),
+                           "사교 축이 높으면 치료사가 더 자주 나와야 한다");
+
+            // ⚠️ 편향이지 결정론이 아니다 — 어떤 축이든 모든 직업의 확률이 0이 되면 안 된다
+            // ("게으른데 손재주는 있는 목수"가 나올 수 있어야 사람이 입체적이다).
+            foreach (TraitId axis in System.Enum.GetValues(typeof(TraitId)))
+                foreach (int sign in new[] { -100, 100 })
+                {
+                    Dictionary<string, int> h = SampleJobs(new[] { V(axis, sign) }, pool, rules, 4000);
+                    foreach (JobSO j in pool)
+                        Assert.Greater(h.GetValueOrDefault(j.name), 0,
+                            $"{axis}={sign}에서 {j.name}이 확률 0 — 편향이 결정론이 됐다");
+                }
+        }
+
+        [Test]
+        public void M12_T14_JobPick_IdlenessIsAWeightNotARule()
+        {
+            JobSO[] pool = LoadAllJobs();
+            var rules = AssetDatabase.LoadAssetAtPath<TraitRulesSO>("Assets/M0Config/TraitRules.asset");
+            PersonalitySO lazy = LoadAllPersonalities().First(p => p.name == "Personality_Lazy");
+
+            Dictionary<string, int> lazyHist = SampleJobs(lazy.Traits, pool, rules, 4000);
+            Assert.Greater(lazyHist.GetValueOrDefault("(무직)"), 0,
+                "게으름뱅이(근면 -80)는 무직이 후보로 올라와야 한다 (M11 '게으름 = 대비만' 정의 개정)");
+            // 규칙이 아니라 확률 — 게으름뱅이도 직업을 가질 수 있다.
+            Assert.Less(lazyHist.GetValueOrDefault("(무직)"), 4000,
+                "무직이 100%면 확률이 아니라 규칙이다 (M12-H ⚠️)");
+
+            // 문턱 위의 성격에겐 무직 후보가 아예 없다 — 문턱이 실제로 갈라야 한다.
+            foreach (PersonalitySO p in LoadAllPersonalities())
+            {
+                if (TraitVector.ValueOf(p.Traits, TraitId.Diligence) >= rules.NoJobBelowDiligence)
+                    Assert.AreEqual(0, SampleJobs(p.Traits, pool, rules, 2000).GetValueOrDefault("(무직)"),
+                        $"{p.name}: 근면이 문턱 이상인데 무직 후보가 생겼다");
+            }
+        }
+
+        [Test]
+        public void M12_T14_CarpenterGuarantee_FiresOnlyForTheLastStarter()
+        {
+            // 마지막 한 명에게만, 그리고 아직 없을 때만 발동한다.
+            Assert.IsTrue(M0SimulationLoop.MustForceGuaranteedJob(3, 4, false), "정원 4의 마지막(4번째)에서 발동");
+            Assert.IsFalse(M0SimulationLoop.MustForceGuaranteedJob(3, 4, true), "이미 목수가 있으면 발동 안 함");
+            Assert.IsFalse(M0SimulationLoop.MustForceGuaranteedJob(0, 4, false), "첫 주민을 강제하면 편향이 죽는다");
+            Assert.IsFalse(M0SimulationLoop.MustForceGuaranteedJob(2, 4, false), "중간 주민에게는 발동 안 함");
+            // 방랑자(정원 밖)는 보장 대상이 아니다 — 카운터가 이미 정원을 넘었다.
+            Assert.IsFalse(M0SimulationLoop.MustForceGuaranteedJob(9, 4, false), "정원 밖(방랑자)에는 발동 안 함");
+            Assert.IsFalse(M0SimulationLoop.MustForceGuaranteedJob(0, 0, false), "주민이 없으면 발동 안 함");
+
+            // 씬 배선 — 보장 직업이 실제로 목수여야 한다 (집이 목수 부탁 전용이라 이게 방어선).
+            JobSO carpenter = LoadAllJobs().First(j => j.name == "Job_Carpenter");
+            var request = AssetDatabase.LoadAssetAtPath<RequestSO>(
+                "Assets/M0Config/Requests/Request_BuildMyHouse.asset");
+            Assert.AreEqual(carpenter, request.TargetJob,
+                "집 부탁의 대상 직업이 곧 최소 보장 대상이어야 한다 (보장 대상이 어긋나면 방어선이 헛돈다)");
+        }
     }
 }

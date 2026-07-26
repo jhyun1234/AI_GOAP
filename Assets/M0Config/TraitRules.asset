@@ -38,6 +38,9 @@ MonoBehaviour:
     - Trait: 2
       Weight: -1
     Sensitivity: 0.95
+  JobBiasStrength: 1
+  NoJobBelowDiligence: -50
+  NoJobWeight: 3
   MoodPools:
   - Trait: 5
     ForHighValue: 1

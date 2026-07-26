@@ -87,7 +87,10 @@ namespace AIVillage.M0
             _arriveSerial++;
             // 후보 확정 — 도착 시 1회 롤 (⚠️①). 스폰 풀 재사용 (M4~M5 파이프라인).
             _candPersonality = _sim.PickRandomPersonality();
-            _candJob = _sim.PickRandomJob();
+            // M12-H: 방랑자도 성향이 직업을 편향시킨다 — 문 앞에 선 사람이 "게으른데 목수"인
+            // 조합으로만 나오면 UI가 보여주는 인물상이 성격과 따로 논다.
+            // 목수 최소 보장은 시작 주민 전용이라 여기 오는 사람에겐 걸리지 않는다(정원 밖).
+            _candJob = _sim.PickJobFor(_candPersonality);
 
             // 진입점 = 위협과 같은 결정적 가장자리 선택 (순수 함수 재사용)
             MapBounds.Get(out int minX, out int maxX, out int minY, out int maxY);

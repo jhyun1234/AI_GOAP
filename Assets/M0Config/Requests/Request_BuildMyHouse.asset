@@ -21,6 +21,13 @@ MonoBehaviour:
   - Slot: 22
     Op: 1
     Value: 5
+  RequesterTraits:
+  - Trait: 1
+    MinValue: -50
+  TraitBypassConditions:
+  - Slot: 34
+    Op: 1
+    Value: 1
   TargetJob: {fileID: 11400000, guid: fda218a4d94842849b31a189131a4926, type: 2}
   InjectGoal: {fileID: 11400000, guid: 985a7498ebc14268bb07b6118224dccc, type: 2}
   RadiusTiles: 6

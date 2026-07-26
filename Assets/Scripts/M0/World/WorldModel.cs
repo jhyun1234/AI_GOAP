@@ -158,7 +158,8 @@ namespace AIVillage.M0
                                            int homeRaw = 0, int homeCooked = 0,
                                            bool wasAttacked = false,
                                            int myPlots = 0, int myEmptyPlots = 0, int myRipeCrops = 0,
-                                           bool hasCampfire = false)
+                                           bool hasCampfire = false,
+                                           bool wasStarved = false)
         {
             var slots = new int[PlanningConfig.TotalSlots];
 
@@ -199,6 +200,9 @@ namespace AIVillage.M0
             // 피격 경험 (M11-G) — 원천 = VillagerAgent.Injure. 기본 false = 0 (중립: 집 동기
             // goal·긴급 부탁이 영구 불발 = M11-F 동작).
             slots[(int)SlotId.MyWasAttacked] = wasAttacked ? 1 : 0;
+            // 아사 직전 경험 (M12-G) — 원천 = VillagerAgent 굶주림 계단. 기본 false = 0 (중립:
+            // 성향 문턱 우회가 영구 불발 = 기질만으로 판정하는 M12-F 동작).
+            slots[(int)SlotId.MyWasStarved] = wasStarved ? 1 : 0;
             // 개인 밭 (M11-E) — 원천 = FarmService 소유 필터. 전역 EmptyFarmPlot(12)·RipeCropAvailable(13)은
             // 위에서 계속 채워지지만 참조 goal이 0이라 휴면이다 (⚠️① 전역 FarmPlotCount는 위협 규모 분모).
             slots[(int)SlotId.MyFarmPlotCount] = myPlots;

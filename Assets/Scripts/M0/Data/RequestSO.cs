@@ -24,6 +24,19 @@ namespace AIVillage.M0
         [Tooltip("의뢰인 성립 조건 (스냅샷 대역 — 예: MyHasHome == 0). 비면 항상 성립 (남용 주의)")]
         public SlotCondition[] RequesterConditions;
 
+        [Header("의뢰인 기질 (M12-G — 스톡만 보던 판정에 성향을 들인다)")]
+        [Tooltip("의뢰인 성향 조건 (예: Foresight ≥ 30). 비면 성향 무관 = 현행 동작(중립 불변식).\n" +
+                 "⚠️ 이것이 성격 페널티 우회 구조의 차단점이다 — GoalBoosts는 goal 순위에만 걸리는데 " +
+                 "부탁 성립은 스톡만 읽어서, 게으름뱅이가 여력만 생기면 남들과 똑같이 집을 부탁했다.\n" +
+                 "⚠️ GoalSO.TriggerConditions에는 절대 쓰지 않는다 (ADR-M12-2 — 무한 루프).")]
+        public TraitCondition[] RequesterTraits;
+
+        [Tooltip("이 조건이 전부 성립하면 RequesterTraits를 **우회**한다 (OR). 예: MyWasStarved == 1 —\n" +
+                 "굶어 죽을 뻔한 자는 대비성이 낮아도 집을 원한다. 기질이 하지 않을 선택을 경험이 " +
+                 "하게 만드는 지점이라, 성향 문턱이 '영원히 못 하는 사람'을 만들지 않게 하는 안전판이다.\n" +
+                 "비면 우회 없음 = 성향 조건이 그대로 최종 판정.")]
+        public SlotCondition[] TraitBypassConditions;
+
         [Tooltip("부탁 대상 직업 (참조 매핑). 비면 아무나 — 능력 조건 없는 부탁")]
         public JobSO TargetJob;
 
@@ -96,6 +109,12 @@ namespace AIVillage.M0
             if (RewardCostAmount > 0 && !SlotIds.IsPersonalStock(RewardCostSlot))
                 Debug.LogError($"[RequestSO] {name}: RewardCostSlot({RewardCostSlot})은 개인 스톡 슬롯이어야 " +
                                "합니다 (M11-H — 보상 = 실제 식량 이전. 전역 스톡은 휴면).", this);
+            // M12-G: 우회 조건만 있고 성향 조건이 없으면 우회할 대상이 없다 — 기입 실수 신호
+            // (조건이 조용히 무시되면 "설정했는데 왜 안 먹지"가 관측 불가능해진다).
+            if ((TraitBypassConditions != null && TraitBypassConditions.Length > 0)
+                && (RequesterTraits == null || RequesterTraits.Length == 0))
+                Debug.LogWarning($"[RequestSO] {name}: TraitBypassConditions가 있는데 RequesterTraits가 " +
+                                 "비었습니다 — 우회할 성향 조건이 없어 아무 효과도 없습니다.", this);
             if (RewardSatietyGain != 0)
                 Debug.LogWarning($"[RequestSO] {name}: RewardSatietyGain({RewardSatietyGain})은 휴면 필드입니다 " +
                                  "— 포만 직접 지급은 M11-H에서 폐지됐습니다 (수행자는 받은 식량을 먹는다). 0 권장.", this);

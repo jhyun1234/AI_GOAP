@@ -71,11 +71,18 @@ namespace AIVillage.M0
                                 // ⚠️ **어떤 액션도 이 슬롯에 효과를 가지면 안 된다** — 플래너가 위조할 수
                                 // 없어야 봉쇄가 성립한다. NearDiscoveredFood(5)로 막던 舊 시도는 Explore가
                                 // 그 슬롯을 Set 1 하는 바람에 "Explore→채집" 우회 플랜이 나와 실패했다.
+
+        // ── M12-G 확장 (집 동기 — 기질 옆의 경험 축) ──
+        MyWasStarved      = 34, // 논리형 — 굶어 죽을 뻔한 경험 (영구 true. MyWasAttacked 동형,
+                                // 원천 = VillagerAgent 굶주림 계단 1곳. 세이브 대상).
+                                // ⚠️ "포만 0을 한 번 찍음"이 아니라 **죽음 문턱 근처까지 갔다 살아남음** —
+                                // 겨울 봉쇄로 굶주림이 흔해진 지금 전자로 두면 전원 참이 되어 성향 문턱이
+                                // 다시 무력해진다(M12 결정 11의 희소성).
     }
 
     public static class SlotIds
     {
-        public const int Count = 34;
+        public const int Count = 35;
 
         /// <summary>전역 스톡 슬롯 여부 — EffectApplier/러너가 공유하는 유일한 판정.
         /// ⚠️ 개인 스톡(MyRawFood 등)을 여기 넣으면 안 된다 (명세 M11-A ⚠️①) —

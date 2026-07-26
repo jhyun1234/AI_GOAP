@@ -374,6 +374,9 @@ namespace AIVillage.M0
             // 아사 (M6-D → ADR-M10-3 개정) — 계절 분기 없음: 굶주림은 계절 무관 사실 (⚠️③).
             // 대기 가드 금지 (M4 교훈 — 동상·데드락) — 판정은 누적 시간 하나뿐.
             _starvingDays = NextStarvingDays(_starvingDays, Satiety, _cfg.StarvingBelowSatiety, deltaGameDays);
+            // "죽을 뻔했다"는 죽음 판정 **앞**에서 찍는다 (M12-G) — 문턱에 닿으면 즉사하므로
+            // 사후에 남길 수 없다. 여기가 MyWasStarved의 유일한 쓰기 지점이다.
+            if (IsNearStarvation(_starvingDays, _cfg)) MyWasStarved = true;
             if (ShouldStarveToDeath(_starvingDays, _cfg))
             {
                 StarveToDeath();
@@ -444,7 +447,8 @@ namespace AIVillage.M0
                 Farm != null ? Farm.CountPlotsOf(AgentId) : 0,                 // 개인 밭 (M11-E)
                 Farm != null ? Farm.CountEmptyOf(AgentId) : 0,
                 Farm != null ? Farm.CountRipeOf(AgentId) : 0,
-                hasCampfire);                                                  // 내 모닥불 (M11-K)
+                hasCampfire,                                                   // 내 모닥불 (M11-K)
+                MyWasStarved);                                                 // 아사 직전 경험 (M12-G)
         }
 
         /// <summary>
@@ -633,6 +637,15 @@ namespace AIVillage.M0
         /// 舊 ShouldDepart에서 개명 (ADR-M10-3 개정 — 굶주림의 결말이 이탈에서 아사로 바뀜).</summary>
         public static bool ShouldStarveToDeath(float starvingDays, AgentConfigSO cfg)
             => starvingDays >= cfg.DepartAfterStarvingDays;
+
+        /// <summary>
+        /// "죽을 뻔했다" 판정 (순수, 게이트 M12-T7) — 아사 문턱의 NearStarvationRatio 지점.
+        /// 아사 문턱 자체가 아니라 그 **앞**인 이유: ShouldStarveToDeath가 참이 되는 틱에 바로
+        /// 죽으므로 "문턱 이상 지속하고 살아남은 자"는 존재할 수 없다. 죽음 직전까지 갔다
+        /// 회복한 자만 골라내려면 문턱 앞에서 찍어야 한다.
+        /// </summary>
+        public static bool IsNearStarvation(float starvingDays, AgentConfigSO cfg)
+            => starvingDays >= cfg.DepartAfterStarvingDays * cfg.NearStarvationRatio;
 
         /// <summary>
         /// 아사 (ADR-M10-3 개정 2026-07-24 — 舊 굶주림 이탈). 상태만 Dead(ADR-M6-3)로 바꾸고 지연
@@ -1505,6 +1518,12 @@ namespace AIVillage.M0
         /// <summary>피격 경험 (M11-G, MyWasAttacked 슬롯의 유일한 원천) — 쓰기는 Injure뿐이고
         /// 되돌리는 경로는 없다 (영구). 회복·간호는 이 값을 건드리지 않는다.</summary>
         public bool MyWasAttacked { get; private set; }
+
+        /// <summary>굶어 죽을 뻔한 경험 (M12-G, MyWasStarved 슬롯의 유일한 원천) — 쓰기는 SimTick의
+        /// 굶주림 계단 1곳뿐이고 되돌리는 경로는 없다 (영구, MyWasAttacked 동형).
+        /// 배부르게 회복해도 남는다 — 이것은 상태가 아니라 **기억**이고, 기질(성향)이 하지 않는
+        /// 선택을 하게 만드는 근거다 (집 부탁의 성향 문턱 우회).</summary>
+        public bool MyWasStarved { get; private set; }
 
         /// <summary>내 집 타일 (M11-A) — 집 저장 라우팅·피난 목적지 공용 창구. 원천 = OwnershipService.</summary>
         public bool TryGetHomeTile(out Vector2Int tile)

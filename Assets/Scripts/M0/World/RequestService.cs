@@ -102,6 +102,27 @@ namespace AIVillage.M0
         public static bool ShouldStiffReward(PersonalitySO p, int affinityTowardBuilder)
             => p != null && affinityTowardBuilder < p.SkipRewardBelowAffinity;
 
+        /// <summary>
+        /// 의뢰인 기질 문턱 (M12-G, 순수 — 게이트 M12-T7). 스톡 조건(RequesterConditions)을 이미
+        /// 통과한 의뢰인에게 "그럴 사람인가"를 한 번 더 묻는다.
+        ///
+        ///   성립 = 성향 조건 충족 **OR** 경험 우회 조건 충족
+        ///
+        /// 유도는 TraitVector.Meets 한 곳에서만 한다 (ADR-M12-5 — 여기서 Traits를 직접 순회하면
+        /// 두 번째 유도 경로다). 성향 조건이 비면 항상 true = 현행 동작(중립 불변식).
+        /// 성격 미배정(p == null)도 중립 — 벡터가 전 축 0인 것과 같다.
+        /// </summary>
+        public static bool RequesterQualifies(RequestSO r, PersonalitySO p, in WorldSnapshot snap)
+        {
+            if (r == null) return false;
+            if (TraitVector.Meets(p != null ? p.Traits : null, r.RequesterTraits)) return true;
+            // 기질이 모자라도 경험이 있으면 성립 — "죽다 살아난 자가 집을 원한다".
+            // 우회 조건이 비면 AllHold가 true를 돌려주므로, 여기서 무조건 성립하지 않도록
+            // 빈 배열을 "우회 없음"으로 먼저 거른다.
+            return r.TraitBypassConditions != null && r.TraitBypassConditions.Length > 0
+                && GoalSelector.AllHold(r.TraitBypassConditions, snap);
+        }
+
         /// <summary>agentId가 의뢰인으로 걸어 둔 진행 중 부탁이 있는가 — 중복 부탁 방지.</summary>
         public bool HasInFlightFrom(string requesterId)
         {
@@ -147,6 +168,7 @@ namespace AIVillage.M0
                 {
                     if (r == null || r.InjectGoal == null) continue;
                     if (!GoalSelector.AllHold(r.RequesterConditions, snap)) continue;
+                    if (!RequesterQualifies(r, requester.Personality, snap)) continue; // M12-G 기질 문턱
 
                     foreach (VillagerAgent target in _scratch)
                     {

@@ -175,6 +175,14 @@ namespace AIVillage.M0
                  "겨울 비축 실패의 결과. 포만이 문턱 위로 회복되면 누적은 리셋.")]
         public float DepartAfterStarvingDays = 0.5f;
 
+        [Range(0f, 1f)]
+        [Tooltip("[제안치 0.8, M12-G] '죽을 뻔했다'(MyWasStarved)로 기록할 지점 — 아사 문턱의 이 비율만큼 " +
+                 "굶주림이 누적되면 표시가 남는다(영구). 비율인 이유: 아사는 문턱에 닿는 순간 즉시 " +
+                 "발동하므로 '문턱을 밟고 살아남는다'가 불가능하다 — 죽기 직전까지 갔다 회복한 자만 " +
+                 "골라내려면 문턱 **앞**의 지점이어야 한다. 1이면 아무도 기록되지 않고(전원 사망), " +
+                 "0이면 굶주림 시작 즉시라 전원 참이 되어 희소성이 사라진다.")]
+        public float NearStarvationRatio = 0.8f;
+
         [Tooltip("이탈 직전 마지막 대사 (랜덤 선택). ⚠️ 2026-07-24 현재 휴면 — 굶주림은 이탈이 아니라 " +
                  "아사로 결말이 바뀌었다(ADR-M10-3 개정, StarveLines 사용). 다른 이탈 사유가 생기면 재사용.")]
         public string[] DepartLines =

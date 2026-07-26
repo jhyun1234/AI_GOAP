@@ -824,5 +824,79 @@ namespace AIVillage.Tests.EditMode
             foreach (string n in personal)
                 Assert.Greater(WillfulnessOf(n), 0f, $"{n}: 개인 goal은 자존 양수여야 한다");
         }
+
+        // ── M12-T13: 집 부탁의 기질 문턱 + 경험 우회 (M12-G) ──────────────────
+        // 명세는 이 게이트를 M12-T7로 불렀으나 T7은 이미 ④대상(택지 거리)이 쓰고 있어
+        // 실제 파일의 연번을 따른다.
+
+        private static WorldSnapshot SnapWith(SlotId slot, int value)
+        {
+            var slots = new int[PlanningConfig.TotalSlots];
+            slots[(int)slot] = value;
+            return new WorldSnapshot(slots);
+        }
+
+        [Test]
+        public void M12_T13_HouseRequest_TraitGateAndStarvedBypass()
+        {
+            var r = AssetDatabase.LoadAssetAtPath<RequestSO>(
+                "Assets/M0Config/Requests/Request_BuildMyHouse.asset");
+            Assert.IsNotNull(r, "Request_BuildMyHouse 로드");
+            Assert.IsNotEmpty(r.RequesterTraits, "집 부탁에 성향 문턱이 걸려 있어야 한다 (M12-G의 핵심)");
+
+            WorldSnapshot none = SnapWith(SlotId.MyWasStarved, 0);
+            WorldSnapshot starved = SnapWith(SlotId.MyWasStarved, 1);
+
+            // 게으름뱅이(대비 -70)는 스톡 조건을 이미 통과했어도 집을 부탁하지 않는다.
+            // 이것이 성격 페널티 우회 구조(2026-07-24 관측)의 차단 지점이다.
+            PersonalitySO lazy = LoadAllPersonalities().First(p => p.name == "Personality_Lazy");
+            Assert.IsFalse(RequestService.RequesterQualifies(r, lazy, none),
+                "게으름뱅이는 여력이 있어도 집 부탁이 성립하면 안 된다");
+
+            // 그러나 굶어 죽을 뻔한 경험이 있으면 기질을 넘어 성립한다 (경험 > 기질).
+            Assert.IsTrue(RequestService.RequesterQualifies(r, lazy, starved),
+                "MyWasStarved면 대비 문턱을 우회해 성립해야 한다 (영원히 못 하는 사람 방지)");
+
+            // 대비가 문턱 이상인 성격은 경험 없이도 성립 — 문턱이 마을 전체를 막지 않는다.
+            List<PersonalitySO> qualifying = LoadAllPersonalities()
+                .Where(p => RequestService.RequesterQualifies(r, p, none)).ToList();
+            Assert.IsNotEmpty(qualifying, "경험 없이 집을 부탁할 수 있는 성격이 최소 1종은 있어야 한다");
+            // M10 '규모 8 정체' 재현 방어 — 집이 안 서면 위협 티어 진행까지 막힌다.
+            Assert.GreaterOrEqual(qualifying.Count, LoadAllPersonalities().Count / 2,
+                "성향 문턱이 과반을 막으면 집이 안 서서 마을 규모가 정체한다");
+
+            // 중립 불변식 — 성향 조건이 비면 성격과 무관하게 현행 동작.
+            var neutral = ScriptableObject.CreateInstance<RequestSO>();
+            Assert.IsTrue(RequestService.RequesterQualifies(neutral, lazy, none),
+                "RequesterTraits가 비면 성향 무관 = 현행 동작(중립 불변식)");
+            // 성격 미배정도 중립 — 전 축 0인 벡터와 같아야 한다.
+            Assert.IsTrue(RequestService.RequesterQualifies(neutral, null, none),
+                "성격 null도 중립 경로");
+            Object.DestroyImmediate(neutral);
+        }
+
+        [Test]
+        public void M12_T13_NearStarvation_IsRarerThanHungerAndSurvivable()
+        {
+            var c = AssetDatabase.LoadAssetAtPath<AgentConfigSO>("Assets/M0Config/AgentConfig.asset");
+            Assert.IsNotNull(c, "AgentConfig 로드");
+
+            // 희소성 — 굶주림 시작 즉시가 아니어야 한다 (겨울 봉쇄로 굶주림은 흔하다).
+            Assert.Greater(c.NearStarvationRatio, 0f,
+                "비율 0이면 굶주림 시작 즉시 참이 되어 전원이 기록된다 (성향 문턱 무력화 = 우회 재발)");
+            // 생존 가능성 — 아사 문턱 이상이면 그 틱에 죽으므로 아무도 기록되지 못한다.
+            Assert.Less(c.NearStarvationRatio, 1f,
+                "비율 1이면 기록 시점 = 사망 시점이라 살아남은 자가 존재할 수 없다");
+
+            float death = c.DepartAfterStarvingDays;
+            Assert.IsFalse(VillagerAgent.IsNearStarvation(0f, c), "굶주림 0일에는 기록 없음");
+            Assert.IsFalse(VillagerAgent.IsNearStarvation(death * c.NearStarvationRatio * 0.5f, c),
+                "문턱 이전에는 기록 없음");
+            Assert.IsTrue(VillagerAgent.IsNearStarvation(death * c.NearStarvationRatio, c),
+                "문턱에 닿으면 기록");
+            // 기록 지점이 사망 지점보다 반드시 앞 — 이 순서가 깨지면 슬롯이 영구히 0이다.
+            Assert.IsFalse(VillagerAgent.ShouldStarveToDeath(death * c.NearStarvationRatio, c),
+                "기록 시점에는 아직 죽지 않아야 한다 (살아남아야 표시가 쓸모 있다)");
+        }
     }
 }

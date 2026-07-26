@@ -144,6 +144,14 @@ namespace AIVillage.M0
             => g.Priority + (_goalBias != null ? _goalBias(g) : 0);
 
         /// <summary>
+        /// 이 goal을 특정 축이 얼마나 원하는가 (M12-J 계측 분류용, 순수).
+        /// 축을 +100으로 세운 단위 벡터를 넣어 가중치의 부호·크기를 그대로 읽는다 —
+        /// goal 이름이 아니라 **데이터가 분류를 결정**한다.
+        /// </summary>
+        private static float GoalWants(GoalSO goal, TraitId axis)
+            => TraitVector.Bias(new[] { new TraitValue { Trait = axis, Value = 100 } }, goal.TraitWeights);
+
+        /// <summary>
         /// 내 위협 감지 반경 배율 (M10-D 성격 필드 × M12-D 성향 편향 — M12-F까지 병존).
         /// 같은 늑대를 봐도 겁 많은 주민이 먼저 알아챈다. 성향 가중치가 비면 Threshold가 1을
         /// 그대로 돌려주므로 현행 동작과 완전히 같다 (중립 불변식).
@@ -684,11 +692,12 @@ namespace AIVillage.M0
                 return;
             }
             _sim.Goals.Claim(_goal); // 착수 선언 (ADR-M3-4) — 해제는 ToIdle 단일 지점
-            // 계측 (M12-J, 읽기 전용) — '노동'은 이름이 아니라 **근면 축이 원하는 goal**로 판정한다
-            // (ADR-M0-1 이름 분기 금지의 정신 — 새 goal도 태그만 달면 자동 분류된다).
-            _sim.Profiler?.RecordGoalPick(Personality, _goal,
-                TraitVector.Bias(new[] { new TraitValue { Trait = TraitId.Diligence, Value = 100 } },
-                                 _goal.TraitWeights) > 0f);
+            // 계측 (M12-J, 읽기 전용) — 분류를 이름이 아니라 **성향 태그**로 한다
+            // (ADR-M0-1 이름 분기 금지의 정신 — 새 goal도 태그만 달면 자동 분류된다):
+            //   노동 = 근면 축이 원하는 goal / 공용 = 자존 축이 피하는 goal
+            _sim.Profiler?.RecordGoalPick(AgentId, Personality, _goal,
+                GoalWants(_goal, TraitId.Diligence) > 0f,
+                GoalWants(_goal, TraitId.Willfulness) < 0f);
 
             // M1-A DirectActionPool 특례: 여가는 플래너를 태우지 않는다 (ADR-M1-3)
             if (_goal.DirectActionPool != null && _goal.DirectActionPool.Length > 0)

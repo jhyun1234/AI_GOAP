@@ -24,9 +24,13 @@ namespace AIVillage.M0
         {
             public readonly Dictionary<string, int> GoalPicks = new Dictionary<string, int>(16);
             public int TotalPicks;
-            public int LaborPicks;   // 노동 계열 goal 선택 수 (근면 축의 관측 신호)
-            public int Refusals;     // 명령·부탁 거부 수 (자존 축의 관측 신호)
-            public int Members;      // 이 성격을 가진 주민 수 (스냅샷마다 갱신)
+            public int LaborPicks;    // 노동 계열 goal 선택 수 (근면 축의 관측 신호)
+            public int CommunalPicks; // 공용 goal 선택 수 (자존 축의 관측 신호 — 방치에서도 보인다)
+            public int Refusals;      // 명령·부탁 거부 수 (자존 축 — 플레이어 개입이 있을 때만)
+
+            /// <summary>이 성격으로 살았던 **누적** 주민 (2026-07-26 수정 — 죽으면 리스트에서
+            /// 빠져 Members가 0이 되는 바람에 "0/0"만 찍혀 사망 관측이 불가능했다).</summary>
+            public readonly HashSet<string> EverSeen = new HashSet<string>();
             public int Alive;
             public int WithHome;
         }
@@ -53,7 +57,7 @@ namespace AIVillage.M0
         }
 
         /// <summary>goal 선택 1회 기록 (VillagerAgent가 실제로 착수한 goal).</summary>
-        public void RecordGoalPick(PersonalitySO p, GoalSO goal, bool isLabor)
+        public void RecordGoalPick(string agentId, PersonalitySO p, GoalSO goal, bool isLabor, bool isCommunal)
         {
             if (goal == null) return;
             Entry e = EntryOf(p);
@@ -61,6 +65,8 @@ namespace AIVillage.M0
             e.GoalPicks[goal.name] = n + 1;
             e.TotalPicks++;
             if (isLabor) e.LaborPicks++;
+            if (isCommunal) e.CommunalPicks++;
+            if (!string.IsNullOrEmpty(agentId)) e.EverSeen.Add(agentId); // 죽어도 남는 누적 인원
         }
 
         /// <summary>명령·부탁 거부 1회 기록.</summary>
@@ -118,16 +124,16 @@ namespace AIVillage.M0
 
             foreach (KeyValuePair<string, Entry> kv in _byPersonality)
             {
-                kv.Value.Members = 0; kv.Value.Alive = 0; kv.Value.WithHome = 0;
+                kv.Value.Alive = 0; kv.Value.WithHome = 0;
             }
             if (agents != null)
                 foreach (VillagerAgent a in agents)
                 {
                     if (a == null) continue;
                     Entry e = EntryOf(a.Personality);
-                    e.Members++;
+                    e.EverSeen.Add(a.AgentId);
                     if (a.State != AgentState.Dead) e.Alive++;
-                            if (a.TryGetHomeTile(out _)) e.WithHome++;
+                    if (a.TryGetHomeTile(out _)) e.WithHome++;
                 }
 
             var tops = new List<HashSet<string>>();
@@ -139,9 +145,10 @@ namespace AIVillage.M0
                 HashSet<string> top = TopGoals(e.GoalPicks, 3);
                 if (e.TotalPicks > 0) tops.Add(top);
 
-                float laborPct = e.TotalPicks > 0 ? 100f * e.LaborPicks / e.TotalPicks : 0f;
-                sb.Append($"  {kv.Key}: 생존 {e.Alive}/{e.Members} · 집 {e.WithHome} · " +
-                          $"노동비율 {laborPct:F0}% · 거부 {e.Refusals} · " +
+                float laborPct    = e.TotalPicks > 0 ? 100f * e.LaborPicks    / e.TotalPicks : 0f;
+                float communalPct = e.TotalPicks > 0 ? 100f * e.CommunalPicks / e.TotalPicks : 0f;
+                sb.Append($"  {kv.Key}: 생존 {e.Alive}/{e.EverSeen.Count} · 집 {e.WithHome} · " +
+                          $"노동 {laborPct:F0}% · 공용 {communalPct:F0}% · 거부 {e.Refusals} · " +
                           $"상위goal [{string.Join(", ", top)}]\n");
             }
             sb.Append($"  → S4 분화: 상위3 구성이 다른 성격 쌍 {DivergentPairs(tops)}개 " +

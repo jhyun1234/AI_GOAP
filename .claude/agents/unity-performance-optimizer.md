@@ -1,6 +1,6 @@
 ---
 name: unity-performance-optimizer
-description: "Use this agent when you need to ensure Unity code runs at 60fps under heavy load — specifically for systems with many simultaneously active GameObjects, complex per-frame logic, or rendering-heavy features. This agent analyzes submitted Unity C# code and architecture designs for GC allocation, CPU bottlenecks, draw call waste, and pathfinding budget issues.\n\nInvoke AFTER unity-senior-programmer has produced code and BEFORE merging to main. Also invoke proactively when designing systems that will have 20+ active AI units, per-frame loops, or real-time rendering effects.\n\n<example>\nContext: 50개 AI 유닛의 FSM과 MessageBus 코드가 완성됐고 성능 검토가 필요하다.\nuser: \"AI 50개 동시 실행 코드의 성능을 분석해줘.\"\nassistant: \"unity-performance-optimizer 에이전트를 실행하여 CPU/GC/렌더링 병목을 분석합니다.\"\n</example>\n\n<example>\nContext: Fog of War 렌더링 시스템을 구현하기 전에 성능 예측이 필요하다.\nuser: \"Fog of War를 구현하기 전에 성능 영향을 미리 분석해줘.\"\nassistant: \"unity-performance-optimizer 에이전트로 사전 성능 위험 분석을 진행합니다.\"\n</example>"
+description: "고부하 상황 60fps 보장을 위한 Unity 코드/설계 분석 — GC 할당, CPU 병목, 드로우콜 낭비, 경로탐색 예산을 점검. 다수 동시 활성 유닛(20+), 매 프레임 로직, 렌더링 부하 기능에 해당. unity-senior-programmer 산출 후 머지 전, 또는 설계 단계 사전 위험 분석에 호출."
 tools: Glob, Grep, Read, Edit, Write, WebFetch, WebSearch
 model: sonnet
 color: magenta

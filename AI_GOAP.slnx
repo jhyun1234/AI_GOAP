@@ -1,3 +1,5 @@
 ﻿<Solution>
+  <Project Path="AIVillage.csproj" />
+  <Project Path="AIVillage.Tests.EditMode.csproj" />
   <Project Path="Assembly-CSharp.csproj" />
 </Solution>

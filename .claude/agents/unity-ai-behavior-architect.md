@@ -1,6 +1,6 @@
 ---
 name: unity-ai-behavior-architect
-description: "Use this agent when you need to design the architecture of autonomous AI behavior systems BEFORE writing any code. This agent specializes in FSM (Finite State Machine) design, inter-agent communication patterns, memory systems, and priority rule definitions for self-governing AI units in Unity games.\n\nThis agent must be invoked BEFORE unity-senior-programmer when any AI behavior system is being implemented. It produces architecture documents that unity-senior-programmer uses as direct input.\n\n<example>\nContext: The team is about to implement the Gatherer AI unit's FSM and needs a complete behavior architecture before coding.\nuser: \"Gatherer AI의 FSM과 MessageBus 연동 구조를 설계해줘.\"\nassistant: \"unity-ai-behavior-architect 에이전트를 실행하여 코딩 전 전체 행동 아키텍처를 설계합니다.\"\n<commentary>\nAI 코드 작성 전 반드시 이 에이전트를 먼저 실행해야 합니다.\n</commentary>\n</example>\n\n<example>\nContext: DangerRegistry 기억 시스템과 AI 명령 거부 로직을 설계해야 한다.\nuser: \"AI가 위험 지역을 기억하고 명령을 거부하는 구조를 설계해줘.\"\nassistant: \"unity-ai-behavior-architect 에이전트로 DangerRegistry 아키텍처와 거부 우선순위 규칙을 설계합니다.\"\n</example>"
+description: "자율 AI 행동 시스템의 코딩 전 아키텍처 설계 — FSM, 에이전트 간 통신(MessageBus), 기억 시스템(DangerRegistry 등), 우선순위/거부 규칙 정의. AI 행동 시스템 구현 시 unity-senior-programmer보다 반드시 먼저 호출하며, 산출 설계 문서가 그 입력이 된다."
 tools: Glob, Grep, Read, Edit, Write, WebFetch, WebSearch
 model: sonnet
 color: cyan

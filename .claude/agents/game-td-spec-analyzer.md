@@ -1,6 +1,6 @@
 ---
 name: game-td-spec-analyzer
-description: "Use this agent when a game designer or producer provides a game design document (GDD) or feature specification that needs to be broken down into developer-ready technical specifications. This includes new feature documents, system design docs, or any game planning documents that require technical feasibility analysis, asset extraction, and risk assessment.\\n\\n<example>\\nContext: A game designer has written a new item enhancement system document and needs it converted into technical specs.\\nuser: \"기획서를 분석해줘: [아이템 강화 시스템 기획서 내용...]\"\\nassistant: \"기획서를 받았습니다. game-td-spec-analyzer 에이전트를 사용하여 기술 명세서로 분해하겠습니다.\"\\n<commentary>\\nSince the user has provided a game design document that needs technical breakdown, use the Agent tool to launch the game-td-spec-analyzer agent to analyze it.\\n</commentary>\\n</example>\\n\\n<example>\\nContext: A producer pastes a multiplayer combat system design and asks for risk evaluation.\\nuser: \"이 전투 시스템 기획서에서 퍼포먼스 리스크가 있는지 확인해줘: [기획서 내용...]\"\\nassistant: \"전투 시스템 기획서를 확인하겠습니다. game-td-spec-analyzer 에이전트를 통해 기술적 리스크를 분석하겠습니다.\"\\n<commentary>\\nThe user wants technical risk analysis on a combat system design document. Use the Agent tool to launch the game-td-spec-analyzer agent.\\n</commentary>\\n</example>"
+description: "게임 기획서(GDD)/기능 명세를 개발자용 기술 명세로 분해 — 기술 타당성 분석, 에셋 목록 추출, 퍼포먼스 등 리스크 평가. 기획 문서가 주어지고 기술적 브레이크다운이 필요할 때 사용."
 tools: Glob, Grep, Read, Edit, Write, NotebookEdit, WebFetch, WebSearch
 model: sonnet
 color: blue

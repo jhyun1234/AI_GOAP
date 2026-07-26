@@ -1,6 +1,6 @@
 ---
 name: unity-level-designer
-description: "Use this agent when you need to design game maps, faction territory layouts, resource node distribution, threat placement, or starting position balance. This agent specializes in spatial game design — translating economic and gameplay rules into physical map layouts that create fair, interesting, and strategically meaningful play experiences.\n\nInvoke BEFORE implementing the map/territory system, and whenever map data needs to be created or rebalanced.\n\n<example>\nContext: 팩션 시스템 구현 전에 영토 배치와 자원 분포를 설계해야 한다.\nuser: \"팩션 영토 배치와 자원 분포 맵을 설계해줘.\"\nassistant: \"unity-level-designer 에이전트를 실행하여 영토 레이아웃과 자원 밸런스를 설계합니다.\"\n</example>\n\n<example>\nContext: 게임 테스트 중 특정 영토가 너무 유리하거나 불리하다는 피드백이 나왔다.\nuser: \"플레이어 시작 위치가 너무 유리한 것 같아. 재밸런싱해줘.\"\nassistant: \"unity-level-designer 에이전트로 영토 자원 분포와 위협 배치를 재검토합니다.\"\n</example>"
+description: "게임 맵·팩션 영토 배치·자원 노드 분포·위협 배치·시작 위치 밸런스 설계 전문. 경제/게임플레이 규칙을 공정하고 전략적인 물리 맵 레이아웃으로 번역. 맵/영토 시스템 구현 전이나 리밸런싱 필요 시 호출."
 tools: Glob, Grep, Read, Edit, Write, WebFetch, WebSearch
 model: sonnet
 color: green

@@ -2,7 +2,7 @@
 name: blog-reviewer
 description: "블로그 자동화 파이프라인 검수팀(Step 3). 작성팀 초안을 독립 검증 — 사실관계를 실제 커밋/memory와 대조, 애드센스 정책 위반 표현·분량 점검. 미달 시 마스터에게 올리지 않고 작성팀에 직접 반려. Docs/블로그_자동화_수익화_기획서.md 4.3장 '증거 제시' 원칙 참조."
 tools: Bash, Read, Grep
-model: sonnet
+model: opus 5
 color: red
 memory: project
 ---

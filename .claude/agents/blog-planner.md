@@ -2,7 +2,7 @@
 name: blog-planner
 description: "블로그 자동화 파이프라인 기획팀(Step 1). 스케줄 트리거 시 가장 먼저 실행 — devlog/sessions/ 세션 로그(1차 소스)와 git 커밋(교차 검증), memory 노트에서 이번 회차 소재와 SEO 키워드 방향을 선정. 소재 부족 시 스킵 판단. Docs/블로그_자동화_수익화_기획서.md 3장·4.3장, Docs/devlog-workflow.md 참조."
 tools: Bash, Read, Glob, Grep
-model: opus 5
+model: sonnet
 color: blue
 memory: project
 ---

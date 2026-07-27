@@ -63,8 +63,10 @@ tools/blog-automation/.staging/    (gitignore 처리, 사이클마다 내용 덮
    → REJECTED면 반려 사유를 들고 2로 돌아가 재작성 (반려 카운터 +1)
    → APPROVED면 5로
 
-   [반려 카운터가 3에 도달하면: blog-master가 memory/blog_pipeline_alerts.md에 기록,
-    이번 사이클 조용히 종료]
+   [반려 카운터가 3에 도달하면: blog-master가
+    tools/blog-automation/state/blog_pipeline_alerts.md에 기록하고,
+    게시팀에 draft 모드로 Step 7을 위임한다 — 마지막 초안을 Blogger 초안 상태로
+    올린 뒤 종료]
 
 5. blog-editor 호출 (승인된 초안 전달)
    → 최종 HTML 패키지 생성

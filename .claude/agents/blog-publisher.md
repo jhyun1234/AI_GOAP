@@ -23,6 +23,11 @@ memory: project
      --content-file <content 파일 경로> \
      --labels <labels를 콤마로 join>
    ```
+   마스터가 **draft 모드**로 위임한 경우(연속 3회 반려), 같은 명령에 `--draft` 를 덧붙인다.
+   이때는 Step 8(게시 이력·중복 방지 기록)을 수행하지 않는다 — 소재를 소비한 것이
+   아니므로 `blog_last_published_commit.md` 를 갱신하면 안 된다. 대신
+   `blog_pipeline_alerts.md` 에 draft로 보류됐다는 사실과 초안 URL을 기록한다.
+   
 3. 스크립트가 성공하면 게시된 글의 JSON(id, url 포함)이 stdout으로 출력된다. 실패하면
    0이 아닌 종료 코드와 에러 메시지가 나온다.
 

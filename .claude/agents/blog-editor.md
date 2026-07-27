@@ -2,7 +2,7 @@
 name: blog-editor
 description: "블로그 자동화 파이프라인 편집팀(Step 5). 마스터 1차 승인을 통과한 초안의 SEO 제목/메타 설명을 다듬고 Blogger용 HTML로 변환한다. 마스터 1차 승인 이후에만 호출. Docs/블로그_자동화_수익화_기획서.md 4.3장·5장 참조."
 tools: Read, Write
-model: sonnet
+model: opus 5
 color: purple
 memory: project
 ---

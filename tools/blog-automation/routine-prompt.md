@@ -71,7 +71,7 @@ blog-master, blog-publisher). Agent 도구로 이 순서대로 호출.
      바뀌지 않았다면 blog-writer(2번)까지 돌 필요 없음. 스테이징 파일 규칙 준수.
      (반려 카운터 +1)
 7. **blog-publisher** — 실제 게시.
-   - **`--draft` 플래그 없이 실제 공개 발행.**
+   - **"정상 경로는 공개 발행, 마스터가 draft 위임 시에만 --draft"**
    - 대상 블로그: gamedevclaude.blogspot.com (blogId `6014451945015572125`)
    - 성공 시 `tools/blog-automation/state/blog_last_published_commit.md`를 이번 커밋
      해시로 `publish_status: PUBLISHED` 갱신, `tools/blog-automation/published/`에 로컬
@@ -134,9 +134,11 @@ blog-master, blog-publisher). Agent 도구로 이 순서대로 호출.
 ## 반려 카운터 & 안전장치
 
 이번 실행(하나의 스케줄 사이클) 안에서 3번/4번/6번의 반려를 합산 카운트.
-**연속 3회 반려되면 즉시 중단**한다. 게시하지 않고, `tools/blog-automation/state/blog_pipeline_alerts.md`
-(없으면 새로 생성)에 반려된 소재, 각 반려 사유, 시각을 기록하고 종료. 사람의 승인을
-기다리지 않는다 — 다음 사이클에 기획팀이 새 소재로 다시 시작.
+**연속 3회 반려되면 재작성 루프를 중단**한다. 단 글을 버리지 않는다 —
+`tools/blog-automation/state/blog_pipeline_alerts.md`(없으면 새로 생성)에 반려된 소재,
+각 반려 사유, 시각을 기록한 뒤, **7번 blog-publisher를 `--draft` 모드로 호출해**
+마지막 초안을 Blogger 초안 상태로 올리고 `PIPELINE_RESULT: DRAFTED`로 종료한다.
+draft 게시까지 실패하면 그때만 `REJECTED_3X`로 종료. 사람의 승인은 기다리지 않는다.
 
 Blogger API 게시 자체 실패(쿼터, 인증 오류 등)도 동일하게 `blog_pipeline_alerts.md`에
 기록하고 조용히 종료.

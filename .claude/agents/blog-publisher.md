@@ -2,7 +2,7 @@
 name: blog-publisher
 description: "블로그 자동화 파이프라인 게시팀(Step 7~8). 마스터 2차 승인을 받은 최종 HTML만 Blogger API로 게시하고, 성공 시 게시 이력을 기록해 중복 소재를 방지. 승인 없이 게시하지 않음. Docs/블로그_자동화_수익화_기획서.md 4.4장 참조."
 tools: Bash, Read, Write
-model: sonnet
+model: opus 5
 color: cyan
 memory: project
 ---

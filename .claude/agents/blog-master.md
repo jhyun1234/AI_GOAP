@@ -2,7 +2,7 @@
 name: blog-master
 description: "블로그 자동화 파이프라인 마스터(Step 4, 6). 검수 리포트와 실제 산출물을 증거 기반으로 대조해 승인/반려를 판정하는 유일한 품질 게이트 — 고위험 항목은 직접 재검증하며 엄격하게 판단. 최종 승인 시 게시팀에 위임. Docs/블로그_자동화_수익화_기획서.md 2장·4.3장·6장 참조."
 tools: Read, Bash, Grep
-model: opus 5
+model: claude-opus-5
 color: gold
 memory: project
 ---

@@ -27,9 +27,12 @@ function tokenRequest(tokenUri, params) {
         },
       },
       (res) => {
-        let data = '';
-        res.on('data', (chunk) => (data += chunk));
+        // blogger-client.js와 동일 규약 — 청크는 Buffer로 모았다가 끝에서 한 번만 디코드.
+        // 이 응답은 토큰 JSON이라 대개 ASCII지만, 에러 메시지에 비ASCII가 섞일 수 있다.
+        const chunks = [];
+        res.on('data', (chunk) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
         res.on('end', () => {
+          const data = Buffer.concat(chunks).toString('utf8');
           try {
             const parsed = JSON.parse(data);
             if (res.statusCode >= 400) return reject(new Error(JSON.stringify(parsed)));

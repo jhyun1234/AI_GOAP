@@ -43,9 +43,13 @@ function httpsJson(urlStr, { method = 'GET', headers = {}, body } = {}) {
       urlStr,
       { method, headers },
       (res) => {
-        let data = '';
-        res.on('data', (c) => (data += c));
+        // 청크를 Buffer로 모았다가 마지막에 한 번만 디코드한다.
+        // `data += c`로 이어붙이면 멀티바이트 문자가 청크 경계에 걸릴 때 깨진다
+        // (한글은 UTF-8 3바이트 — 2026-07-22·07-28 실제 관측, "안전"→"안�전").
+        const chunks = [];
+        res.on('data', (c) => chunks.push(Buffer.isBuffer(c) ? c : Buffer.from(c)));
         res.on('end', () => {
+          const data = Buffer.concat(chunks).toString('utf8');
           let parsed;
           try {
             parsed = data ? JSON.parse(data) : {};

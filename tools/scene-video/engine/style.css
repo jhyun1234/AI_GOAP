@@ -27,11 +27,13 @@ body{background:#07080B;color:var(--ink);font-family:var(--mono);
 .hud{position:absolute;top:6.7708%;left:0;right:0;padding:0 20px;z-index:5}
 .ep{font-family:var(--disp);font-weight:800;font-size:18px;line-height:1.24;
   letter-spacing:-.025em;color:var(--ink)}
-.airow{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-top:7px}
-.ai{display:flex;align-items:center;gap:5px;
+/* 훅과 주소를 한 줄에 나란히 두면 훅이 폭에 밀려 두 줄로 접힌다.
+   세로로 쌓아 훅이 한 줄을 온전히 쓰게 한다. */
+.airow{margin-top:7px}
+.ai{display:flex;align-items:center;gap:5px;white-space:nowrap;
   font-size:12.5px;letter-spacing:.01em;color:var(--cool);font-weight:700}
 .ai .mark{font-size:13px;opacity:.85}
-.progline{display:flex;align-items:center;gap:10px;margin-top:12px}
+.progline{display:flex;align-items:center;gap:10px;margin-top:8px}
 .prog{flex:1;height:5px;background:var(--grid);border-radius:3px;overflow:hidden}
 .prog i{display:block;height:100%;background:var(--ink);width:0}
 
@@ -64,7 +66,8 @@ body{background:#07080B;color:var(--ink);font-family:var(--mono);
   display:flex;flex-direction:column;justify-content:flex-end;padding:0 22px}
 .cap p{white-space:pre-line;font-family:var(--disp);font-weight:700;
   font-size:20px;line-height:1.34;letter-spacing:-.015em;min-height:2.7em}
-.outro{font-size:10.5px;color:#828B9E;letter-spacing:.08em;white-space:nowrap}
+.outro{display:block;margin-top:4px;font-size:10.5px;color:#828B9E;
+  letter-spacing:.08em;white-space:nowrap}
 
 /* ── kind 공용 조각 ───────────────────────────────── */
 .hookbig{font-family:var(--disp);font-weight:800;font-size:33px;line-height:1.1;

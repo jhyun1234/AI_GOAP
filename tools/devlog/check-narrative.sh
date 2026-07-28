@@ -23,6 +23,16 @@ cd "$PROJ_ROOT" || exit 0
 
 [ "$DEVLOG_NUDGE" = "off" ] && exit 0
 
+# 🔴 무인 블로그 routine 세션에서는 절대 발화하지 않는다.
+# routine 샌드박스는 BLOGGER_* / BLOG_CONFIG env var로 자격증명을 받는다(로컬에는 없다).
+# 여기서 exit 2를 내면 파이프라인 종료를 막아 PIPELINE_RESULT 출력이 어그러진다.
+# 커밋 종류 필터만으로는 부족하다 — 같은 날 개발 커밋이 먼저 올라가 있으면 routine
+# 세션이 그걸 "실작업"으로 세기 때문이다.
+if [ -n "$BLOGGER_TOKEN" ] || [ -n "$BLOG_CONFIG" ] || [ -n "$BLOGGER_CLIENT_SECRET" ]; then
+    [ "$1" = "--dry" ] && echo "SKIP — 무인 routine 환경 감지 (BLOGGER_* env var)"
+    exit 0
+fi
+
 DRY=0
 [ "$1" = "--dry" ] && DRY=1
 
@@ -52,9 +62,14 @@ fi
 if [ ! -f "$LOG" ]; then
     BLOCKS=0; STUCK=0; NEXT=0
 else
+    # ⚠️ 반드시 '필드 헤더'로만 센다 (`^**필드명`). 느슨하게 본문 전체를 검색하면,
+    # 커밋 본문이 필드 이름을 **언급**하기만 해도 보강된 것으로 오판한다 —
+    # 2026-07-28 실제 발생: 이 트리거를 만든 커밋 본문이 "막혔던 문제 / 해결 방법"을
+    # 인용했고, 훅이 본문을 로그에 실으면서 트리거가 스스로를 눈멀게 했다.
+    # 병합 블록의 본문은 2칸 들여쓰기되므로 `^\*\*` 앵커가 자연히 걸러 준다.
     BLOCKS=$(grep -c '^## \[' "$LOG")
-    STUCK=$(grep -c '막혔던 문제' "$LOG")
-    NEXT=$(grep -c '다음에 할 일' "$LOG")
+    STUCK=$(grep -c '^\*\*막혔던 문제' "$LOG")
+    NEXT=$(grep -c '^\*\*다음에 할 일' "$LOG")
 fi
 
 if [ "$DRY" -eq 1 ]; then

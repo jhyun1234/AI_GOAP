@@ -109,5 +109,22 @@ if [ -f tools/blog-automation/credentials/blogger_token.json ]; then
   rm -f /tmp/_gb.json
 else bad "자격증명 없음"; fi
 
+sect "9. devlog 1차 소재 공급 (blog-planner가 굶지 않는 조건)"
+H=tools/devlog/append-session-log.sh
+grep -q "format='%b'" $H \
+  && ok "훅이 커밋 본문(%b)을 읽는다 — 서사 공급원" \
+  || bad "훅이 %b를 안 읽는다 — 세션 로그에 왜/어떻게가 0줄이 된다"
+grep -q 'core.quotepath=false' $H \
+  && ok "한글 파일명이 8진 이스케이프로 깨지지 않는다" \
+  || bad "core.quotepath 미지정 — 한글 파일명이 깨진다"
+[ -f tools/devlog/check-narrative.sh ] \
+  && ok "서사 보강 트리거 스크립트 존재" || bad "check-narrative.sh 없음"
+node -e '
+const j=require("./.claude/settings.json");
+const s=JSON.stringify(j.hooks||{});
+process.exit(s.includes("check-narrative") && s.includes("append-session-log") ? 0 : 1);
+' && ok "훅 2종이 settings.json에 배선됨 (PostToolUse + Stop)" \
+  || bad "훅 배선 누락 — settings.json 확인"
+
 printf '\n\033[1m결과: %d PASS / %d FAIL\033[0m\n' "$PASS" "$FAIL"
 [ "$FAIL" = 0 ] || exit 1

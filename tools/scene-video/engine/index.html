@@ -12,7 +12,10 @@
   <!-- 상시 노출 브랜딩 : 어느 지점에서 이탈해도 이건 남는다 -->
   <header class="hud">
     <h1 class="ep" id="hudTitle"></h1>
-    <p class="ai" id="hudAi"><span class="mark">⌘</span><span id="hudAiText"></span></p>
+    <div class="airow">
+      <p class="ai" id="hudAi"><span class="mark">⌘</span><span id="hudAiText"></span></p>
+      <span class="outro" id="hudOutro"></span>
+    </div>
     <div class="progline">
       <div class="prog"><i id="prog"></i></div>
       <span class="chip" id="chip"></span>
@@ -21,10 +24,8 @@
 
   <main class="vis" id="vis"></main>
 
-  <footer class="cap">
-    <p id="cap"></p>
-    <span class="outro" id="hudOutro"></span>
-  </footer>
+  <div class="capveil"></div>
+  <footer class="cap"><p id="cap"></p></footer>
 </div>
 
 <div class="bar">

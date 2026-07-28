@@ -25,7 +25,8 @@ body{background:#07080B;color:var(--ink);font-family:var(--mono);
 .hud{position:absolute;top:0;left:0;right:0;padding:16px 20px 0;z-index:5}
 .ep{font-family:var(--disp);font-weight:800;font-size:15.5px;line-height:1.25;
   letter-spacing:-.02em;color:var(--ink)}
-.ai{display:flex;align-items:center;gap:5px;margin-top:5px;
+.airow{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-top:5px}
+.ai{display:flex;align-items:center;gap:5px;
   font-size:10.5px;letter-spacing:.01em;color:var(--cool);font-weight:700}
 .ai .mark{font-size:11px;opacity:.85}
 .progline{display:flex;align-items:center;gap:9px;margin-top:11px}
@@ -41,14 +42,20 @@ body{background:#07080B;color:var(--ink);font-family:var(--mono);
 .shot.on{display:block}
 .shot canvas{width:100%;height:100%;display:block}
 
-/* ── 자막 ─────────────────────────────────────────── */
-.cap{position:absolute;left:0;right:0;bottom:0;height:35%;
-  background:linear-gradient(transparent,rgba(7,8,11,.95) 30%);
-  display:flex;flex-direction:column;justify-content:flex-end;
-  padding:0 22px 16px}
+/* ── 자막 ─────────────────────────────────────────────
+   자막 아래쪽을 1080×1920 기준 y=1500 에 맞춘다.
+   유튜브 쇼츠는 하단 약 340px(y 1580~) 을 제목·설명·음원으로 덮으므로,
+   그 선보다 80px 위에 자막 바닥을 두어 기기 편차까지 피한다.
+   bottom 의 % 는 컨테이너 '높이' 기준이라 9:16 어느 크기에서도 같은 자리다.
+     420 / 1920 = 21.875%
+   → 이 값만 바꾸면 자막 높이가 통째로 움직인다. */
+.capveil{position:absolute;left:0;right:0;bottom:0;height:46%;
+  background:linear-gradient(transparent,rgba(7,8,11,.95) 26%)}
+.cap{position:absolute;left:0;right:0;bottom:21.875%;
+  display:flex;flex-direction:column;justify-content:flex-end;padding:0 22px}
 .cap p{white-space:pre-line;font-family:var(--disp);font-weight:700;
   font-size:20px;line-height:1.34;letter-spacing:-.015em;min-height:2.7em}
-.outro{margin-top:10px;font-size:9px;color:var(--dim);letter-spacing:.11em}
+.outro{font-size:9px;color:var(--dim);letter-spacing:.11em;white-space:nowrap}
 
 /* ── kind 공용 조각 ───────────────────────────────── */
 .hookbig{font-family:var(--disp);font-weight:800;font-size:33px;line-height:1.1;

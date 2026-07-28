@@ -1,0 +1,99 @@
+/* scene-video 렌더러 스타일
+   규약: 시간에 따라 변하는 것에 transition/animation 을 쓰지 않는다.
+   모든 시각 상태는 engine.js 의 seek(t) 가 인라인 스타일로 직접 쓴다.
+   (프레임 단위 추출을 위해 벽시계에 의존하는 요소가 하나도 없어야 한다) */
+
+:root{
+  --bg:#101218; --grid:#1B1E28; --ink:#E8EAF0; --dim:#6A7183;
+  --hot:#D6395C; --cool:#4FB6A8; --warm:#E0A458;
+  --disp:"Pretendard","Malgun Gothic","맑은 고딕",system-ui,sans-serif;
+  --mono:"Cascadia Mono","Consolas","D2Coding",monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#07080B;color:var(--ink);font-family:var(--mono);
+  display:flex;flex-direction:column;align-items:center;gap:10px;
+  min-height:100vh;padding:12px}
+
+/* ── 무대 = 9:16 ─────────────────────────────────── */
+.stage{width:min(100%,392px);aspect-ratio:9/16;background:var(--bg);
+  position:relative;overflow:hidden;
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),
+                   linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:28px 28px}
+
+/* ── 상단 : 상시 브랜딩 ───────────────────────────── */
+.hud{position:absolute;top:0;left:0;right:0;padding:16px 20px 0;z-index:5}
+.ep{font-family:var(--disp);font-weight:800;font-size:15.5px;line-height:1.25;
+  letter-spacing:-.02em;color:var(--ink)}
+.ai{display:flex;align-items:center;gap:5px;margin-top:5px;
+  font-size:10.5px;letter-spacing:.01em;color:var(--cool);font-weight:700}
+.ai .mark{font-size:11px;opacity:.85}
+.progline{display:flex;align-items:center;gap:9px;margin-top:11px}
+.prog{flex:1;height:2px;background:var(--grid)}
+.prog i{display:block;height:100%;background:var(--ink);width:0}
+.chip{font-size:9px;font-weight:700;letter-spacing:.16em;
+  padding:3px 8px;border:1px solid currentColor;color:var(--hot)}
+.chip.ok{color:var(--cool)}
+
+/* ── 비주얼 ───────────────────────────────────────── */
+.vis{position:absolute;top:104px;left:20px;right:20px;bottom:35%}
+.shot{position:absolute;inset:0;display:none}
+.shot.on{display:block}
+.shot canvas{width:100%;height:100%;display:block}
+
+/* ── 자막 ─────────────────────────────────────────── */
+.cap{position:absolute;left:0;right:0;bottom:0;height:35%;
+  background:linear-gradient(transparent,rgba(7,8,11,.95) 30%);
+  display:flex;flex-direction:column;justify-content:flex-end;
+  padding:0 22px 16px}
+.cap p{white-space:pre-line;font-family:var(--disp);font-weight:700;
+  font-size:20px;line-height:1.34;letter-spacing:-.015em;min-height:2.7em}
+.outro{margin-top:10px;font-size:9px;color:var(--dim);letter-spacing:.11em}
+
+/* ── kind 공용 조각 ───────────────────────────────── */
+.hookbig{font-family:var(--disp);font-weight:800;font-size:33px;line-height:1.1;
+  letter-spacing:-.035em;white-space:pre-line;display:flex;align-items:center;height:100%}
+
+.rows{height:100%;display:flex;flex-direction:column;justify-content:center;gap:7px}
+.row{font-family:var(--mono);font-size:11px;line-height:1.45;color:var(--dim);
+  border-left:2px solid var(--grid);padding:4px 0 4px 9px;white-space:pre-wrap}
+.row.warn{color:#B9A06A;border-left-color:#5A4B28}
+.row.hot{color:var(--hot);border-left-color:var(--hot)}
+.row em{font-style:normal;background:var(--hot);color:#fff;padding:1px 4px;border-radius:2px}
+
+.cmp{height:100%;display:flex;align-items:flex-end;gap:16px;padding-bottom:8px}
+.cmpcol{flex:1;display:flex;flex-direction:column;justify-content:flex-end;
+  align-items:center;gap:9px;height:100%}
+.cmpcol .barwrap{flex:1;display:flex;align-items:flex-end;width:56%}
+.cmpcol .bar2{width:100%;border-radius:3px 3px 0 0}
+.cmpcol b{font-family:var(--disp);font-weight:800;font-size:30px;letter-spacing:-.03em}
+.cmpcol small{font-size:10px;color:var(--dim);text-align:center;line-height:1.35}
+.cmpnote{position:absolute;right:0;top:8px;font-family:var(--disp);font-weight:800;
+  font-size:22px;color:var(--hot)}
+
+.choice{height:100%;display:flex;flex-direction:column;justify-content:center;gap:12px}
+.opt{border:1px solid var(--grid);border-radius:4px;padding:12px 14px;
+  display:flex;align-items:center;justify-content:space-between;gap:10px}
+.opt .nm{font-family:var(--disp);font-weight:700;font-size:14px}
+.opt .vd{font-size:10px;letter-spacing:.1em;font-weight:700}
+.opt .tag{font-size:9.5px;color:var(--hot);border:1px solid var(--hot);
+  padding:2px 6px;border-radius:2px}
+
+.planwrap{height:100%;display:flex;flex-direction:column;justify-content:center;gap:12px}
+.goalchip{align-self:flex-start;font-size:10px;letter-spacing:.09em;color:var(--cool);
+  border:1px solid var(--cool);padding:4px 9px}
+.cards{display:flex;flex-wrap:wrap;gap:6px}
+.card{font-size:11.5px;padding:7px 10px;background:var(--grid);color:var(--dim);
+  border-radius:3px;position:relative}
+.card .why{display:block;font-size:8.5px;letter-spacing:.04em;margin-top:2px}
+.verdict{font-family:var(--disp);font-weight:800;font-size:17px;letter-spacing:-.02em}
+
+/* ── 컨트롤 (영상에는 안 들어감) ──────────────────── */
+.bar{width:min(100%,392px);display:flex;gap:8px;align-items:center}
+button{font-family:inherit;font-size:11px;font-weight:700;letter-spacing:.1em;
+  text-transform:uppercase;background:var(--ink);color:#101218;border:0;
+  padding:9px 14px;border-radius:2px;cursor:pointer}
+button.ghost{background:transparent;color:var(--ink);border:1px solid #2A2E3A}
+#scrub{flex:1;accent-color:var(--cool)}
+.time{font-size:10px;color:var(--dim);min-width:48px;text-align:right}
+.hint{width:min(100%,392px);font-size:10px;color:var(--dim);line-height:1.6}

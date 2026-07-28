@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "scene-video",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["tools/scene-video/serve.js"],
+      "port": 4173
+    }
+  ]
+}

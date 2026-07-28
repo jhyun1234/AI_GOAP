@@ -25,24 +25,28 @@ body{background:#07080B;color:var(--ink);font-family:var(--mono);
 /* 쇼츠 상단 UI(뒤로가기·검색 아이콘)가 y 0~130 을 덮으므로 그 아래에서 시작한다.
    top 의 % 는 컨테이너 높이 기준 — 130/1920 = 6.7708% */
 .hud{position:absolute;top:6.7708%;left:0;right:0;padding:0 20px;z-index:5}
-.ep{font-family:var(--disp);font-weight:800;font-size:15.5px;line-height:1.25;
-  letter-spacing:-.02em;color:var(--ink)}
-.airow{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-top:5px}
+.ep{font-family:var(--disp);font-weight:800;font-size:18px;line-height:1.24;
+  letter-spacing:-.025em;color:var(--ink)}
+.airow{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-top:7px}
 .ai{display:flex;align-items:center;gap:5px;
-  font-size:10.5px;letter-spacing:.01em;color:var(--cool);font-weight:700}
-.ai .mark{font-size:11px;opacity:.85}
-.progline{display:flex;align-items:center;gap:9px;margin-top:11px}
-.prog{flex:1;height:2px;background:var(--grid)}
+  font-size:12.5px;letter-spacing:.01em;color:var(--cool);font-weight:700}
+.ai .mark{font-size:13px;opacity:.85}
+.progline{display:flex;align-items:center;gap:10px;margin-top:12px}
+.prog{flex:1;height:5px;background:var(--grid);border-radius:3px;overflow:hidden}
 .prog i{display:block;height:100%;background:var(--ink);width:0}
-.chip{font-size:9px;font-weight:700;letter-spacing:.16em;
-  padding:3px 8px;border:1px solid currentColor;color:var(--hot)}
-.chip.ok{color:var(--cool)}
+
+/* 챕터 칩 — 테두리+빨간 글자는 어두운 배경에서 안 읽힌다. 색을 채워 배지로. */
+.chip{font-family:var(--disp);font-size:12.5px;font-weight:800;letter-spacing:.06em;
+  padding:5px 12px 6px;border:0;border-radius:3px;
+  background:var(--hot);color:#fff;line-height:1}
+.chip.ok{background:var(--cool);color:#06231F}
 
 /* ── 비주얼 ───────────────────────────────────────── */
-/* HUD 를 130 으로 내린 만큼 함께 내려간다. 373/1920 = 19.427%
-   하단 1290 — 자막을 올려 생긴 여유를 되찾은 값. (1920-1290)/1920 = 32.8125%
-   자막이 3줄이면 상단이 1329 까지 오므로 간격은 39px 다. 더 내리면 붙는다. */
-.vis{position:absolute;top:19.427%;left:20px;right:20px;bottom:32.8125%}
+/* 상단 420 — HUD 폰트를 키우면서 HUD 바닥이 391 까지 내려왔다. 373 이면 겹친다.
+   420/1920 = 21.875%.  HUD 크기를 바꾸면 이 값도 함께 봐야 한다.
+   하단 1290 — (1920-1290)/1920 = 32.8125%
+   자막이 3줄이면 상단이 1329 까지 오므로 아래 간격은 39px 다. 더 내리면 붙는다. */
+.vis{position:absolute;top:21.875%;left:20px;right:20px;bottom:32.8125%}
 .shot{position:absolute;inset:0;display:none}
 .shot.on{display:block}
 .shot canvas{width:100%;height:100%;display:block}
@@ -60,7 +64,7 @@ body{background:#07080B;color:var(--ink);font-family:var(--mono);
   display:flex;flex-direction:column;justify-content:flex-end;padding:0 22px}
 .cap p{white-space:pre-line;font-family:var(--disp);font-weight:700;
   font-size:20px;line-height:1.34;letter-spacing:-.015em;min-height:2.7em}
-.outro{font-size:9px;color:var(--dim);letter-spacing:.11em;white-space:nowrap}
+.outro{font-size:10.5px;color:#828B9E;letter-spacing:.08em;white-space:nowrap}
 
 /* ── kind 공용 조각 ───────────────────────────────── */
 .hookbig{font-family:var(--disp);font-weight:800;font-size:33px;line-height:1.1;

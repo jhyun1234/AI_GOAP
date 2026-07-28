@@ -13,7 +13,49 @@ metadata:
 
 **How to apply:** 기획팀은 새 사이클 시작 시 이 파일의 `latest_commit`을 확인하고, 그 이전(포함) 커밋들은 이미 소재로 소비된 것으로 간주한다. 단, 아래 상태가 `DRAFT`인 경우 실제 공개 게시는 아니었으므로, 같은 소재를 이어서 다룰지/새 소재로 넘어갈지는 그때 기획팀이 판단한다.
 
-## 최신 사용 커밋
+## 최신 사용 커밋 (DRAFT — 실제 공개 발행 아님, 아래 참조)
+
+- `latest_commit`: `caa23b0` (feat(goap) M10-G 리허설 — 티어3 큰 곰, .cs 0 증명 — M10
+  구간(`db82ffd`~`caa23b0`) 중 타임스탬프 기준 가장 최신 커밋)
+- `selected_commits_range`: `db82ffd`(spec(M10) 야생 위협과 방랑자 실행명세서) ~
+  `caa23b0`(feat(goap) M10-G 리허설) — M10-A~G 전 항목 + 밸런스/도구 보정 커밋 포함:
+  `db82ffd`(spec(M10) 실행명세서) · `8cf2151`(M10-A 부상 축 코어, 최초의 사망 축) ·
+  `b255063`(M10-B 간호, 치료사 직업 신설) · `1e0e612`(M10-C 위협 선반, 늑대 티어1·2) ·
+  `6a497be`(fix TendInjured BaseCost 1→8, 휴리스틱 붕괴 수정) · `0085fc2`(test 카탈로그
+  최소 BaseCost 게이트) · `868b0fd`(M10-D 도망, 성격별 감지 반경) · `074c400`(M10-E
+  방랑자, 런타임 인구 문) · `9ff7fdc`(M10-F 전멸 종료 화면) · `ace7804`(fix 티어2 임계
+  12→10) · `b6a6b00`(fix 주민 타격형 위협 추격 도입 — 고정 타깃 설계 재진단, 명세 M10-C
+  개정) · `4dd4c2a`(feat 위협 경주 게이지 로그) · `40e1135`(fix 티어2 임계 10→8) ·
+  `86ccc4b`(feat 배속 기능 ×1/×2/×4/×8) · `caa23b0`(M10-G 리허설, 큰 곰 .cs 0). 기획팀
+  브리프(`01_planner_brief.md`) commit_refs 전체 반영.
+- `cycle_date`: 2026-07-28 (원격 routine auto-run — 검수팀 2차·마스터 1차 재검증에서 연속
+  3회 반려 도달, 지시서 반려 카운터 안전장치에 따라 게시팀 Step 7이 draft 모드로 위임받아
+  마지막 마크다운 초안을 최소 HTML 변환만 적용해 게시)
+- `publish_status`: **DRAFT** (Blogger 초안 상태로만 생성됨 — 공개 발행 아님. blog-editor
+  Step 5를 거치지 않은 마크다운 원고 상태라 SEO 메타/최종 포맷팅 미적용)
+- `blogger_post_id`: 4321240890939765189
+- `blog_url`: https://gamedevclaude.blogspot.com/ (초안 상태라 퍼머링크 미발급. 관리자 화면:
+  https://www.blogger.com/blog/posts/6014451945015572125?hl=ko)
+- `title`: 늑대가 왔는데 아무도 다치지 않았다 — 마을에 처음으로 "죽음"을 넣은 Unity GOAP
+  AI 구현 인디게임 개발일지 (Claude Code 게임 개발)
+- `labels`: Unity GOAP AI, Claude Code 게임 개발, 인디게임 개발일지, AI 페어 프로그래밍 후기
+- `local_archive`: tools/blog-automation/published/2026-07-28-unity-goap-m10-wolf-injury-wanderer.html
+  (POST 응답 직후 별도 GET(`?view=AUTHOR`, 초안이라 일반 GET은 404)을 `Buffer.concat` 후
+  `toString(utf8)`로 재조회해 저장 — 재조회한 content가 원본 `02_draft.md`를 최소 HTML
+  변환한 소스와 문자열 완전 일치(byte-identical, 11,988자/26,668 bytes)함을 직접 확인했고
+  U+FFFD 없음도 확인.)
+- `비고`: M10 "야생 위협과 방랑자" 소재(`db82ffd`~`caa23b0`). 이 게임 최초의 **사망 축**
+  (부상→간호/방치→사망, 무덤)이 생기고 런타임 방랑자 합류로 그 빈자리를 채울 수 있게 된
+  밀스톤. 검수팀 3연속 반려(1차 FAIL: 인트로 문장 반복+치료사 코드 과장 인용, 마스터 1차
+  REJECTED: 화면 인용문 2건이 실제 코드와 불일치, 2차 재검수 FAIL: 잔여 결함 2곳 미해결)로
+  정상 승인 경로를 완료하지 못해 draft로 강등됐다 — 상세는 `blog_pipeline_alerts.md`의
+  "2026-07-28 반려 3회 도달" 항목 참조. **이 소재는 아직 소비 완료(공개 발행)로 간주하지
+  않는다** — 다음 기획팀이 (a) 사람이 초안을 고쳐 공개 전환할 때까지 대기하거나, (b) M11로
+  넘어갈지 판단할 것(`blog_next_material_priority.md`의 DRAFT_PENDING 블록 참조). blog-editor
+  Step 5(SEO 메타·최종 포맷팅)를 거치지 않았으므로, 이 회차 HTML은 완성된 최종본이 아니라
+  "선반 확보용" 임시 변환본임을 유의할 것.
+
+### 이전 회차 이력 (2026-07-26, M9 공간과 재해 — 정상 공개 발행)
 
 - `latest_commit`: `a351437` (fix(goal) 조리 goal 재료 조건 5 상향 — 위기 레시피와 정합
   (NoSolution 방어) — 기획팀 브리프(`01_planner_brief.md`) commit_refs 중 타임스탬프 기준

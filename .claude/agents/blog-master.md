@@ -2,7 +2,7 @@
 name: blog-master
 description: "블로그 자동화 파이프라인 마스터(Step 4, 6). 검수 리포트와 실제 산출물을 증거 기반으로 대조해 승인/반려를 판정하는 유일한 품질 게이트 — 고위험 항목은 직접 재검증하며 엄격하게 판단. 최종 승인 시 게시팀에 위임. Docs/블로그_자동화_수익화_기획서.md 2장·4.3장·6장 참조."
 tools: Read, Bash, Grep
-model: sonnet
+model: claude-opus-5
 color: gold
 memory: project
 ---
@@ -63,8 +63,10 @@ REJECTED면 반려 사유를 작성팀(blog-writer)에게 전달해 Step 2부터
 1. 더 이상 재시도하지 않는다.
 2. **`tools/blog-automation/state/blog_pipeline_alerts.md`**(리포 상태 파일)에 다음을
    기록한다: 반려된 소재(선정 커밋), 3회 각각의 반려 사유, 시각. 파일이 없으면 새로 만든다.
-3. 이번 사이클의 게시를 조용히 포기한다 — 사람의 승인을 기다리지 않는다. 다음 스케줄
-   사이클에 기획팀이 새 소재를 선정하며 다시 시작한다.
+3. 게시를 포기하지 않는다. 게시팀(blog-publisher)에게 **draft 모드**로 Step 7을 위임한다
+   — 마지막 초안을 Blogger 초안 상태로 올리고 종료한다. 사람의 승인을 기다리지 않는다.
+   draft 게시도 실패하면 그때만 조용히 종료한다. 다음 스케줄 사이클에 기획팀이 새 소재를
+   선정하며 다시 시작한다.
 
 ## 최종 승인 이후
 

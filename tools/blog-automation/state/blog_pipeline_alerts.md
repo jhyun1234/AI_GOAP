@@ -14,6 +14,50 @@ metadata:
 **How to apply:** 원격 routine과 로컬 점검 세션은 실행 시작 시 이 파일을 확인한다.
 OPEN 상태의 경보가 있으면 해당 우회 절차(MANUAL_STATE_UPDATE 등)를 미리 준비한다.
 
+## 🟡 OPEN — 2026-07-28 반려 3회 도달 (M10 "야생 위협과 방랑자") → draft 모드로 강등
+
+- **run**: 2026-07-28 원격 routine auto-run. 소재 = M10 "야생 위협과 방랑자"
+  (`db82ffd`~`caa23b0`), `state/blog_next_material_priority.md` STATUS: ACTIVE로
+  지정된 소재.
+- **반려 3건 (이번 사이클 합산 카운트, 3번/4번/6번 반려 대상)**:
+  1. Step 3 (검수팀, 1차): FAIL — 인트로 첫 문단이 최근 3편(특히 2026-07-26 M9)과
+     문장 1·2·4가 자구까지 동일(4편 연속 동일 골격). 부수로 41행 "치료사 직업이
+     코드 없이 에셋 하나로 생겼다"가 `b255063`의 `JobSO.cs +4`(TendRecoveryMult
+     신설) diff와 어긋남(과장) 지적.
+  2. Step 4 (마스터, 1차): REJECTED — 검수팀 PASS를 마스터가 직접 재검증하며
+     화면 인용문 2건이 실제 코드와 불일치 발견: (D1) 방랑자 프롬프트 인용이
+     `WandererService.cs`의 실제 조립 문자열과 다름(성격/직업 순서 역전, HUD
+     알림과 프롬프트 두 문자열을 한 줄로 합침, 수락 시한 누락), (D2) 부상자 거절
+     대사 "지금은 몸이…"가 게임에 없는 문자열(명세서 코드 스케치 주석 속
+     플레이스홀더를 실제 대사로 오인 인용, 실제는 `AgentConfigSO.cs`
+     `InjuredLines`).
+  3. Step 3 (검수팀, 2차 재검수): FAIL — D1 수정이 절반만 반영됨. 성격 표시명이
+     실제 에셋 값 `"새침이"`(Personality_Prickly.asset DisplayName)가 아니라
+     `"새침"`으로 남았고, 수락 시한이 실제 값 `0.7일`이 아니라 `"(…일 내)"`
+     placeholder로 남음. 참고: 마스터 판정서(`04_verdict.md`)가 이 지점에서
+     `"새침"`으로 오기해, 작성팀이 판정서를 따라 고치며 잔여 불일치가 생김 —
+     **원인은 작성팀이 아니라 판정서 오기**였음을 기록.
+- **판단**: 3건 모두 "존재하지 않는 자구/화면 문자열을 실제인 것처럼 인용"하는
+  동일 계열의 정확성 결함이며, 마지막 미해결분(D1 잔여)은 코드 에셋 값 2개
+  치환뿐인 사소한 수준. 그러나 반려 카운터가 정확히 3에 도달했으므로 지시서 규정대로
+  재작성 루프를 여기서 중단하고, 글을 버리지 않는 방식(게시팀 Step 7 `--draft` 위임)으로
+  전환한다. 사람의 승인은 기다리지 않는다(지시서 원칙).
+- **다음 조치 제안 (사람이 원할 경우)**: `tools/blog-automation/.staging/02_draft.md`
+  105·111행의 `"새침"` → `"새침이"`, 105행의 `"(…일 내)"` → `"(0.7일 내)"`로 수기
+  교정 후 Blogger 초안을 직접 공개 전환하면 별도 사이클 없이 발행 가능. 근거 값은
+  `Assets/M0Config/Personalities/Personality_Prickly.asset`(DisplayName) +
+  `Assets/M0Config/WorldConfig.asset`(WandererWaitDays: 0.7).
+- **상태**: DRAFTED로 파이프라인 자체는 정상 종료. 게시팀 Step 7이 실제로 Blogger
+  초안을 생성 완료함 — blogger_post_id `4321240890939765189` (blog
+  `6014451945015572125`, gamedevclaude.blogspot.com), status: DRAFT. 초안 상태라
+  퍼머링크는 없음, 관리자 화면: https://www.blogger.com/blog/posts/6014451945015572125?hl=ko.
+  게시된 본문은 blog-editor(Step 5)를 거치지 않은 `.staging/02_draft.md`를 최소 HTML
+  변환(문단 `<p>`, 소제목 `<h2>`, 인용 `<blockquote>`)만 적용한 것이며, 위에 적힌 잔여
+  결함 2곳도 아직 반영되지 않았다. 로컬 사본:
+  `tools/blog-automation/published/2026-07-28-unity-goap-m10-wolf-injury-wanderer.html`.
+  `blog_last_published_commit.md`·`blog_next_material_priority.md`도 DRAFT 상태로 갱신함.
+  사람이 직접 검토/발행 여부를 결정하기 전까지 OPEN 유지.
+
 ## 🟢 CLOSED — 2026-07-16 REJECTED_3X: M2+M3 소재 발행 실패 (검수 3연속 반려) → 해소
 
 - **run**: 2026-07-16 13:03 KST auto-run. 소재 = M2 생산체인 + M3 주거 기반

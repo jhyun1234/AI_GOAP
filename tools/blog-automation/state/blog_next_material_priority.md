@@ -8,16 +8,31 @@ metadata:
 
 # 블로그 파이프라인 다음 회차 우선 소재
 
-**STATUS: ACTIVE (2026-07-26 게시팀 Step 8 지정)** — blog-planner는 다음 회차에서 이
-소재를 **최우선**으로 집필한다.
+**STATUS: DRAFT_PENDING (소비 완료: 2026-07-28, DRAFT 상태 — 다음 기획팀 판단 필요)**
+— 2026-07-28 원격 routine이 M10을 소재로 집필했으나 검수팀 2차·마스터 1차 재검증을 거치며
+연속 3회 반려(반려 사유 상세는 `blog_pipeline_alerts.md`의 "2026-07-28 반려 3회 도달"
+항목 참조)에 도달해 정상 승인 경로(Step 4→5→6 APPROVED)를 완료하지 못했다. 지시서의
+반려 카운터 안전장치에 따라 재작성 루프를 중단하고, 게시팀 Step 7이 blog-editor(Step 5,
+SEO 메타/HTML 포맷팅)를 거치지 않은 마지막 마크다운 초안(`.staging/02_draft.md`)을 최소
+HTML 변환만 적용해 Blogger **초안(DRAFT)** 상태로 게시했다.
 
-**Fact (게시팀 Step 8 판단 근거):** 2026-07-26 13:03 회차에서 M9(공간과 재해,
-`afdbc22`~`a351437`) 글이 마스터 1차·2차 승인을 거쳐 게시팀 Step 7에서 실제 공개 발행됨
-(blogger_post_id 2543183737716951825). `latest_commit`이 `blog_last_published_commit.md`에
-`a351437`로 갱신됨에 따라, 기획팀 브리프(`tools/blog-automation/.staging/01_planner_brief.md`)의
-`deferred_milestones` 순서(M9 → M10 → M11 → M12)와 그 안의 명시 지시("게시팀 Step 8이
-다음 회차 ACTIVE로 지정할 것 — M9와 동일 경로로 승격 가능")를 그대로 따라 **M10 야생
-위협과 방랑자**를 다음 회차 ACTIVE 소재로 지정한다.
+- **게시된 초안**: blogger_post_id `4321240890939765189` (blog `6014451945015572125`,
+  gamedevclaude.blogspot.com), status: DRAFT. 초안 상태라 공개 퍼머링크는 아직 없음 —
+  관리자 화면: https://www.blogger.com/blog/posts/6014451945015572125?hl=ko
+- **로컬 사본**:
+  `tools/blog-automation/published/2026-07-28-unity-goap-m10-wolf-injury-wanderer.html`
+  (게시 직후 GET 재조회, `Buffer.concat` 후 `toString("utf8")`로 원본과 바이트 단위 동일
+  확인, U+FFFD 없음).
+- **잔여 결함 (사람이 초안을 그대로 공개 전환하려면 먼저 고칠 것)**: 검수팀 3차 판정
+  (`.staging/03_review.md`)에 남은 2곳 — 105·111행 `"새침"` → `"새침이"`(실제 에셋
+  DisplayName), 105행 `"(…일 내)"` → `"(0.7일 내)"`(WorldConfig.asset
+  WandererWaitDays). 상세 근거는 `blog_pipeline_alerts.md` 참조.
+- `blog_last_published_commit.md`에도 이번 회차 커밋 구간(`db82ffd`~`caa23b0`)을
+  `publish_status: DRAFT`로 기록해 두었다 — **실제 공개 발행이 아니므로**, 이 소재를 다음
+  기획팀이 그대로 이어서 다룰지(사람이 초안을 고쳐 직접 발행할 수도 있음), 새 소재(M11)로
+  넘어갈지는 다음 기획팀이 판단할 것. M10 자체가 아직 미완결(draft) 상태이므로 이번 게시팀
+  Step 8은 M11을 새 ACTIVE로 승격하지 않았다 — 아래 원본 M10 소재 상세는 참고용으로 계속
+  유효하다(재사용 시 위 잔여 결함부터 반영할 것).
 
 기획팀 브리프가 이번 회차에 기록해 둔 M10 근거(게시팀이 별도 재확인하지 않고 브리프
 원문을 그대로 승계함 — 다음 기획팀이 착수 전 직접 재검증할 것):
@@ -50,9 +65,10 @@ metadata:
   선례).
 - M9(이번 글)·M11(개인화 경제)·M12(성격 축)와 중복 금지: M11/M12는 말미 예고 한 문단까지만
   허용.
-- 사용 후: 이 파일에 "소비 완료 YYYY-MM-DD" 마킹. 다음 게시팀 Step 8은 M11(개인화 경제,
-  `6a0486e`~) 완결·devlog 여부를 재확인한 뒤 ACTIVE로 지정할 것(브리프의 M11 항목은
-  "이번 사이클에서 잔여 항목·완료 선언 여부를 재확인하지 않았음"이라고 명시함).
+- ⚠️ (2026-07-28 게시팀 Step 8 수정) 원문은 "사용 후 M11을 다음 ACTIVE로 지정"이라고
+  적었으나, 이번 회차는 DRAFT로만 끝나 M10 자체가 미완결이므로 이 지시는 **적용하지
+  않았다** — M11 승격은 M10이 실제로 공개 발행된 뒤 다음 게시팀이 판단할 것. 위 상단
+  DRAFT_PENDING 블록 참조.
 
 ---
 

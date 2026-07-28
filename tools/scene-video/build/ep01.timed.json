@@ -1,0 +1,266 @@
+{
+ "id": "ep01",
+ "voice": "ko-KR-HyunsuMultilingualNeural",
+ "rate": "-4%",
+ "generatedFrom": "tts.js",
+ "shots": [
+  {
+   "id": "HOOK",
+   "lines": [
+    {
+     "dur": 3168,
+     "pause": 500,
+     "say": "제 게임 속 주민이 딱 그랬거든요.",
+     "chars": 19,
+     "file": "build/audio/ep01/00.mp3"
+    }
+   ]
+  },
+  {
+   "id": "A",
+   "lines": [
+    {
+     "dur": 8088,
+     "pause": 200,
+     "say": "그냥 켜놓고 지켜보던 중이었어요. 주민 셋이 나무랑 돌을 서른 개씩 쌓아둔 참이었고요.",
+     "chars": 48,
+     "file": "build/audio/ep01/01.mp3"
+    },
+    {
+     "dur": 7272,
+     "pause": 350,
+     "say": "근데 갑자기 셋이 멈칫하더라고요. 기지로 돌아갔다가, 또 멈칫하고.",
+     "chars": 37,
+     "file": "build/audio/ep01/02.mp3"
+    },
+    {
+     "dur": 3024,
+     "pause": 600,
+     "say": "몇 분째 계속 그 자리였어요.",
+     "chars": 16,
+     "file": "build/audio/ep01/03.mp3"
+    }
+   ]
+  },
+  {
+   "id": "A2",
+   "lines": [
+    {
+     "dur": 2736,
+     "pause": 150,
+     "say": "일단 콘솔을 열어봤어요.",
+     "chars": 13,
+     "file": "build/audio/ep01/04.mp3"
+    },
+    {
+     "dur": 7104,
+     "pause": 450,
+     "say": "길 문제도, 자원 문제도 아니었어요. 셋 다 계획 자체를 못 짜고 있던 거죠.",
+     "chars": 43,
+     "file": "build/audio/ep01/05.mp3"
+    }
+   ]
+  },
+  {
+   "id": "B",
+   "lines": [
+    {
+     "dur": 4296,
+     "pause": 300,
+     "say": "진단 로그를 켜보니까 숫자가 딱 나오더라고요.",
+     "chars": 25,
+     "file": "build/audio/ep01/06.mp3"
+    },
+    {
+     "dur": 3960,
+     "pause": 700,
+     "say": "사천 구십육 번을 뒤지고도 못 찾은 거예요.",
+     "chars": 24,
+     "file": "build/audio/ep01/07.mp3"
+    },
+    {
+     "dur": 6312,
+     "pause": 500,
+     "say": "근데 정답은 딱 네 단계였어요. 탐험하고, 세 번 캐면 끝.",
+     "chars": 33,
+     "file": "build/audio/ep01/08.mp3"
+    }
+   ]
+  },
+  {
+   "id": "C",
+   "lines": [
+    {
+     "dur": 3504,
+     "pause": 200,
+     "say": "왜 그랬냐면, 비용 때문이었어요.",
+     "chars": 18,
+     "file": "build/audio/ep01/09.mp3"
+    },
+    {
+     "dur": 6432,
+     "pause": 300,
+     "say": "철을 아직 못 찾은 상태면요. 철 캐기 비용이 백오십까지 뛰거든요.",
+     "chars": 37,
+     "file": "build/audio/ep01/10.mp3"
+    },
+    {
+     "dur": 6384,
+     "pause": 600,
+     "say": "근데 AI가 어림잡은 건 구였어요. 실제의 오십분의 일이죠.",
+     "chars": 33,
+     "file": "build/audio/ep01/11.mp3"
+    }
+   ]
+  },
+  {
+   "id": "D",
+   "lines": [
+    {
+     "dur": 4200,
+     "pause": 200,
+     "say": "그러니까 싸 보이는 행동만 계속 들여다본 거예요.",
+     "chars": 27,
+     "file": "build/audio/ep01/12.mp3"
+    },
+    {
+     "dur": 5496,
+     "pause": 400,
+     "say": "귀환하기. 바닥에 눕기. 원시 무기 만들기.",
+     "chars": 24,
+     "file": "build/audio/ep01/13.mp3"
+    },
+    {
+     "dur": 5976,
+     "pause": 600,
+     "say": "정작 철 캐기에는 닿지도 못했고요. 예산만 다 써버린 거죠.",
+     "chars": 33,
+     "file": "build/audio/ep01/14.mp3"
+    }
+   ]
+  },
+  {
+   "id": "E",
+   "lines": [
+    {
+     "dur": 6432,
+     "pause": 300,
+     "say": "예산을 늘리면 되지 않냐고요? 그건 제가 규칙으로 막아뒀어요.",
+     "chars": 34,
+     "file": "build/audio/ep01/15.mp3"
+    },
+    {
+     "dur": 2424,
+     "pause": 250,
+     "say": "그래서 반대로 갔죠.",
+     "chars": 11,
+     "file": "build/audio/ep01/16.mp3"
+    },
+    {
+     "dur": 4944,
+     "pause": 700,
+     "say": "아직 못 찾은 자원은, 아예 목표 후보에서 빼버렸어요.",
+     "chars": 30,
+     "file": "build/audio/ep01/17.mp3"
+    },
+    {
+     "dur": 3072,
+     "pause": 800,
+     "say": "풀 수 없는 문제는 주지 않는다.",
+     "chars": 18,
+     "file": "build/audio/ep01/18.mp3"
+    }
+   ]
+  },
+  {
+   "id": "G",
+   "lines": [
+    {
+     "dur": 4176,
+     "pause": 250,
+     "say": "이 게임, 클로드 코드랑 같이 만들고 있거든요.",
+     "chars": 26,
+     "file": "build/audio/ep01/19.mp3"
+    },
+    {
+     "dur": 7224,
+     "pause": 350,
+     "say": "여기서 의견이 갈렸어요. 인자를 다섯 개 나열할까, 함수 하나를 넘길까.",
+     "chars": 40,
+     "file": "build/audio/ep01/20.mp3"
+    },
+    {
+     "dur": 8184,
+     "pause": 500,
+     "say": "후자는 부를 때마다 메모리가 조금씩 새거든요. 초당 몇 번씩 도는 루프라, 접었어요.",
+     "chars": 47,
+     "file": "build/audio/ep01/21.mp3"
+    }
+   ]
+  },
+  {
+   "id": "H",
+   "lines": [
+    {
+     "dur": 4080,
+     "pause": 200,
+     "say": "그리고 옛날 함수를 일부러 바로 지웠어요.",
+     "chars": 23,
+     "file": "build/audio/ep01/22.mp3"
+    },
+    {
+     "dur": 3144,
+     "pause": 450,
+     "say": "당연히 컴파일이 통째로 깨지죠.",
+     "chars": 17,
+     "file": "build/audio/ep01/23.mp3"
+    },
+    {
+     "dur": 6552,
+     "pause": 600,
+     "say": "근데 그래야 드러나거든요. 이걸 부르는 데가 진짜 한 군데뿐인지.",
+     "chars": 36,
+     "file": "build/audio/ep01/24.mp3"
+    }
+   ]
+  },
+  {
+   "id": "F",
+   "lines": [
+    {
+     "dur": 6672,
+     "pause": 350,
+     "say": "갈팡질팡하던 주민이요. 이제는 그 자리에서 그냥 탐험을 나가요.",
+     "chars": 35,
+     "file": "build/audio/ep01/25.mp3"
+    },
+    {
+     "dur": 7032,
+     "pause": 800,
+     "say": "답이 없으면 그냥 멈춰 서 있었잖아요. 이제는 할 수 있는 일로 넘어가는 거죠.",
+     "chars": 44,
+     "file": "build/audio/ep01/26.mp3"
+    }
+   ]
+  },
+  {
+   "id": "NEXT",
+   "lines": [
+    {
+     "dur": 4704,
+     "pause": 0,
+     "say": "근데 이 마을요, 삼편에서 통째로 지워집니다.",
+     "chars": 25,
+     "file": "build/audio/ep01/27.mp3"
+    }
+   ]
+  }
+ ],
+ "summary": {
+  "spokenMs": 146592,
+  "pauseMs": 11600,
+  "totalMs": 158192,
+  "fullMs": 158208,
+  "driftMs": 16
+ }
+}

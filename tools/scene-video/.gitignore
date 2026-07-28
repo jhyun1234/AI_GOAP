@@ -1,0 +1,4 @@
+node_modules/
+build/audio/
+build/*.mp3
+build/compare/

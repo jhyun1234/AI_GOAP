@@ -73,7 +73,7 @@ function buildTimeline(timed) {
       // 침묵 동안 자막은 그대로 머문다 — 사람이 말을 멈춘 것이지 자막이 끝난 게 아니다.
       // 간격을 균일하게 두면 그 규칙성 자체가 기계처럼 들린다.
       const dur = durOf(si, li, l.say || l.text) + (l.pauseAfter ?? 0);
-      const rec = { ...l, t: t, dur, shot: si };
+      const rec = { ...l, t: t, dur, shot: si, file: timed?.shots?.[si]?.lines?.[li]?.file };
       t += dur; lines.push(rec); return rec;
     });
     const dur = (ls.at(-1).t + ls.at(-1).dur) - ls[0].t + SHOT_TAIL * 1000;
@@ -146,8 +146,9 @@ function seek(t) {
   chip.classList.toggle('ok', ['해결', '증명', '결과'].includes(act.chapter));
 
   // 자막 — 시간의 함수로만 결정한다
-  let line = lines[0];
-  for (const l of lines) if (t >= l.t) line = l;
+  let line = lines[0], li = 0;
+  lines.forEach((l, i) => { if (t >= l.t) { line = l; li = i; } });
+  syncAudio(li, (t - line.t) / 1000);
   const cap = $('cap');
   cap.textContent = line.text;
   const age = (t - line.t) / 1000;
@@ -156,6 +157,28 @@ function seek(t) {
   // 위에서 내려와 자리를 잡는다. 아래에서 올라오게 하면 페이드 동안 자막 바닥이
   // 앵커(1550)보다 내려가 쇼츠 가림 영역 쪽으로 밀린다 — 바닥 고정이 깨진다.
   cap.style.transform = `translateY(${(k - 1) * 5}px)`;
+}
+
+/* ── 나레이션 (미리보기 전용) ─────────────────────
+   최종 mp4 는 ffmpeg 가 오디오를 따로 붙인다. 여기서 소리를 내는 이유는 하나,
+   "대본이 사람처럼 들리는가"를 화면과 같이 놓고 판정하기 위해서다.
+   재생 중일 때만 소리가 난다 — prime() 은 seek 을 수천 번 부르므로 그때 울리면 안 된다. */
+let audioOn = true, playingLine = -1;
+
+function stopAudio() {
+  for (const l of lines) if (l.el) { l.el.pause(); l.el.currentTime = 0; }
+  playingLine = -1;
+}
+function syncAudio(idx, offsetSec) {
+  if (!audioOn || !raf) return;
+  if (idx === playingLine) return;
+  stopAudio();
+  playingLine = idx;
+  const l = lines[idx];
+  if (!l?.file) return;
+  if (!l.el) { l.el = new Audio('../' + l.file); l.el.preload = 'auto'; }
+  l.el.currentTime = Math.min(offsetSec, 0.2);   // 줄 중간부터 재생하면 어색하니 앞부분만 허용
+  l.el.play().catch(() => { /* 사용자 제스처 전이면 조용히 실패 */ });
 }
 
 /* ── 컨트롤 (미리보기 전용, 렌더에는 관여하지 않음) ─ */
@@ -167,17 +190,25 @@ function tick(ts) {
   if (next >= TOTAL) { seek(TOTAL); stop(); return; }
   seek(next); raf = requestAnimationFrame(tick);
 }
-function stop() { cancelAnimationFrame(raf); raf = null; last = 0; $('play').textContent = '재생'; }
+function stop() { cancelAnimationFrame(raf); raf = null; last = 0; stopAudio(); $('play').textContent = '재생'; }
 
 function wire() {
   $('play').onclick = () => {
     if (raf) return stop();
     if (cur >= TOTAL) cur = 0;
-    $('play').textContent = '정지'; last = 0; raf = requestAnimationFrame(tick);
+    $('play').textContent = '정지'; last = 0; playingLine = -1;
+    raf = requestAnimationFrame(tick);
   };
   $('speed').onclick = e => {
     rate = rate === 1 ? 2 : rate === 2 ? 0.5 : 1;
     e.target.textContent = '×' + rate;
+    stopAudio();                                  // 배속에서 음성은 맞지 않는다
+    audioOn = rate === 1;
+    $('voice').textContent = audioOn ? '나레이션 켬' : '배속 — 음성 꺼짐';
+  };
+  $('voice').onclick = e => {
+    audioOn = !audioOn; if (!audioOn) stopAudio(); else playingLine = -1;
+    e.target.textContent = audioOn ? '나레이션 켬' : '나레이션 끔';
   };
   $('scrub').oninput = e => { if (raf) stop(); seek(e.target.value / 1000 * TOTAL); };
   addEventListener('resize', () => seek(cur));

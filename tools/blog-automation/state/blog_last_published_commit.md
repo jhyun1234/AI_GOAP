@@ -13,15 +13,51 @@ metadata:
 
 **How to apply:** 기획팀은 새 사이클 시작 시 이 파일의 `latest_commit`을 확인하고, 그 이전(포함) 커밋들은 이미 소재로 소비된 것으로 간주한다. 단, 아래 상태가 `DRAFT`인 경우 실제 공개 게시는 아니었으므로, 같은 소재를 이어서 다룰지/새 소재로 넘어갈지는 그때 기획팀이 판단한다.
 
-> ⚠️ **2026-07-28 원복 기록**: 07-28 원격 auto-run이 M10을 draft로 강등하면서 이 파일의
-> `latest_commit`을 `caa23b0`(M10 구간 끝)으로 갱신했으나, 이는 지시서 위반이다 —
-> `blog-publisher.md` Step 7은 draft 위임 시 Step 8(이력 갱신)을 수행하지 않는다고 명시한다.
-> draft는 소재를 소비한 것이 아닌데 게이트는 `publish_status`를 읽지 않고 이 값만 보므로,
-> 그대로 두면 M10이 영구히 건너뛰어진다. 따라서 직전 공개 발행분(M9, `a351437`)으로
-> 되돌렸다. M10 draft의 상세 기록은 `blog_pipeline_alerts.md`와
-> `blog_next_material_priority.md`에 남아 있다.
-
 ## 최신 사용 커밋
+
+- `latest_commit`: `caa23b0` (feat(goap) M10-G 리허설 — 티어3 큰 곰 (.cs 0 증명) + 비용표
+  갱신 — 기획팀 브리프(`01_planner_brief.md`) commit_refs 중 타임스탬프 기준 가장 최신 커밋)
+- `selected_commits_range`: `db82ffd`(spec(m10) 야생 위협과 방랑자 실행명세서) ~ `caa23b0`
+  (feat(goap) M10-G 리허설 — 티어3 큰 곰) — M10-A~G 구현 14커밋 전체:
+  `db82ffd`(spec(m10) 실행명세서 — 상실의 순환) · `8cf2151`(M10-A 부상 축 코어 — 최초의
+  사망 축) · `b255063`(M10-B 간호 — TendActionSO/TendRunner·치료사 직업 신설) · `1e0e612`
+  (M10-C 위협 선반 — ThreatSO/ThreatService/ThreatAgent + 늑대 티어 1·2) · `6a497be`
+  (fix TendInjured BaseCost 1→8 — 카탈로그 최소 비용 붕괴로 인한 휴리스틱 수축·탐색 폭발
+  수정) · `0085fc2`(test 카탈로그 최소 BaseCost 게이트) · `868b0fd`(M10-D 도망 —
+  FleeToSafety·Goal_Flee·성격 감지 반경) · `074c400`(M10-E 방랑자 — 런타임 인구 문·Y/N
+  수락·술렁임) · `9ff7fdc`(M10-F 전멸 종료 화면 — 마을의 마지막 날) · `ace7804`(fix 티어2
+  임계 12→10) · `b6a6b00`(fix 주민 타격형 위협 추격 도입 — 고정 타깃은 도망이 100% 이겨
+  부상 착탄 불가, 명세 M10-C 개정) · `4dd4c2a`(feat 위협 경주 게이지) · `40e1135`(fix 티어2
+  임계 10→8) · `86ccc4b`(feat 배속 기능, 관측 도구) · `caa23b0`(M10-G 리허설 — 티어3 큰 곰,
+  .cs 0). 기획팀 브리프(`01_planner_brief.md`) commit_refs 전체 반영.
+- `cycle_date`: 2026-07-28 (로컬 수동 사이클 — 마스터 Step 6 2차 APPROVED 후 게시팀 Step 7
+  발행. **경위**: 같은 날 오전 원격 auto-run이 이 소재로 먼저 집필했으나 검수팀 2차·마스터
+  1차 재검증에서 연속 3회 반려되어 draft로 강등됐고(`blogger_post_id` `4321240890939765189`,
+  사용자가 Blogger에서 직접 삭제함), 오후 로컬 세션에서 파이프라인 지시서 6개 커밋 수정 후
+  같은 소재로 재집필하여 반려 0회로 Step 3/4/6을 전부 통과, 이번에 정식 공개 발행함.)
+- `publish_status`: PUBLISHED (Blogger published: 2026-07-28 09:41 UTC / 2026-07-28 02:41
+  PDT, status: LIVE)
+- `blogger_post_id`: 1047866260477949128
+- `blog_url`: https://gamedevclaude.blogspot.com/2026/07/unity-goap-claude-code-ai.html
+- `title`: Unity GOAP 구현 인디게임 개발일지: 마을에 처음으로 무덤이 생겼다 — 야생 위협·
+  부상·방랑자를 심은 이야기 (Claude Code 게임 개발 AI 페어 프로그래밍 후기)
+- `labels`: Unity GOAP 구현, Claude Code 게임 개발, AI 페어 프로그래밍 후기, 인디게임 개발일지
+- `local_archive`: tools/blog-automation/published/2026-07-28-unity-goap-m10-wolf-injury-wanderer.html
+  (POST 응답 직후 별도 GET 요청을 `Buffer.concat` 후 `toString('utf8')`로 재조회해 저장 —
+  POST 응답을 그대로 stdout에 출력하면 `data += c` 스트림 이어붙이기로 U+FFFD 깨짐이
+  실제로 관측됐으나(예: "안전"→"안���"), 별도 GET 재조회본은 원본 임시 파일의 html_content와
+  문자열 완전 일치(byte-identical, md5 `6f7e6951cfdd6d28566fe5a2342a9164` 동일, 10,928자,
+  U+FFFD 없음)함을 직접 확인함. 아침 draft 강등분 사본(동일 파일명)을 이번 정식 발행분으로
+  덮어씀.)
+- `비고`: M10 "야생 위협과 방랑자" 소재(db82ffd~caa23b0). 마을에 처음으로 부상·간호·사망
+  (무덤)이라는 상실 축과, 그 상실을 회복하는 방랑자 합류 축이 함께 생긴 밀스톤. M9 회상
+  테스트의 "이탈이 없어 재미 미흡" 판정에 대한 정면 응답. 핵심 재미 포인트는 늑대가 고정된
+  스폰 지점만 때리던 실측 버그(도망이 100% 이겨 부상이 원천적으로 착탄 불가) — 추격
+  메커니즘 도입으로 명세를 현장에서 개정해 해소. 성격별 위협 감지 반경(FleeRadiusMult)으로
+  "성격이 생사를 가른다"를 구현. M11(개인화 경제)·M12(성격 축)는 말미 예고 한 문단만
+  허용하고 본문에서 다루지 않음.
+
+### 이전 회차 이력 (2026-07-26, M9 공간과 재해)
 
 - `latest_commit`: `a351437` (fix(goal) 조리 goal 재료 조건 5 상향 — 위기 레시피와 정합
   (NoSolution 방어) — 기획팀 브리프(`01_planner_brief.md`) commit_refs 중 타임스탬프 기준

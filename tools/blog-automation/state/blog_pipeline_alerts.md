@@ -14,7 +14,7 @@ metadata:
 **How to apply:** 원격 routine과 로컬 점검 세션은 실행 시작 시 이 파일을 확인한다.
 OPEN 상태의 경보가 있으면 해당 우회 절차(MANUAL_STATE_UPDATE 등)를 미리 준비한다.
 
-## 🟡 OPEN — 2026-07-28 반려 3회 도달 (M10 "야생 위협과 방랑자") → draft 모드로 강등
+## 🟢 CLOSED — 2026-07-28 반려 3회 도달 (M10 "야생 위협과 방랑자") → draft 강등 → 정식 발행으로 해소
 
 - **run**: 2026-07-28 원격 routine auto-run. 소재 = M10 "야생 위협과 방랑자"
   (`db82ffd`~`caa23b0`), `state/blog_next_material_priority.md` STATUS: ACTIVE로
@@ -47,16 +47,26 @@ OPEN 상태의 경보가 있으면 해당 우회 절차(MANUAL_STATE_UPDATE 등)
   교정 후 Blogger 초안을 직접 공개 전환하면 별도 사이클 없이 발행 가능. 근거 값은
   `Assets/M0Config/Personalities/Personality_Prickly.asset`(DisplayName) +
   `Assets/M0Config/WorldConfig.asset`(WandererWaitDays: 0.7).
-- **상태**: DRAFTED로 파이프라인 자체는 정상 종료. 게시팀 Step 7이 실제로 Blogger
+- **상태 (경과)**: DRAFTED로 파이프라인 자체는 정상 종료. 게시팀 Step 7이 실제로 Blogger
   초안을 생성 완료함 — blogger_post_id `4321240890939765189` (blog
   `6014451945015572125`, gamedevclaude.blogspot.com), status: DRAFT. 초안 상태라
   퍼머링크는 없음, 관리자 화면: https://www.blogger.com/blog/posts/6014451945015572125?hl=ko.
   게시된 본문은 blog-editor(Step 5)를 거치지 않은 `.staging/02_draft.md`를 최소 HTML
   변환(문단 `<p>`, 소제목 `<h2>`, 인용 `<blockquote>`)만 적용한 것이며, 위에 적힌 잔여
-  결함 2곳도 아직 반영되지 않았다. 로컬 사본:
-  `tools/blog-automation/published/2026-07-28-unity-goap-m10-wolf-injury-wanderer.html`.
-  `blog_last_published_commit.md`·`blog_next_material_priority.md`도 DRAFT 상태로 갱신함.
-  사람이 직접 검토/발행 여부를 결정하기 전까지 OPEN 유지.
+  결함 2곳도 아직 반영되지 않았다. `blog_last_published_commit.md`·
+  `blog_next_material_priority.md`도 당시 DRAFT 상태로 갱신함.
+- **해소 (2026-07-28 로컬 세션)**: 사용자가 위 Blogger 초안(`4321240890939765189`)을
+  Blogger에서 직접 삭제함. 파이프라인 지시서(검수팀·마스터·기획팀 브리프 등) 6개 커밋을
+  잔여 결함 원인(방랑자 프롬프트 자구 오류·명세서 코드 스케치 오인용) 재발 방지 방향으로
+  수정한 뒤, 같은 소재(M10, `db82ffd`~`caa23b0`)로 blog-editor(Step 5)를 정식으로 거쳐
+  재집필했다. 재검수·재승인 결과 반려 0회로 Step 3(검수팀)·Step 4(마스터 1차)·Step 6
+  (마스터 2차) 전부 APPROVED 통과, 게시팀 Step 7에서 정식 공개 발행 완료
+  (blogger_post_id `1047866260477949128`, status: LIVE,
+  https://gamedevclaude.blogspot.com/2026/07/unity-goap-claude-code-ai.html). 로컬 사본
+  `tools/blog-automation/published/2026-07-28-unity-goap-m10-wolf-injury-wanderer.html`은
+  아침 draft 강등분 내용을 이번 정식 발행분으로 덮어씀. `blog_last_published_commit.md`
+  (`latest_commit: caa23b0`, `publish_status: PUBLISHED`)·`blog_next_material_priority.md`
+  (`STATUS: CONSUMED`)도 정식 발행 결과로 갱신함. **해소 조건 충족 → CLOSED.**
 
 ## 🟢 CLOSED — 2026-07-16 REJECTED_3X: M2+M3 소재 발행 실패 (검수 3연속 반려) → 해소
 

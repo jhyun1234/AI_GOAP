@@ -8,7 +8,22 @@ metadata:
 
 # 블로그 파이프라인 다음 회차 우선 소재
 
-**STATUS: ACTIVE (2026-07-28 재지정 — draft 강등분 재집필 대상)**
+**STATUS: CONSUMED (소비 완료: 2026-07-28)** — 2026-07-28 로컬 수동 사이클에서 마스터
+Step 6 2차 APPROVED 판정 후 게시팀 Step 7이 이 소재(M10 야생 위협과 방랑자)로 정식 공개
+발행을 완료했다. blog-planner는 이 항목을 더 이상 우선 소재로 취급하지 않는다.
+
+- 발행 결과: https://gamedevclaude.blogspot.com/2026/07/unity-goap-claude-code-ai.html
+  (blogger_post_id: 1047866260477949128, status: LIVE)
+- `latest_commit`은 `blog_last_published_commit.md`에 `caa23b0`으로 갱신됨.
+- 경위: 같은 날 오전 원격 auto-run이 이 소재로 먼저 집필했으나 검수팀 2차·마스터 1차
+  재검증에서 연속 3회 반려되어 draft로 강등됐다(아래 원본 기록 참조, blogger_post_id
+  `4321240890939765189`). 사용자가 그 Blogger 초안을 직접 삭제했고, 오후 로컬 세션에서
+  파이프라인 지시서(검수팀·마스터·기획팀 브리프 등) 6개 커밋을 수정한 뒤 같은 소재로
+  재집필하여 반려 0회로 Step 3/4/6을 전부 통과, 이번에 정식 발행했다.
+
+(아래는 draft 강등 당시 원문 — 기록 보존용)
+
+**STATUS: 이력(ACTIVE 해제 — 2026-07-28 정식 발행으로 대체됨) — 당시 (2026-07-28 재지정 — draft 강등분 재집필 대상)**
 — ⚠️ 07-28 원격 run은 이 항목을 `DRAFT_PENDING`으로 적었으나, 그 값은 게이트(routine-prompt
 실행순서 0단계 기준 D)와 `blog-planner.md`가 인식하지 못하는 **미정의 상태값**이었다.
 소재는 실제로 소비되지 않았으므로 `ACTIVE`로 되돌린다 — blog-planner는 이 소재를 최우선으로

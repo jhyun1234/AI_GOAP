@@ -22,7 +22,9 @@ body{background:#07080B;color:var(--ink);font-family:var(--mono);
   background-size:28px 28px}
 
 /* ── 상단 : 상시 브랜딩 ───────────────────────────── */
-.hud{position:absolute;top:0;left:0;right:0;padding:16px 20px 0;z-index:5}
+/* 쇼츠 상단 UI(뒤로가기·검색 아이콘)가 y 0~130 을 덮으므로 그 아래에서 시작한다.
+   top 의 % 는 컨테이너 높이 기준 — 130/1920 = 6.7708% */
+.hud{position:absolute;top:6.7708%;left:0;right:0;padding:0 20px;z-index:5}
 .ep{font-family:var(--disp);font-weight:800;font-size:15.5px;line-height:1.25;
   letter-spacing:-.02em;color:var(--ink)}
 .airow{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-top:5px}
@@ -37,7 +39,8 @@ body{background:#07080B;color:var(--ink);font-family:var(--mono);
 .chip.ok{color:var(--cool)}
 
 /* ── 비주얼 ───────────────────────────────────────── */
-.vis{position:absolute;top:104px;left:20px;right:20px;bottom:35%}
+/* HUD 를 130 으로 내린 만큼 함께 내려간다. 373/1920 = 19.427% */
+.vis{position:absolute;top:19.427%;left:20px;right:20px;bottom:35%}
 .shot{position:absolute;inset:0;display:none}
 .shot.on{display:block}
 .shot canvas{width:100%;height:100%;display:block}
@@ -45,13 +48,13 @@ body{background:#07080B;color:var(--ink);font-family:var(--mono);
 /* ── 자막 ─────────────────────────────────────────────
    자막 아래쪽을 1080×1920 기준 y=1500 에 맞춘다.
    유튜브 쇼츠는 하단 약 340px(y 1580~) 을 제목·설명·음원으로 덮으므로,
-   그 선보다 80px 위에 자막 바닥을 두어 기기 편차까지 피한다.
+   그 선보다 위에 자막 '바닥'을 두어 가림을 피한다.
    bottom 의 % 는 컨테이너 '높이' 기준이라 9:16 어느 크기에서도 같은 자리다.
-     420 / 1920 = 21.875%
+     자막 바닥 1550 → (1920-1550)/1920 = 19.2708%
    → 이 값만 바꾸면 자막 높이가 통째로 움직인다. */
 .capveil{position:absolute;left:0;right:0;bottom:0;height:46%;
   background:linear-gradient(transparent,rgba(7,8,11,.95) 26%)}
-.cap{position:absolute;left:0;right:0;bottom:21.875%;
+.cap{position:absolute;left:0;right:0;bottom:19.2708%;
   display:flex;flex-direction:column;justify-content:flex-end;padding:0 22px}
 .cap p{white-space:pre-line;font-family:var(--disp);font-weight:700;
   font-size:20px;line-height:1.34;letter-spacing:-.015em;min-height:2.7em}

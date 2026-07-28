@@ -47,13 +47,25 @@ blog-master, blog-publisher). Agent 도구로 이 순서대로 호출.
    COMMITS=$(git log --oneline "$LAST"..HEAD | grep -cv "chore(blog)")
    BIG=$(git log --oneline "$LAST"..HEAD | grep -cE "^\w+ (spec|refactor)\(")
    DAYS_SINCE=$(( ( $(date +%s) - $(git log -1 --format=%ct "$LAST") ) / 86400 ))
+   # 무결성 가드 (2026-07-28 추가): 최신 항목이 DRAFT면 소재는 소비되지 않은 것이다
+   DRAFTED_STATE=$(grep -oP '`publish_status`:\s*\**\K[A-Z]+' tools/blog-automation/state/blog_last_published_commit.md | head -1)
    ```
+   **⚠️ `DRAFTED_STATE`가 `DRAFT`면 상태 파일이 깨진 것이다.** draft 게시는 소재를 소비하지
+   않으므로 게시팀이 `latest_commit`을 갱신했어야 할 이유가 없다(`blog-publisher.md` Step 7).
+   이 경우 **게이트를 무조건 통과시키고**, `state/blog_pipeline_alerts.md`에 "draft 회차가
+   latest_commit을 갱신함 — 지시서 위반" 경보를 기록한 뒤, 기획팀에게 **직전 회차 소재는
+   미소비이므로 재집필 후보로 계속 유효하다**고 전달한다. 조용히 건너뛰면 그 소재는 영구히
+   사라진다 (2026-07-28 실제 발생).
    **통과 기준 (하나라도 충족 시 Step 1 진행):**
    - A. 미소비 커밋 ≥ 10 (활발한 개발 — 하루치 대형 세션)
    - B. 대형 이벤트(spec/refactor 커밋) ≥ 1 이고 미소비 커밋 ≥ 5 (명세 확정·재설계 등 이야깃거리)
    - C. 마지막 소비 후 5일 이상 경과 이고 미소비 커밋 ≥ 3 (블로그 공백 방지 백스톱)
-   - D. `state/blog_next_material_priority.md`가 **STATUS: ACTIVE** (사용자 지정 소재 대기 중 —
-     커밋 수와 무관하게 무조건 통과)
+   - D. `state/blog_next_material_priority.md`의 **최상단 항목**이 **STATUS: ACTIVE**
+     (사용자 지정 소재 대기 중 — 커밋 수와 무관하게 무조건 통과). 판정 대상은 최상단
+     항목뿐이다 — 파일 아래쪽 이력 섹션의 옛 마커는 무시한다. 또한 **정의된 상태값은
+     `ACTIVE` / `CONSUMED` / 이력 표기 셋뿐이다.** 그 밖의 값(예: 07-28 run이 임의로 쓴
+     `DRAFT_PENDING`)을 발견하면 새 상태값을 발명하지 말고, 소재가 실제로 공개 발행됐는지
+     기준으로 `ACTIVE`(미발행) 또는 `CONSUMED`(발행 완료) 중 하나로 판정한 뒤 진행한다.
 
    미달이면 즉시 종료: `PIPELINE_RESULT: SKIPPED (게이트 미달 — 커밋 N개, 대형 M개, 경과 D일)`
    발행 상한은 cron이 일 1회이므로 자동으로 하루 최대 1편이다.
@@ -78,6 +90,12 @@ blog-master, blog-publisher). Agent 도구로 이 순서대로 호출.
      사본 저장.
    - 이번에 소비한 `state/blog_next_material_priority.md`가 있으면 "소비 완료 YYYY-MM-DD"
      마커로 초기화(다음 사이클 중복 방지).
+   - 🚫 **draft 위임(아래 반려 카운터 경로)일 때는 위 두 줄을 수행하지 않는다.**
+     `blog_last_published_commit.md`를 **어떤 형태로도 갱신하지 않고**(`publish_status:
+     DRAFT`를 적는 것도 갱신이다), `blog_next_material_priority.md`도 `ACTIVE`로 남긴다 —
+     draft는 소재를 소비한 것이 아니다. 기록은 `blog_pipeline_alerts.md`에만 남긴다.
+     (`blog-publisher.md` Step 7과 동일 규정. 2026-07-28에 이 규정이 지켜지지 않아
+     M10 소재가 소실될 뻔했다.)
    - **기획팀 브리프에 `deferred_milestones`가 있으면** (미발행 밀스톤이 더 남아 있다는
      뜻 — 한 회차 = 한 밀스톤 규칙), 그중 **첫 번째 밀스톤을
      `state/blog_next_material_priority.md`에 STATUS: ACTIVE로 새로 지정**한다 (커밋 범위와
@@ -127,9 +145,12 @@ blog-master, blog-publisher). Agent 도구로 이 순서대로 호출.
    push_attempts: <브랜치명 → stderr 원문 (1차/2차 각각)>
    ```
 
-   **API_FAILED / REJECTED_3X 경로에서도** `state/blog_pipeline_alerts.md`만 수정된 경우
-   동일한 push 절차(현재 브랜치 우선, 실패 시 claude/state-* 폴백)를 따른다
-   (main이 현재 브랜치가 아닐 때 main 직접 push 시도 금지).
+   **API_FAILED / REJECTED_3X / DRAFTED 경로에서도** 동일한 push 절차(현재 브랜치 우선,
+   실패 시 claude/state-* 폴백)를 따른다 (main이 현재 브랜치가 아닐 때 main 직접 push 시도
+   금지). **DRAFTED 경로에서 반영 대상은 `state/blog_pipeline_alerts.md`와
+   `state/incidents/` 스냅샷뿐이다** — `blog_last_published_commit.md`·
+   `blog_next_material_priority.md`는 애초에 수정되지 않아야 하므로, 이 둘이 변경된 채
+   나타나면 위 7번의 draft 금지 규정을 어긴 것이니 되돌린 뒤 push한다.
 
 ## 반려 카운터 & 안전장치
 
@@ -158,5 +179,15 @@ Blogger API 게시 자체 실패(쿼터, 인증 오류 등)도 동일하게 `blo
 (routine 로그 확인용):
 
 ```
-PIPELINE_RESULT: <PUBLISHED|SKIPPED|REJECTED_3X|API_FAILED>  (블로그 URL 또는 실패 사유)
+PIPELINE_RESULT: <PUBLISHED|SKIPPED|DRAFTED|REJECTED_3X|API_FAILED>  (블로그 URL 또는 실패 사유)
+```
+
+각 값의 뜻:
+
+```
+PUBLISHED    정상 승인 경로 완주 → 공개 발행
+SKIPPED      소재 게이트 미달 또는 기획팀 skip:true (정상 종료, 소재 미소비)
+DRAFTED      반려 3회 → 마지막 초안을 Blogger 초안으로 게시 (소재 미소비, 재집필 대상)
+REJECTED_3X  반려 3회 + draft 게시까지 실패 (소재 미소비)
+API_FAILED   Blogger API 게시 실패 (쿼터·인증 등)
 ```

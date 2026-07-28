@@ -76,8 +76,10 @@ tools/blog-automation/.staging/    (gitignore 처리, 사이클마다 내용 덮
    → APPROVED면 7로
 
 7. blog-publisher 호출 (최종 HTML 패키지 전달)
-   → 게시 성공: memory/blog_last_published_commit.md 갱신, published/에 사본 저장
-   → 게시 실패: memory/blog_pipeline_alerts.md에 기록, 조용히 종료
+   → 게시 성공: state/blog_last_published_commit.md 갱신, published/에 사본 저장
+   → 게시 실패: state/blog_pipeline_alerts.md에 기록, 조용히 종료
+   → draft 위임(반려 3회): state/blog_pipeline_alerts.md에만 기록.
+     blog_last_published_commit.md는 갱신하지 않는다 — 소재 미소비
 ```
 
 **반려 카운터는 이번 스케줄 사이클(하나의 파이프라인 실행) 안에서만 유효하다.** 다음

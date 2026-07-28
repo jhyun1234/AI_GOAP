@@ -1,14 +1,17 @@
 import { clamp, lerp, ease, easeOut, frac, span, fitCanvas, mkCanvas, tone } from '../lib.js';
 
 /* stage2d — 2D 무대 위의 동그라미.
-   위치는 전부 t 의 함수다. 궤적(trail)도 과거 시각을 다시 계산해서 그린다.
-   그래서 어느 시각으로 뛰어도 같은 그림이 나온다. */
+   위치는 전부 t 의 함수다. 궤적도 과거 시각을 다시 계산해서 그린다.
+   그래서 어느 시각으로 뛰어도 같은 그림이 나온다.
+
+   자막 연동: 동그라미는 첫 자막에 등장하고, 걷기는 그 걸음을 말하는 자막에 맞춰 나아간다.
+   왕복 카운터: "몇 분째 그 자리"를 숫자로 만든다 — 갈팡질팡이 측정 가능해야 답답함이 전달된다. */
 
 const PAD = 14;
 const toPx = (a, w, h) => [PAD + a[0] / 100 * (w - PAD * 2), PAD + a[1] / 100 * (h - PAD * 2)];
 
-/** 배우의 시각 t(초)·진행 p 에서의 무대 좌표(0~100) */
-function pos(a, t, p) {
+/** 배우의 시각 t(초)·걷기 진행 q 에서의 무대 좌표(0~100) */
+function pos(a, t, q) {
   if (a.oscillate) {
     const o = a.oscillate, ph = o.phase || 0;
     const u = frac(t / o.period + ph);
@@ -21,27 +24,32 @@ function pos(a, t, p) {
   }
   if (a.walk) {
     const pts = [a.at, ...a.walk], seg = pts.length - 1;
-    const q = easeOut(span(p, 0.12, 0.86)) * seg;
-    const i = Math.min(seg - 1, Math.floor(q)), f = q - i;
+    const r = easeOut(clamp(q)) * seg;
+    const i = Math.min(seg - 1, Math.floor(r)), f = r - i;
     return [lerp(pts[i][0], pts[i + 1][0], f), lerp(pts[i][1], pts[i + 1][1], f)];
   }
   return a.at;
 }
 
+/** t 까지 base 로 되돌아온 횟수 — 한 주기가 곧 한 번의 왕복 */
+const trips = (a, t) => a.oscillate ? Math.floor(t / a.oscillate.period + (a.oscillate.phase || 0)) : 0;
+
 export default {
   build(root) { root.innerHTML = ''; mkCanvas(root); },
 
-  draw(root, { spec, p, t }) {
+  draw(root, { spec, p, t, cue, nLines }) {
     const { ctx, w, h } = fitCanvas(root.querySelector('canvas'));
     const actors = spec.actors || [];
+    const appear = ease(cue(spec.appearCue ?? 0, 0.2, 0.4));
+    const walkQ = clamp(cue(spec.walkCue ?? 0, 0.15, 0.92));
 
     // 안개 걷기 — 지나간 자리가 밝아진다
     if (spec.fog?.reveal) {
       ctx.save();
       for (const a of actors) {
         for (let s = 0; s <= 24; s++) {
-          const tt = t * (s / 24);
-          const [x, y] = toPx(pos(a, tt, p * (s / 24)), w, h);
+          const f = s / 24;
+          const [x, y] = toPx(pos(a, t * f, walkQ * f), w, h);
           const g = ctx.createRadialGradient(x, y, 0, x, y, 46);
           g.addColorStop(0, 'rgba(0,255,136,.07)');
           g.addColorStop(1, 'rgba(0,255,136,0)');
@@ -66,26 +74,47 @@ export default {
     // 궤적 — 과거 1.1초를 되짚어 그린다
     const TRAIL = 1.1, N = 16;
     actors.forEach((a, ai) => {
+      if (appear < (ai + 0.5) / actors.length) return;
       ctx.lineWidth = 3; ctx.lineCap = 'round';
       for (let s = N; s > 0; s--) {
         const t0 = Math.max(0, t - TRAIL * (s / N));
         const t1 = Math.max(0, t - TRAIL * ((s - 1) / N));
-        const p0 = clamp(p - (p * TRAIL * (s / N)) / Math.max(t, .001), 0, 1);
-        const [x0, y0] = toPx(pos(a, t0, p0), w, h);
-        const [x1, y1] = toPx(pos(a, t1, p0), w, h);
+        const q = Math.max(0, walkQ - (walkQ * TRAIL * (s / N)) / Math.max(t, .001));
+        const [x0, y0] = toPx(pos(a, t0, q), w, h);
+        const [x1, y1] = toPx(pos(a, t1, q), w, h);
         ctx.strokeStyle = tone(a.color) + Math.round(6 + (1 - s / N) * 40).toString(16).padStart(2, '0');
         ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
       }
     });
 
-    // 배우
-    actors.forEach(a => {
-      const [x, y] = toPx(pos(a, t, p), w, h);
-      const c = tone(a.color);
-      ctx.fillStyle = c + '26';
-      ctx.beginPath(); ctx.arc(x, y, 17, 0, 7); ctx.fill();
+    // 배우 — 첫 자막에서 하나씩 등장한다(동시 등장 금지)
+    actors.forEach((a, ai) => {
+      const k = clamp(appear * actors.length - ai);
+      if (k <= 0) return;
+      const [x, y] = toPx(pos(a, t, walkQ), w, h);
+      const c = tone(a.color), r = lerp(7, 10, ease(k));
+      ctx.globalAlpha = ease(k);
+      ctx.fillStyle = c + '2b';
+      ctx.beginPath(); ctx.arc(x, y, r * 2.1, 0, 7); ctx.fill();
       ctx.fillStyle = c;
-      ctx.beginPath(); ctx.arc(x, y, 8.5, 0, 7); ctx.fill();
+      ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
+      ctx.globalAlpha = 1;
     });
+
+    // 왕복 카운터 — "몇 분째 계속 그 자리"를 숫자로 만든다
+    const cc = spec.tripCounter;
+    if (cc) {
+      const k = ease(cue(cc.cue ?? nLines - 1, 0.3, 0.35));
+      if (k > 0.02) {
+        const n = actors.reduce((s, a) => s + trips(a, t), 0);
+        ctx.globalAlpha = k; ctx.textAlign = 'left';
+        ctx.fillStyle = tone('sub'); ctx.font = '700 11px Consolas, monospace';
+        ctx.fillText(cc.label || '왕복', 0, 16);
+        ctx.fillStyle = tone('ink');
+        ctx.font = '900 30px Pretendard, "Malgun Gothic", sans-serif';
+        ctx.fillText(String(n) + (cc.unit || '회'), 0, 48);
+        ctx.globalAlpha = 1;
+      }
+    }
   }
 };

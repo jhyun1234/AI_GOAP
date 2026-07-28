@@ -7,18 +7,21 @@ import { span, ease, clamp, rnd, fitCanvas, mkCanvas, tone, roundRect } from '..
 export default {
   build(root) { root.innerHTML = ''; mkCanvas(root); },
 
-  draw(root, { spec, p }) {
+  draw(root, { spec, cue, nLines }) {
     const { ctx, w, h } = fitCanvas(root.querySelector('canvas'));
     const [gx, gy] = spec.grid || [24, 30];
     const budget = spec.budget || 4096;
+    // 자막에 물린다 — 숫자를 말하는 순간 숫자가 차고, 정답을 말할 때 정답이 켜진다
+    const growC = spec.growCue ?? 1;      // "4,096번을 뒤지고도 못 찾았어요"
+    const ansC = spec.answerCue ?? nLines - 1;  // "근데 정답은 딱 네 단계였어요"
 
     const gridH = h * 0.62;
     const cw = w / gx, ch = gridH / gy;
     const cx = w / 2, cy = gridH / 2;
     const maxR = Math.hypot(cx, cy);
 
-    // 파면 — 중심에서 바깥으로 번진다
-    const grow = ease(span(p, 0.05, 0.62));
+    // 파면 — 중심에서 바깥으로 번진다. 앞 자막부터 미리 번지기 시작한다(lead 1.8초)
+    const grow = ease(cue(growC, 1.8, 0.62));
     const R = grow * maxR * 1.02;
 
     let lit = 0;
@@ -39,7 +42,7 @@ export default {
 
     // 예산 카운터
     const n = Math.round(clamp(lit / (gx * gy)) * budget);
-    const done = p > 0.62;
+    const done = grow >= 1;
     ctx.textAlign = 'left';
     ctx.fillStyle = tone('sub'); ctx.font = '700 11px Consolas, monospace';
     ctx.fillText('탐색한 후보', 0, gridH + 20);
@@ -59,7 +62,7 @@ export default {
 
     // 정답 사슬 — 내내 거기 있었다
     const chain = spec.answer || [];
-    const reveal = ease(span(p, 0.66, 0.92));
+    const reveal = ease(cue(ansC, 0.15, 0.72));
     const by = h - 20;
     ctx.font = '700 11px Consolas, monospace';
     ctx.fillStyle = reveal > 0 ? tone('accent') : tone('sub');

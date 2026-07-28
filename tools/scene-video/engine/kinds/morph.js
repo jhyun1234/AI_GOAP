@@ -5,13 +5,17 @@ import { span, ease, easeOut, lerp, rnd, fitCanvas, mkCanvas, tone, roundRect } 
 export default {
   build(root) { root.innerHTML = ''; mkCanvas(root); },
 
-  draw(root, { spec, p }) {
+  draw(root, { spec, cue, nLines }) {
     const { ctx, w, h } = fitCanvas(root.querySelector('canvas'));
     const cx = w / 2, cy = h / 2;
     const N = spec.from?.shards ?? 16;
 
-    const brk = ease(span(p, 0.28, 0.78));     // 부서짐
-    const rev = ease(span(p, 0.60, 0.92));     // 드러남
+    /* "깨지죠"라고 말할 때 깨지고, "드러나거든요"라고 말할 때 드러난다.
+       🔴 드러남의 lead 를 길게 잡아 부서짐과 겹친다. 붙여서 순서대로 두면
+          파편이 다 사라진 뒤 드러남이 시작될 때까지 화면이 비는 구간이 생긴다
+          (실측 1.37초 — 가이드가 금지하는 0.5초 이상 정적 구간). */
+    const brk = ease(cue(spec.breakCue ?? 1, 0.15, 0.72));
+    const rev = ease(cue(spec.revealCue ?? nLines - 1, spec.revealLead ?? 1.3, 0.6));
 
     // 덩어리 → 파편
     const BW = w * 0.72, BH = h * 0.34;
@@ -67,7 +71,21 @@ export default {
       ctx.strokeStyle = tone('track'); ctx.lineWidth = 3;
       ctx.setLineDash([4, 7]);
       ctx.beginPath(); ctx.arc(cx, cy, 112 - rev * 14, 0, 7); ctx.stroke();
-      ctx.setLineDash([]); ctx.globalAlpha = 1;
+      ctx.setLineDash([]);
+
+      // 나머지 자리는 비었다는 표시 — "한 곳뿐"이 눈으로 확인된다.
+      // 이게 없으면 시청자는 화면 밖에 더 있는지 알 수 없다.
+      const xs = [[-1, -1], [1, -1], [-1, 1], [1, 1]];
+      ctx.globalAlpha = rev * 0.42; ctx.lineWidth = 3; ctx.lineCap = 'round';
+      ctx.strokeStyle = tone('ink');
+      for (const [sx, sy] of xs) {
+        const x = cx + sx * w * 0.30, y = cy + sy * h * 0.28, r = 9;
+        ctx.beginPath();
+        ctx.moveTo(x - r, y - r); ctx.lineTo(x + r, y + r);
+        ctx.moveTo(x + r, y - r); ctx.lineTo(x - r, y + r);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
     }
   }
 };

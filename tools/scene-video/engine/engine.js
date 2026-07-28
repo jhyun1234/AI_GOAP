@@ -77,7 +77,9 @@ function buildTimeline(timed) {
       t += dur; lines.push(rec); return rec;
     });
     const dur = (ls.at(-1).t + ls.at(-1).dur) - ls[0].t + SHOT_TAIL * 1000;
-    shots.push({ ...s, i: si, t: ls[0].t, dur, lines: ls });
+    // 샷 시작 기준 상대 시각 — kind 가 "몇 번째 자막이 말해질 때" 를 알 수 있게 한다
+    const rel = ls.map(l => ({ t: (l.t - ls[0].t) / 1000, dur: l.dur / 1000 }));
+    shots.push({ ...s, i: si, t: ls[0].t, dur, lines: ls, rel });
     t = ls[0].t + dur;
   });
   TOTAL = t;
@@ -135,9 +137,25 @@ function seek(t) {
     s.el.classList.toggle('on', on);
     if (!on) continue;
     const p = Math.min(1, (t - s.t) / s.dur);
+    const ts = (t - s.t) / 1000;
+
+    /* cue(i) — i번째 자막에 맞물린 0~1 진행률.
+       가이드(SKILL.md): 모든 reveal 은 그 내용을 말하는 자막 시작 ±20프레임 안에서 터져야 한다.
+       lead 만큼 미리 시작해 말과 그림이 동시에 도착하게 한다(0.15s = 30fps 기준 4.5프레임).
+       span 은 그 자막 길이의 몇 할을 쓸지 — 0.7 이면 자막이 끝나기 전에 그림이 완성된다. */
+    const cue = (i, lead = 0.15, span = 0.7) => {
+      const l = s.rel[Math.min(i, s.rel.length - 1)];
+      if (!l) return 0;
+      const a = l.t - lead, b = l.t + l.dur * span;
+      return Math.max(0, Math.min(1, (ts - a) / (b - a || 1e-6)));
+    };
+    /** i번째 자막이 시작된 뒤 흐른 초. 아직이면 음수. */
+    const since = i => (s.rel[i] ? ts - s.rel[i].t : -1);
+
     kinds[s.kind]?.draw?.(s.el, {
       spec: s.spec || {}, shot: s, scene,
-      p, t: (t - s.t) / 1000, dur: s.dur / 1000, abs: t / 1000
+      p, t: ts, dur: s.dur / 1000, abs: t / 1000,
+      lines: s.rel, cue, since, nLines: s.rel.length
     });
   }
 

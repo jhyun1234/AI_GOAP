@@ -69,7 +69,10 @@ function buildTimeline(timed) {
   let t = 0; shots = []; lines = [];
   scene.shots.forEach((s, si) => {
     const ls = s.lines.map((l, li) => {
-      const dur = durOf(si, li, l.say || l.text);
+      // dur = 말하는 시간, pauseAfter = 말이 끝난 뒤의 침묵.
+      // 침묵 동안 자막은 그대로 머문다 — 사람이 말을 멈춘 것이지 자막이 끝난 게 아니다.
+      // 간격을 균일하게 두면 그 규칙성 자체가 기계처럼 들린다.
+      const dur = durOf(si, li, l.say || l.text) + (l.pauseAfter ?? 0);
       const rec = { ...l, t: t, dur, shot: si };
       t += dur; lines.push(rec); return rec;
     });
@@ -150,7 +153,9 @@ function seek(t) {
   const age = (t - line.t) / 1000;
   const k = Math.min(1, age / CAP_FADE);
   cap.style.opacity = k;
-  cap.style.transform = `translateY(${(1 - k) * 7}px)`;
+  // 위에서 내려와 자리를 잡는다. 아래에서 올라오게 하면 페이드 동안 자막 바닥이
+  // 앵커(1550)보다 내려가 쇼츠 가림 영역 쪽으로 밀린다 — 바닥 고정이 깨진다.
+  cap.style.transform = `translateY(${(k - 1) * 5}px)`;
 }
 
 /* ── 컨트롤 (미리보기 전용, 렌더에는 관여하지 않음) ─ */

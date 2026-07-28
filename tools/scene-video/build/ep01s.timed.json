@@ -1,0 +1,337 @@
+{
+ "id": "ep01s",
+ "engine": "supertonic",
+ "voice": "M3",
+ "speed": 1,
+ "sampleRate": 44100,
+ "shots": [
+  {
+   "id": "S1",
+   "lines": [
+    {
+     "dur": 2878,
+     "pause": 150,
+     "say": "이 셋, 지금 몇 분째 이러고 있어요.",
+     "chars": 21,
+     "voice": "M3",
+     "speed": 1,
+     "file": "build/audio/ep01s/00-0y2kb0w.wav"
+    },
+    {
+     "dur": 3451,
+     "pause": 150,
+     "say": "나가려다 되돌아오고, 또 나가려다 되돌아오고.",
+     "chars": 25,
+     "voice": "M3",
+     "speed": 1,
+     "file": "build/audio/ep01s/01-1h16890.wav"
+    },
+    {
+     "dur": 2270,
+     "pause": 250,
+     "say": "제자리에서 아무것도 못 해요.",
+     "chars": 16,
+     "voice": "M3",
+     "speed": 1,
+     "file": "build/audio/ep01s/02-15jzyx2.wav"
+    }
+   ]
+  },
+  {
+   "id": "S2",
+   "lines": [
+    {
+     "dur": 2740,
+     "pause": 120,
+     "say": "길 문제도, 자원 문제도 아니었어요.",
+     "chars": 20,
+     "voice": "M3",
+     "speed": 1,
+     "file": "build/audio/ep01s/03-0uluo70.wav"
+    },
+    {
+     "dur": 2900,
+     "pause": 150,
+     "say": "컴퓨터가 답을 찾다가 못 찾은 거였죠.",
+     "chars": 21,
+     "voice": "M3",
+     "speed": 1,
+     "file": "build/audio/ep01s/04-16xg7s4.wav"
+    },
+    {
+     "dur": 2509,
+     "pause": 700,
+     "say": "후보를 사천 구십육 개 뒤졌거든요.",
+     "chars": 19,
+     "voice": "M3",
+     "speed": 1,
+     "file": "build/audio/ep01s/05-02g7e9m.wav"
+    },
+    {
+     "dur": 1836,
+     "pause": 250,
+     "say": "그러고도 못 찾았어요.",
+     "chars": 12,
+     "voice": "M3",
+     "speed": 1,
+     "file": "build/audio/ep01s/06-1if1x0b.wav"
+    }
+   ]
+  },
+  {
+   "id": "S3",
+   "lines": [
+    {
+     "dur": 1468,
+     "pause": 150,
+     "say": "근데 정답은요.",
+     "chars": 8,
+     "voice": "M3",
+     "speed": 1,
+     "file": "build/audio/ep01s/07-051g4ci.wav"
+    },
+    {
+     "dur": 3681,
+     "pause": 250,
+     "say": "탐험하고, 세 번 캐면 끝. 딱 네 단계예요.",
+     "chars": 25,
+     "voice": "M3",
+     "speed": 1,
+     "file": "build/audio/ep01s/08-09ehjkg.wav"
+    },
+    {
+     "dur": 4183,
+     "pause": 300,
+     "say": "사천 구십육 번을 뒤지고도, 이 네 칸을 못 찾은 거예요.",
+     "chars": 32,
+     "voice": "M3",
+     "speed": 1,
+     "file": "build/audio/ep01s/09-19rhxmd.wav"
+    }
+   ]
+  },
+  {
+   "id": "S4",
+   "lines": [
+    {
+     "dur": 1769,
+     "pause": 120,
+     "say": "이유는 비용이었어요.",
+     "chars": 11,
+     "voice": "M3",
+     "speed": 1,
+     "file": "build/audio/ep01s/10-1j2f3rh.wav"
+    },
+    {
+     "dur": 4311,
+     "pause": 150,
+     "say": "철을 아직 못 찾았으면, 캐기 값이 백오십까지 뛰거든요.",
+     "chars": 31,
+     "voice": "M3",
+     "speed": 1,
+     "file": "build/audio/ep01s/11-0nrjqmu.wav"
+    },
+    {
+     "dur": 2466,
+     "pause": 150,
+     "say": "근데 AI가 어림잡은 건 구였어요.",
+     "chars": 19,
+     "voice": "M3",
+     "speed": 1,
+     "file": "build/audio/ep01s/12-0d9dc2b.wav"
+    },
+    {
+     "dur": 2166,
+     "pause": 300,
+     "say": "오십 배를 헐값으로 본 거죠.",
+     "chars": 16,
+     "voice": "M3",
+     "speed": 1,
+     "file": "build/audio/ep01s/13-0gfv2hl.wav"
+    }
+   ]
+  },
+  {
+   "id": "S5",
+   "lines": [
+    {
+     "dur": 3368,
+     "pause": 120,
+     "say": "그러니까 싸 보이는 것만 계속 열어본 거예요.",
+     "chars": 25,
+     "voice": "M3",
+     "speed": 1,
+     "file": "build/audio/ep01s/14-1vgqoqm.wav"
+    },
+    {
+     "dur": 3696,
+     "pause": 200,
+     "say": "귀환하기. 바닥에 눕기. 원시 무기 만들기.",
+     "chars": 24,
+     "voice": "M3",
+     "speed": 1,
+     "file": "build/audio/ep01s/15-1kathgq.wav"
+    },
+    {
+     "dur": 2542,
+     "pause": 150,
+     "say": "정작 철 캐기엔 닿지도 못했고요.",
+     "chars": 18,
+     "voice": "M3",
+     "speed": 1,
+     "file": "build/audio/ep01s/16-0tnuf8a.wav"
+    },
+    {
+     "dur": 3265,
+     "pause": 300,
+     "say": "예산 사천 구십육, 여기서 다 날아갔어요.",
+     "chars": 23,
+     "voice": "M3",
+     "speed": 1,
+     "file": "build/audio/ep01s/17-07emm9m.wav"
+    }
+   ]
+  },
+  {
+   "id": "S6",
+   "lines": [
+    {
+     "dur": 2184,
+     "pause": 150,
+     "say": "예산을 늘리면 되지 않냐고요?",
+     "chars": 16,
+     "voice": "M3",
+     "speed": 1,
+     "file": "build/audio/ep01s/18-185b33p.wav"
+    },
+    {
+     "dur": 2384,
+     "pause": 300,
+     "say": "그건 제가 규칙으로 막아뒀어요.",
+     "chars": 17,
+     "voice": "M3",
+     "speed": 1,
+     "file": "build/audio/ep01s/19-1bcm0s0.wav"
+    }
+   ]
+  },
+  {
+   "id": "S7",
+   "lines": [
+    {
+     "dur": 1798,
+     "pause": 120,
+     "say": "그래서 반대로 갔어요.",
+     "chars": 12,
+     "voice": "M3",
+     "speed": 1,
+     "file": "build/audio/ep01s/20-1o798jc.wav"
+    },
+    {
+     "dur": 3721,
+     "pause": 200,
+     "say": "아직 못 찾은 자원은, 아예 목표에서 빼버렸죠.",
+     "chars": 26,
+     "voice": "M3",
+     "speed": 1,
+     "file": "build/audio/ep01s/21-16nclu9.wav"
+    },
+    {
+     "dur": 2367,
+     "pause": 400,
+     "say": "풀 수 없는 문제는 주지 않는다.",
+     "chars": 18,
+     "voice": "M3",
+     "speed": 1,
+     "file": "build/audio/ep01s/22-0qluyio.wav"
+    }
+   ]
+  },
+  {
+   "id": "S8",
+   "lines": [
+    {
+     "dur": 2564,
+     "pause": 120,
+     "say": "이거 클로드 코드랑 같이 만드는데요.",
+     "chars": 20,
+     "voice": "M3",
+     "speed": 1,
+     "file": "build/audio/ep01s/23-1cm98ig.wav"
+    },
+    {
+     "dur": 3261,
+     "pause": 180,
+     "say": "고치면서 옛날 함수를 일부러 바로 지웠어요.",
+     "chars": 24,
+     "voice": "M3",
+     "speed": 1,
+     "file": "build/audio/ep01s/24-0h3guhd.wav"
+    },
+    {
+     "dur": 4467,
+     "pause": 300,
+     "say": "컴파일이 깨져야 드러나거든요. 부르는 데가 진짜 한 곳인지.",
+     "chars": 33,
+     "voice": "M3",
+     "speed": 1,
+     "file": "build/audio/ep01s/25-1jqlo2d.wav"
+    }
+   ]
+  },
+  {
+   "id": "S9",
+   "lines": [
+    {
+     "dur": 1998,
+     "pause": 150,
+     "say": "갈팡질팡하던 애들이요.",
+     "chars": 12,
+     "voice": "M3",
+     "speed": 1,
+     "file": "build/audio/ep01s/26-02dn17s.wav"
+    },
+    {
+     "dur": 2849,
+     "pause": 200,
+     "say": "이제 그 자리에서 그냥 탐험을 나가요.",
+     "chars": 21,
+     "voice": "M3",
+     "speed": 1,
+     "file": "build/audio/ep01s/27-1osqm4x.wav"
+    },
+    {
+     "dur": 4479,
+     "pause": 800,
+     "say": "답이 없으면 멈춰 서 있던 게, 할 수 있는 일로 넘어가는 거죠.",
+     "chars": 36,
+     "voice": "M3",
+     "speed": 1,
+     "file": "build/audio/ep01s/28-15n73in.wav"
+    }
+   ]
+  },
+  {
+   "id": "S10",
+   "lines": [
+    {
+     "dur": 3522,
+     "pause": 0,
+     "say": "근데 이 마을요, 삼편에서 통째로 지워집니다.",
+     "chars": 25,
+     "voice": "M3",
+     "speed": 1,
+     "file": "build/audio/ep01s/29-1irm1p8.wav"
+    }
+   ]
+  }
+ ],
+ "summary": {
+  "spokenMs": 87093,
+  "pauseMs": 6880,
+  "totalMs": 93973,
+  "fullMs": 93972,
+  "chars": 582,
+  "charsPerSec": 6.19
+ }
+}

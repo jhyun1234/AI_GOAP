@@ -14,6 +14,7 @@ const PROVISIONAL_CPS = 5.6;   // 한국어 TTS 대략 속도(글자/초) — �
 const LINE_TAIL = 0.5;         // 한 줄 끝난 뒤 숨 (초)
 const SHOT_TAIL = 0.35;        // 샷 끝 여운 (초)
 const CAP_FADE = 0.18;         // 자막 페이드 (초)
+const ENTER = 0.26;            // 샷 진입 모션 (초)
 
 const $ = id => document.getElementById(id);
 const qs = new URLSearchParams(location.search);
@@ -138,6 +139,19 @@ function seek(t) {
     if (!on) continue;
     const p = Math.min(1, (t - s.t) / s.dur);
     const ts = (t - s.t) / 1000;
+
+    /* 샷 진입 — 컷이 아니라 짧게 밀어 넣는다. 하드 컷만 이어 붙이면 샷이 바뀐 걸
+       놓치는 프레임이 생긴다. 가이드 한도(translateY ±30px) 안이고, ts 의 함수라
+       seek 의 순수성은 그대로다 — 어느 시각으로 뛰어도 같은 그림.
+
+       🔴 여기에 scale() 을 걸면 안 된다. kind 의 캔버스는 fitCanvas 가
+       getBoundingClientRect() 로 크기를 잡는데, 이 값은 transform 이 적용된 뒤의
+       크기다. 즉 진입 0.26초 동안 백킹스토어 크기가 매 프레임 달라지고 그림이
+       흔들린다(실측: 30fps 2,924프레임 중 74프레임 불일치). translate 는 박스
+       크기를 바꾸지 않으므로 안전하다. */
+    const ek = Math.min(1, ts / ENTER), e = ek * ek * (3 - 2 * ek);
+    s.el.style.opacity = 0.12 + 0.88 * e;
+    s.el.style.transform = `translateY(${((1 - e) * 12).toFixed(2)}px)`;
 
     /* cue(i) — i번째 자막에 맞물린 0~1 진행률.
        가이드(SKILL.md): 모든 reveal 은 그 내용을 말하는 자막 시작 ±20프레임 안에서 터져야 한다.

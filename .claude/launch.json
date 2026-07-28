@@ -5,7 +5,8 @@
       "name": "scene-video",
       "runtimeExecutable": "node",
       "runtimeArgs": ["tools/scene-video/serve.js"],
-      "port": 4173
+      "port": 4174,
+      "env": { "PORT": "4174" }
     }
   ]
 }

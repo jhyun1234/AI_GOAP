@@ -28,14 +28,14 @@ export default {
       els.forEach((el, i) => {
         const c = cards[i];
         const hit = run > 0 && run < 1 && i === idx;
-        el.style.background = hit ? '#2C3242' : '#1B1E28';
-        el.style.color = hit ? tone('ink') : tone('dim');
-        el.style.outline = c.target ? `1px dashed ${tone('hot')}` : 'none';
+        el.style.background = hit ? 'rgba(255,255,255,.16)' : 'transparent';
+        el.style.color = hit ? tone('ink') : tone('sub');
+        el.style.outline = c.target ? `3px dashed ${tone('track')}` : 'none';
         el.style.outlineOffset = '2px';
         el.style.opacity = c.target ? 0.42 : 1;
       });
       const v = root.querySelector('.verdict');
-      if (v) { v.style.opacity = ease(span(p, 0.82, 0.95)); v.style.color = tone('hot'); }
+      if (v) { v.style.opacity = ease(span(p, 0.82, 0.95)); v.style.color = tone('ink'); }
       return;
     }
 
@@ -45,18 +45,18 @@ export default {
       const off = ease(span(p, 0.20 + i * 0.05, 0.40 + i * 0.05));
       const pick = ease(span(p, 0.62, 0.82));
       if (c.state === 'off') {
-        el.style.background = '#141720';
-        el.style.color = `rgba(106,113,131,${1 - 0.55 * off})`;
+        el.style.background = 'transparent';
+        el.style.color = `rgba(255,255,255,${0.7 - 0.4 * off})`;
         el.style.textDecoration = off > 0.5 ? 'line-through' : 'none';
       } else if (c.state === 'pick') {
-        el.style.background = pick > 0.1 ? tone('cool') : '#1B1E28';
-        el.style.color = pick > 0.1 ? '#06231F' : tone('dim');
+        el.style.background = pick > 0.1 ? tone('accent') : 'transparent';
+        el.style.color = pick > 0.1 ? '#000000' : tone('sub');
         el.style.fontWeight = pick > 0.1 ? 700 : 400;
       } else {
-        el.style.background = '#1B1E28'; el.style.color = tone('ink');
+        el.style.background = 'transparent'; el.style.color = tone('ink');
       }
       const why = el.querySelector('.why');
-      if (why) { why.style.opacity = off; why.style.color = tone('dim'); }
+      if (why) { why.style.opacity = off; why.style.color = tone('sub'); }
     });
   }
 };

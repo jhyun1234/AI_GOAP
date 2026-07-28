@@ -1,118 +1,115 @@
 /* scene-video 렌더러 스타일
-   규약: 시간에 따라 변하는 것에 transition/animation 을 쓰지 않는다.
-   모든 시각 상태는 engine.js 의 seek(t) 가 인라인 스타일로 직접 쓴다.
-   (프레임 단위 추출을 위해 벽시계에 의존하는 요소가 하나도 없어야 한다) */
+   규약 1: 시간에 따라 변하는 것에 transition/animation 을 쓰지 않는다.
+           모든 시각 상태는 engine.js 의 seek(t) 가 인라인 스타일로 직접 쓴다.
+           (프레임 단위 추출을 위해 벽시계에 의존하는 요소가 하나도 없어야 한다)
+   규약 2: 3색만 쓴다 — #000000 / #FFFFFF / #00FF88.
+           youtube-editor/COLOR_PALETTE.md. 보조 라벨은 rgba(255,255,255,0.7) 까지만. */
 
 :root{
-  --bg:#101218; --grid:#1B1E28; --ink:#E8EAF0; --dim:#6A7183;
-  --hot:#D6395C; --cool:#4FB6A8; --warm:#E0A458;
+  --bg:#000000; --ink:#FFFFFF; --accent:#00FF88;
+  --sub:rgba(255,255,255,.7);      /* 보조 라벨 — 허용 최소치 */
+  --track:rgba(255,255,255,.12);   /* 빈 트랙·가이드선 */
+  --line:rgba(255,255,255,.22);    /* 보더 */
   --disp:"Pretendard","Malgun Gothic","맑은 고딕",system-ui,sans-serif;
   --mono:"Cascadia Mono","Consolas","D2Coding",monospace;
 }
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:#07080B;color:var(--ink);font-family:var(--mono);
+body{background:#000;color:var(--ink);font-family:var(--mono);
   display:flex;flex-direction:column;align-items:center;gap:10px;
   min-height:100vh;padding:12px}
 
-/* ── 무대 = 9:16 ─────────────────────────────────── */
+/* ── 무대 = 9:16 ─────────────────────────────────
+   순수 검정. 격자 패턴을 걷어냈다 — 가이드가 패턴 배경을 금지하고,
+   인포그래픽이 배경 격자와 경쟁하면 둘 다 흐려진다. */
 .stage{width:min(100%,392px);aspect-ratio:9/16;background:var(--bg);
-  position:relative;overflow:hidden;
-  background-image:linear-gradient(var(--grid) 1px,transparent 1px),
-                   linear-gradient(90deg,var(--grid) 1px,transparent 1px);
-  background-size:28px 28px}
+  position:relative;overflow:hidden}
 
-/* ── 상단 : 상시 브랜딩 ───────────────────────────── */
-/* 쇼츠 상단 UI(뒤로가기·검색 아이콘)가 y 0~130 을 덮으므로 그 아래에서 시작한다.
-   top 의 % 는 컨테이너 높이 기준 — 130/1920 = 6.7708% */
+/* ── 상단 : 상시 브랜딩 ───────────────────────────
+   쇼츠 상단 UI(0~130 @1080×1920)가 덮으므로 그 아래에서 시작. 130/1920 = 6.7708% */
 .hud{position:absolute;top:6.7708%;left:0;right:0;padding:0 20px;z-index:5}
 .ep{font-family:var(--disp);font-weight:800;font-size:18px;line-height:1.24;
   letter-spacing:-.025em;color:var(--ink)}
-/* 훅과 주소를 한 줄에 나란히 두면 훅이 폭에 밀려 두 줄로 접힌다.
-   세로로 쌓아 훅이 한 줄을 온전히 쓰게 한다. */
 .airow{margin-top:7px}
 .ai{display:flex;align-items:center;gap:5px;white-space:nowrap;
-  font-size:12.5px;letter-spacing:.01em;color:var(--cool);font-weight:700}
+  font-size:12.5px;letter-spacing:.01em;color:var(--accent);font-weight:700}
 .ai .mark{font-size:13px;opacity:.85}
 .progline{display:flex;align-items:center;gap:10px;margin-top:8px}
-.prog{flex:1;height:5px;background:var(--grid);border-radius:3px;overflow:hidden}
+.prog{flex:1;height:5px;background:var(--track);border-radius:3px;overflow:hidden}
 .prog i{display:block;height:100%;background:var(--ink);width:0}
 
-/* 챕터 칩 — 테두리+빨간 글자는 어두운 배경에서 안 읽힌다. 색을 채워 배지로. */
+/* 챕터 칩 — 채운 배지. 진행 상태에 따라 흰색(문제) → 그린(해결) */
 .chip{font-family:var(--disp);font-size:12.5px;font-weight:800;letter-spacing:.06em;
   padding:5px 12px 6px;border:0;border-radius:3px;
-  background:var(--hot);color:#fff;line-height:1}
-.chip.ok{background:var(--cool);color:#06231F}
+  background:var(--ink);color:#000;line-height:1}
+.chip.ok{background:var(--accent);color:#000}
 
-/* ── 비주얼 ───────────────────────────────────────── */
-/* 상단 420 — HUD 폰트를 키우면서 HUD 바닥이 391 까지 내려왔다. 373 이면 겹친다.
-   420/1920 = 21.875%.  HUD 크기를 바꾸면 이 값도 함께 봐야 한다.
-   하단 1290 — (1920-1290)/1920 = 32.8125%
-   자막이 3줄이면 상단이 1329 까지 오므로 아래 간격은 39px 다. 더 내리면 붙는다. */
+/* ── 비주얼 ───────────────────────────────────────
+   상단 420 / 하단 1290 (@1080×1920). HUD 바닥 394 와 26px 띄운다. */
 .vis{position:absolute;top:21.875%;left:20px;right:20px;bottom:32.8125%}
 .shot{position:absolute;inset:0;display:none}
 .shot.on{display:block}
 .shot canvas{width:100%;height:100%;display:block}
 
-/* ── 자막 ─────────────────────────────────────────────
-   자막 아래쪽을 1080×1920 기준 y=1500 에 맞춘다.
-   유튜브 쇼츠는 하단 약 340px(y 1580~) 을 제목·설명·음원으로 덮으므로,
-   그 선보다 위에 자막 '바닥'을 두어 가림을 피한다.
-   bottom 의 % 는 컨테이너 '높이' 기준이라 9:16 어느 크기에서도 같은 자리다.
-     자막 바닥 1550 → (1920-1550)/1920 = 19.2708%
-   → 이 값만 바꾸면 자막 높이가 통째로 움직인다. */
-.capveil{position:absolute;left:0;right:0;bottom:0;height:46%;
-  background:linear-gradient(transparent,rgba(7,8,11,.95) 26%)}
+/* ── 자막 ─────────────────────────────────────────
+   배경 박스도 그라데이션 띠도 쓰지 않는다(가이드 금지 항목).
+   검정 위 흰 굵은 글자 + 그림자만으로 읽힌다. 배경을 덮으면 그 아래 인포그래픽이 죽는다.
+   바닥 앵커 1550 → (1920-1550)/1920 = 19.2708%. 줄이 늘면 위로만 자란다. */
 .cap{position:absolute;left:0;right:0;bottom:19.2708%;
-  display:flex;flex-direction:column;justify-content:flex-end;padding:0 22px}
-.cap p{white-space:pre-line;font-family:var(--disp);font-weight:700;
-  font-size:20px;line-height:1.34;letter-spacing:-.015em;min-height:2.7em}
-.outro{display:block;margin-top:4px;font-size:10.5px;color:#828B9E;
+  display:flex;flex-direction:column;justify-content:flex-end;padding:0 22px;z-index:4}
+.cap p{white-space:pre-line;font-family:var(--disp);font-weight:900;
+  font-size:20px;line-height:1.34;letter-spacing:-.015em;min-height:2.7em;
+  color:var(--ink);text-shadow:0 2px 8px rgba(0,0,0,.85), 0 0 2px rgba(0,0,0,.9)}
+.outro{display:block;margin-top:4px;font-size:10.5px;color:var(--sub);
   letter-spacing:.08em;white-space:nowrap}
 
-/* ── kind 공용 조각 ───────────────────────────────── */
-.hookbig{font-family:var(--disp);font-weight:800;font-size:33px;line-height:1.1;
+/* ── kind 공용 조각 ───────────────────────────────
+   선·보더는 최소 3px. 검정 배경에서 1~2px 은 사라진다. */
+.hookbig{font-family:var(--disp);font-weight:900;font-size:33px;line-height:1.1;
   letter-spacing:-.035em;white-space:pre-line;display:flex;align-items:center;height:100%}
 
 .rows{height:100%;display:flex;flex-direction:column;justify-content:center;gap:7px}
-.row{font-family:var(--mono);font-size:11px;line-height:1.45;color:var(--dim);
-  border-left:2px solid var(--grid);padding:4px 0 4px 9px;white-space:pre-wrap}
-.row.warn{color:#B9A06A;border-left-color:#5A4B28}
-.row.hot{color:var(--hot);border-left-color:var(--hot)}
-.row em{font-style:normal;background:var(--hot);color:#fff;padding:1px 4px;border-radius:2px}
+.row{font-family:var(--mono);font-size:11px;line-height:1.45;color:var(--sub);
+  border-left:3px solid var(--track);padding:4px 0 4px 9px;white-space:pre-wrap}
+.row.warn{color:var(--ink);border-left-color:var(--line)}
+.row.hot{color:var(--ink);border-left-color:var(--ink)}
+.row em{font-style:normal;background:var(--accent);color:#000;padding:1px 5px;
+  border-radius:2px;font-weight:700}
 
 .cmp{height:100%;display:flex;align-items:flex-end;gap:16px;padding-bottom:8px}
 .cmpcol{flex:1;display:flex;flex-direction:column;justify-content:flex-end;
   align-items:center;gap:9px;height:100%}
 .cmpcol .barwrap{flex:1;display:flex;align-items:flex-end;width:56%}
 .cmpcol .bar2{width:100%;border-radius:3px 3px 0 0}
-.cmpcol b{font-family:var(--disp);font-weight:800;font-size:30px;letter-spacing:-.03em}
-.cmpcol small{font-size:10px;color:var(--dim);text-align:center;line-height:1.35}
-.cmpnote{position:absolute;right:0;top:8px;font-family:var(--disp);font-weight:800;
-  font-size:22px;color:var(--hot)}
+.cmpcol b{font-family:var(--disp);font-weight:900;font-size:34px;letter-spacing:-.03em;
+  line-height:1.1}
+.cmpcol small{font-size:11px;color:var(--sub);text-align:center;line-height:1.35}
+.cmpnote{position:absolute;right:0;top:8px;font-family:var(--disp);font-weight:900;
+  font-size:24px;color:var(--accent);line-height:1.1}
 
 .choice{height:100%;display:flex;flex-direction:column;justify-content:center;gap:12px}
-.opt{border:1px solid var(--grid);border-radius:4px;padding:12px 14px;
+.opt{border:3px solid var(--track);border-radius:4px;padding:12px 14px;
   display:flex;align-items:center;justify-content:space-between;gap:10px}
-.opt .nm{font-family:var(--disp);font-weight:700;font-size:14px}
-.opt .vd{font-size:10px;letter-spacing:.1em;font-weight:700}
-.opt .tag{font-size:9.5px;color:var(--hot);border:1px solid var(--hot);
-  padding:2px 6px;border-radius:2px}
+.opt .nm{font-family:var(--disp);font-weight:800;font-size:14px}
+.opt .vd{font-size:10.5px;letter-spacing:.1em;font-weight:800}
+.opt .tag{font-size:10px;color:var(--ink);border:3px solid var(--line);
+  padding:2px 6px;border-radius:2px;font-weight:700}
 
 .planwrap{height:100%;display:flex;flex-direction:column;justify-content:center;gap:12px}
-.goalchip{align-self:flex-start;font-size:10px;letter-spacing:.09em;color:var(--cool);
-  border:1px solid var(--cool);padding:4px 9px}
+.goalchip{align-self:flex-start;font-size:10.5px;letter-spacing:.09em;color:var(--accent);
+  border:3px solid var(--accent);padding:4px 9px;font-weight:700}
 .cards{display:flex;flex-wrap:wrap;gap:6px}
-.card{font-size:11.5px;padding:7px 10px;background:var(--grid);color:var(--dim);
-  border-radius:3px;position:relative}
-.card .why{display:block;font-size:8.5px;letter-spacing:.04em;margin-top:2px}
-.verdict{font-family:var(--disp);font-weight:800;font-size:17px;letter-spacing:-.02em}
+.card{font-size:12px;padding:7px 10px;background:transparent;color:var(--sub);
+  border:3px solid var(--track);border-radius:3px;position:relative;font-weight:700}
+.card .why{display:block;font-size:9px;letter-spacing:.04em;margin-top:2px;font-weight:400}
+.verdict{font-family:var(--disp);font-weight:900;font-size:18px;letter-spacing:-.02em;
+  line-height:1.1}
 
 /* ── 컨트롤 (영상에는 안 들어감) ──────────────────── */
 .bar{width:min(100%,392px);display:flex;gap:8px;align-items:center}
 button{font-family:inherit;font-size:11px;font-weight:700;letter-spacing:.1em;
-  text-transform:uppercase;background:var(--ink);color:#101218;border:0;
+  text-transform:uppercase;background:var(--ink);color:#000;border:0;
   padding:9px 14px;border-radius:2px;cursor:pointer}
 button.ghost{background:transparent;color:var(--ink);border:1px solid #2A2E3A}
-#scrub{flex:1;accent-color:var(--cool)}
-.time{font-size:10px;color:var(--dim);min-width:48px;text-align:right}
-.hint{width:min(100%,392px);font-size:10px;color:var(--dim);line-height:1.6}
+#scrub{flex:1;accent-color:var(--accent)}
+.time{font-size:10px;color:var(--sub);min-width:48px;text-align:right}
+.hint{width:min(100%,392px);font-size:10px;color:var(--sub);line-height:1.6}

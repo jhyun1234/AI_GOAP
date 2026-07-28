@@ -29,9 +29,10 @@ export default {
         const jitter = rnd(i * 131 + j * 17) * 26;
         const on = d + jitter < R;
         if (on) lit++;
+        // 3색 — 탐색이 닿은 칸은 흰색(대조 대상), 파면 가장자리만 밝게. 어두운 fill 금지
         ctx.fillStyle = on
-          ? (d + jitter > R - 22 ? '#7A2338' : '#2A1620')
-          : '#16191F';
+          ? (d + jitter > R - 22 ? 'rgba(255,255,255,.85)' : 'rgba(255,255,255,.28)')
+          : 'rgba(255,255,255,.07)';
         ctx.fillRect(x + .6, y + .6, cw - 1.2, ch - 1.2);
       }
     }
@@ -40,19 +41,18 @@ export default {
     const n = Math.round(clamp(lit / (gx * gy)) * budget);
     const done = p > 0.62;
     ctx.textAlign = 'left';
-    ctx.fillStyle = tone('dim'); ctx.font = '600 9.5px Consolas, monospace';
+    ctx.fillStyle = tone('sub'); ctx.font = '700 11px Consolas, monospace';
     ctx.fillText('탐색한 후보', 0, gridH + 20);
-    ctx.fillStyle = done ? tone('hot') : tone('ink');
-    ctx.font = '800 30px Pretendard, "Malgun Gothic", sans-serif';
-    ctx.fillText((done ? budget : n).toLocaleString(), 0, gridH + 50);
+    ctx.fillStyle = tone('ink');
+    ctx.font = '900 34px Pretendard, "Malgun Gothic", sans-serif';
+    ctx.fillText((done ? budget : n).toLocaleString(), 0, gridH + 52);
 
     if (done) {
-      const flash = 0.55 + 0.45 * Math.abs(Math.sin(p * 22));
-      ctx.strokeStyle = tone('hot'); ctx.globalAlpha = flash;
-      ctx.lineWidth = 2; ctx.strokeRect(1, 1, w - 2, gridH - 2);
-      ctx.globalAlpha = 1;
+      // 실패는 색이 아니라 맥락으로 — 흰 테두리 + NoSolution 라벨. 깜빡임은 안 쓴다
+      ctx.strokeStyle = tone('ink'); ctx.lineWidth = 3;
+      ctx.strokeRect(1.5, 1.5, w - 3, gridH - 3);
       ctx.textAlign = 'right';
-      ctx.fillStyle = tone('hot'); ctx.font = '700 11px Consolas, monospace';
+      ctx.fillStyle = tone('ink'); ctx.font = '700 12px Consolas, monospace';
       ctx.fillText(spec.verdict || 'NoSolution', w, gridH + 50);
       ctx.textAlign = 'left';
     }
@@ -61,22 +61,23 @@ export default {
     const chain = spec.answer || [];
     const reveal = ease(span(p, 0.66, 0.92));
     const by = h - 20;
-    ctx.font = '600 9.5px Consolas, monospace';
-    ctx.fillStyle = reveal > 0 ? tone('cool') : tone('dim');
-    ctx.fillText('정답', 0, by - 26);
+    ctx.font = '700 11px Consolas, monospace';
+    ctx.fillStyle = reveal > 0 ? tone('accent') : tone('sub');
+    ctx.fillText('정답', 0, by - 28);
 
     let x = 0;
     chain.forEach((s, i) => {
-      const bw = ctx.measureText(s).width + 16;
-      const hot = reveal > i / chain.length;
-      ctx.strokeStyle = hot ? tone('cool') : '#262B36';
-      ctx.fillStyle = hot ? 'rgba(79,182,168,.13)' : 'transparent';
-      roundRect(ctx, x, by - 18, bw, 20, 3); ctx.fill(); ctx.stroke();
-      ctx.fillStyle = hot ? tone('cool') : tone('dim');
-      ctx.fillText(s, x + 8, by - 4);
-      x += bw + 4;
+      const bw = ctx.measureText(s).width + 18;
+      const on = reveal > i / chain.length;
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = on ? tone('accent') : tone('track');
+      ctx.fillStyle = on ? 'rgba(0,255,136,.14)' : 'transparent';
+      roundRect(ctx, x + 1.5, by - 19, bw, 22, 3); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = on ? tone('accent') : tone('sub');
+      ctx.fillText(s, x + 10, by - 4);
+      x += bw + 5;
       if (i < chain.length - 1) {
-        ctx.fillStyle = '#3A404E'; ctx.fillText('›', x - 2, by - 4); x += 8;
+        ctx.fillStyle = tone('track'); ctx.fillText('›', x - 2, by - 4); x += 9;
       }
     });
   }

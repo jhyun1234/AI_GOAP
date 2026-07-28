@@ -15,7 +15,7 @@
      "chars": 19,
      "voice": "M3",
      "speed": 1,
-     "file": "build/audio/ep01/00.wav"
+     "file": "build/audio/ep01/00-0lb6dic.wav"
     }
    ]
   },
@@ -29,7 +29,7 @@
      "chars": 48,
      "voice": "M3",
      "speed": 1,
-     "file": "build/audio/ep01/01.wav"
+     "file": "build/audio/ep01/01-0c3sy1d.wav"
     },
     {
      "dur": 5057,
@@ -38,7 +38,7 @@
      "chars": 37,
      "voice": "M3",
      "speed": 1,
-     "file": "build/audio/ep01/02.wav"
+     "file": "build/audio/ep01/02-1pygsvk.wav"
     },
     {
      "dur": 2382,
@@ -47,7 +47,7 @@
      "chars": 16,
      "voice": "M3",
      "speed": 1,
-     "file": "build/audio/ep01/03.wav"
+     "file": "build/audio/ep01/03-10h6lc2.wav"
     }
    ]
   },
@@ -61,7 +61,7 @@
      "chars": 13,
      "voice": "M3",
      "speed": 1,
-     "file": "build/audio/ep01/04.wav"
+     "file": "build/audio/ep01/04-1qrbvzs.wav"
     },
     {
      "dur": 5426,
@@ -70,7 +70,7 @@
      "chars": 43,
      "voice": "M3",
      "speed": 1,
-     "file": "build/audio/ep01/05.wav"
+     "file": "build/audio/ep01/05-0hjcc4z.wav"
     }
    ]
   },
@@ -84,7 +84,7 @@
      "chars": 25,
      "voice": "M3",
      "speed": 1,
-     "file": "build/audio/ep01/06.wav"
+     "file": "build/audio/ep01/06-02motsu.wav"
     },
     {
      "dur": 3185,
@@ -93,7 +93,7 @@
      "chars": 24,
      "voice": "M3",
      "speed": 1,
-     "file": "build/audio/ep01/07.wav"
+     "file": "build/audio/ep01/07-0g0d6l9.wav"
     },
     {
      "dur": 4390,
@@ -102,7 +102,7 @@
      "chars": 33,
      "voice": "M3",
      "speed": 1,
-     "file": "build/audio/ep01/08.wav"
+     "file": "build/audio/ep01/08-1tdf7cc.wav"
     }
    ]
   },
@@ -116,7 +116,7 @@
      "chars": 18,
      "voice": "M3",
      "speed": 1,
-     "file": "build/audio/ep01/09.wav"
+     "file": "build/audio/ep01/09-0nk1e8r.wav"
     },
     {
      "dur": 5035,
@@ -125,7 +125,7 @@
      "chars": 37,
      "voice": "M3",
      "speed": 1,
-     "file": "build/audio/ep01/10.wav"
+     "file": "build/audio/ep01/10-12y3ebi.wav"
     },
     {
      "dur": 4392,
@@ -134,7 +134,7 @@
      "chars": 33,
      "voice": "M3",
      "speed": 1,
-     "file": "build/audio/ep01/11.wav"
+     "file": "build/audio/ep01/11-1avy3uc.wav"
     }
    ]
   },
@@ -148,7 +148,7 @@
      "chars": 27,
      "voice": "M3",
      "speed": 1,
-     "file": "build/audio/ep01/12.wav"
+     "file": "build/audio/ep01/12-0h2ceu5.wav"
     },
     {
      "dur": 3696,
@@ -157,7 +157,7 @@
      "chars": 24,
      "voice": "M3",
      "speed": 1,
-     "file": "build/audio/ep01/13.wav"
+     "file": "build/audio/ep01/13-1kathgq.wav"
     },
     {
      "dur": 4515,
@@ -166,7 +166,7 @@
      "chars": 33,
      "voice": "M3",
      "speed": 1,
-     "file": "build/audio/ep01/14.wav"
+     "file": "build/audio/ep01/14-1hp03ro.wav"
     }
    ]
   },
@@ -180,25 +180,16 @@
      "chars": 34,
      "voice": "M3",
      "speed": 1,
-     "file": "build/audio/ep01/15.wav"
+     "file": "build/audio/ep01/15-12nyprf.wav"
     },
     {
-     "dur": 1727,
-     "pause": 120,
-     "say": "그래서 반대로 갔죠.",
-     "chars": 11,
-     "voice": "M3",
-     "speed": 1,
-     "file": "build/audio/ep01/16.wav"
-    },
-    {
-     "dur": 4209,
+     "dur": 5465,
      "pause": 250,
-     "say": "아직 못 찾은 자원은, 아예 목표 후보에서 빼버렸어요.",
-     "chars": 30,
+     "say": "그래서 반대로 갔죠. 아직 못 찾은 자원은, 아예 목표 후보에서 빼버렸어요.",
+     "chars": 42,
      "voice": "M3",
      "speed": 1,
-     "file": "build/audio/ep01/17.wav"
+     "file": "build/audio/ep01/16-0gokchv.wav"
     },
     {
      "dur": 2367,
@@ -207,7 +198,7 @@
      "chars": 18,
      "voice": "M3",
      "speed": 1,
-     "file": "build/audio/ep01/18.wav"
+     "file": "build/audio/ep01/17-0qluyio.wav"
     }
    ]
   },
@@ -221,7 +212,7 @@
      "chars": 26,
      "voice": "M3",
      "speed": 1,
-     "file": "build/audio/ep01/19.wav"
+     "file": "build/audio/ep01/18-1rb5ayw.wav"
     },
     {
      "dur": 5432,
@@ -230,16 +221,25 @@
      "chars": 40,
      "voice": "M3",
      "speed": 1,
-     "file": "build/audio/ep01/20.wav"
+     "file": "build/audio/ep01/19-0zqji03.wav"
     },
     {
-     "dur": 6055,
-     "pause": 300,
-     "say": "후자는 부를 때마다 메모리가 조금씩 새거든요. 초당 몇 번씩 도는 루프라, 접었어요.",
-     "chars": 47,
+     "dur": 3446,
+     "pause": 120,
+     "say": "후자는 부를 때마다 메모리가 조금씩 새거든요.",
+     "chars": 25,
      "voice": "M3",
      "speed": 1,
-     "file": "build/audio/ep01/21.wav"
+     "file": "build/audio/ep01/20-0i9s7hv.wav"
+    },
+    {
+     "dur": 2918,
+     "pause": 300,
+     "say": "초당 몇 번씩 도는 루프라, 접었어요.",
+     "chars": 21,
+     "voice": "M3",
+     "speed": 1,
+     "file": "build/audio/ep01/21-0ofxngi.wav"
     }
    ]
   },
@@ -253,7 +253,7 @@
      "chars": 23,
      "voice": "M3",
      "speed": 1,
-     "file": "build/audio/ep01/22.wav"
+     "file": "build/audio/ep01/22-1rz24bl.wav"
     },
     {
      "dur": 2608,
@@ -262,7 +262,7 @@
      "chars": 17,
      "voice": "M3",
      "speed": 1,
-     "file": "build/audio/ep01/23.wav"
+     "file": "build/audio/ep01/23-0tc440m.wav"
     },
     {
      "dur": 4827,
@@ -271,7 +271,7 @@
      "chars": 36,
      "voice": "M3",
      "speed": 1,
-     "file": "build/audio/ep01/24.wav"
+     "file": "build/audio/ep01/24-06jleu2.wav"
     }
    ]
   },
@@ -285,7 +285,7 @@
      "chars": 35,
      "voice": "M3",
      "speed": 1,
-     "file": "build/audio/ep01/25.wav"
+     "file": "build/audio/ep01/25-19aqvx7.wav"
     },
     {
      "dur": 5429,
@@ -294,7 +294,7 @@
      "chars": 44,
      "voice": "M3",
      "speed": 1,
-     "file": "build/audio/ep01/26.wav"
+     "file": "build/audio/ep01/26-0t054h2.wav"
     }
    ]
   },
@@ -308,17 +308,17 @@
      "chars": 25,
      "voice": "M3",
      "speed": 1,
-     "file": "build/audio/ep01/27.wav"
+     "file": "build/audio/ep01/27-1irm1p8.wav"
     }
    ]
   }
  ],
  "summary": {
-  "spokenMs": 110381,
+  "spokenMs": 110219,
   "pauseMs": 6660,
-  "totalMs": 117041,
-  "fullMs": 117044,
+  "totalMs": 116879,
+  "fullMs": 116882,
   "chars": 764,
-  "charsPerSec": 6.53
+  "charsPerSec": 6.54
  }
 }

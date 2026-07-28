@@ -31,18 +31,20 @@ export default {
       ctx.globalAlpha = a;
       ctx.translate(x + sw / 2, y + sh / 2);
       ctx.rotate(rnd(i * 71 + 3) * brk * 1.6 - brk * 0.8);
-      ctx.fillStyle = i % 4 === 0 ? '#2C3242' : '#1F2430';
-      ctx.strokeStyle = '#39404F'; ctx.lineWidth = 1;
-      roundRect(ctx, -sw / 2 + 1, -sh / 2 + 1, sw - 2, sh - 2, 2);
+      // 3색 — 파편은 흰 아웃라인, fill 은 검정. 어두운 회색 fill 은 검정에서 안 보인다
+      ctx.fillStyle = '#000000';
+      ctx.strokeStyle = i % 4 === 0 ? tone('ink') : tone('track');
+      ctx.lineWidth = 3;
+      roundRect(ctx, -sw / 2 + 2, -sh / 2 + 2, sw - 4, sh - 4, 2);
       ctx.fill(); ctx.stroke();
       ctx.restore();
     }
 
     if (brk < 0.55) {
       ctx.globalAlpha = 1 - brk / 0.55;
-      ctx.fillStyle = tone('dim'); ctx.textAlign = 'center';
-      ctx.font = '600 11px Consolas, monospace';
-      ctx.fillText(spec.from?.label || '', cx, cy - BH / 2 - 14);
+      ctx.fillStyle = tone('sub'); ctx.textAlign = 'center';
+      ctx.font = '700 12px Consolas, monospace';
+      ctx.fillText(spec.from?.label || '', cx, cy - BH / 2 - 16);
       ctx.globalAlpha = 1;
     }
 
@@ -52,19 +54,19 @@ export default {
       ctx.save();
       ctx.globalAlpha = rev;
       ctx.translate(cx, cy); ctx.scale(s, s);
-      ctx.strokeStyle = tone('cool'); ctx.lineWidth = 1.5;
-      ctx.fillStyle = 'rgba(79,182,168,.10)';
-      roundRect(ctx, -78, -21, 156, 42, 4); ctx.fill(); ctx.stroke();
-      ctx.fillStyle = tone('cool'); ctx.textAlign = 'center';
-      ctx.font = '700 13px Pretendard, "Malgun Gothic", sans-serif';
-      ctx.fillText(spec.to?.label || '', 0, 5);
+      ctx.strokeStyle = tone('accent'); ctx.lineWidth = 3;
+      ctx.fillStyle = 'rgba(0,255,136,.12)';
+      roundRect(ctx, -86, -23, 172, 46, 4); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = tone('accent'); ctx.textAlign = 'center';
+      ctx.font = '900 15px Pretendard, "Malgun Gothic", sans-serif';
+      ctx.fillText(spec.to?.label || '', 0, 6);
       ctx.restore();
 
       // 사방을 훑는 시선 — 여기 말고는 없다
-      ctx.globalAlpha = rev * 0.5;
-      ctx.strokeStyle = '#2A3038'; ctx.lineWidth = 1;
-      ctx.setLineDash([3, 5]);
-      ctx.beginPath(); ctx.arc(cx, cy, 108 - rev * 14, 0, 7); ctx.stroke();
+      ctx.globalAlpha = rev * 0.55;
+      ctx.strokeStyle = tone('track'); ctx.lineWidth = 3;
+      ctx.setLineDash([4, 7]);
+      ctx.beginPath(); ctx.arc(cx, cy, 112 - rev * 14, 0, 7); ctx.stroke();
       ctx.setLineDash([]); ctx.globalAlpha = 1;
     }
   }

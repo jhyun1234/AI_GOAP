@@ -36,13 +36,16 @@ const flat = [];
 scene.shots.forEach((s, si) => s.lines.forEach((l, li) => flat.push({ si, li, l })));
 console.log(`${EP} · Supertonic ${voiceName} · speed ${speed} · ${SR}Hz · ${flat.length}줄`);
 
-// 같은 문장은 다시 합성하지 않는다
-let prev = {};
-try { prev = read(`build/${EP}.timed.json`); } catch { }
-const cachedOk = (si, li, say) => {
-  const c = prev.shots?.[si]?.lines?.[li];
-  return c && c.say === say && c.voice === voiceName && c.speed === speed
-    && fs.existsSync(path.join(ROOT, c.file)) ? c : null;
+/* 같은 문장은 다시 합성하지 않는다 — 파일 이름을 내용으로 짓는다.
+   🔴 인덱스(00.wav, 01.wav…)로 이름을 지으면 안 된다. 자막을 하나 합치거나
+   나누는 순간 그 뒤 인덱스가 전부 밀려서, 캐시는 "같은 문장"이라고 판단하는데
+   그 자리의 파일은 다른 문장의 음성이 된다. 실제로 그렇게 어긋났다
+   (통짜 113.8s vs 합계 116.9s). 내용 해시로 이름을 지으면 구조가 바뀌어도 안전하다. */
+const keyOf = say => {
+  let h = 2166136261;
+  const s = `${voiceName}|${speed}|${steps}|${say}`;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return (h >>> 0).toString(36).padStart(7, '0');
 };
 
 const timed = {
@@ -56,25 +59,25 @@ let spoken = 0, pauses = 0, made = 0, reused = 0;
 for (let i = 0; i < flat.length; i++) {
   const { si, li, l } = flat[i];
   const say = l.say || l.text;
-  const file = path.join(outDir, String(i).padStart(2, '0') + '.wav');
+  const file = path.join(outDir, `${String(i).padStart(2, '0')}-${keyOf(say)}.wav`);
   const rel = path.relative(ROOT, file).replace(/\\/g, '/');
 
-  let dur;
-  const hit = cachedOk(si, li, say);
-  if (hit) { dur = hit.dur; reused++; }
-  else {
-    const r = await tts.call(say, 'ko', style, steps, speed);
-    const wav = r.wav.slice(0, Math.floor(SR * r.duration[0]));
-    writeWavFile(file, wav, SR);
-    dur = Math.round(r.duration[0] * 1000);
-    made++;
-  }
+  // 같은 내용의 파일이 어느 인덱스에 있든 찾아서 재사용한다
+  const twin = fs.readdirSync(outDir).find(f => f.endsWith(`-${keyOf(say)}.wav`));
+  if (twin && path.join(outDir, twin) !== file) fs.renameSync(path.join(outDir, twin), file);
 
-  // 통짜 파일은 항상 방금 쓴 파일에서 다시 읽는다(캐시든 신규든 같은 경로)
+  if (!fs.existsSync(file)) {
+    const r = await tts.call(say, 'ko', style, steps, speed);
+    writeWavFile(file, r.wav.slice(0, Math.floor(SR * r.duration[0])), SR);
+    made++;
+  } else reused++;
+
+  // 길이도 통짜 파일도 항상 '방금 확정된 그 파일'에서 읽는다.
+  // 합성 결과를 따로 들고 있으면 캐시 경로와 신규 경로가 갈려 어긋날 수 있다.
   const buf = fs.readFileSync(file);
-  const n = (buf.length - 44) / 4;                    // Float32 mono 라고 가정하지 않고 헤더로 확인
   const bits = buf.readUInt16LE(34), ch = buf.readUInt16LE(22);
   const samples = (buf.length - 44) / (bits / 8) / ch;
+  const dur = Math.round(samples / SR * 1000);
   const f32 = new Float32Array(samples);
   for (let s = 0; s < samples; s++)
     f32[s] = bits === 16 ? buf.readInt16LE(44 + s * 2) / 32768 : buf.readFloatLE(44 + s * 4);

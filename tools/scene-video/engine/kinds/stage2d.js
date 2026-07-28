@@ -43,30 +43,30 @@ export default {
           const tt = t * (s / 24);
           const [x, y] = toPx(pos(a, tt, p * (s / 24)), w, h);
           const g = ctx.createRadialGradient(x, y, 0, x, y, 46);
-          g.addColorStop(0, 'rgba(79,182,168,.055)');
-          g.addColorStop(1, 'rgba(79,182,168,0)');
+          g.addColorStop(0, 'rgba(0,255,136,.07)');
+          g.addColorStop(1, 'rgba(0,255,136,0)');
           ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, 46, 0, 7); ctx.fill();
         }
       }
       ctx.restore();
     }
 
-    // 기지 등 소품
+    // 기지 등 소품 — 검정 위에서 보이려면 보더 3px 이상, 어두운 fill 금지
     for (const pr of spec.props || []) {
       const [x, y] = toPx(pr.at, w, h);
-      ctx.strokeStyle = '#2C3242'; ctx.lineWidth = 1.5;
-      ctx.strokeRect(x - 15, y - 12, 30, 24);
-      ctx.fillStyle = '#15181F'; ctx.fillRect(x - 15, y - 12, 30, 24);
+      ctx.fillStyle = '#000000'; ctx.fillRect(x - 17, y - 13, 34, 26);
+      ctx.strokeStyle = tone('track'); ctx.lineWidth = 3;
+      ctx.strokeRect(x - 17, y - 13, 34, 26);
       if (pr.label) {
-        ctx.fillStyle = tone('dim'); ctx.font = '600 9px Consolas, monospace';
-        ctx.textAlign = 'center'; ctx.fillText(pr.label, x, y + 26);
+        ctx.fillStyle = tone('sub'); ctx.font = '700 11px Consolas, monospace';
+        ctx.textAlign = 'center'; ctx.fillText(pr.label, x, y + 30);
       }
     }
 
     // 궤적 — 과거 1.1초를 되짚어 그린다
     const TRAIL = 1.1, N = 16;
     actors.forEach((a, ai) => {
-      ctx.lineWidth = 2; ctx.lineCap = 'round';
+      ctx.lineWidth = 3; ctx.lineCap = 'round';
       for (let s = N; s > 0; s--) {
         const t0 = Math.max(0, t - TRAIL * (s / N));
         const t1 = Math.max(0, t - TRAIL * ((s - 1) / N));

@@ -32,11 +32,11 @@ export default {
         const settle = ease(span(p, 0.62, 0.86));
         const chosen = s.tone !== 'dim';
         el.style.borderColor = settle > 0.3
-          ? (chosen ? tone('cool') : '#23262F') : '#1B1E28';
-        el.style.background = settle > 0.3 && chosen ? 'rgba(79,182,168,.09)' : 'transparent';
+          ? (chosen ? tone('accent') : tone('track')) : tone('track');
+        el.style.background = settle > 0.3 && chosen ? 'rgba(0,255,136,.10)' : 'transparent';
         el.querySelector('.vd').style.color = settle > 0.3
-          ? (chosen ? tone('cool') : tone('dim')) : tone('dim');
-        el.querySelector('.nm').style.color = settle > 0.3 && !chosen ? tone('dim') : tone('ink');
+          ? (chosen ? tone('accent') : tone('sub')) : tone('sub');
+        el.querySelector('.nm').style.color = settle > 0.3 && !chosen ? tone('sub') : tone('ink');
         const tag = el.querySelector('.tag');
         if (tag) tag.style.opacity = ease(span(p, 0.5, 0.66));
       });

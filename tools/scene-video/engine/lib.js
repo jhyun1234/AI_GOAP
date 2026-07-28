@@ -38,11 +38,30 @@ export function mkCanvas(root) {
   return cv;
 }
 
+/* 3색 팔레트 — youtube-editor/COLOR_PALETTE.md
+   검정 배경 · 흰색 텍스트 · 네온 그린 강조. 이 셋 밖의 색은 쓰지 않는다.
+   왜: 색이 늘면 시청자가 "이 색은 무슨 뜻이지"를 매번 풀어야 하고,
+       검정 바다에 그린 하나만 빛나야 눈이 자동으로 간다.
+
+   의미 매핑(옛 5색 → 3색):
+     warm(주민) · hot(문제/실패) → #FFFFFF  대조 대상은 전부 중립 흰색
+     cool(해결/정답)            → #00FF88  강조는 이 색 하나뿐
+   대비는 색이 아니라 위계(크기·굵기)와 맥락(라벨·아이콘)으로 만든다. */
 export const PALETTE = {
-  hot: '#D6395C', cool: '#4FB6A8', warm: '#E0A458',
-  ink: '#E8EAF0', dim: '#6A7183', grid: '#1B1E28', bg: '#101218'
+  bg: '#000000',
+  ink: '#FFFFFF',
+  accent: '#00FF88',
+  sub: 'rgba(255,255,255,0.7)',    // 보조 라벨 — 0.7 이 허용 최소치
+  track: 'rgba(255,255,255,0.12)', // 빈 트랙·가이드선 (0.1 미만은 검정에서 안 보임)
+
+  // 옛 이름 호환 — 씬 JSON 이 아직 warm/hot/cool 로 쓰고 있어 매핑만 해 둔다
+  warm: '#FFFFFF', hot: '#FFFFFF', cool: '#00FF88',
+  dim: 'rgba(255,255,255,0.7)', grid: 'rgba(255,255,255,0.12)'
 };
 export const tone = t => PALETTE[t] || t || PALETTE.ink;
+
+/** 검정 배경 대비 최소 두께 — 1~2px 선은 영상에서 사라진다 */
+export const MIN_STROKE = 3;
 
 /** 둥근 사각형 경로 */
 export function roundRect(ctx, x, y, w, h, r) {

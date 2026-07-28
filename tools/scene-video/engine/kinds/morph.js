@@ -50,7 +50,7 @@ export default {
 
     // 뒤에 있던 것 — 하나만 남는다
     if (rev > 0) {
-      const s = lerp(0.7, 1, rev);
+      const s = lerp(0.85, 1, rev);   // 가이드: scale 0.8~1.15 범위 (레이아웃 시프트 방지)
       ctx.save();
       ctx.globalAlpha = rev;
       ctx.translate(cx, cy); ctx.scale(s, s);

@@ -24,6 +24,7 @@
 # devlog hook 로컬 상태 (기기별 상이)
 tools/devlog/.last-processed-commit
 tools/devlog/.hook-errors.log
+tools/devlog/.narrative-nudged
 
 # Obsidian 뷰어 설정 (개인 워크스페이스 상태, 커밋 불필요)
 .obsidian/

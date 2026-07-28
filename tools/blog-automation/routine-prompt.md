@@ -161,6 +161,25 @@ blog-master, blog-publisher). Agent 도구로 이 순서대로 호출.
 마지막 초안을 Blogger 초안 상태로 올리고 `PIPELINE_RESULT: DRAFTED`로 종료한다.
 draft 게시까지 실패하면 그때만 `REJECTED_3X`로 종료. 사람의 승인은 기다리지 않는다.
 
+**파이프라인 자기 오류에서 파생된 반려도 카운터에 그대로 포함한다** — 예외를 두면
+마스터가 자기 판정을 스스로 무효화할 수 있게 되어 fail-closed 원칙이 무너진다. 대신
+아래 스냅샷과 `blog-master.md`의 근거 의무로 오류 자체를 막는다.
+
+### 🔴 사고 원본 스냅샷 (2026-07-28 추가 — 생략 금지)
+
+`.staging/`은 `.gitignore` 대상이라 사이클이 끝나면 사라진다. 그래서 07-28 사고에서는
+반려의 원인으로 지목된 `04_verdict.md`를 사후에 아무도 열어볼 수 없었다 — **원인 규명이
+기록의 부재로 막혔다.** 반려 3회 경로(DRAFTED / REJECTED_3X)에서는 종료 전에 반드시:
+
+```bash
+SNAP="tools/blog-automation/state/incidents/$(date -u +%Y-%m-%d)"
+mkdir -p "$SNAP" && cp tools/blog-automation/.staging/*.md "$SNAP"/ 2>/dev/null
+```
+
+이 스냅샷은 위 Step 8의 push 대상에 포함한다(`git add tools/blog-automation/state/`가
+이미 하위 디렉토리를 포함하므로 별도 조치 불필요). 정상 발행(PUBLISHED) 경로에서는 남기지
+않는다 — 사고 경로에서만 보존한다.
+
 Blogger API 게시 자체 실패(쿼터, 인증 오류 등)도 동일하게 `blog_pipeline_alerts.md`에
 기록하고 조용히 종료.
 

@@ -25,8 +25,17 @@ memory: project
    ```
    마스터가 **draft 모드**로 위임한 경우(연속 3회 반려), 같은 명령에 `--draft` 를 덧붙인다.
    이때는 Step 8(게시 이력·중복 방지 기록)을 수행하지 않는다 — 소재를 소비한 것이
-   아니므로 `blog_last_published_commit.md` 를 갱신하면 안 된다. 대신
+   아니므로 `blog_last_published_commit.md` 를 갱신하면 안 된다. **`publish_status: DRAFT`
+   를 적는 것도 갱신이다 — 파일을 아예 건드리지 않는다.** `blog_next_material_priority.md`
+   도 `STATUS: ACTIVE` 그대로 둔다(새 상태값을 발명하지 않는다). 대신
    `blog_pipeline_alerts.md` 에 draft로 보류됐다는 사실과 초안 URL을 기록한다.
+
+   **입력이 HTML 패키지가 아닐 때 (draft 전용)**: 반려 3회는 Step 4에서 끊길 수 있어
+   편집팀(Step 5) 산출물 `05_final.md`가 없을 수 있다. 이때는 `.staging/02_draft.md`
+   (마크다운)를 받아 **문단 `<p>` · 소제목 `<h2>/<h3>` · 인용 `<blockquote>` · 강조
+   `<b>` 네 가지 변환만** 적용해 올린다. SEO 메타·라벨·이미지·광고 위치는 **비운다** —
+   편집팀을 대행하지 않는다. 초안은 사람이 검토할 재료이지 발행물이 아니다.
+   alerts 기록에 "blog-editor 미경유(SEO 메타 없음)"를 명시한다.
    
 3. 스크립트가 성공하면 게시된 글의 JSON(id, url 포함)이 stdout으로 출력된다. 실패하면
    0이 아닌 종료 코드와 에러 메시지가 나온다.

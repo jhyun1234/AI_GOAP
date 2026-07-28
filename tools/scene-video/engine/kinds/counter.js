@@ -1,4 +1,7 @@
-import { ease, easeOut, clamp, lerp, rnd, fitCanvas, mkCanvas, tone } from '../lib.js';
+import {
+  ease, easeOut, clamp, lerp, rnd, depthGrad, setShadow, clearShadow, GLOW_INK,
+  fitCanvas, mkCanvas, tone
+} from '../lib.js';
 
 /* counter — 예산 하나가 통째로 타 없어지는 그림.
    후보 칸이 화면 전체로 번지고, 그 넓이가 곧 숫자다.
@@ -63,9 +66,12 @@ export default {
     ctx.fillStyle = tone('sub'); ctx.font = '700 12px Consolas, monospace';
     ctx.fillText(spec.label || '탐색한 후보', 0, gridH + 26);
 
-    ctx.fillStyle = tone('ink');
+    // 깊이 — 히어로 숫자는 납작하면 라벨처럼 보인다. 위가 밝고 아래로 가라앉는다
+    setShadow(ctx, GLOW_INK, 26, 4);
+    ctx.fillStyle = depthGrad(ctx, 0, by - 40, 0, by + 22, 'ink');
     ctx.font = '900 62px Pretendard, "Malgun Gothic", sans-serif';
     ctx.fillText(n.toLocaleString(), 0, by + 22);
+    clearShadow(ctx);
 
     // 판정 — 마지막 자막에서 붙는다. 숫자 옆이라 "이만큼 쓰고 이 결과"가 한 눈에 붙는다
     const vk = ease(cue(spec.verdictCue ?? nLines - 1, 0.15, 0.5));

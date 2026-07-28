@@ -1,4 +1,7 @@
-import { ease, easeOut, clamp, lerp, fitCanvas, mkCanvas, tone } from '../lib.js';
+import {
+  ease, easeOut, clamp, lerp, spring, depthGrad, setShadow, clearShadow, GLOW, GLOW_INK,
+  fitCanvas, mkCanvas, tone
+} from '../lib.js';
 
 /* bars — 세로 비교 막대. youtube-editor SKILL.md 패턴 2-B(후킹/임팩트용).
 
@@ -38,8 +41,12 @@ export default {
       ctx.fillStyle = 'rgba(255,255,255,.10)';
       ctx.fillRect(bx, topY, bw, fullH);
 
-      ctx.fillStyle = c;
+      // 깊이 — 같은 hue 안에서 위가 밝고 아래가 어둡다. 납작한 단색 막대보다 두께가 산다
+      const accent = s.tone === 'accent';
+      setShadow(ctx, accent ? GLOW : GLOW_INK, 20, 0);
+      ctx.fillStyle = depthGrad(ctx, bx, y, bx, baseY, accent ? 'accent' : 'ink');
       ctx.fillRect(bx, y, bw, bh);
+      clearShadow(ctx);
 
       // 숫자 — 막대 위에 앉되 자리는 고정. 막대를 따라 올라가면 레이아웃이 흔들린다
       ctx.textAlign = 'center';
@@ -78,11 +85,15 @@ export default {
       const nk = ease(cue(spec.noteCue ?? nLines - 1, 0.1, 0.5));
       if (nk > 0.02) {
         const smallCi = spec.a.value <= spec.b.value ? keys.indexOf('a') : keys.indexOf('b');
+        const nx = smallCi * (colW + 26) + colW / 2, ny = topY + fullH * 0.34;
         ctx.globalAlpha = nk;
         ctx.textAlign = 'center';
-        ctx.fillStyle = tone('accent');
-        ctx.font = `900 ${Math.round(lerp(34, 42, nk))}px Pretendard, "Malgun Gothic", sans-serif`;
-        ctx.fillText(spec.note, smallCi * (colW + 26) + colW / 2, topY + fullH * 0.34);
+        // 도장은 스프링으로 박힌다 — 커졌다가 제자리에 앉는 게 '찍혔다'로 읽힌다
+        ctx.font = `900 ${Math.round(40 * spring(nk))}px Pretendard, "Malgun Gothic", sans-serif`;
+        setShadow(ctx, GLOW, 26, 4);
+        ctx.fillStyle = depthGrad(ctx, nx, ny - 30, nx, ny + 8, 'accent');
+        ctx.fillText(spec.note, nx, ny);
+        clearShadow(ctx);
         ctx.globalAlpha = 1;
       }
     }

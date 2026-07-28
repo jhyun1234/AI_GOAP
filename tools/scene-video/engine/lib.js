@@ -63,6 +63,40 @@ export const tone = t => PALETTE[t] || t || PALETTE.ink;
 /** 검정 배경 대비 최소 두께 — 1~2px 선은 영상에서 사라진다 */
 export const MIN_STROKE = 3;
 
+/* ── 등장 모션 ─────────────────────────────────────
+   스프링 — 0.86 → 1.05 → 1.00. 가이드 MINIMAL_DESIGN_LANGUAGE 패턴 17.
+   평평하게 페이드인만 시키면 카드가 "켜졌다"가 아니라 "그냥 있었다"로 읽힌다.
+   가이드 한도(scale 0.8~1.15) 안. k 는 0~1 진행률.
+   🔴 화면 폭을 꽉 채우는 요소에 그대로 곱하면 1.05 배에서 잘린다 —
+      기준 크기를 0.95 로 줄여 놓고 곱해야 최대치가 원래 폭이 된다. */
+export function spring(k) {
+  k = clamp(k);
+  if (k <= 0) return 0.86;
+  const up = easeOut(Math.min(1, k / 0.55));
+  const settle = ease(clamp((k - 0.55) / 0.45));
+  return lerp(0.86, 1.05, up) - 0.05 * settle;
+}
+
+/* ── 깊이 ──────────────────────────────────────────
+   같은 hue 안에서의 그라데이션 + palette 색 그림자.
+   COLOR_PALETTE.md 219절이 "3색 자체는 안 깬다"는 조건으로 허용한 유일한 확장이다.
+   납작한 단색 도형은 검정 화면의 카드 안에서 빈약하게 보인다는 게 가이드의 지적. */
+export function depthGrad(ctx, x0, y0, x1, y1, kind = 'accent') {
+  const g = ctx.createLinearGradient(x0, y0, x1, y1);
+  if (kind === 'accent') { g.addColorStop(0, '#00FF88'); g.addColorStop(1, '#00B85F'); }
+  else { g.addColorStop(0, '#FFFFFF'); g.addColorStop(1, '#CFCFCF'); }
+  return g;
+}
+export const GLOW = 'rgba(0,255,136,0.35)';
+export const GLOW_INK = 'rgba(255,255,255,0.18)';
+/** 그림자는 전역 상태다 — 쓰고 나면 반드시 clearShadow 로 되돌린다 */
+export function setShadow(ctx, color, blur, dy = 0) {
+  ctx.shadowColor = color; ctx.shadowBlur = blur; ctx.shadowOffsetY = dy;
+}
+export function clearShadow(ctx) {
+  ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+}
+
 /** 둥근 사각형 경로 */
 export function roundRect(ctx, x, y, w, h, r) {
   r = Math.min(r, w / 2, h / 2);

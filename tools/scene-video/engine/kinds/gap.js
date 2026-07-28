@@ -1,4 +1,7 @@
-import { ease, easeOut, clamp, lerp, rnd, fitCanvas, mkCanvas, tone, roundRect } from '../lib.js';
+import {
+  ease, easeOut, clamp, lerp, rnd, spring, depthGrad, setShadow, clearShadow, GLOW,
+  fitCanvas, mkCanvas, tone, roundRect
+} from '../lib.js';
 
 /* gap — 두 크기를 같은 화면에 놓는다. 위에는 뒤진 후보 덩어리, 아래에는 정답 사슬.
    이 회차의 한 문장("4,096번 뒤지고도 네 단계를 못 찾았다")이 곧 이 그림이다.
@@ -62,23 +65,29 @@ export default {
       const y = top + i * (stepH + gapY);
       // 칸마다 조금씩 늦게 — 한꺼번에 켜지면 "네 단계"가 하나로 뭉쳐 보인다
       const k = ease(clamp(reveal * chain.length - i));
-      const sc = lerp(0.94, 1, easeOut(k));             // 가이드 한도(0.8~1.15) 안
+      // 스프링 등장. 기준 폭을 0.95 로 줄여 두었으므로 최대 1.05 배가 곧 원래 폭이다
+      const sc = spring(k) * 0.95;
       const cwid = w * sc, cx0 = (w - cwid) / 2;
+      const on = k > 0.04;
 
       // 스켈레톤 — 켜지기 전에도 자리는 있다
+      if (on) setShadow(ctx, GLOW, 18 * k, 3);
       ctx.lineWidth = 3;
-      ctx.strokeStyle = k > 0.04 ? tone('accent') : tone('track');
-      ctx.fillStyle = k > 0.04 ? `rgba(0,255,136,${(0.10 + 0.06 * k).toFixed(3)})` : 'transparent';
+      ctx.strokeStyle = on ? tone('accent') : tone('track');
+      ctx.fillStyle = on ? `rgba(0,255,136,${(0.10 + 0.06 * k).toFixed(3)})` : 'transparent';
       roundRect(ctx, cx0 + 1.5, y + 1.5, cwid - 3, stepH - 3, 4);
       ctx.fill(); ctx.stroke();
+      clearShadow(ctx);
 
       // 단계 번호
-      ctx.fillStyle = k > 0.04 ? tone('accent') : tone('track');
+      ctx.fillStyle = on ? tone('accent') : tone('track');
       ctx.font = '900 15px Consolas, monospace';
       ctx.fillText(String(i + 1), cx0 + 14, y + stepH / 2 + 6);
 
-      ctx.fillStyle = k > 0.04 ? tone('accent') : 'rgba(255,255,255,0.22)';
       ctx.font = '900 19px Pretendard, "Malgun Gothic", sans-serif';
+      ctx.fillStyle = on
+        ? depthGrad(ctx, cx0, y, cx0, y + stepH, 'accent')
+        : 'rgba(255,255,255,0.22)';
       ctx.globalAlpha = 0.35 + 0.65 * k;
       ctx.fillText(s, cx0 + 38, y + stepH / 2 + 7);
       ctx.globalAlpha = 1;

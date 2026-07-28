@@ -1,4 +1,7 @@
-import { ease, easeOut, clamp, lerp, fitCanvas, mkCanvas, tone, roundRect } from '../lib.js';
+import {
+  ease, easeOut, clamp, lerp, spring, setShadow, clearShadow, GLOW,
+  fitCanvas, mkCanvas, tone, roundRect
+} from '../lib.js';
 
 /* rule — 막혀 있는 길 하나. 아주 짧은 샷(자막 2줄)용이다.
 
@@ -52,11 +55,14 @@ export default {
 
     /* 금지 — 화살표를 가로지른다. 색이 아니라 획으로 막는다 */
     if (strike > 0.02) {
-      const r = 21, mx = (ax0 + ax1) / 2;
+      // 스프링으로 박힌다 — 금지 표시는 '나타나는' 것보다 '찍히는' 게 맞다
+      const r = 21 * spring(strike), mx = (ax0 + ax1) / 2;
       ctx.globalAlpha = strike;
+      setShadow(ctx, GLOW, 24, 0);
       ctx.strokeStyle = tone('accent'); ctx.lineWidth = 5;
       ctx.beginPath(); ctx.arc(mx, cy, r, 0, 7); ctx.stroke();
-      const d = r * 0.66 * easeOut(strike);
+      clearShadow(ctx);
+      const d = 21 * 0.66 * easeOut(strike);
       ctx.beginPath();
       ctx.moveTo(mx - d, cy - d); ctx.lineTo(mx + d, cy + d);
       ctx.moveTo(mx + d, cy - d); ctx.lineTo(mx - d, cy + d);

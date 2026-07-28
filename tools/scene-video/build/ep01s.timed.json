@@ -38,25 +38,39 @@
    ]
   },
   {
+   "id": "S1B",
+   "lines": [
+    {
+     "dur": 3820,
+     "pause": 150,
+     "say": "콘솔을 열어봤더니, 원인이 한 칸에 몰려 있더라고요.",
+     "chars": 29,
+     "voice": "M3",
+     "speed": 1,
+     "file": "build/audio/ep01s/03-0h99oz0.wav"
+    },
+    {
+     "dur": 4124,
+     "pause": 300,
+     "say": "길도, 자원도 아니었어요. 셋 다 계획을 못 짠 거였죠.",
+     "chars": 31,
+     "voice": "M3",
+     "speed": 1,
+     "file": "build/audio/ep01s/04-14hs51t.wav"
+    }
+   ]
+  },
+  {
    "id": "S2",
    "lines": [
     {
-     "dur": 2740,
+     "dur": 1594,
      "pause": 120,
-     "say": "길 문제도, 자원 문제도 아니었어요.",
-     "chars": 20,
+     "say": "왜 못 짰냐면요.",
+     "chars": 9,
      "voice": "M3",
      "speed": 1,
-     "file": "build/audio/ep01s/03-0uluo70.wav"
-    },
-    {
-     "dur": 2900,
-     "pause": 150,
-     "say": "컴퓨터가 답을 찾다가 못 찾은 거였죠.",
-     "chars": 21,
-     "voice": "M3",
-     "speed": 1,
-     "file": "build/audio/ep01s/04-16xg7s4.wav"
+     "file": "build/audio/ep01s/05-092nfpx.wav"
     },
     {
      "dur": 2509,
@@ -65,7 +79,7 @@
      "chars": 19,
      "voice": "M3",
      "speed": 1,
-     "file": "build/audio/ep01s/05-02g7e9m.wav"
+     "file": "build/audio/ep01s/06-02g7e9m.wav"
     },
     {
      "dur": 1836,
@@ -74,7 +88,30 @@
      "chars": 12,
      "voice": "M3",
      "speed": 1,
-     "file": "build/audio/ep01s/06-1if1x0b.wav"
+     "file": "build/audio/ep01s/07-1if1x0b.wav"
+    }
+   ]
+  },
+  {
+   "id": "S2B",
+   "lines": [
+    {
+     "dur": 2566,
+     "pause": 150,
+     "say": "이런 걸 저희끼린 무해라고 불러요.",
+     "chars": 19,
+     "voice": "M3",
+     "speed": 1,
+     "file": "build/audio/ep01s/08-1w04ovk.wav"
+    },
+    {
+     "dur": 2857,
+     "pause": 300,
+     "say": "한자 그대로, 풀이가 없다는 뜻이에요.",
+     "chars": 21,
+     "voice": "M3",
+     "speed": 1,
+     "file": "build/audio/ep01s/09-0s3ul3j.wav"
     }
    ]
   },
@@ -88,7 +125,7 @@
      "chars": 8,
      "voice": "M3",
      "speed": 1,
-     "file": "build/audio/ep01s/07-051g4ci.wav"
+     "file": "build/audio/ep01s/10-051g4ci.wav"
     },
     {
      "dur": 3681,
@@ -97,7 +134,7 @@
      "chars": 25,
      "voice": "M3",
      "speed": 1,
-     "file": "build/audio/ep01s/08-09ehjkg.wav"
+     "file": "build/audio/ep01s/11-09ehjkg.wav"
     },
     {
      "dur": 4183,
@@ -106,7 +143,7 @@
      "chars": 32,
      "voice": "M3",
      "speed": 1,
-     "file": "build/audio/ep01s/09-19rhxmd.wav"
+     "file": "build/audio/ep01s/12-19rhxmd.wav"
     }
    ]
   },
@@ -120,7 +157,7 @@
      "chars": 11,
      "voice": "M3",
      "speed": 1,
-     "file": "build/audio/ep01s/10-1j2f3rh.wav"
+     "file": "build/audio/ep01s/13-1j2f3rh.wav"
     },
     {
      "dur": 4311,
@@ -129,7 +166,7 @@
      "chars": 31,
      "voice": "M3",
      "speed": 1,
-     "file": "build/audio/ep01s/11-0nrjqmu.wav"
+     "file": "build/audio/ep01s/14-0nrjqmu.wav"
     },
     {
      "dur": 2466,
@@ -138,7 +175,7 @@
      "chars": 19,
      "voice": "M3",
      "speed": 1,
-     "file": "build/audio/ep01s/12-0d9dc2b.wav"
+     "file": "build/audio/ep01s/15-0d9dc2b.wav"
     },
     {
      "dur": 2166,
@@ -147,7 +184,7 @@
      "chars": 16,
      "voice": "M3",
      "speed": 1,
-     "file": "build/audio/ep01s/13-0gfv2hl.wav"
+     "file": "build/audio/ep01s/16-0gfv2hl.wav"
     }
    ]
   },
@@ -161,7 +198,7 @@
      "chars": 25,
      "voice": "M3",
      "speed": 1,
-     "file": "build/audio/ep01s/14-1vgqoqm.wav"
+     "file": "build/audio/ep01s/17-1vgqoqm.wav"
     },
     {
      "dur": 3696,
@@ -170,7 +207,7 @@
      "chars": 24,
      "voice": "M3",
      "speed": 1,
-     "file": "build/audio/ep01s/15-1kathgq.wav"
+     "file": "build/audio/ep01s/18-1kathgq.wav"
     },
     {
      "dur": 2542,
@@ -179,7 +216,7 @@
      "chars": 18,
      "voice": "M3",
      "speed": 1,
-     "file": "build/audio/ep01s/16-0tnuf8a.wav"
+     "file": "build/audio/ep01s/19-0tnuf8a.wav"
     },
     {
      "dur": 3265,
@@ -188,7 +225,7 @@
      "chars": 23,
      "voice": "M3",
      "speed": 1,
-     "file": "build/audio/ep01s/17-07emm9m.wav"
+     "file": "build/audio/ep01s/20-07emm9m.wav"
     }
    ]
   },
@@ -202,7 +239,7 @@
      "chars": 16,
      "voice": "M3",
      "speed": 1,
-     "file": "build/audio/ep01s/18-185b33p.wav"
+     "file": "build/audio/ep01s/21-185b33p.wav"
     },
     {
      "dur": 2384,
@@ -211,7 +248,7 @@
      "chars": 17,
      "voice": "M3",
      "speed": 1,
-     "file": "build/audio/ep01s/19-1bcm0s0.wav"
+     "file": "build/audio/ep01s/22-1bcm0s0.wav"
     }
    ]
   },
@@ -225,16 +262,16 @@
      "chars": 12,
      "voice": "M3",
      "speed": 1,
-     "file": "build/audio/ep01s/20-1o798jc.wav"
+     "file": "build/audio/ep01s/23-1o798jc.wav"
     },
     {
-     "dur": 3721,
+     "dur": 5162,
      "pause": 200,
-     "say": "아직 못 찾은 자원은, 아예 목표에서 빼버렸죠.",
-     "chars": 26,
+     "say": "무해한 목표는 아예 안 주기로 했어요. 못 찾은 자원은 목록에서 뺐어요.",
+     "chars": 40,
      "voice": "M3",
      "speed": 1,
-     "file": "build/audio/ep01s/21-16nclu9.wav"
+     "file": "build/audio/ep01s/24-0mikk2s.wav"
     },
     {
      "dur": 2367,
@@ -243,7 +280,7 @@
      "chars": 18,
      "voice": "M3",
      "speed": 1,
-     "file": "build/audio/ep01s/22-0qluyio.wav"
+     "file": "build/audio/ep01s/25-0qluyio.wav"
     }
    ]
   },
@@ -257,7 +294,7 @@
      "chars": 20,
      "voice": "M3",
      "speed": 1,
-     "file": "build/audio/ep01s/23-1cm98ig.wav"
+     "file": "build/audio/ep01s/26-1cm98ig.wav"
     },
     {
      "dur": 3261,
@@ -266,7 +303,7 @@
      "chars": 24,
      "voice": "M3",
      "speed": 1,
-     "file": "build/audio/ep01s/24-0h3guhd.wav"
+     "file": "build/audio/ep01s/27-0h3guhd.wav"
     },
     {
      "dur": 4467,
@@ -275,7 +312,7 @@
      "chars": 33,
      "voice": "M3",
      "speed": 1,
-     "file": "build/audio/ep01s/25-1jqlo2d.wav"
+     "file": "build/audio/ep01s/28-1jqlo2d.wav"
     }
    ]
   },
@@ -289,7 +326,7 @@
      "chars": 12,
      "voice": "M3",
      "speed": 1,
-     "file": "build/audio/ep01s/26-02dn17s.wav"
+     "file": "build/audio/ep01s/29-02dn17s.wav"
     },
     {
      "dur": 2849,
@@ -298,7 +335,7 @@
      "chars": 21,
      "voice": "M3",
      "speed": 1,
-     "file": "build/audio/ep01s/27-1osqm4x.wav"
+     "file": "build/audio/ep01s/30-1osqm4x.wav"
     },
     {
      "dur": 4479,
@@ -307,7 +344,7 @@
      "chars": 36,
      "voice": "M3",
      "speed": 1,
-     "file": "build/audio/ep01s/28-15n73in.wav"
+     "file": "build/audio/ep01s/31-15n73in.wav"
     }
    ]
   },
@@ -321,17 +358,17 @@
      "chars": 25,
      "voice": "M3",
      "speed": 1,
-     "file": "build/audio/ep01s/29-1irm1p8.wav"
+     "file": "build/audio/ep01s/32-1irm1p8.wav"
     }
    ]
   }
  ],
  "summary": {
-  "spokenMs": 87093,
-  "pauseMs": 6880,
-  "totalMs": 93973,
-  "fullMs": 93972,
-  "chars": 582,
-  "charsPerSec": 6.19
+  "spokenMs": 97855,
+  "pauseMs": 7630,
+  "totalMs": 105485,
+  "fullMs": 105484,
+  "chars": 658,
+  "charsPerSec": 6.24
  }
 }

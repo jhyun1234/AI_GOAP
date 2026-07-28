@@ -39,8 +39,10 @@ body{background:#07080B;color:var(--ink);font-family:var(--mono);
 .chip.ok{color:var(--cool)}
 
 /* ── 비주얼 ───────────────────────────────────────── */
-/* HUD 를 130 으로 내린 만큼 함께 내려간다. 373/1920 = 19.427% */
-.vis{position:absolute;top:19.427%;left:20px;right:20px;bottom:35%}
+/* HUD 를 130 으로 내린 만큼 함께 내려간다. 373/1920 = 19.427%
+   하단 1290 — 자막을 올려 생긴 여유를 되찾은 값. (1920-1290)/1920 = 32.8125%
+   자막이 3줄이면 상단이 1329 까지 오므로 간격은 39px 다. 더 내리면 붙는다. */
+.vis{position:absolute;top:19.427%;left:20px;right:20px;bottom:32.8125%}
 .shot{position:absolute;inset:0;display:none}
 .shot.on{display:block}
 .shot canvas{width:100%;height:100%;display:block}

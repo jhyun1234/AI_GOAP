@@ -58,12 +58,28 @@ get_tag() {
     echo '#misc'
 }
 
+# 커밋 본문(%b)에서 트레일러·잡음을 걷어내고 앞뒤 빈 줄을 정리한다.
+# 이 프로젝트의 커밋 본문에는 "왜 그렇게 했나"가 이미 쓰여 있는데, 2026-07-28까지
+# 훅이 %s(제목)만 읽고 본문을 통째로 버리고 있었다 — 세션 로그에 서사가 0줄이던
+# 근본 원인. blog-planner의 1차 소스가 이 파일이므로 버리면 안 된다.
+get_body() {
+    git log -1 --format='%b' "$1" \
+        | sed -E '/^(Co-Authored-By|Signed-off-by|Co-authored-by):/d' \
+        | sed -E '/^🤖 Generated with/d' \
+        | sed -E 's/[[:space:]]+$//' \
+        | awk 'NF {p=1} p' \
+        | awk '{ lines[NR]=$0 } END { last=0; for (i=1;i<=NR;i++) if (lines[i] ~ /[^[:space:]]/) last=i; for (i=1;i<=last;i++) print lines[i] }'
+}
+
 process_commit() {
     local hash="$1"
-    local msg date_str files today hhmm tag session_file
+    local msg body date_str files today hhmm tag session_file
     msg=$(git log -1 --format='%s' "$hash")
+    body=$(get_body "$hash")
     date_str=$(git log -1 --format='%ci' "$hash")
-    files=$(git diff-tree --no-commit-id --name-only -r "$hash")
+    # core.quotepath=false: 끄지 않으면 한글 파일명이 "Docs/\352\260\234..." 8진 이스케이프로
+    # 기록된다 (2026-07-28 발견 — 이 프로젝트는 Docs/ 아래 한글 파일명이 다수라 실피해).
+    files=$(git -c core.quotepath=false diff-tree --no-commit-id --name-only -r "$hash")
     today=$(echo "$date_str" | awk '{print $1}')
     hhmm=$(echo "$date_str" | awk '{print substr($2,1,5)}')
     tag=$(get_tag "$files")
@@ -99,6 +115,11 @@ process_commit() {
     if [ "$should_merge" -eq 1 ]; then
         {
             printf -- '- (+%s) %s\n' "$hhmm" "$msg"
+            if [ -n "$body" ]; then
+                printf '%s\n' "$body" | while IFS= read -r bl; do
+                    printf '  %s\n' "$bl"
+                done
+            fi
             printf '%s\n' "$files" | while IFS= read -r f; do
                 if [ -n "$f" ]; then printf '  - %s\n' "$f"; fi
             done
@@ -109,6 +130,12 @@ process_commit() {
             printf '## [%s] %s\n\n' "$hhmm" "$msg"
             printf '**태그:** %s\n\n' "$tag"
             printf '**무엇을 했나:**\n- %s\n\n' "$msg"
+            # 커밋 본문 = 작성자가 이미 남긴 "왜/어떻게". 있으면 그대로 싣는다.
+            if [ -n "$body" ]; then
+                printf '**왜 이렇게 했나 (커밋 본문):**\n'
+                printf '%s\n' "$body"
+                printf '\n'
+            fi
             printf '**변경 파일:**\n'
             printf '%s\n' "$files" | while IFS= read -r f; do
                 if [ -n "$f" ]; then printf '  - %s\n' "$f"; fi

@@ -1,4 +1,5 @@
 import {
+  disp, CJK,
   ease, easeOut, clamp, lerp, spring, depthGrad, setShadow, clearShadow, GLOW,
   fitCanvas, mkCanvas, tone
 } from '../lib.js';
@@ -30,7 +31,7 @@ export default {
     if (spec.origin) {
       ctx.globalAlpha = ease(clamp(nameK * 1.2)) * 0.16;
       ctx.fillStyle = tone('ink');
-      ctx.font = `900 ${Math.round(h * 0.46)}px "Malgun Gothic", serif`;
+      ctx.font = `900 ${Math.round(h * 0.46)}px ${CJK}`;
       ctx.fillText(spec.origin, cx, cy + h * 0.16);
       ctx.globalAlpha = 1;
     }
@@ -41,7 +42,7 @@ export default {
     ctx.translate(cx, cy); ctx.scale(s, s); ctx.translate(-cx, -cy);
     ctx.globalAlpha = ease(clamp(nameK * 1.5));
     setShadow(ctx, GLOW, 30, 6);
-    ctx.font = `900 ${Math.round(h * 0.30)}px Pretendard, "Malgun Gothic", sans-serif`;
+    ctx.font = disp(900, Math.round(h * 0.30));
     ctx.fillStyle = depthGrad(ctx, cx, cy - h * 0.18, cx, cy + h * 0.06, 'accent');
     ctx.fillText(spec.name || '', cx, cy);
     clearShadow(ctx);
@@ -52,7 +53,7 @@ export default {
     if (spec.origin) {
       ctx.globalAlpha = ease(clamp(nameK * 1.2)) * 0.75;
       ctx.fillStyle = tone('sub');
-      ctx.font = '700 15px "Malgun Gothic", serif';
+      ctx.font = `700 15px ${CJK}`;
       ctx.fillText(spec.origin, cx, cy + h * 0.11);
       ctx.globalAlpha = 1;
     }
@@ -66,7 +67,7 @@ export default {
 
       ctx.globalAlpha = ease(clamp(glossK * 1.6 - 0.25));
       ctx.fillStyle = tone('ink');
-      ctx.font = '900 19px Pretendard, "Malgun Gothic", sans-serif';
+      ctx.font = disp(900, 19);
       ctx.fillText(spec.gloss, cx, uy - 14);
       ctx.globalAlpha = 1;
     }

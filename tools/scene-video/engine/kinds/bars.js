@@ -1,4 +1,5 @@
 import {
+  disp,
   ease, easeOut, clamp, lerp, spring, depthGrad, setShadow, clearShadow, GLOW, GLOW_INK,
   fitCanvas, mkCanvas, tone
 } from '../lib.js';
@@ -51,13 +52,13 @@ export default {
       // 숫자 — 막대 위에 앉되 자리는 고정. 막대를 따라 올라가면 레이아웃이 흔들린다
       ctx.textAlign = 'center';
       ctx.fillStyle = c;
-      ctx.font = '900 46px Pretendard, "Malgun Gothic", sans-serif';
+      ctx.font = disp(900, 46);
       ctx.globalAlpha = k > 0.02 ? 1 : 0.15;
       ctx.fillText(Math.round(s.value * k).toLocaleString(), x + colW / 2, topY - 12);
       ctx.globalAlpha = 1;
 
       ctx.fillStyle = tone('sub');
-      ctx.font = '700 12px Consolas, monospace';
+      ctx.font = disp(700, 12);
       ctx.fillText(s.label, x + colW / 2, h - 10);
     });
 
@@ -73,7 +74,7 @@ export default {
         ctx.strokeStyle = tone('accent'); ctx.lineWidth = 3;
         ctx.beginPath(); ctx.moveTo(x, gy); ctx.lineTo(x + colW, gy); ctx.stroke();
         ctx.textAlign = 'left';
-        ctx.fillStyle = tone('accent'); ctx.font = '700 11px Consolas, monospace';
+        ctx.fillStyle = tone('accent'); ctx.font = disp(700, 11);
         ctx.fillText('AI는 여기까지라고 봤다', x + 4, gy - 8);
         ctx.globalAlpha = 1;
       }
@@ -89,7 +90,7 @@ export default {
         ctx.globalAlpha = nk;
         ctx.textAlign = 'center';
         // 도장은 스프링으로 박힌다 — 커졌다가 제자리에 앉는 게 '찍혔다'로 읽힌다
-        ctx.font = `900 ${Math.round(40 * spring(nk))}px Pretendard, "Malgun Gothic", sans-serif`;
+        ctx.font = disp(900, Math.round(40 * spring(nk)));
         setShadow(ctx, GLOW, 26, 4);
         ctx.fillStyle = depthGrad(ctx, nx, ny - 30, nx, ny + 8, 'accent');
         ctx.fillText(spec.note, nx, ny);

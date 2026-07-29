@@ -1,4 +1,5 @@
 import {
+  disp,
   ease, easeOut, clamp, lerp, rnd, spring, depthGrad, setShadow, clearShadow, GLOW,
   fitCanvas, mkCanvas, tone, roundRect
 } from '../lib.js';
@@ -47,7 +48,7 @@ export default {
       }
     }
     ctx.fillStyle = `rgba(255,255,255,${(0.7 * fade).toFixed(3)})`;
-    ctx.font = '700 12px Consolas, monospace'; ctx.textAlign = 'left';
+    ctx.font = disp(700, 12); ctx.textAlign = 'left';
     ctx.fillText(`${spec.massLabel || 'AI가 뒤진 후보'}  ${(spec.mass || 4096).toLocaleString()}`,
       0, massH + 20);
 
@@ -81,10 +82,10 @@ export default {
 
       // 단계 번호
       ctx.fillStyle = on ? tone('accent') : tone('track');
-      ctx.font = '900 15px Consolas, monospace';
+      ctx.font = disp(900, 15);
       ctx.fillText(String(i + 1), cx0 + 14, y + stepH / 2 + 6);
 
-      ctx.font = '900 19px Pretendard, "Malgun Gothic", sans-serif';
+      ctx.font = disp(900, 19);
       ctx.fillStyle = on
         ? depthGrad(ctx, cx0, y, cx0, y + stepH, 'accent')
         : 'rgba(255,255,255,0.22)';
@@ -95,7 +96,7 @@ export default {
 
     // 발 — 두 글자가 같은 밑선에 앉는다. 밑선은 캔버스 바닥에서 역산한다
     const footBase = h - FOOT_PAD;
-    ctx.fillStyle = tone('sub'); ctx.font = '700 12px Consolas, monospace';
+    ctx.fillStyle = tone('sub'); ctx.font = disp(700, 12);
     ctx.globalAlpha = ease(clamp(reveal * 1.4));
     ctx.fillText(`${spec.answerLabel || '정답'}  ${chain.length}단계`, 0, footBase);
     ctx.globalAlpha = 1;
@@ -106,7 +107,7 @@ export default {
       ctx.textAlign = 'right';
       ctx.globalAlpha = gapK;
       ctx.fillStyle = tone('accent');
-      ctx.font = '900 22px Pretendard, "Malgun Gothic", sans-serif';
+      ctx.font = disp(900, 22);
       ctx.fillText(spec.gapNote, w, footBase);
       ctx.globalAlpha = 1;
       ctx.textAlign = 'left';

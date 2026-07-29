@@ -1,4 +1,5 @@
 import {
+  disp, mono,
   ease, clamp, lerp, spring, depthGrad, setShadow, clearShadow, GLOW,
   fitCanvas, mkCanvas, tone, roundRect
 } from '../lib.js';
@@ -59,14 +60,14 @@ export default {
 
       // 숫자 — 주인공
       ctx.textAlign = 'center';
-      ctx.font = `900 ${Math.round(bh * 0.42)}px Pretendard, "Malgun Gothic", sans-serif`;
+      ctx.font = disp(900, Math.round(bh * 0.42));
       ctx.fillStyle = c.accent
         ? depthGrad(ctx, cx, cy - bh * 0.3, cx, cy + bh * 0.12, 'accent')
         : tone('ink');
       ctx.fillText(String(c.value), cx, cy + bh * 0.10);
 
       // 라벨 — 보조. 가이드: 라벨은 짧게, 0.7 이 허용 최소치
-      ctx.font = '700 12px Pretendard, "Malgun Gothic", sans-serif';
+      ctx.font = disp(700, 12);
       ctx.fillStyle = c.accent ? tone('accent') : tone('sub');
       ctx.fillText(c.label, cx, cy + bh * 0.38);
       ctx.globalAlpha = 1;
@@ -77,7 +78,7 @@ export default {
       ctx.globalAlpha = ease(clamp(reveal * 1.1 - 0.45)) * 0.85;
       ctx.textAlign = 'left';
       ctx.fillStyle = tone('sub');
-      ctx.font = '700 11px Consolas, monospace';
+      ctx.font = mono(700, 11);
       ctx.fillText(spec.caption, 0, h - 6);
       ctx.globalAlpha = 1;
     }

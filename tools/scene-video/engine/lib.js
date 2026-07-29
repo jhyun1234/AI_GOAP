@@ -38,6 +38,21 @@ export function mkCanvas(root) {
   return cv;
 }
 
+/* ── 폰트 ──────────────────────────────────────────
+   캔버스는 CSS 변수를 못 읽으므로 이름을 여기 한 곳에 둔다. style.css 의 @font-face 와
+   같은 이름이어야 한다.
+
+   나눔 기준: **mono 는 실제 로그·코드 문자열(ASCII)에만.** 한국어 라벨은 전부 disp.
+   전에는 '탐색한 후보' 같은 한글 라벨도 mono 로 찍었는데, Consolas 에 한글이 없어
+   그 글자들만 시스템 폴백으로 따로 떨어져 그려지고 있었다 — 한 줄 안에서 폰트가
+   갈리고, 그 폴백이 머신마다 달랐다. */
+export const DISP = 'Pretendard, sans-serif';
+export const MONO = 'SceneMono, monospace';
+/** 한자는 Pretendard 에 없다(한글·라틴 전용). 이 스택은 term kind 전용. */
+export const CJK = 'Pretendard, "Malgun Gothic", serif';
+export const disp = (weight, px) => `${weight} ${px}px ${DISP}`;
+export const mono = (weight, px) => `${weight} ${px}px ${MONO}`;
+
 /* 3색 팔레트 — youtube-editor/COLOR_PALETTE.md
    검정 배경 · 흰색 텍스트 · 네온 그린 강조. 이 셋 밖의 색은 쓰지 않는다.
    왜: 색이 늘면 시청자가 "이 색은 무슨 뜻이지"를 매번 풀어야 하고,

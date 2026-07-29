@@ -1,4 +1,5 @@
-import { span, ease, easeOut, lerp, rnd, fitCanvas, mkCanvas, tone, roundRect } from '../lib.js';
+import {
+  disp, span, ease, easeOut, lerp, rnd, fitCanvas, mkCanvas, tone, roundRect } from '../lib.js';
 
 /* morph — 하나의 덩어리가 변형되어 다음 상태가 된다. 컷 전환이 아니라 연속 변형.
    mode:"shatter_reveal" = 덩어리가 부서지고, 뒤에 숨어 있던 것이 딱 하나 드러난다. */
@@ -47,7 +48,7 @@ export default {
     if (brk < 0.55) {
       ctx.globalAlpha = 1 - brk / 0.55;
       ctx.fillStyle = tone('sub'); ctx.textAlign = 'center';
-      ctx.font = '700 12px Consolas, monospace';
+      ctx.font = disp(700, 12);
       ctx.fillText(spec.from?.label || '', cx, cy - BH / 2 - 16);
       ctx.globalAlpha = 1;
     }
@@ -62,7 +63,7 @@ export default {
       ctx.fillStyle = 'rgba(0,255,136,.12)';
       roundRect(ctx, -86, -23, 172, 46, 4); ctx.fill(); ctx.stroke();
       ctx.fillStyle = tone('accent'); ctx.textAlign = 'center';
-      ctx.font = '900 15px Pretendard, "Malgun Gothic", sans-serif';
+      ctx.font = disp(900, 15);
       ctx.fillText(spec.to?.label || '', 0, 6);
       ctx.restore();
 

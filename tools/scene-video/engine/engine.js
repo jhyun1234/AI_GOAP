@@ -49,13 +49,67 @@ async function boot() {
   // 그래서 준비 완료(__ready)를 선언하기 전에 모든 샷을 한 번씩 그려 둔다.
   // 한 지점만 그리면 조건 분기 안에서만 쓰이는 폰트가 초벌에서 빠진다
   // (예: 예산 소진 후에만 찍히는 'NoSolution'). 그래서 샷마다 여러 지점을 훑는다.
-  if (document.fonts?.ready) await document.fonts.ready;
+  await loadFonts();
   prime();
   seek(0);
   $('hint').textContent =
     `${EP} · ${shots.length}샷 · 자막 ${lines.length}줄 · ${(TOTAL / 1000).toFixed(1)}초` +
     (timed ? ' · TTS 실측' : ' · 임시 타이밍(글자수 추정)');
   window.__ready = true;
+}
+
+/* ── 폰트 ──────────────────────────────────────────
+   🔴 캔버스는 폰트를 '쓰기만' 해서는 @font-face 로드를 유발하지 않는다.
+   kind 들은 전부 ctx.font 로만 쓰므로, 여기서 명시적으로 요청하지 않으면 초반 프레임이
+   폴백으로 그려지고 폰트가 도착한 뒤부터 글자가 바뀐다. document.fonts.ready 를
+   기다리는 것만으로는 부족하다 — 아직 아무도 요청하지 않았으니 기다릴 로드가 없어
+   즉시 resolve 된다. 크기는 로드 대상 선정과 무관하고 family/weight/style 만 본다. */
+const FONT_FACES = [
+  '700 16px Pretendard', '800 16px Pretendard', '900 16px Pretendard',
+  '700 16px SceneMono'
+];
+
+/** 폰트가 실제로 적용되는지 — check() 는 폴백으로도 true 를 주므로 폭을 재서 본다 */
+function applies(spec, probe = '4,096 무해 ABC') {
+  const c = document.createElement('canvas').getContext('2d');
+  const [head] = [spec.replace(/\s+\S+$/, '')];        // 'weight size' 부분
+  const fam = spec.slice(head.length + 1);
+  c.font = `${head} "__NoSuchFont__", sans-serif`;
+  const base = c.measureText(probe).width;
+  c.font = `${head} ${fam}, "__NoSuchFont__", sans-serif`;
+  return Math.abs(c.measureText(probe).width - base) > 0.5;
+}
+
+async function loadFonts() {
+  if (!document.fonts) return;
+  await Promise.all(FONT_FACES.map(f => document.fonts.load(f).catch(() => { })));
+  await document.fonts.ready;
+
+  const missing = FONT_FACES.filter(f => !applies(f));
+  if (missing.length) console.warn('[font] 적용 안 됨 — 폴백으로 그려진다:', missing);
+
+  /* 한자는 Pretendard 에 없다(한글·라틴 전용). term kind 가 無解 를 그리므로
+     여기가 시스템 폰트에 남은 유일한 의존이다. 렌더 머신에 한자 폰트가 없으면 두부가 된다.
+
+     🔴 이건 폭으로 판정할 수 없다 — 한자 글리프도 두부 상자도 똑같이 1em 이라
+     '無' 와 '￿' 가 40px 폰트에서 둘 다 정확히 40.00px 로 나온다(실측). 처음 이렇게
+     짰다가 멀쩡한 글자에 경고가 떴다. 실제로 그려서 잉크 양을 비교해야 한다. */
+  if (!renders('無')) console.warn('[font] 한자(無解)를 그릴 폰트가 없다 — term 샷이 두부로 나온다');
+}
+
+/** 글자가 진짜 그려지는가 — 두부 상자와 잉크 양이 다른지로 본다 */
+function renders(ch, fam = 'Pretendard, "Malgun Gothic", serif') {
+  const ink = txt => {
+    const cv = document.createElement('canvas'); cv.width = cv.height = 48;
+    const x = cv.getContext('2d');
+    x.fillStyle = '#fff'; x.font = `900 40px ${fam}`;
+    x.textBaseline = 'middle'; x.textAlign = 'center';
+    x.fillText(txt, 24, 24);
+    const d = x.getImageData(0, 0, 48, 48).data;
+    let n = 0; for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 40) n++;
+    return n;
+  };
+  return Math.abs(ink(ch) - ink('￿')) > 20;
 }
 
 /* ── 타임라인 ─────────────────────────────────────── */

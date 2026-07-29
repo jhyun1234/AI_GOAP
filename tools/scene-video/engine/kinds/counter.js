@@ -1,4 +1,5 @@
 import {
+  disp, mono,
   ease, easeOut, clamp, lerp, rnd, depthGrad, setShadow, clearShadow, GLOW_INK,
   fitCanvas, mkCanvas, tone
 } from '../lib.js';
@@ -63,13 +64,13 @@ export default {
     const by = gridH + (h - gridH) * 0.62;
 
     ctx.textAlign = 'left';
-    ctx.fillStyle = tone('sub'); ctx.font = '700 12px Consolas, monospace';
+    ctx.fillStyle = tone('sub'); ctx.font = disp(700, 12);
     ctx.fillText(spec.label || '탐색한 후보', 0, gridH + 26);
 
     // 깊이 — 히어로 숫자는 납작하면 라벨처럼 보인다. 위가 밝고 아래로 가라앉는다
     setShadow(ctx, GLOW_INK, 26, 4);
     ctx.fillStyle = depthGrad(ctx, 0, by - 40, 0, by + 22, 'ink');
-    ctx.font = '900 62px Pretendard, "Malgun Gothic", sans-serif';
+    ctx.font = disp(900, 62);
     ctx.fillText(n.toLocaleString(), 0, by + 22);
     clearShadow(ctx);
 
@@ -77,7 +78,7 @@ export default {
     const vk = ease(cue(spec.verdictCue ?? nLines - 1, 0.15, 0.5));
     if (vk > 0.02) {
       const label = spec.verdict || 'NoSolution';
-      ctx.font = '700 13px Consolas, monospace';
+      ctx.font = mono(700, 13);
       const tw = ctx.measureText(label).width;
       ctx.globalAlpha = vk;
       ctx.strokeStyle = tone('ink'); ctx.lineWidth = 3;

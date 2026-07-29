@@ -1,4 +1,5 @@
-import { span, ease, easeOut, lerp, tone, rnd, fitCanvas, mkCanvas, roundRect } from '../lib.js';
+import {
+  disp, span, ease, easeOut, lerp, tone, rnd, fitCanvas, mkCanvas, roundRect } from '../lib.js';
 
 /* title — 훅, 그리고 마지막 예고(mood:"outro")
    가이드(youtube-editor/SKILL.md '인트로 세그먼트 규칙'): 인트로가 정적 텍스트면 FAIL.
@@ -38,15 +39,15 @@ export default {
       // 목표선 — 닿지 못한 자리
       ctx.strokeStyle = tone('accent'); ctx.lineWidth = 3;
       ctx.beginPath(); ctx.moveTo(goalX, y - 12); ctx.lineTo(goalX, y + barH + 12); ctx.stroke();
-      ctx.fillStyle = tone('accent'); ctx.font = '700 11px Consolas, monospace';
+      ctx.fillStyle = tone('accent'); ctx.font = disp(700, 11);
       ctx.textAlign = 'right'; ctx.fillText('정답', goalX - 8, y - 18);
 
       // 카운터
       ctx.textAlign = 'left';
-      ctx.fillStyle = tone('sub'); ctx.font = '700 11px Consolas, monospace';
+      ctx.fillStyle = tone('sub'); ctx.font = disp(700, 11);
       ctx.fillText('탐색한 후보', 0, y - 18);
       ctx.fillStyle = tone('ink');
-      ctx.font = '900 30px Pretendard, "Malgun Gothic", sans-serif';
+      ctx.font = disp(900, 30);
       ctx.fillText(Math.round(q * 4096).toLocaleString(), 0, y + barH + 40);
       return;
     }

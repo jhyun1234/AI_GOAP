@@ -1,4 +1,5 @@
-import { span, ease, clamp, rnd, fitCanvas, mkCanvas, tone, roundRect } from '../lib.js';
+import {
+  disp, mono, span, ease, clamp, rnd, fitCanvas, mkCanvas, tone, roundRect } from '../lib.js';
 
 /* search — 탐색이 격자 위로 번지다 예산에 막히는 그림.
    핵심은 "많이 뒤졌다"가 아니라 "그 옆에 짧은 정답이 그대로 있다"는 대비다.
@@ -44,10 +45,10 @@ export default {
     const n = Math.round(clamp(lit / (gx * gy)) * budget);
     const done = grow >= 1;
     ctx.textAlign = 'left';
-    ctx.fillStyle = tone('sub'); ctx.font = '700 11px Consolas, monospace';
+    ctx.fillStyle = tone('sub'); ctx.font = disp(700, 11);
     ctx.fillText('탐색한 후보', 0, gridH + 20);
     ctx.fillStyle = tone('ink');
-    ctx.font = '900 34px Pretendard, "Malgun Gothic", sans-serif';
+    ctx.font = disp(900, 34);
     ctx.fillText((done ? budget : n).toLocaleString(), 0, gridH + 52);
 
     if (done) {
@@ -55,7 +56,7 @@ export default {
       ctx.strokeStyle = tone('ink'); ctx.lineWidth = 3;
       ctx.strokeRect(1.5, 1.5, w - 3, gridH - 3);
       ctx.textAlign = 'right';
-      ctx.fillStyle = tone('ink'); ctx.font = '700 12px Consolas, monospace';
+      ctx.fillStyle = tone('ink'); ctx.font = mono(700, 12);
       ctx.fillText(spec.verdict || 'NoSolution', w, gridH + 50);
       ctx.textAlign = 'left';
     }
@@ -64,7 +65,7 @@ export default {
     const chain = spec.answer || [];
     const reveal = ease(cue(ansC, 0.15, 0.72));
     const by = h - 20;
-    ctx.font = '700 11px Consolas, monospace';
+    ctx.font = disp(700, 11);
     ctx.fillStyle = reveal > 0 ? tone('accent') : tone('sub');
     ctx.fillText('정답', 0, by - 28);
 

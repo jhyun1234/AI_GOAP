@@ -1,4 +1,5 @@
 import {
+  disp,
   ease, easeOut, clamp, lerp, spring, setShadow, clearShadow, GLOW,
   fitCanvas, mkCanvas, tone, roundRect
 } from '../lib.js';
@@ -36,7 +37,7 @@ export default {
       roundRect(ctx, b.x + 1.5, cy - boxH / 2, boxW - 3, boxH, 4);
       ctx.fill(); ctx.stroke();
       ctx.fillStyle = strike > 0.4 && i === 1 ? tone('sub') : tone('ink');
-      ctx.font = '900 20px Pretendard, "Malgun Gothic", sans-serif';
+      ctx.font = disp(900, 20);
       ctx.fillText(b.label, b.x + boxW / 2, cy + 8);
       ctx.globalAlpha = 1;
     });
@@ -75,7 +76,7 @@ export default {
       const lk = ease(cue(spec.strikeCue ?? nLines - 1, 0.05, 0.75));
       ctx.globalAlpha = lk;
       ctx.fillStyle = lk > 0.4 ? tone('accent') : tone('sub');
-      ctx.font = '800 15px Pretendard, "Malgun Gothic", sans-serif';
+      ctx.font = disp(800, 15);
       ctx.fillText(spec.label, w / 2, h - 12);
       ctx.globalAlpha = 1;
     }

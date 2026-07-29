@@ -1,4 +1,5 @@
-import { clamp, lerp, ease, easeOut, frac, span, fitCanvas, mkCanvas, tone } from '../lib.js';
+import {
+  disp, clamp, lerp, ease, easeOut, frac, span, fitCanvas, mkCanvas, tone } from '../lib.js';
 
 /* stage2d — 2D 무대 위의 동그라미.
    위치는 전부 t 의 함수다. 궤적도 과거 시각을 다시 계산해서 그린다.
@@ -88,7 +89,7 @@ export default {
       ctx.strokeStyle = tone('track'); ctx.lineWidth = 3;
       ctx.strokeRect(x - 17, y - 13, 34, 26);
       if (pr.label) {
-        ctx.fillStyle = tone('sub'); ctx.font = '700 11px Consolas, monospace';
+        ctx.fillStyle = tone('sub'); ctx.font = disp(700, 11);
         ctx.textAlign = 'center'; ctx.fillText(pr.label, x, y + 30);
       }
     }
@@ -130,10 +131,10 @@ export default {
       if (k > 0.02) {
         const n = actors.reduce((s, a) => s + trips(a, t), 0);
         ctx.globalAlpha = k; ctx.textAlign = 'left';
-        ctx.fillStyle = tone('sub'); ctx.font = '700 11px Consolas, monospace';
+        ctx.fillStyle = tone('sub'); ctx.font = disp(700, 11);
         ctx.fillText(cc.label || '왕복', 0, 16);
         ctx.fillStyle = tone('ink');
-        ctx.font = '900 30px Pretendard, "Malgun Gothic", sans-serif';
+        ctx.font = disp(900, 30);
         ctx.fillText(String(n) + (cc.unit || '회'), 0, 48);
         ctx.globalAlpha = 1;
       }

@@ -5,13 +5,35 @@
    규약 2: 3색만 쓴다 — #000000 / #FFFFFF / #00FF88.
            youtube-editor/COLOR_PALETTE.md. 보조 라벨은 rgba(255,255,255,0.7) 까지만. */
 
+/* ── 폰트 임베드 ──────────────────────────────────
+   🔴 시스템 폰트에 기대면 미리보기와 최종 mp4 가 다른 그림이 된다.
+   실측(2026-07-29): 이 PC 에 Pretendard 가 설치돼 있지 않아 전부 Malgun Gothic 으로
+   그려지고 있었고, Malgun Gothic 에는 900 웨이트가 없어 700 과 900 의 렌더 결과가
+   완전히 같았다(같은 문자열 폭 305.76px). 즉 900 으로 짠 디자인이 통째로 Bold 였다.
+   렌더 머신이 바뀌면 폴백이 또 달라지므로 파일로 못박는다. */
+@font-face{
+  font-family:"Pretendard";
+  src:url("fonts/PretendardVariable.woff2") format("woff2-variations");
+  font-weight:45 920;              /* 가변 축 전 구간 */
+  font-style:normal;
+  /* swap 금지 — 폴백으로 한 프레임이라도 그리면 그 프레임만 글자가 다르게 추출된다 */
+  font-display:block;
+}
+@font-face{
+  font-family:"SceneMono";
+  src:url("fonts/JetBrainsMono-Bold.woff2") format("woff2");
+  font-weight:700; font-style:normal; font-display:block;
+}
+
 :root{
   --bg:#000000; --ink:#FFFFFF; --accent:#00FF88;
   --sub:rgba(255,255,255,.7);      /* 보조 라벨 — 허용 최소치 */
   --track:rgba(255,255,255,.12);   /* 빈 트랙·가이드선 */
   --line:rgba(255,255,255,.22);    /* 보더 */
-  --disp:"Pretendard","Malgun Gothic","맑은 고딕",system-ui,sans-serif;
-  --mono:"Cascadia Mono","Consolas","D2Coding",monospace;
+  --disp:"Pretendard",sans-serif;
+  /* mono 는 ASCII 로그 전용이다. JetBrains Mono 는 라틴 서브셋이라 한글이 없으므로
+     섞인 문자열(콘솔 로그의 한국어)은 Pretendard 로 떨어진다 — 이게 의도한 순서다. */
+  --mono:"SceneMono","Pretendard",monospace;
 }
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:#000;color:var(--ink);font-family:var(--mono);

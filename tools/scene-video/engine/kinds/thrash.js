@@ -1,4 +1,5 @@
-import { ease, easeOut, clamp, lerp, rnd, fitCanvas, mkCanvas, tone, roundRect } from '../lib.js';
+import {
+  disp, ease, easeOut, clamp, lerp, rnd, fitCanvas, mkCanvas, tone, roundRect } from '../lib.js';
 
 /* thrash — 계획을 못 짜고 헤매는 구간. 이 회차에서 "격동"이 있어야 할 자리다.
 
@@ -38,7 +39,7 @@ export default {
       const gk = ease(cue(0, 0.3, 0.25));
       ctx.globalAlpha = 0.25 + 0.75 * gk;
       ctx.strokeStyle = tone('accent'); ctx.lineWidth = 3;
-      ctx.font = '700 11px Consolas, monospace'; ctx.textAlign = 'left';
+      ctx.font = disp(700, 11); ctx.textAlign = 'left';
       const tw = ctx.measureText(spec.goal).width;
       roundRect(ctx, 1.5, 1.5, tw + 18, 21, 3); ctx.stroke();
       ctx.fillStyle = tone('accent');
@@ -93,7 +94,7 @@ export default {
       }
 
       ctx.textAlign = 'left';
-      ctx.font = '800 13px Pretendard, "Malgun Gothic", sans-serif';
+      ctx.font = disp(800, 13);
       ctx.fillStyle = lit ? '#000000' : c.target ? 'rgba(255,255,255,.35)' : tone('sub');
       ctx.fillText(c.label, cx0 + 11, cy0 + ch / 2 + 5);
     });
@@ -113,16 +114,16 @@ export default {
     ctx.fillRect(0, my, w * (1 - drain), 12);
 
     ctx.textAlign = 'left';
-    ctx.fillStyle = tone('sub'); ctx.font = '700 11px Consolas, monospace';
+    ctx.fillStyle = tone('sub'); ctx.font = disp(700, 11);
     ctx.fillText('남은 예산', 0, my - 8);
     ctx.textAlign = 'right';
     ctx.fillStyle = drain > 0.98 ? tone('sub') : tone('ink');
-    ctx.font = '900 22px Pretendard, "Malgun Gothic", sans-serif';
+    ctx.font = disp(900, 22);
     ctx.fillText(left.toLocaleString(), w, my - 4);
 
     if (drain > 0.98 && spec.verdict) {
       ctx.fillStyle = tone('ink');
-      ctx.font = '900 15px Pretendard, "Malgun Gothic", sans-serif';
+      ctx.font = disp(900, 15);
       ctx.fillText(spec.verdict, w, my + 34);
     }
     ctx.textAlign = 'left';

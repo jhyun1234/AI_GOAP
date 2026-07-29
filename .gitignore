@@ -118,6 +118,7 @@ InitTestScene*.unity*
 
 # Blog automation secrets (OAuth client + tokens) — never commit
 /tools/blog-automation/credentials/
+/tools/scene-video/upload/credentials/
 # Blog automation pipeline staging (ephemeral working artifacts between steps)
 /tools/blog-automation/.staging/
 

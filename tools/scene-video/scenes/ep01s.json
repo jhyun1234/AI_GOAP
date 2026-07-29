@@ -19,6 +19,13 @@
   "assets": {
     "claude": "assets/claude-mark.png"
   },
+  "youtube": {
+    "title": "4,096번 계산하고도 코앞의 답을 못 찾은 AI · 유니티 GOAP 개발일지 1편 #shorts",
+    "blurb": "게임 속 주민 셋이 제자리에서 갈팡질팡했습니다. 원인을 따라가 보니 AI가 후보 4,096개를 뒤지고도 네 단계짜리 정답에 닿지 못하고 있었어요. 왜 그랬는지, 어떻게 막았는지.",
+    "tags": ["유니티", "Unity", "GOAP", "게임개발", "인디게임", "게임AI", "개발일지", "ClaudeCode"],
+    "categoryId": "28",
+    "privacy": "private"
+  },
   "shots": [
     {
       "id": "S1",

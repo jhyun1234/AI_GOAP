@@ -20,7 +20,7 @@
 import fs from 'fs';
 import path from 'path';
 import { spawn } from 'child_process';
-import { ROOT, OUT_W, OUT_H, findFfmpeg, openEngine } from './lib-node.mjs';
+import { ROOT, OUT_W, OUT_H, findFfmpeg, openEngine, epScene, epBuild } from './lib-node.mjs';
 
 const argv = process.argv.slice(2);
 const EP = argv.find(a => !a.startsWith('--')) || 'ep01';
@@ -95,8 +95,8 @@ function buildTrack(timeline, outFile) {
 /* ── 본체 ────────────────────────────────────────── */
 const ffmpeg = findFfmpeg();
 if (!ffmpeg) { console.error('ffmpeg 를 못 찾았다. winget install yt-dlp.FFmpeg'); process.exit(1); }
-if (!fs.existsSync(path.join(ROOT, 'scenes', `${EP}.json`))) {
-  console.error(`scenes/${EP}.json 이 없다`); process.exit(1);
+if (!fs.existsSync(epScene(EP))) {
+  console.error(`episodes/${EP}/scene.json 이 없다`); process.exit(1);
 }
 console.log(`ffmpeg   ${ffmpeg}`);
 
@@ -119,19 +119,19 @@ try {
   /* --still 12.5,30  → 그 시각의 프레임만 PNG 로. 4분짜리 전체 렌더 없이 고친 샷 하나를
      눈으로 확인할 때 쓴다. 여기가 실제 추출과 같은 경로라 믿을 수 있다. */
   if (STILL && STILL !== true) {
-    const dir = path.join(ROOT, 'build', 'stills');
+    const dir = epBuild(EP, 'stills');
     fs.mkdirSync(dir, { recursive: true });
     for (const sec of String(STILL).split(',').map(Number)) {
       await cdp.evaluate(`window.seek(${sec * 1000})`);
       const s = await cdp.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
-      const f = path.join(dir, `${EP}-${sec}s.png`);
+      const f = path.join(dir, `${sec}s.png`);
       fs.writeFileSync(f, Buffer.from(s.data, 'base64'));
       console.log(`스틸     ${path.relative(process.cwd(), f)}`);
     }
     close(); process.exit(0);
   }
 
-  const trackFile = path.join(ROOT, 'build', `${EP}.track.wav`);
+  const trackFile = epBuild(EP, 'track.wav');
   const tr = buildTrack(timeline, trackFile);
   console.log(`소리     ${tr.placed}줄 배치 · ${tr.seconds.toFixed(1)}s` + (tr.clipped ? ` · 🔴 잘림 ${tr.clipped}` : ''));
 
@@ -142,7 +142,7 @@ try {
   const pw = png.readUInt32BE(16), ph = png.readUInt32BE(20);
   console.log(`프레임   ${pw}×${ph}` + (pw === OUT_W && ph === OUT_H ? '' : ` → ${OUT_W}×${OUT_H} 로 보정`));
 
-  const outFile = path.join(ROOT, 'build', `${EP}${QUICK ? '.quick' : ''}.mp4`);
+  const outFile = epBuild(EP, QUICK ? 'quick.mp4' : 'video.mp4');
   const DUR = (nFrames / FPS).toFixed(3);
   /* 영상·소리를 한 filter_complex 에서 처리한다. -vf 와 -filter_complex 를 섞으면
      같은 스트림을 두 번 잡으려 해서 거절당한다.

@@ -4,10 +4,11 @@
 
    1. seek(t) 는 순수 함수다. 어느 시각으로 뛰어도 같은 그림이 나온다.
       CSS transition / animation / setTimeout 으로 화면을 바꾸지 않는다.
-   2. kind 추가 = kinds/ 에 파일 1개. 다른 파일은 손대지 않는다.
-      씬 JSON 이 쓰는 kind 이름을 보고 동적으로 import 한다.
+   2. 🔴 그림(kind)은 회차가 소유한다 — episodes/<ep>/kinds/ 에서 불러온다.
+      전에는 engine/kinds/ 공용 라이브러리였고, 그래서 회차마다 같은 그림이 돌아왔다.
+      구조가 돌려막기를 기본값으로 만들고 있었다. 공유하는 것은 lib.js(붓)뿐이다.
    3. 타임라인은 사람이 쓰지 않는다. 지금은 글자 수로 임시 계산하고,
-      TTS 가 붙으면 실측 길이가 build/<ep>.timed.json 에서 들어온다.
+      TTS 가 붙으면 실측 길이가 episodes/<ep>/build/timed.json 에서 들어온다.
 */
 
 const PROVISIONAL_CPS = 5.6;   // 한국어 TTS 대략 속도(글자/초) — 실측 전 임시값
@@ -21,6 +22,7 @@ const qs = new URLSearchParams(location.search);
 const EP = qs.get('ep') || 'ep01';
 
 let scene = null, shots = [], lines = [], TOTAL = 0, kinds = {};
+const failedKinds = [];   // 로드에 실패한 그림 — check.mjs 가 읽는다
 
 /* ── 로드 ─────────────────────────────────────────── */
 async function boot() {
@@ -28,19 +30,25 @@ async function boot() {
   // 창 폭에 따라 무대가 줄면 글자 크기 대비 화면 비율이 달라져 다른 그림이 나온다.
   if (qs.has('render')) document.body.classList.add('render');
 
-  scene = await (await fetch(`../scenes/${EP}.json`)).json();
+  scene = await (await fetch(`../episodes/${EP}/scene.json`)).json();
 
   // timed 본이 있으면 실측 타임라인을 쓴다 (없으면 임시 계산)
   let timed = null;
   try {
-    const r = await fetch(`../build/${EP}.timed.json`);
+    const r = await fetch(`../episodes/${EP}/build/timed.json`);
     if (r.ok) timed = await r.json();
   } catch { /* 없으면 그만 */ }
 
   const names = [...new Set(scene.shots.map(s => s.kind))];
   for (const n of names) {
-    try { kinds[n] = (await import(`./kinds/${n}.js`)).default; }
-    catch (e) { console.warn(`[kind] ${n} 없음 — 빈 화면으로 대체`, e); kinds[n] = null; }
+    try { kinds[n] = (await import(`../episodes/${EP}/kinds/${n}.js`)).default; }
+    catch (e) {
+      /* 🔴 조용히 빈 화면으로 넘어가면 점검이 통과해 버린다. 실제로 그랬다 —
+         kinds 를 회차 폴더로 옮기며 lib.js 경로가 깨졌는데, 모든 샷이 빈 화면이 된 채
+         check.mjs 가 "정적 구간 0.0초"로 통과시켰다. 실패는 기록으로 남아야 한다. */
+      console.warn(`[kind] ${n} 로드 실패`, e);
+      failedKinds.push(n); kinds[n] = null;
+    }
   }
 
   buildTimeline(timed);
@@ -322,6 +330,7 @@ function wire() {
 window.seek = ms => seek(ms);
 window.prime = prime;
 window.__ready = false;
+window.__failedKinds = () => failedKinds;
 
 /* 🔴 소리 트랙을 만들 때 쓰는 자리 시간표.
    build/<ep>.full.wav 를 그대로 붙이면 안 된다 — 그건 줄과 호흡만 이어 붙인 것이고,

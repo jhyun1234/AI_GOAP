@@ -21,6 +21,7 @@ import fs from 'fs';
 import path from 'path';
 import { spawnSync } from 'child_process';
 import { fileURLToPath } from 'url';
+import { epScene, epBuild } from './lib-node.mjs';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const argv = process.argv.slice(2);
@@ -68,9 +69,9 @@ if (ROUTINE && !FORCE) {
   if (state[EP]) { console.log(`만들 회차가 없다 — ${EP} 까지 전부 처리됨. 씬을 추가해라.`); process.exit(0); }
 }
 
-const scenePath = path.join(ROOT, 'scenes', `${EP}.json`);
+const scenePath = epScene(EP);
 if (!fs.existsSync(scenePath)) {
-  console.error(`scenes/${EP}.json 이 없다 — 대본이 아직 없는 회차다.`);
+  console.error(`episodes/${EP}/scene.json 이 없다 — 대본이 아직 없는 회차다.`);
   console.error(`대본은 scene-* 에이전트가 쓴다: tools/scene-video/routine-prompt.md`);
   console.error(`(기획 → 작성 → 검수 → 마스터 승인 → 그다음 이 스크립트)`);
   process.exit(1);
@@ -91,16 +92,16 @@ const run = (cmd, args, label) => {
 };
 
 /* ── 1. 음성 ─────────────────────────────────────── */
-const timedPath = path.join(ROOT, 'build', `${EP}.timed.json`);
+const timedPath = epBuild(EP, 'timed.json');
 const needTts = !fs.existsSync(timedPath) ||
   fs.statSync(timedPath).mtimeMs < fs.statSync(scenePath).mtimeMs;
 if (needTts) run(process.execPath, [path.join(ROOT, 'tts.mjs'), EP], '음성 생성');
 else console.log('음성     최신 — 건너뜀');
 
 /* ── 2. 영상 ─────────────────────────────────────── */
-const mp4 = path.join(ROOT, 'build', `${EP}.mp4`);
+const mp4 = epBuild(EP, 'video.mp4');
 // 엔진이 바뀌면 그림이 바뀐다. 씬·타임라인만 보면 엔진 수정이 반영 안 된 mp4 를 올리게 된다.
-const newestEngine = ['engine', 'engine/kinds'].flatMap(d => {
+const newestEngine = ['engine', `episodes/${EP}/kinds`].flatMap(d => {
   const p = path.join(ROOT, d);
   return fs.existsSync(p) ? fs.readdirSync(p).filter(f => /\.(js|css|html)$/.test(f))
     .map(f => fs.statSync(path.join(p, f)).mtimeMs) : [];
@@ -161,7 +162,7 @@ const sizeMb = (fs.statSync(mp4).size / 1048576).toFixed(1);
 console.log('\n── 올릴 내용 ───────────────────────────');
 console.log(`제목    ${meta.snippet.title}`);
 if (!PREPARE) console.log(`공개    ${privacy}${ALLOW_PUBLIC ? '' : '  (--allow-public 없으면 항상 private)'}`);
-console.log(`파일    build/${EP}.mp4  ${sizeMb}MB`);
+console.log(`파일    ${path.relative(path.dirname(ROOT), mp4)}  ${sizeMb}MB`);
 console.log(`태그    ${meta.snippet.tags.join(', ')}`);
 console.log('설명    ' + meta.snippet.description.split('\n').join('\n        '));
 console.log('────────────────────────────────────────');
@@ -173,7 +174,7 @@ if (DRY) { console.log('\n--dry 라 여기서 멈춘다. 실제로 올리려면 
    비공개로 '잠그고' 스튜디오에서도 못 푼다. 다시 올리는 수밖에 없어서, 자동 업로드가
    오히려 일을 늘린다. 그래서 붙여넣을 것까지만 만들어 두고 마지막 한 걸음은 사람이 한다. */
 if (PREPARE) {
-  const txt = path.join(ROOT, 'build', `${EP}.upload.txt`);
+  const txt = epBuild(EP, 'upload.txt');
   fs.writeFileSync(txt, [
     '── 제목 ────────────────────────────────', meta.snippet.title, '',
     '── 설명 ────────────────────────────────', meta.snippet.description, '',
@@ -194,12 +195,12 @@ if (PREPARE) {
   console.log(`\n  스튜디오(https://studio.youtube.com)에 mp4 를 끌어다 놓고`);
   console.log(`  위 txt 내용을 붙여넣으면 끝이다.`);
   // 폴더를 열어 준다 — 스튜디오로 끌어다 놓기 좋게
-  if (process.platform === 'win32') spawnSync('explorer', [path.join(ROOT, 'build')], { stdio: 'ignore' });
+  if (process.platform === 'win32') spawnSync('explorer', [epBuild(EP)], { stdio: 'ignore' });
   process.exit(0);
 }
 
 /* ── 4. 업로드 ───────────────────────────────────── */
-const metaFile = path.join(ROOT, 'build', `${EP}.youtube.json`);
+const metaFile = epBuild(EP, 'youtube.json');
 fs.writeFileSync(metaFile, JSON.stringify(meta, null, 2));
 
 const client = path.join(ROOT, 'upload', 'youtube-client.js');

@@ -11,15 +11,15 @@
 */
 import fs from 'fs';
 import path from 'path';
-import { ROOT, openEngine } from './lib-node.mjs';
+import { ROOT, openEngine, epScene, epBuild } from './lib-node.mjs';
 
 const argv = process.argv.slice(2);
 const EP = argv.find(a => !a.startsWith('--')) || 'ep01s';
 const FPS = Number((argv[argv.indexOf('--fps') + 1] > 0 && argv.includes('--fps')) ? argv[argv.indexOf('--fps') + 1] : 5);
 const AS_JSON = argv.includes('--json');
 
-const scene = JSON.parse(fs.readFileSync(path.join(ROOT, 'scenes', `${EP}.json`), 'utf8'));
-const timedPath = path.join(ROOT, 'build', `${EP}.timed.json`);
+const scene = JSON.parse(fs.readFileSync(epScene(EP), 'utf8'));
+const timedPath = epBuild(EP, 'timed.json');
 const timed = fs.existsSync(timedPath) ? JSON.parse(fs.readFileSync(timedPath, 'utf8')) : null;
 
 const results = [];
@@ -32,7 +32,7 @@ const missingMeta = scene.shots.filter(s => !s.reads || !s.source || !s.kind).ma
 add(missingMeta.length === 0, 'shot 메타 완비',
   missingMeta.length ? `reads/source/kind 누락: ${missingMeta.join(', ')}` : `${scene.shots.length}샷 전부 있음`);
 
-const kindsDir = path.join(ROOT, 'engine', 'kinds');
+const kindsDir = path.join(ROOT, 'episodes', EP, 'kinds');
 const badKind = [...new Set(scene.shots.map(s => s.kind))].filter(k => !fs.existsSync(path.join(kindsDir, `${k}.js`)));
 add(badKind.length === 0, 'kind 파일 존재', badKind.length ? `없음: ${badKind.join(', ')}` : '전부 존재');
 
@@ -57,7 +57,7 @@ if (timed) {
   const cps = timed.summary?.charsPerSec;
   add(cps >= 6.0 && cps <= 7.2, '말 속도 6.0~7.2자/초', `${cps}자/초 (참고 영상 6.93)`, 'warn');
 } else {
-  add(false, '실측 타임라인 존재', 'build/*.timed.json 이 없다 — tts.mjs 를 먼저 돌려라');
+  add(false, '실측 타임라인 존재', `episodes/${EP}/build/timed.json 이 없다 — tts.mjs 를 먼저 돌려라`);
 }
 
 /* ── B. 실제 프레임 (헤드리스에서 그려 보고 판정) ───── */
@@ -85,6 +85,14 @@ try {
     return x.getImageData(0,0,1,1).data[1];
   })()`);
   add(Math.abs(sane - 71) <= 8, '픽셀 읽기 신뢰 가능', `검정 위 알파 0.28 → ${sane} (기대 71±8)`);
+
+  /* 🔴 그림이 실제로 로드됐는가. 파일이 있는 것과 import 가 되는 것은 다르다 —
+     kinds 를 회차 폴더로 옮기며 lib.js 상대경로가 깨졌을 때, 파일은 전부 제자리에 있었고
+     엔진은 조용히 빈 화면으로 넘어갔고, 이 점검은 "정적 구간 0.0초"로 통과시켰다.
+     아무것도 안 그려진 화면이 가장 조용하다. */
+  const failed = await cdp.evaluate('window.__failedKinds ? window.__failedKinds() : []');
+  add(!failed?.length, '그림 로드 성공',
+    failed?.length ? `import 실패: ${failed.join(', ')}` : '전 kind 로드됨');
 
   frame = await cdp.evaluate(`(async () => {
     const FPS = ${FPS}, N = Math.max(2, Math.floor(window.TOTAL/1000*FPS));
@@ -122,7 +130,10 @@ try {
         if (a < 64) continue;
         tot++;
         const mx=Math.max(r,gg,b), mn=Math.min(r,gg,b);
-        if (mx === 0) continue;                       // 검정
+        /* 검정. mx===0 만 거르면 안 된다 — rgb(0,1,0) 같은 값이 채도 1.0 · 색상 120도로
+           계산돼 위반으로 잡힌다(실측: ep00s 한 회차에서 8샷 41만 픽셀). 눈에는 검정이다.
+           최대 채널이 9% 미만이면 색이 아니라 검정으로 본다. */
+        if (mx < 24) continue;
         const sat = (mx-mn)/mx;
         if (sat <= 0.14) continue;                    // 회색 계열 = 검정~흰색 사이
         let hue;                                      // 0~360

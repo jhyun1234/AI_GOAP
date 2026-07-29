@@ -19,13 +19,13 @@ const EP = process.argv[2] || 'ep01';
 const read = p => JSON.parse(fs.readFileSync(path.join(ROOT, p), 'utf8'));
 
 const voice = read('voice.json');
-const scene = read(`scenes/${EP}.json`);
+const scene = read(`episodes/${EP}/scene.json`);
 const { voice: voiceName, speed, steps, assets } = voice.engine;
 if (voice.engine.provider !== 'supertonic')
   throw new Error(`voice.json provider 가 supertonic 이 아니다: ${voice.engine.provider}`);
 
 const A = path.join(ROOT, assets);
-const outDir = path.join(ROOT, 'build', 'audio', EP);
+const outDir = path.join(ROOT, 'episodes', EP, 'build', 'audio');
 fs.mkdirSync(outDir, { recursive: true });
 
 const tts = await loadTextToSpeech(path.join(A, 'onnx'), false);
@@ -95,7 +95,7 @@ console.log(`\n  새로 만듦 ${made} · 재사용 ${reused}`);
 let total = 0; for (const p of pcm) total += p.length;
 const all = new Float32Array(total);
 let o = 0; for (const p of pcm) { all.set(p, o); o += p.length; }
-writeWavFile(path.join(ROOT, 'build', `${EP}.full.wav`), all, SR);
+writeWavFile(path.join(ROOT, 'episodes', EP, 'build', 'full.wav'), all, SR);
 
 timed.summary = {
   spokenMs: spoken, pauseMs: pauses, totalMs: spoken + pauses,
@@ -103,7 +103,7 @@ timed.summary = {
   chars: flat.reduce((a, { l }) => a + (l.say || l.text).replace(/[.,?!…]/g, '').length, 0)
 };
 timed.summary.charsPerSec = +(timed.summary.chars / (timed.summary.totalMs / 1000)).toFixed(2);
-fs.writeFileSync(path.join(ROOT, 'build', `${EP}.timed.json`), JSON.stringify(timed, null, 1));
+fs.writeFileSync(path.join(ROOT, 'episodes', EP, 'build', 'timed.json'), JSON.stringify(timed, null, 1));
 
 const S = timed.summary;
 console.log(`  말하는 시간  ${(S.spokenMs / 1000).toFixed(1)}s`);

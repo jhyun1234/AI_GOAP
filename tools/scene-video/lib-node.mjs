@@ -9,6 +9,18 @@ import { fileURLToPath } from 'url';
 
 export const ROOT = path.dirname(fileURLToPath(import.meta.url));
 
+/* ── 회차 폴더 ──────────────────────────────────────
+   한 회차에 필요한 것이 한 자리에 모인다: 대본 · **그 회차 전용 그림** · 산출물 · 검수 기록.
+
+   🔴 kinds 가 회차 안에 있는 것이 핵심이다. 전에는 engine/kinds/ 공용 라이브러리였고,
+   그래서 회차마다 같은 그림이 돌아왔다 — 구조가 돌려막기를 기본값으로 만들고 있었다.
+   지금은 회차가 자기 그림을 소유한다. 다른 회차 것을 쓰려면 파일을 복사해 와야 하고,
+   그 복사가 곧 "이걸 또 쓴다"는 의식적인 결정이 된다.
+   공유하는 것은 도구뿐이다(lib.js 의 팔레트·이징·캔버스 헬퍼) — 그림이 아니라 붓이다. */
+export const epDir = ep => path.join(ROOT, 'episodes', ep);
+export const epScene = ep => path.join(epDir(ep), 'scene.json');
+export const epBuild = (ep, ...rest) => path.join(epDir(ep), 'build', ...rest);
+
 export const STAGE_W = 392;                     // 디자인 기준 폭 (style.css .stage 와 같아야 한다)
 export const OUT_W = 1080, OUT_H = 1920;
 export const DSF = OUT_W / STAGE_W;             // 2.7551…

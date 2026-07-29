@@ -143,6 +143,7 @@
         "b": { "label": "실제 비용", "value": 150, "tone": "ink", "cue": 1 },
         "a": { "label": "AI의 어림짐작", "value": 9, "tone": "accent", "cue": 2 },
         "guide": true,
+        "guideLabel": "AI는 여기까지라고 봤다",
         "note": "50배",
         "noteCue": 3
       },

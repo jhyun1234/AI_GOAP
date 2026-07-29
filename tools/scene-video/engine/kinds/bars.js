@@ -78,7 +78,9 @@ export default {
            흰 막대 위에서도 똑같이 읽힌다. */
         ctx.textAlign = 'left';
         ctx.font = disp(800, 11);
-        const label = 'AI는 여기까지라고 봤다';
+        // 문구는 회차마다 다르다. ep01s 전용 문장을 박아 두면 다른 회차가 이 기능을 켜는
+        // 순간 화면이 그 회차 원문에 없는 말을 하게 된다(ep00s 검수에서 지적됨).
+        const label = spec.guideLabel || '여기까지라고 봤다';
         ctx.lineWidth = 4; ctx.lineJoin = 'round'; ctx.strokeStyle = '#000000';
         ctx.strokeText(label, x + 4, gy - 8);
         ctx.fillStyle = tone('accent');
@@ -96,8 +98,18 @@ export default {
         const nx = smallCi * (colW + 26) + colW / 2, ny = topY + fullH * 0.34;
         ctx.globalAlpha = nk;
         ctx.textAlign = 'center';
-        // 도장은 스프링으로 박힌다 — 커졌다가 제자리에 앉는 게 '찍혔다'로 읽힌다
-        ctx.font = disp(900, Math.round(40 * spring(nk)));
+        /* 도장은 스프링으로 박힌다 — 커졌다가 제자리에 앉는 게 '찍혔다'로 읽힌다.
+           🔴 크기를 그냥 곱하면 긴 문구가 화면 밖으로 잘린다. ep01s 는 "50배" 3자라
+           우연히 안 넘었고, ep00s 가 5자를 넣자마자 오른쪽이 잘렸다(검수 실측).
+           오버슈트까지 포함한 최대 폭이 캔버스에 들어가도록 기준 크기를 먼저 줄인다. */
+        // 가운데 정렬이라 넘치는 쪽은 nx 에서 가까운 가장자리다 — 캔버스 폭이 아니라
+        // 그 거리의 두 배가 쓸 수 있는 폭이다. 스프링 최대치(1.05)까지 넣고 잰다.
+        let size = 40;
+        const maxW = (Math.min(nx, w - nx) - 4) * 2;
+        ctx.font = disp(900, Math.round(size * 1.05));
+        const wide = ctx.measureText(spec.note).width;
+        if (wide > maxW) size = Math.max(14, Math.floor(size * maxW / wide));
+        ctx.font = disp(900, Math.round(size * spring(nk)));
         setShadow(ctx, GLOW, 26, 4);
         ctx.fillStyle = depthGrad(ctx, nx, ny - 30, nx, ny + 8, 'accent');
         ctx.fillText(spec.note, nx, ny);

@@ -3,11 +3,18 @@
   "__": "id 의 s 는 쇼츠 컷. 씬 JSON 이 있는 회차만 만들 수 있고, 없으면 scene-* 에이전트가 먼저 대본을 쓴다.",
   "everyDays": 2,
   "order": [
+    "ep00s",
     "ep01s", "ep02s", "ep03s", "ep04s", "ep05s", "ep06s", "ep07s",
     "ep08s", "ep09s", "ep10s", "ep11s", "ep12s", "ep13s"
   ],
   "sources": {
     "_": "회차 → 원본 글. local 이 null 이면 리포에 파일이 없다는 뜻이라 기획팀이 url 에서 받아온다.",
+    "ep00s": {
+      "local": "2026-07-09-goap-pathfinding-honest-failure.html",
+      "url": null,
+      "note": "0편(프리퀄) — 경로탐색 실패를 정직하게 보고하게 만든 이야기. 사용자 지정 2026-07-29.",
+      "draft": "🔴 이 글은 publish_status=DRAFT 다. 공개 URL 이 없으므로 영상 설명에 블로그 링크를 넣지 않는다. 글이 나중에 발행되면 url 을 채우고 씬의 source.url 도 함께 채운다."
+    },
     "ep01s": { "local": "2026-07-09-unity-goap-ai-4096.html", "url": "https://gamedevclaude.blogspot.com/2026/07/unity-goap-ai-4096.html" },
     "ep02s": { "local": null, "url": "https://gamedevclaude.blogspot.com/2026/07/goap-ai-ai.html", "note": "성격 배분 + 허기→포만감 반전" },
     "ep03s": { "local": "2026-07-15-unity-goap-m0-redesign.html", "url": "https://gamedevclaude.blogspot.com/2026/07/unity-goap-24800-5977-m0.html" },

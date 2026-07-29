@@ -137,7 +137,9 @@ const desc = [
   'Claude Code 로 만드는 유니티 GOAP AI 개발일지입니다.',
   '',
   (y.tags || []).map(t => '#' + t.replace(/\s+/g, '')).join(' ')
-].filter(l => l !== null).join('\n').trim();
+]
+  // 빈 항목(예: 원문 URL 이 없는 회차)이 빈 줄로 남는다 — 연속 빈 줄을 하나로 접는다
+  .join('\n').replace(/\n{3,}/g, '\n\n').trim();
 
 const meta = {
   snippet: {

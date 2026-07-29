@@ -19,7 +19,7 @@ import {
 export default {
   build(root) { root.innerHTML = ''; mkCanvas(root); },
 
-  draw(root, { spec, cue, nLines }) {
+  draw(root, { spec, t, cue, nLines }) {
     const { ctx, w, h } = fitCanvas(root.querySelector('canvas'));
     const cards = spec.cards || [];
     const cols = spec.cols || 2;
@@ -37,16 +37,26 @@ export default {
       // 시간차 등장 — 동시에 켜면 "0 세 개와 3 하나"가 한 덩어리로 뭉친다
       const k = clamp(reveal * cards.length - i * 0.75);
       if (k <= 0) return;
+      /* 두 번째 자막("길도 자원도 아니었어요")에서 0 인 칸들이 차례로 물러나고 강조 칸만 남는다.
+         카드가 다 깔린 뒤 화면이 6초간 완전히 멈추던 자리다(가이드 상한 3초). 다만 이건
+         정적 구간을 메우려고 넣은 장식이 아니라 나레이션이 실제로 하는 말이다 —
+         "셋 다 계획을 못 짠 거였죠"가 화면에서 그대로 일어난다. */
+      const dim = c.accent ? 0
+        : ease(clamp(cue(spec.dimCue ?? 1, 0.2, 0.75) * cards.length - i * 0.8)) * 0.62;
       const s = spring(k);
       const bx = (i % cols) * (cw + gap), by = PAD + Math.floor(i / cols) * (chh + gap);
       const cx = bx + cw / 2, cy = by + chh / 2;
       // 기준 크기를 0.95 로 줄여 두고 스프링을 곱한다 — 최대 1.05 배가 원래 칸이 된다
       const bw = cw * 0.95 * s, bh = chh * 0.95 * s;
 
-      ctx.globalAlpha = ease(clamp(k * 1.4));
+      ctx.globalAlpha = ease(clamp(k * 1.4)) * (1 - dim);
       ctx.lineWidth = 3;
       if (c.accent) {
-        setShadow(ctx, GLOW, 22, 4);
+        /* 강조 카드의 빛이 천천히 숨 쉰다. 카드가 다 깔린 뒤로는 화면이 완전히 멈추는데,
+           실측으로 이 샷의 정적 구간이 6초였다(가이드 상한 3초). 눈이 가야 할 곳을
+           계속 가리키는 움직임이라 장식도 아니다. 진폭은 그림자 세기만 — 자리는 안 움직인다. */
+        const breathe = 22 + Math.sin(t * 2.2) * 9;
+        setShadow(ctx, GLOW, breathe, 4);
         ctx.strokeStyle = tone('accent');
         ctx.fillStyle = 'rgba(0,255,136,.13)';
       } else {

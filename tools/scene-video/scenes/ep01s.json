@@ -242,6 +242,10 @@
         "revealCue": 2,
         "logo": { "asset": "claude", "label": "Claude Code", "cue": 0 }
       },
+      "checks": {
+        "palette": "제품 마크는 브랜드 색이라 3색 밖 — 가이드가 명시한 예외",
+        "edge": "부서진 파편이 화면 밖으로 날아가는 연출"
+      },
       "lines": [
         { "text": "이거 Claude Code랑\n같이 만드는데요.", "say": "이거 클로드 코드랑 같이 만드는데요.", "pauseAfter": 120 },
         { "text": "고치면서 옛날 함수를\n일부러 바로 지웠어요.", "say": "고치면서 옛날 함수를 일부러 바로 지웠어요.", "pauseAfter": 180 },

@@ -54,6 +54,7 @@ async function boot() {
   // 한 지점만 그리면 조건 분기 안에서만 쓰이는 폰트가 초벌에서 빠진다
   // (예: 예산 소진 후에만 찍히는 'NoSolution'). 그래서 샷마다 여러 지점을 훑는다.
   await loadFonts();
+  await loadAssets();
   prime();
   seek(0);
   $('hint').textContent =
@@ -114,6 +115,19 @@ function renders(ch, fam = 'Pretendard, "Malgun Gothic", serif') {
     return n;
   };
   return Math.abs(ink(ch) - ink('￿')) > 20;
+}
+
+/* ── 이미지 ────────────────────────────────────────
+   씬 JSON 의 assets 를 미리 받아 둔다. 폰트와 같은 이유다 — 디코딩이 끝나기 전에
+   그리면 그 프레임만 빈 자리로 추출된다. decode() 까지 기다린 뒤에야 prime() 이 돈다. */
+const images = {};
+async function loadAssets() {
+  for (const [name, src] of Object.entries(scene.assets || {})) {
+    const img = new Image();
+    img.src = src;
+    try { await img.decode(); images[name] = img; }
+    catch { console.warn(`[asset] ${name} 을 못 읽었다: ${src}`); }
+  }
 }
 
 /* ── 타임라인 ─────────────────────────────────────── */
@@ -225,7 +239,7 @@ function seek(t) {
     const since = i => (s.rel[i] ? ts - s.rel[i].t : -1);
 
     kinds[s.kind]?.draw?.(s.el, {
-      spec: s.spec || {}, shot: s, scene,
+      spec: s.spec || {}, shot: s, scene, images,
       p, t: ts, dur: s.dur / 1000, abs: t / 1000,
       lines: s.rel, cue, since, nLines: s.rel.length
     });

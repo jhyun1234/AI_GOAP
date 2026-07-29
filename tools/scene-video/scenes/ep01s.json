@@ -16,6 +16,9 @@
     "outro": "gamedevclaude.blogspot.com"
   },
   "hook": "4096번을 뒤지고도\n코앞의 답을 못 찾았다",
+  "assets": {
+    "claude": "assets/claude-mark.png"
+  },
   "shots": [
     {
       "id": "S1",
@@ -229,7 +232,8 @@
         "to": { "label": "호출부 1곳", "count": 1 },
         "mode": "shatter_reveal",
         "breakCue": 1,
-        "revealCue": 2
+        "revealCue": 2,
+        "logo": { "asset": "claude", "label": "Claude Code", "cue": 0 }
       },
       "lines": [
         { "text": "이거 Claude Code랑\n같이 만드는데요.", "say": "이거 클로드 코드랑 같이 만드는데요.", "pauseAfter": 120 },

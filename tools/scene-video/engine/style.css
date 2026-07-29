@@ -52,9 +52,13 @@ body{background:#000;color:var(--ink);font-family:var(--mono);
 .ep{font-family:var(--disp);font-weight:800;font-size:18px;line-height:1.24;
   letter-spacing:-.025em;color:var(--ink)}
 .airow{margin-top:7px}
+/* 본문 폰트다. body 가 mono 라 그동안 이 줄이 고정폭으로 나왔는데, 실물 프레임에서 보니
+   글자 사이가 벌어져 늘어져 보였다. 고정폭은 로그·코드에만 쓴다.
+   ⌘ 는 뺐다 — 맥 커맨드 키 기호지 제품 마크가 아니고, 가이드가 금지하는
+   '텍스트만으로 제품 표현'에 가장 가까운 자리였다. 진짜 마크는 S8 에 맥락과 함께 넣는다. */
 .ai{display:flex;align-items:center;gap:5px;white-space:nowrap;
-  font-size:12.5px;letter-spacing:.01em;color:var(--accent);font-weight:700}
-.ai .mark{font-size:13px;opacity:.85}
+  font-family:var(--disp);font-size:12.5px;letter-spacing:-.005em;
+  color:var(--accent);font-weight:800}
 .progline{display:flex;align-items:center;gap:10px;margin-top:8px}
 .prog{flex:1;height:5px;background:var(--track);border-radius:3px;overflow:hidden}
 .prog i{display:block;height:100%;background:var(--ink);width:0}

@@ -6,10 +6,39 @@ import {
 export default {
   build(root) { root.innerHTML = ''; mkCanvas(root); },
 
-  draw(root, { spec, cue, nLines }) {
+  draw(root, { spec, cue, nLines, images }) {
     const { ctx, w, h } = fitCanvas(root.querySelector('canvas'));
     const cx = w / 2, cy = h / 2;
     const N = spec.from?.shards ?? 16;
+
+    /* 제품 마크 — 대본이 그 제품을 실제로 부르는 자막에서만 잠깐 나온다.
+       가이드(SKILL.md 로고 규칙): 스크립트에서 제품이 언급되면 실제 로고를 쓴다,
+       텍스트만으로 제품을 표현하지 않는다. 그리고 브랜드 배경색이 있는 로고는
+       투명 배경을 억지로 만들지 말고 라운드 처리로 형태를 살린다.
+       🔴 상시 HUD 에는 두지 않는다 — 영상 전 구간에 남의 마크를 띄우면 제휴로 읽힌다.
+       여기 한 자막 동안만 붙었다가, 다음 자막에서 화면이 부서지기 시작하면 물러난다. */
+    const lg = spec.logo;
+    if (lg && images?.[lg.asset]) {
+      const inK = ease(cue(lg.cue ?? 0, 0.25, 0.45));
+      const outK = ease(cue((lg.cue ?? 0) + 1, 0.1, 0.35));
+      const k = inK * (1 - outK);
+      if (k > 0.01) {
+        const S = 44, x = 0, y = 0;
+        ctx.save();
+        ctx.globalAlpha = k;
+        roundRect(ctx, x, y, S, S, 10); ctx.clip();
+        ctx.drawImage(images[lg.asset], x, y, S, S);
+        ctx.restore();
+        if (lg.label) {
+          ctx.globalAlpha = k;
+          ctx.fillStyle = tone('sub');
+          ctx.font = '800 13px Pretendard, sans-serif';
+          ctx.textAlign = 'left';
+          ctx.fillText(lg.label, x + S + 11, y + S / 2 + 5);
+          ctx.globalAlpha = 1;
+        }
+      }
+    }
 
     /* "깨지죠"라고 말할 때 깨지고, "드러나거든요"라고 말할 때 드러난다.
        🔴 드러남의 lead 를 길게 잡아 부서짐과 겹친다. 붙여서 순서대로 두면

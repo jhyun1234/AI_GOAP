@@ -71,6 +71,8 @@ if (ROUTINE && !FORCE) {
 const scenePath = path.join(ROOT, 'scenes', `${EP}.json`);
 if (!fs.existsSync(scenePath)) {
   console.error(`scenes/${EP}.json 이 없다 — 대본이 아직 없는 회차다.`);
+  console.error(`대본은 scene-* 에이전트가 쓴다: tools/scene-video/routine-prompt.md`);
+  console.error(`(기획 → 작성 → 검수 → 마스터 승인 → 그다음 이 스크립트)`);
   process.exit(1);
 }
 const scene = JSON.parse(fs.readFileSync(scenePath, 'utf8'));

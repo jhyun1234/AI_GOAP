@@ -1,7 +1,30 @@
 {
-  "_": "영상 순서. Docs/영상_시리즈_구성안.md 의 재생 순서를 따른다. 씬 JSON 이 있는 것만 만들 수 있다.",
+  "_": "영상 순서. Docs/영상_시리즈_구성안.md 가 정본이고 이 파일은 파생이다 — 표가 바뀌면 여기도 바꾼다.",
+  "__": "id 의 s 는 쇼츠 컷. 씬 JSON 이 있는 회차만 만들 수 있고, 없으면 scene-* 에이전트가 먼저 대본을 쓴다.",
   "everyDays": 2,
   "order": [
-    "ep01s"
-  ]
+    "ep01s", "ep02s", "ep03s", "ep04s", "ep05s", "ep06s", "ep07s",
+    "ep08s", "ep09s", "ep10s", "ep11s", "ep12s", "ep13s"
+  ],
+  "sources": {
+    "_": "회차 → 원본 글. local 이 null 이면 리포에 파일이 없다는 뜻이라 기획팀이 url 에서 받아온다.",
+    "ep01s": { "local": "2026-07-09-unity-goap-ai-4096.html", "url": "https://gamedevclaude.blogspot.com/2026/07/unity-goap-ai-4096.html" },
+    "ep02s": { "local": null, "url": "https://gamedevclaude.blogspot.com/2026/07/goap-ai-ai.html", "note": "성격 배분 + 허기→포만감 반전" },
+    "ep03s": { "local": "2026-07-15-unity-goap-m0-redesign.html", "url": "https://gamedevclaude.blogspot.com/2026/07/unity-goap-24800-5977-m0.html" },
+    "ep04s": { "local": null, "url": "https://gamedevclaude.blogspot.com/2026/07/unity-goap-ai-ai-m1.html", "note": "M1 여가·명령과 거부. 구성안에서 4번 자리로 이동된 편" },
+    "ep05s": { "local": "2026-07-16-unity-goap-m2-m3-production-housing.html", "url": "https://gamedevclaude.blogspot.com/2026/07/unity-goap.html" },
+    "ep06s": { "local": "2026-07-17-unity-goap-m4-personality.md", "url": "https://gamedevclaude.blogspot.com/2026/07/unity-goap_0950458123.html", "note": "리포 사본이 .md 다(html 아님)" },
+    "ep07s": { "local": "2026-07-18-unity-goap-m5-job-schedule.html", "url": "https://gamedevclaude.blogspot.com/2026/07/unity-goap-ai.html" },
+    "ep08s": { "local": "2026-07-19-unity-goap-m6-season-winter-crisis.html", "url": "https://gamedevclaude.blogspot.com/2026/07/claude-code-unity-0.html" },
+    "ep09s": { "local": "2026-07-20-unity-goap-m7-chatter-visibility.html", "url": "https://gamedevclaude.blogspot.com/2026/07/claude-code-ai-goap-ai-m7.html" },
+    "ep10s": { "local": "2026-07-21-unity-goap-m8-relationship-ownership-request.html", "url": "https://gamedevclaude.blogspot.com/2026/07/claude-code-ai-goap-ai-m8.html" },
+    "ep11s": { "local": "2026-07-22-unity-goap-debt-settlement-pathfinder-boundary.html", "url": "https://gamedevclaude.blogspot.com/2026/07/claude-code-ai-unity-goap-ai.html" },
+    "ep12s": { "local": "2026-07-26-unity-goap-m9-zone-disaster-flood.html", "url": "https://gamedevclaude.blogspot.com/2026/07/unity-goap-ai-claude-code-ai.html" },
+    "ep13s": { "local": "2026-07-28-unity-goap-m10-wolf-injury-wanderer.html", "url": "https://gamedevclaude.blogspot.com/2026/07/unity-goap-claude-code-ai.html" }
+  },
+  "번외": {
+    "_": "구성안이 본편 밖으로 뺀 편. 시즌 마지막이나 중간 쉬어가는 자리에 넣는다.",
+    "local": "2026-07-24-unity-goap-methodology-spec-constellation.html",
+    "url": "https://gamedevclaude.blogspot.com/2026/07/claude-code-ai-unity-goap-ai-ai.html"
+  }
 }

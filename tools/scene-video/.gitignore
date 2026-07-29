@@ -3,3 +3,7 @@ build/audio/
 build/*.mp3
 build/compare/
 vendor/
+
+# 렌더 산출물 — 대본과 음성만 있으면 그대로 다시 나온다(결정성 보장). 리포에 안 담는다.
+build/*.mp4
+build/*.track.wav

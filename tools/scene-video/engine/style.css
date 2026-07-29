@@ -126,6 +126,14 @@ body{background:#000;color:var(--ink);font-family:var(--mono);
 .verdict{font-family:var(--disp);font-weight:900;font-size:18px;letter-spacing:-.02em;
   line-height:1.1}
 
+/* ── 추출 모드 (?render=1) ────────────────────────
+   무대만 남기고 좌상단에 붙인다. 실제 해상도는 브라우저의 deviceScaleFactor 로 올린다 —
+   392 × 2.7551 = 1080. CSS 폭을 1080 으로 키우면 안 된다: 글자 크기가 px 고정이라
+   화면 대비 글자가 2.75배 작아진 다른 디자인이 된다. */
+body.render{padding:0;gap:0;min-height:0;display:block;background:#000}
+body.render .bar,body.render .hint{display:none}
+body.render .stage{width:392px}
+
 /* ── 컨트롤 (영상에는 안 들어감) ──────────────────── */
 .bar{width:min(100%,392px);display:flex;gap:8px;align-items:center}
 button{font-family:inherit;font-size:11px;font-weight:700;letter-spacing:.1em;

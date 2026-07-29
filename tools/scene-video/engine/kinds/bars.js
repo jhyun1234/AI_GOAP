@@ -73,9 +73,16 @@ export default {
         ctx.globalAlpha = gk;
         ctx.strokeStyle = tone('accent'); ctx.lineWidth = 3;
         ctx.beginPath(); ctx.moveTo(x, gy); ctx.lineTo(x + colW, gy); ctx.stroke();
+        /* 🔴 이 글자는 흰 막대 위를 지난다. 그린 글자를 그냥 얹으면 안 읽힌다
+           (실제 프레임에서 확인). 검정 테두리를 두르면 검정 배경 위에서도,
+           흰 막대 위에서도 똑같이 읽힌다. */
         ctx.textAlign = 'left';
-        ctx.fillStyle = tone('accent'); ctx.font = disp(700, 11);
-        ctx.fillText('AI는 여기까지라고 봤다', x + 4, gy - 8);
+        ctx.font = disp(800, 11);
+        const label = 'AI는 여기까지라고 봤다';
+        ctx.lineWidth = 4; ctx.lineJoin = 'round'; ctx.strokeStyle = '#000000';
+        ctx.strokeText(label, x + 4, gy - 8);
+        ctx.fillStyle = tone('accent');
+        ctx.fillText(label, x + 4, gy - 8);
         ctx.globalAlpha = 1;
       }
     }

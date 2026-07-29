@@ -24,6 +24,10 @@ let scene = null, shots = [], lines = [], TOTAL = 0, kinds = {};
 
 /* ── 로드 ─────────────────────────────────────────── */
 async function boot() {
+  // 추출 모드 — 컨트롤을 숨기고 무대를 기준 크기(392px)로 못박는다.
+  // 창 폭에 따라 무대가 줄면 글자 크기 대비 화면 비율이 달라져 다른 그림이 나온다.
+  if (qs.has('render')) document.body.classList.add('render');
+
   scene = await (await fetch(`../scenes/${EP}.json`)).json();
 
   // timed 본이 있으면 실측 타임라인을 쓴다 (없으면 임시 계산)
@@ -300,9 +304,19 @@ function wire() {
   addEventListener('resize', () => seek(cur));
 }
 
-/* Playwright 프레임 추출용 창구 */
+/* ── 추출용 창구 (render.mjs 가 쓴다) ────────────── */
 window.seek = ms => seek(ms);
 window.prime = prime;
 window.__ready = false;
+
+/* 🔴 소리 트랙을 만들 때 쓰는 자리 시간표.
+   build/<ep>.full.wav 를 그대로 붙이면 안 된다 — 그건 줄과 호흡만 이어 붙인 것이고,
+   엔진 타임라인은 샷이 끝날 때마다 SHOT_TAIL(0.35초) 여운을 더 넣는다.
+   12샷이면 4.2초가 밀린다(실측: 통짜 105.5s vs 타임라인 109.7s).
+   그러니 시간표는 엔진이 불러 주고, render.mjs 는 그 자리에 줄별 wav 를 놓는다. */
+window.__timeline = () => ({
+  totalMs: TOTAL,
+  lines: lines.map(l => ({ t: l.t, dur: l.dur, file: l.file || null }))
+});
 
 boot();

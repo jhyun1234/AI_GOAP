@@ -27,12 +27,15 @@ export default {
 
     ctx.textAlign = 'center';
 
-    /* 뒤에 깔리는 한자 — 뜻의 출처. 흐리게 크게 깔아 배경 삼는다 */
+    /* 한자 — 한글 위에 얹는 적층 구성.
+       🔴 처음엔 화면 폭만 한 한자를 뒤에 깔고 그 위에 한글을 얹었는데, 실제 프레임을
+       뽑아 보니 획이 한글 사이로 삐져나와 글자가 서로 갉아먹었고 좌우로 잘리기까지 했다.
+       배경이 아니라 요소로 대접한다 — 한글보다 작게, 겹치지 않게 위에 둔다. */
     if (spec.origin) {
-      ctx.globalAlpha = ease(clamp(nameK * 1.2)) * 0.16;
-      ctx.fillStyle = tone('ink');
-      ctx.font = `900 ${Math.round(h * 0.46)}px ${CJK}`;
-      ctx.fillText(spec.origin, cx, cy + h * 0.16);
+      ctx.globalAlpha = ease(clamp(nameK * 1.2)) * 0.85;
+      ctx.fillStyle = tone('sub');
+      ctx.font = `900 ${Math.round(h * 0.17)}px ${CJK}`;
+      ctx.fillText(spec.origin.split('').join(' '), cx, cy - h * 0.19);
       ctx.globalAlpha = 1;
     }
 
@@ -48,15 +51,6 @@ export default {
     clearShadow(ctx);
     ctx.globalAlpha = 1;
     ctx.restore();
-
-    /* 원어 표기 — 이름 바로 아래 작게 */
-    if (spec.origin) {
-      ctx.globalAlpha = ease(clamp(nameK * 1.2)) * 0.75;
-      ctx.fillStyle = tone('sub');
-      ctx.font = `700 15px ${CJK}`;
-      ctx.fillText(spec.origin, cx, cy + h * 0.11);
-      ctx.globalAlpha = 1;
-    }
 
     /* 뜻풀이 — 밑줄이 그어지고 그 위에 앉는다.
        밑줄을 먼저 그어야 "이게 정의다"가 서고, 글자만 뜨면 그냥 한 줄 더가 된다 */

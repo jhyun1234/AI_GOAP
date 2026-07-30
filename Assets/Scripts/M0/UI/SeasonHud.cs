@@ -307,6 +307,15 @@ namespace AIVillage.M0
             _status.text = line ?? "";
         }
 
+        /// <summary>상태 알림 클릭 판독 (M13-B 후속) — 화면 좌표가 상태줄의 몇 번째 줄인가.
+        /// 텍스트 밖·빈 상태 = -1. EventSystem 불필요 — PlayerInputController의 수동 픽킹 패턴.
+        /// ScreenSpaceOverlay 캔버스라 camera 인자는 null (TMP 규약).</summary>
+        public int PickStatusLine(Vector2 screenPos)
+        {
+            if (string.IsNullOrEmpty(_status.text)) return -1;
+            return TMP_TextUtilities.FindIntersectingLine(_status, screenPos, null);
+        }
+
         /// <summary>결정 프롬프트 표시 (M10-E) — 알림(Notify)과 달리 ClearPrompt까지 상시 유지.
         /// 플레이어 입력을 기다리는 줄이라 자동 소거가 없다 (놓침 방지 — 예고 휘발성 교훈).</summary>
         public void SetPrompt(string line) => _prompt.text = line ?? "";

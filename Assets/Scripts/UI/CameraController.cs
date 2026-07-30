@@ -181,6 +181,29 @@ namespace AIVillage.UI
         }
 
         /// <summary>
+        /// 지정 월드 좌표로 즉시 점프 (M13-B 후속 — 상태 알림 줄 클릭 → 굶는 주민 포커스).
+        /// 이동·줌과 같은 맵 경계 클램핑을 적용한다 — 클램프 산식이 이 파일에만 있으므로
+        /// 점프도 여기서 제공한다 (밖에서 복제하면 판단 규칙 이원화).
+        /// 재사용 라이브러리 최소 절제 원칙: 기존 메서드는 무수정, public 진입점 1개만 추가.
+        /// </summary>
+        public void FocusOn(Vector2 worldPos)
+        {
+            Vector3 pos = _camera.transform.position;
+            pos.x = worldPos.x;
+            pos.y = worldPos.y;
+
+            // HandleMovement와 동일한 클램프 (뷰포트가 맵 밖을 비추지 않게)
+            float halfH = _camera.orthographicSize;
+            float halfW = halfH * _camera.aspect;
+            float clampX = Mathf.Max(0f, _mapHalf - halfW);
+            float clampY = Mathf.Max(0f, _mapHalf - halfH);
+            pos.x = Mathf.Clamp(pos.x, -clampX, clampX);
+            pos.y = Mathf.Clamp(pos.y, -clampY, clampY);
+
+            _camera.transform.position = pos;
+        }
+
+        /// <summary>
         /// 마우스 스크롤 휠로 카메라 Orthographic Size를 조절한다.
         /// 줌 인/아웃은 _minZoom ~ _maxZoom 사이로 클램핑된다.
         /// </summary>

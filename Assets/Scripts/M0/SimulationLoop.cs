@@ -243,6 +243,18 @@ namespace AIVillage.M0
             }
         }
 
+        /// <summary>상태줄 line번째 굶는 주민 (M13-B 후속 — 클릭 점프용). 굶는 줄 범위 밖이면 null.
+        /// _starvingBuf가 표시(ComposeStatus)와 같은 원천이라 줄 순서가 화면과 일치한다 —
+        /// 클릭과 갱신이 한 틱(0.1초) 어긋날 수 있으나 무해 (다른 굶는 주민을 집을 뿐).</summary>
+        public VillagerAgent FindStarvingVillagerAt(int line)
+        {
+            if (line < 0 || line >= _starvingBuf.Count) return null;
+            string name = _starvingBuf[line].name;
+            foreach (VillagerAgent a in _agents)
+                if (a != null && a.State != AgentState.Dead && a.ShortName == name) return a;
+            return null;
+        }
+
         // 굶는 주민 열거 버퍼 (M13-B) — 프레임 재사용, 할당 0 (부상자 버퍼 패턴).
         // 정렬 비교자는 정적 캐시 — 틱마다 람다 할당 방지. 급한 순, 동률은 이름 순 (결정적).
         private readonly List<(string name, int days)> _starvingBuf = new List<(string, int)>(8);

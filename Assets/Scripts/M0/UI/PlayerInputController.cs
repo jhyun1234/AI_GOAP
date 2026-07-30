@@ -43,10 +43,12 @@ namespace AIVillage.M0
         private VillagerAgent _selected;
         private GameObject _ring;
         private Camera _camera;
+        private AIVillage.UI.CameraController _cameraCtrl; // 상태줄 클릭 점프 (M13-B 후속) — null이면 점프 생략
 
         private void Start()
         {
             _camera = Camera.main;
+            _cameraCtrl = _camera != null ? _camera.GetComponent<AIVillage.UI.CameraController>() : null;
         }
 
         private void Update()
@@ -76,6 +78,21 @@ namespace AIVillage.M0
 
             if (Input.GetMouseButtonDown(0))
             {
+                // 상태 알림 클릭 (M13-B 후속) — 굶는 주민 줄 = 그 주민에게 카메라 점프 + 선택
+                // (선택까지 해야 곧바로 우클릭 명령이 가능 — 개입 동선 단축).
+                // 화면 UI 판독이 월드 픽킹보다 먼저다: 줄 뒤에 겹친 다른 주민을 집는 오클릭 방지.
+                int statusLine = M0SimulationLoop.Instance.Hud?.PickStatusLine(Input.mousePosition) ?? -1;
+                if (statusLine >= 0)
+                {
+                    VillagerAgent starving = M0SimulationLoop.Instance.FindStarvingVillagerAt(statusLine);
+                    if (starving != null)
+                    {
+                        Select(starving);
+                        _cameraCtrl?.FocusOn(starving.transform.position);
+                    }
+                    return; // 상태줄 클릭은 월드 클릭이 아니다 — 부상·위협 줄도 소비만 (오탈선택 방지)
+                }
+
                 VillagerAgent hit = PickVillager(MouseWorld());
                 if (hit != null) Select(hit);
                 else Deselect();

@@ -94,10 +94,26 @@ namespace AIVillage.M0
 
             if (Input.GetMouseButtonDown(0))
             {
+                SeasonHud seasonHud = M0SimulationLoop.Instance.Hud;
+
+                // 회고 명부 클릭 (M13 — 드릴다운): 명부의 이름 줄 = 그 사람의 연대기를 하단에.
+                // 회고 화면이 최상단 오버레이이므로 다른 판독보다 먼저다.
+                if (seasonHud != null && seasonHud.GameOverShown
+                    && seasonHud.TryPickGameOverRosterIndex(Input.mousePosition, out int rosterIdx))
+                {
+                    IReadOnlyList<VillagerRecord> roster =
+                        M0SimulationLoop.Instance.Chronicle.RosterByBirth();
+                    if (rosterIdx < roster.Count)
+                    {
+                        seasonHud.ShowGameOverDetail(SeasonHud.ComposeGraveInfo(roster[rosterIdx]));
+                        return; // 명부 클릭 소비 — 뒤에 겹친 무덤·주민 오클릭 방지
+                    }
+                }
+
                 // 상태 알림 클릭 (M13-B 후속) — 굶는 주민 줄 = 그 주민에게 카메라 점프 + 선택
                 // (선택까지 해야 곧바로 우클릭 명령이 가능 — 개입 동선 단축).
                 // 화면 UI 판독이 월드 픽킹보다 먼저다: 줄 뒤에 겹친 다른 주민을 집는 오클릭 방지.
-                int statusLine = M0SimulationLoop.Instance.Hud?.PickStatusLine(Input.mousePosition) ?? -1;
+                int statusLine = seasonHud?.PickStatusLine(Input.mousePosition) ?? -1;
                 if (statusLine >= 0)
                 {
                     VillagerAgent starving = M0SimulationLoop.Instance.FindStarvingVillagerAt(statusLine);
@@ -109,8 +125,17 @@ namespace AIVillage.M0
                     return; // 상태줄 클릭은 월드 클릭이 아니다 — 부상·위협 줄도 소비만 (오탈선택 방지)
                 }
 
-                VillagerAgent hit = PickVillager(MouseWorld());
+                Vector2 world = MouseWorld();
+                VillagerAgent hit = PickVillager(world);
                 if (hit != null) Select(hit);
+                // 무덤 조사 (M13) — 산 주민이 항상 우선, 그 다음이 무덤. 죽은 주민의 생전
+                // 기록이 정보줄에 뜬다 ("아, 얘가 그 목수였지" — 플레이 도중의 회상).
+                else if (M0SimulationLoop.Instance.TryPickGraveRecord(
+                             world, _villagerPickRadius, out VillagerRecord grave))
+                {
+                    Deselect(); // 산 주민 선택·추적 해제 후 정보줄 소유권 이전
+                    seasonHud?.SetGraveInfo(SeasonHud.ComposeGraveInfo(grave));
+                }
                 else Deselect();
             }
 

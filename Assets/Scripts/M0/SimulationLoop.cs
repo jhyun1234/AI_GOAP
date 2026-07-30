@@ -462,9 +462,10 @@ namespace AIVillage.M0
         /// 이름·날짜는 죽는 순간에 인자로 받는다 — OnDestroy 시점엔 지연 파괴·서비스 기록 정리와
         /// 순서가 얽힌다 (M13 명세 §6-A ⚠️).
         /// </summary>
-        public void RecordDeath(int tileX, int tileY, string shortName, int day)
+        public void RecordDeath(int tileX, int tileY, string shortName, int day, string agentId)
         {
             DeathCount++;
+            _graves.Add((new Vector2Int(tileX, tileY), agentId)); // 무덤 조사 등록부 (M13 — 클릭 → 생전 기록)
             var grave = new GameObject($"Grave_{shortName}_{tileX}_{tileY}");
             grave.transform.SetParent(transform, worldPositionStays: false);
             grave.transform.position = new Vector3(tileX, tileY, 0f); // ADR-M0-9 — X-Y 평면
@@ -484,6 +485,25 @@ namespace AIVillage.M0
             if (_agentConfig != null)
                 new NameTag(grave.transform, _bubbleFont, _agentConfig, $"{shortName} · Day {day}",
                             _agentConfig.GraveTagFontSize);
+        }
+
+        // 무덤 등록부 (M13) — 타일 + 주인 AgentId. 세이브 대상 (ADR-M0-10 — 무덤 오브젝트와 함께).
+        private readonly List<(Vector2Int tile, string agentId)> _graves =
+            new List<(Vector2Int, string)>(8);
+
+        /// <summary>무덤 픽킹 (M13 — 클릭 조사). 반경 내 최근접 무덤 주인의 생애 기록.
+        /// PickVillager와 같은 거리 픽킹 — 산 주민이 우선이므로 호출자는 주민 픽킹 실패 후에 부른다.</summary>
+        public bool TryPickGraveRecord(Vector2 world, float radius, out VillagerRecord record)
+        {
+            record = null;
+            string bestId = null;
+            float best = radius;
+            foreach ((Vector2Int tile, string agentId) g in _graves)
+            {
+                float d = Vector2.Distance(world, new Vector2(g.tile.x, g.tile.y));
+                if (d < best) { best = d; bestId = g.agentId; }
+            }
+            return bestId != null && Chronicle.TryGetRecord(bestId, out record);
         }
 
         public void UnregisterAgent(VillagerAgent agent)

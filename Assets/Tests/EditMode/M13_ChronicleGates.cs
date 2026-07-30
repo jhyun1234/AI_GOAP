@@ -138,13 +138,48 @@ namespace AIVillage.Tests.EditMode
         }
 
         [Test]
-        public void M13_T4_ComposeGameOver_IncludesLifeEventsLine()
+        public void M13_T4_CompressRuns_SameEventRepeatsCollapse()
         {
+            // 2026-07-30 Play 스크린샷의 B 줄 — "명령 거부(피로)" 9연발은 스팸이지 이야기가 아니다
+            ChronicleService c = Service(("A", 0f));
+            for (int day = 5; day < 8; day++)
+                c.RecordEvent("A", EventId.OrderRefused, day, value: ChronicleEvent.REFUSE_TIRED);
+            c.RecordEvent("A", EventId.Built, 8f);
+            VillagerRecord r = c.RosterByBirth()[0];
+
+            // 연대기(시간순): 묶음 날짜 = 첫 발생일
+            Assert.AreEqual("D5 명령 거부(피로) ×3 · D8 완공", SeasonHud.ComposeLifeEvents(r));
+            // 최근(역순): 묶음도 1건으로 센다, 날짜 = 최신 발생일
+            Assert.AreEqual("최근: 완공 D8 · 명령 거부(피로) ×3 D7",
+                            SeasonHud.ComposeRecentEvents(r, 2));
+            // 사유가 다르면 다른 묶음 (Kind+Value 동일해야 압축)
+            c.RecordEvent("A", EventId.OrderRefused, 9f, value: ChronicleEvent.REFUSE_HUNGRY);
+            StringAssert.Contains("명령 거부(배고픔) D9",
+                SeasonHud.ComposeRecentEvents(c.RosterByBirth()[0], 1));
+        }
+
+        [Test]
+        public void M13_T4_GameOverIsIndexOnly_DetailViaGraveInfo()
+        {
+            // 2026-07-30 개정 — 명부 = 목차 (연대기 서브라인 제거, 깊이는 클릭 드릴다운).
             ChronicleService c = Service(("A", 0f));
             c.RecordEvent("A", EventId.Injured, 3f);
             c.RecordExit("A", 10f, ExitCause.Injury);
-            string s = SeasonHud.ComposeGameOver(10, settles: 0, roster: c.RosterByBirth());
-            StringAssert.Contains("D3 다침", s, "회고에 개인 연대기 (S6 — 죽은 뒤에도 남는다)");
+            VillagerRecord r = c.RosterByBirth()[0];
+
+            string roster = SeasonHud.ComposeGameOver(10, settles: 0, roster: c.RosterByBirth());
+            StringAssert.DoesNotContain("다침", roster, "명부에는 사건이 없다 (목차)");
+            StringAssert.Contains("A — 중립, 무직. Day 0~10, 부상으로 죽음", roster);
+
+            string detail = SeasonHud.ComposeGraveInfo(r);
+            StringAssert.StartsWith("† A — 중립, 무직. Day 0~10, 부상으로 죽음", detail);
+            StringAssert.Contains("D3 다침", detail, "깊이는 조사 문구에 (드릴다운·무덤 클릭 공용)");
+
+            // 기록 없는 주민 — 생애 구간만 (중립)
+            ChronicleService c2 = Service(("B", 1f));
+            c2.RecordExit("B", 5f, ExitCause.Starvation);
+            string bare = SeasonHud.ComposeGraveInfo(c2.RosterByBirth()[0]);
+            Assert.AreEqual("† B — 중립, 무직. Day 1~5, 굶어 죽음", bare);
         }
 
         [Test]

@@ -116,11 +116,23 @@ namespace AIVillage.M0
             TickSelected();
         }
 
-        /// <summary>주민 선택/해제 (M7-A) — PlayerInputController가 호출 (null = 해제).</summary>
+        /// <summary>주민 선택/해제 (M7-A) — PlayerInputController가 호출 (null = 해제).
+        /// 선택 변경은 무덤 조사도 함께 덮는다 (빈 땅 클릭 = 정보줄 완전 소거).</summary>
         public void SetSelected(VillagerAgent agent)
         {
             _selected = agent;
+            _graveLine = null;
             TickSelected(); // 다음 틱을 기다리지 않고 즉시 반영 (선택 반응성)
+        }
+
+        private string _graveLine; // 무덤 조사 (M13) — 산 주민 선택이 없을 때만 정보줄에 표시
+
+        /// <summary>무덤 조사 표시 (M13) — 죽은 주민의 기록을 정보줄에. 산 주민 선택과
+        /// 같은 자리를 쓴다 (죽은 자의 정보줄 = 산 자의 정보줄과 같은 창구).</summary>
+        public void SetGraveInfo(string line)
+        {
+            _graveLine = line;
+            TickSelected();
         }
 
         /// <summary>
@@ -132,10 +144,11 @@ namespace AIVillage.M0
             if (_selected == null) // Unity 파괴 비교 포함 — 이탈한 주민 자동 소거
             {
                 _selected = null;
-                if (_lastSelectedLine != "")
+                string idle = _graveLine ?? ""; // 무덤 조사 중이면 그 기록 유지 (M13)
+                if (_lastSelectedLine != idle)
                 {
-                    _lastSelectedLine = "";
-                    _selectedInfo.text = "";
+                    _lastSelectedLine = idle;
+                    _selectedInfo.text = idle;
                 }
                 return;
             }
@@ -213,34 +226,67 @@ namespace AIVillage.M0
         /// <summary>정보줄 최근 사건 표시 수 (제안치 3 — 명세 §12-1, 유일하게 발명한 수치). 연출 상수.</summary>
         private const int RECENT_EVENTS_MAX = 3;
 
-        /// <summary>최근 사건 요약 (M13-C2, 순수 — 게이트 M13-T4). 최신부터 max건,
-        /// "최근: 치료받음 D9 · 집 마련 D7". 사건 0건 = 빈 문자열 (중립).</summary>
+        /// <summary>연속 동일 사건 판정 (압축 단위) — 종류+부가값이 같으면 한 묶음.
+        /// 같은 사건 아홉 번은 이야기가 아니라 스팸이다 (2026-07-30 Play 스크린샷의 B 줄).</summary>
+        private static bool SameEvent(in ChronicleEvent a, in ChronicleEvent b)
+            => a.Kind == b.Kind && a.Value == b.Value;
+
+        /// <summary>최근 사건 요약 (M13-C2, 순수 — 게이트 M13-T4). 최신부터 max**묶음**,
+        /// 연속 반복은 "명령 거부(피로) ×9"로 압축 (묶음의 날짜 = 최신 발생일).
+        /// 사건 0건 = 빈 문자열 (중립).</summary>
         public static string ComposeRecentEvents(VillagerRecord r, int max)
         {
             if (r == null || r.Events.Count == 0 || max <= 0) return "";
             var sb = new System.Text.StringBuilder(48);
             sb.Append("최근: ");
+            int i = r.Events.Count - 1;
             int shown = 0;
-            for (int i = r.Events.Count - 1; i >= 0 && shown < max; i--, shown++)
+            while (i >= 0 && shown < max)
             {
+                ChronicleEvent e = r.Events[i];
+                int n = 1;
+                while (i - n >= 0 && SameEvent(r.Events[i - n], e)) n++;
                 if (shown > 0) sb.Append(" · ");
-                sb.Append($"{KrEvent(r.Events[i])} D{(int)r.Events[i].Day}");
+                sb.Append(KrEvent(e));
+                if (n > 1) sb.Append($" ×{n}");
+                sb.Append($" D{(int)e.Day}");
+                i -= n;
+                shown++;
             }
             return sb.ToString();
         }
 
-        /// <summary>개인 연대기 (M13-C2, 순수 — 회고용). 시간순 전체,
-        /// "D3 다침 · D9 치료받음". 사건 0건 = 빈 문자열 (그 줄 자체가 없다).</summary>
+        /// <summary>개인 연대기 (M13-C2, 순수 — 무덤 조사·회고 드릴다운용). 시간순 전체,
+        /// 연속 반복 압축 (묶음의 날짜 = 첫 발생일): "D5 명령 거부(피로) ×9 · D12 완공".
+        /// 사건 0건 = 빈 문자열 (그 줄 자체가 없다).</summary>
         public static string ComposeLifeEvents(VillagerRecord r)
         {
             if (r == null || r.Events.Count == 0) return "";
             var sb = new System.Text.StringBuilder(64);
-            for (int i = 0; i < r.Events.Count; i++)
+            int i = 0;
+            bool first = true;
+            while (i < r.Events.Count)
             {
-                if (i > 0) sb.Append(" · ");
-                sb.Append($"D{(int)r.Events[i].Day} {KrEvent(r.Events[i])}");
+                ChronicleEvent e = r.Events[i];
+                int n = 1;
+                while (i + n < r.Events.Count && SameEvent(r.Events[i + n], e)) n++;
+                if (!first) sb.Append(" · ");
+                first = false;
+                sb.Append($"D{(int)e.Day} {KrEvent(e)}");
+                if (n > 1) sb.Append($" ×{n}");
+                i += n;
             }
             return sb.ToString();
+        }
+
+        /// <summary>무덤·명부 조사 문구 (M13, 순수) — 죽은 주민의 정보줄. 산 주민
+        /// ComposeSelected의 짝. 기록 없으면 생애 구간만 (중립 — 표기 없음).</summary>
+        public static string ComposeGraveInfo(VillagerRecord r)
+        {
+            if (r == null) return "";
+            string line = $"† {r.ShortName} — {r.PersonalityName}, {r.JobName}. {KrLifeSpan(r)}";
+            string life = ComposeLifeEvents(r);
+            return life.Length > 0 ? $"{line} · <color=#B8B8B8>{life}</color>" : line;
         }
 
         /// <summary>사건의 플레이어 언어 (M13-C2) — KrCause와 같은 자리 (표시 정책 단일 지점).</summary>
@@ -316,15 +362,13 @@ namespace AIVillage.M0
         /// </summary>
         public static string ComposeGameOver(int day, int settles, IReadOnlyList<VillagerRecord> roster)
         {
+            // 명부 = 목차 (2026-07-30 개정 — 연대기 서브라인 제거). Day가 쌓이면 사건이 명부를
+            // 덮어 읽을 수 없었다 (인스펙터 원칙 ③ "탭으로 깊이를 접는다"). 깊이는 클릭 드릴다운
+            // (TryPickGameOverRosterIndex → ShowGameOverDetail)이 맡는다.
             var sb = new System.Text.StringBuilder(256);
             sb.Append($"마을의 마지막 날 — Day {day}\n\n");
             foreach (VillagerRecord r in roster)
-            {
                 sb.Append($"{r.ShortName} — {r.PersonalityName}, {r.JobName}. {KrLifeSpan(r)}\n");
-                // 개인 연대기 (M13-C2) — 그 사람에게 있었던 일. 사건 0건이면 줄 자체가 없다.
-                string life = ComposeLifeEvents(r);
-                if (life.Length > 0) sb.Append($"<size=70%><color=#C8C4B0>{life}</color></size>\n");
-            }
             sb.Append($"\n정착 {settles} · 아무도 남지 않았다.");
             return sb.ToString();
         }
@@ -348,6 +392,67 @@ namespace AIVillage.M0
         }
 
         private GameObject _gameOver; // 전멸 오버레이 (1회 생성 — 재건은 M11)
+        private TextMeshProUGUI _gameOverText;   // 명부 본문 — 드릴다운 클릭 판독 대상 (M13)
+        private TextMeshProUGUI _gameOverDetail; // 드릴다운 상세 (하단) — 클릭한 주민의 연대기
+
+        /// <summary>회고 화면 표시 중인가 — PlayerInputController의 클릭 분기용 (M13).</summary>
+        public bool GameOverShown => _gameOver != null;
+
+        /// <summary>
+        /// 회고 명부 클릭 판독 (M13 — 드릴다운). 화면 좌표 → 명부 몇 번째 사람인가.
+        /// 렌더 줄이 아니라 **원문 줄**로 계산한다 — lineInfo의 첫 문자 → 원문 인덱스 →
+        /// 개행 수. 오토사이즈로 줄바꿈(wrap)돼도 매핑이 밀리지 않는다 (상태줄 클릭의
+        /// 🟡줄바꿈 밀림을 여기선 구조적으로 차단).
+        /// 헤더 2줄(제목·빈 줄) 뒤가 명부다. 명부 밖 = false.
+        /// </summary>
+        public bool TryPickGameOverRosterIndex(Vector2 screenPos, out int rosterIndex)
+        {
+            rosterIndex = -1;
+            if (_gameOverText == null || string.IsNullOrEmpty(_gameOverText.text)) return false;
+            int line = TMP_TextUtilities.FindIntersectingLine(_gameOverText, screenPos, null);
+            if (line < 0) return false;
+
+            TMP_TextInfo info = _gameOverText.textInfo;
+            if (line >= info.lineCount) return false;
+            int chArr = info.lineInfo[line].firstCharacterIndex;
+            if (chArr < 0 || chArr >= info.characterCount) return false;
+            int src = info.characterInfo[chArr].index; // 원문 문자 위치
+
+            string t = _gameOverText.text;
+            int composedLine = 0;
+            for (int i = 0; i < src && i < t.Length; i++)
+                if (t[i] == '\n') composedLine++;
+            rosterIndex = composedLine - 2; // 제목 + 빈 줄
+            return rosterIndex >= 0;
+        }
+
+        /// <summary>드릴다운 상세 표시 (M13) — 회고 하단에 클릭한 주민의 연대기 한 줄.
+        /// 다른 주민 클릭 시 교체 (한 명씩 — 깊이는 접어서 보여준다).</summary>
+        public void ShowGameOverDetail(string line)
+        {
+            if (_gameOver == null) return;
+            if (_gameOverDetail == null)
+            {
+                var go = new GameObject("GameOverDetail");
+                go.transform.SetParent(_gameOver.transform, false);
+                var txt = go.AddComponent<TextMeshProUGUI>();
+                if (_calendar.font != null) txt.font = _calendar.font;
+                txt.fontSize = 26f;
+                txt.enableAutoSizing = true; // 긴 연대기 — 박스에 맞춰 축소 (명부와 동일 방침)
+                txt.fontSizeMin = 16f;
+                txt.fontSizeMax = 26f;
+                txt.alignment = TextAlignmentOptions.Center;
+                txt.color = new Color(0.92f, 0.9f, 0.78f);
+                txt.raycastTarget = false;
+                RectTransform rt = txt.rectTransform;
+                rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0f); // 하단 중앙
+                rt.pivot = new Vector2(0.5f, 0f);
+                rt.anchoredPosition = new Vector2(0f, 40f);
+                rt.sizeDelta = new Vector2(1100f, 90f);
+                _gameOverDetail = txt;
+            }
+            _gameOverDetail.text = line ?? "";
+        }
 
         /// <summary>
         /// 전멸 종료 화면 (M10-F) — 반투명 검정 오버레이 + 중앙 요약. 닫기·재건 버튼 없음
@@ -371,6 +476,7 @@ namespace AIVillage.M0
             var txtGo = new GameObject("GameOverText");
             txtGo.transform.SetParent(_gameOver.transform, false);
             var txt = txtGo.AddComponent<TextMeshProUGUI>();
+            _gameOverText = txt; // 드릴다운 클릭 판독 대상 (M13)
             if (_calendar.font != null) txt.font = _calendar.font; // 한글 폰트 공유 (W6 패턴)
             txt.fontSize = 44f;
             // 오토사이즈 (M13-C1 — 명세 §12-2 제안 채택): 명부는 주민 수만큼 길어지므로

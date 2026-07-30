@@ -36,17 +36,19 @@ namespace AIVillage.M0
         private readonly OwnershipService _ownership;
         private readonly RequestService _requests;
         private readonly HomeStorageService _homeStorage; // 집 저장 표기 (M11-A)
+        private readonly ChronicleService _chronicle;     // 최근 사건 표기 (M13-C2)
 
         public SeasonHud(Transform parent, TMP_FontAsset font,
                          RelationshipService relationship = null, WorldConfigSO worldCfg = null,
                          OwnershipService ownership = null, RequestService requests = null,
-                         HomeStorageService homeStorage = null)
+                         HomeStorageService homeStorage = null, ChronicleService chronicle = null)
         {
             _relationship = relationship;
             _worldCfg = worldCfg;
             _ownership = ownership;
             _requests = requests;
             _homeStorage = homeStorage;
+            _chronicle = chronicle;
             var root = new GameObject("SeasonHud");
             root.transform.SetParent(parent, false);
             var canvas = root.AddComponent<Canvas>();
@@ -139,7 +141,7 @@ namespace AIVillage.M0
             }
 
             string line = ComposeSelected(_selected, _relationship, _worldCfg, _ownership, _requests,
-                                          _homeStorage);
+                                          _homeStorage, _chronicle);
             if (line != _lastSelectedLine)
             {
                 _lastSelectedLine = line;
@@ -156,7 +158,8 @@ namespace AIVillage.M0
         public static string ComposeSelected(VillagerAgent a, RelationshipService rel = null,
                                              WorldConfigSO cfg = null, OwnershipService own = null,
                                              RequestService requests = null,
-                                             HomeStorageService homeStorage = null)
+                                             HomeStorageService homeStorage = null,
+                                             ChronicleService chronicle = null)
         {
             string line =
                 $"{a.ShortName} — 성격 {(a.Personality != null ? a.Personality.DisplayName : "없음")}" +
@@ -195,7 +198,75 @@ namespace AIVillage.M0
                 if (rel.TryGetExtreme(a.AgentId, buddy: false, cfg.GrudgeThreshold, out string grudge))
                     line += $" · <color=#FF8A65>원한 {ToShortName(grudge)}</color>";
             }
+
+            // 최근 사건 (M13-C2) — 사건 0건이면 표기 없음 (중립). 정보줄은 한 줄 규율이라
+            // 명세 초안의 "3줄"을 "한 줄에 최근 3건"으로 바꿨다 — 정보줄 아래(-124~)에
+            // 프롬프트·상태줄이 살고 있어 다줄 확장은 겹친다 (M8-B 관계 극단 1명 전례와 동일 규율).
+            if (chronicle != null && chronicle.TryGetRecord(a.AgentId, out VillagerRecord rec))
+            {
+                string recent = ComposeRecentEvents(rec, RECENT_EVENTS_MAX);
+                if (recent.Length > 0) line += $" · <color=#B8B8B8>{recent}</color>";
+            }
             return line;
+        }
+
+        /// <summary>정보줄 최근 사건 표시 수 (제안치 3 — 명세 §12-1, 유일하게 발명한 수치). 연출 상수.</summary>
+        private const int RECENT_EVENTS_MAX = 3;
+
+        /// <summary>최근 사건 요약 (M13-C2, 순수 — 게이트 M13-T4). 최신부터 max건,
+        /// "최근: 치료받음 D9 · 집 마련 D7". 사건 0건 = 빈 문자열 (중립).</summary>
+        public static string ComposeRecentEvents(VillagerRecord r, int max)
+        {
+            if (r == null || r.Events.Count == 0 || max <= 0) return "";
+            var sb = new System.Text.StringBuilder(48);
+            sb.Append("최근: ");
+            int shown = 0;
+            for (int i = r.Events.Count - 1; i >= 0 && shown < max; i--, shown++)
+            {
+                if (shown > 0) sb.Append(" · ");
+                sb.Append($"{KrEvent(r.Events[i])} D{(int)r.Events[i].Day}");
+            }
+            return sb.ToString();
+        }
+
+        /// <summary>개인 연대기 (M13-C2, 순수 — 회고용). 시간순 전체,
+        /// "D3 다침 · D9 치료받음". 사건 0건 = 빈 문자열 (그 줄 자체가 없다).</summary>
+        public static string ComposeLifeEvents(VillagerRecord r)
+        {
+            if (r == null || r.Events.Count == 0) return "";
+            var sb = new System.Text.StringBuilder(64);
+            for (int i = 0; i < r.Events.Count; i++)
+            {
+                if (i > 0) sb.Append(" · ");
+                sb.Append($"D{(int)r.Events[i].Day} {KrEvent(r.Events[i])}");
+            }
+            return sb.ToString();
+        }
+
+        /// <summary>사건의 플레이어 언어 (M13-C2) — KrCause와 같은 자리 (표시 정책 단일 지점).</summary>
+        public static string KrEvent(ChronicleEvent e)
+        {
+            switch (e.Kind)
+            {
+                case EventId.Injured:      return "다침";
+                case EventId.Healed:       return "치료받음";
+                case EventId.GotHome:      return "집 마련";
+                case EventId.OrderTaken:   return "명령 수락";
+                case EventId.OrderRefused: return "명령 거부" + KrRefuse(e.Value);
+                case EventId.Built:        return "완공";
+                default:                   return e.Kind.ToString(); // 미등록 신규 — 이름 그대로 (침묵 금지)
+            }
+        }
+
+        private static string KrRefuse(int v)
+        {
+            switch (v)
+            {
+                case ChronicleEvent.REFUSE_HUNGRY:  return "(배고픔)";
+                case ChronicleEvent.REFUSE_TIRED:   return "(피로)";
+                case ChronicleEvent.REFUSE_INJURED: return "(부상)";
+                default:                            return "";
+            }
         }
 
         /// <summary>AgentId → 표시명 ("M0_Villager_A" → "A") — VillagerAgent.ShortName과 동일 규칙.</summary>
@@ -248,7 +319,12 @@ namespace AIVillage.M0
             var sb = new System.Text.StringBuilder(256);
             sb.Append($"마을의 마지막 날 — Day {day}\n\n");
             foreach (VillagerRecord r in roster)
+            {
                 sb.Append($"{r.ShortName} — {r.PersonalityName}, {r.JobName}. {KrLifeSpan(r)}\n");
+                // 개인 연대기 (M13-C2) — 그 사람에게 있었던 일. 사건 0건이면 줄 자체가 없다.
+                string life = ComposeLifeEvents(r);
+                if (life.Length > 0) sb.Append($"<size=70%><color=#C8C4B0>{life}</color></size>\n");
+            }
             sb.Append($"\n정착 {settles} · 아무도 남지 않았다.");
             return sb.ToString();
         }

@@ -650,6 +650,18 @@ namespace AIVillage.M0
             // 개인 택지 시대의 장면은 집들이다 — 소유 배정 이벤트로 옮겨졌다(아래 Ownership.OnAssigned).
             // ZoneService는 휴면 보존 (테두리 뷰·재해 대사 앵커가 여전히 읽는다, ⚠️②).
             Ownership.OnAssigned += (tile, slot, ownerId) => ShowHousewarming(tile, slot, ownerId);
+            // 연대기 구독 (M13-C2) — 원본 서비스 무수정 (§4 ① — 이벤트 통로 재사용).
+            // 집 획득만 기록 (모닥불 등 다른 소유 슬롯은 1차 등록 6종 밖 — EventId append-only).
+            Ownership.OnAssigned += (tile, slot, ownerId) =>
+            {
+                if (slot == SlotId.HouseCount)
+                    Chronicle.RecordEvent(ownerId, EventId.GotHome, GameTime);
+            };
+            Construction.OnCompleted += (b, x, y, builderId) =>
+            {
+                if (!string.IsNullOrEmpty(builderId))
+                    Chronicle.RecordEvent(builderId, EventId.Built, GameTime); // 완공 — 지은 사람의 사건
+            };
             // 밭 완공 → FarmService 등록 (RegisterPlot의 유일한 호출 경로, ADR-M2-4)
             Construction.OnCompleted += (b, x, y, builderId) =>
             {
@@ -761,7 +773,7 @@ namespace AIVillage.M0
 
             // 씬 배선 없음 — BuildingVisualizer 패턴 (M6-C). 관계·소유·부탁 참조는 표기 전용 (M8-B/C/후속)
             Hud = new SeasonHud(transform, _bubbleFont, Relationship, _worldConfig, Ownership, Requests,
-                                HomeStorage); // 집 저장 표기 (M11-A)
+                                HomeStorage, Chronicle); // 집 저장 표기 (M11-A) + 연대기 (M13-C2)
 
             StartCoroutine(TickLoop());
         }

@@ -79,6 +79,74 @@ namespace AIVillage.Tests.EditMode
             Assert.AreEqual(ExitCause.Alive, roster[1].Cause);
         }
 
+        // ── M13-T4: 사건 로그 (C2) ───────────────────────────────────────────
+
+        [Test]
+        public void M13_T4_EventId_AppendOnlyIntegersFrozen()
+        {
+            // append-only 회귀 탐지 (ADR-M13-2) — 값이 바뀌면 저장된 연대기가 다른 이야기가 된다.
+            // 새 사건은 6 이후로만 추가하고 이 게이트에 한 줄 늘린다.
+            Assert.AreEqual(0, (int)EventId.Injured);
+            Assert.AreEqual(1, (int)EventId.Healed);
+            Assert.AreEqual(2, (int)EventId.GotHome);
+            Assert.AreEqual(3, (int)EventId.OrderTaken);
+            Assert.AreEqual(4, (int)EventId.OrderRefused);
+            Assert.AreEqual(5, (int)EventId.Built);
+            Assert.AreEqual(0, (int)ExitCause.Alive);
+            Assert.AreEqual(3, (int)ExitCause.Unknown);
+        }
+
+        [Test]
+        public void M13_T4_RecordEvent_AppendsInOrder_IgnoresUnknownSubject()
+        {
+            ChronicleService c = Service(("A", 0f));
+            c.RecordEvent("A", EventId.Injured, 3f);
+            c.RecordEvent("A", EventId.Healed, 9f);
+            c.RecordEvent("GHOST", EventId.Built, 5f); // 미등장 주체 — 무시 (방어)
+            VillagerRecord r = c.RosterByBirth()[0];
+            Assert.AreEqual(2, r.Events.Count);
+            Assert.AreEqual(EventId.Injured, r.Events[0].Kind, "시간순 append");
+            Assert.AreEqual(EventId.Healed, r.Events[1].Kind);
+        }
+
+        [Test]
+        public void M13_T4_ComposeRecentEvents_NewestFirstCappedNeutralWhenEmpty()
+        {
+            ChronicleService c = Service(("A", 0f));
+            Assert.AreEqual("", SeasonHud.ComposeRecentEvents(c.RosterByBirth()[0], 3),
+                "사건 0건 = 빈 문자열 (중립 — 줄 없음)");
+
+            c.RecordEvent("A", EventId.Injured, 3f);
+            c.RecordEvent("A", EventId.Healed, 9f);
+            c.RecordEvent("A", EventId.GotHome, 12f);
+            c.RecordEvent("A", EventId.OrderTaken, 15f);
+            string s = SeasonHud.ComposeRecentEvents(c.RosterByBirth()[0], 3);
+            StringAssert.StartsWith("최근: 명령 수락 D15", s, "최신이 앞");
+            StringAssert.Contains("집 마련 D12", s);
+            StringAssert.Contains("치료받음 D9", s);
+            StringAssert.DoesNotContain("다침", s, "최대 3건 — 가장 오래된 사건 절단");
+        }
+
+        [Test]
+        public void M13_T4_ComposeLifeEvents_ChronologicalWithRefuseReason()
+        {
+            ChronicleService c = Service(("A", 0f));
+            c.RecordEvent("A", EventId.OrderRefused, 5f, value: ChronicleEvent.REFUSE_HUNGRY);
+            c.RecordEvent("A", EventId.Built, 8f);
+            string s = SeasonHud.ComposeLifeEvents(c.RosterByBirth()[0]);
+            Assert.AreEqual("D5 명령 거부(배고픔) · D8 완공", s, "시간순 + 거부 사유");
+        }
+
+        [Test]
+        public void M13_T4_ComposeGameOver_IncludesLifeEventsLine()
+        {
+            ChronicleService c = Service(("A", 0f));
+            c.RecordEvent("A", EventId.Injured, 3f);
+            c.RecordExit("A", 10f, ExitCause.Injury);
+            string s = SeasonHud.ComposeGameOver(10, settles: 0, roster: c.RosterByBirth());
+            StringAssert.Contains("D3 다침", s, "회고에 개인 연대기 (S6 — 죽은 뒤에도 남는다)");
+        }
+
         [Test]
         public void M13_T3_ComposeGameOver_RosterReplacesStatistics()
         {

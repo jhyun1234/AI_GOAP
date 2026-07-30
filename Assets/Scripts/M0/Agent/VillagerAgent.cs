@@ -536,6 +536,7 @@ namespace AIVillage.M0
             // 피격 경험은 영구다 (M11-G) — 회복해도 잊지 않는다. "노숙자가 늑대에 물리고
             // 나서야 집을 원한다"는 서사의 실체 (결정 6). 세이브 대상 (ADR-M11-10).
             MyWasAttacked = true;
+            _sim.Chronicle.RecordEvent(AgentId, EventId.Injured, _sim.GameTime); // 연대기 (M13-C2)
             ShowTransient(Pick(_cfg.InjuredLines));
             Debug.LogWarning($"[Injury] {AgentId}: 부상 ({severity})");
             _sim.Hud?.Notify($"{ShortName}이(가) 다쳤습니다");
@@ -598,6 +599,9 @@ namespace AIVillage.M0
         /// <summary>완치 — 부상 소멸의 유일한 지점. 감속·goal 필터가 같은 틱에 해제된다.</summary>
         private void HealInjury()
         {
+            // 연대기 (M13-C2) — 치료 완료는 알림 누락 5건 중 유일한 🔴였다: 개입해서
+            // 살려내도 화면에 안 떠 개입에 보상이 없었다. 이제 기록으로 남는다.
+            _sim.Chronicle.RecordEvent(AgentId, EventId.Healed, _sim.GameTime);
             Debug.Log($"[Injury] {AgentId}: 회복 — 간호 누적 {_injuryRecovery:F2}일");
             Injury = InjurySeverity.None;
             _injuryRecovery = 0f;
@@ -1125,6 +1129,8 @@ namespace AIVillage.M0
             {
                 ShowTransient(Pick(_cfg.InjuredLines));
                 Debug.Log($"[VillagerAgent] {AgentId}: 명령 거부 (부상)");
+                _sim.Chronicle.RecordEvent(AgentId, EventId.OrderRefused, _sim.GameTime,
+                                           value: ChronicleEvent.REFUSE_INJURED); // 연대기 (M13-C2)
                 return OrderResult.RefusedInjured;
             }
 
@@ -1138,12 +1144,16 @@ namespace AIVillage.M0
             {
                 ShowTransient(Pick(FirstNonEmpty(Personality != null ? Personality.RefuseHungryLines : null, _cfg.RefuseHungryLines)));
                 Debug.Log($"[VillagerAgent] {AgentId}: 명령 거부 (배고픔 {Satiety:F0} < {_cfg.OrderRefuseSatiety})");
+                _sim.Chronicle.RecordEvent(AgentId, EventId.OrderRefused, _sim.GameTime,
+                                           value: ChronicleEvent.REFUSE_HUNGRY); // 연대기 (M13-C2)
                 return verdict;
             }
             if (verdict == OrderResult.RefusedTired)
             {
                 ShowTransient(Pick(FirstNonEmpty(Personality != null ? Personality.RefuseTiredLines : null, _cfg.RefuseTiredLines)));
                 Debug.Log($"[VillagerAgent] {AgentId}: 명령 거부 (피로 {Fatigue:F0} > {_cfg.OrderRefuseFatigue})");
+                _sim.Chronicle.RecordEvent(AgentId, EventId.OrderRefused, _sim.GameTime,
+                                           value: ChronicleEvent.REFUSE_TIRED); // 연대기 (M13-C2)
                 return verdict;
             }
 
@@ -1159,6 +1169,10 @@ namespace AIVillage.M0
                 Debug.Log($"[VillagerAgent] {AgentId}: 보상 약속 — {reward.DisplayName} " +
                           $"({reward.CostSlot} -{reward.CostAmount} 에스크로)");
             }
+
+            // 연대기 (M13-C2) — 수락 확정 지점 (거부·재고 실패 반환을 모두 지난 뒤).
+            // 기존엔 실패 경로만 화면에 있었다 (알림 누락 5건 중 하나 — 명세 §3).
+            _sim.Chronicle.RecordEvent(AgentId, EventId.OrderTaken, _sim.GameTime);
 
             // 상대 목표 해석: "지금보다 +N" — 수신 시점 절대값으로 고정한 런타임 사본 생성
             _order = ResolveRelativeGoal(order, out _orderIsRuntimeClone);

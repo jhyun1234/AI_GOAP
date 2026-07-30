@@ -24,7 +24,7 @@ namespace AIVillage.M0
         Built        = 5, // 완공        ← ConstructionService.OnCompleted (구독)
     }
 
-    /// <summary>사건 1건 (M13-C2 예약) — 값 타입 취급: 서비스만 만들고 밖에서 고치지 않는다.</summary>
+    /// <summary>사건 1건 (M13-C2) — 값 타입 취급: 서비스만 만들고 밖에서 고치지 않는다.</summary>
     public struct ChronicleEvent
     {
         public EventId Kind;
@@ -32,6 +32,12 @@ namespace AIVillage.M0
         public string  SubjectId; // 주체 (= 레코드 주인. 사건만 따로 순회할 때 필요)
         public string  OtherId;   // 대상 (없으면 null — 예: 완공)
         public int     Value;     // 부가값 (없으면 0 — 예: 거부 사유 코드)
+
+        // 명령 거부 사유 코드 (OrderRefused의 Value) — OrderResult enum 정수에 결합하지 않는다
+        // (그 enum은 저장 규약이 아니라 재배열될 수 있다). 여기 상수가 기록·표시의 단일 출처.
+        public const int REFUSE_HUNGRY  = 1;
+        public const int REFUSE_TIRED   = 2;
+        public const int REFUSE_INJURED = 3;
     }
 
     /// <summary>주민 한 명의 생애 기록 (M13-C1) — 죽어도 남는다. 서비스가 들고 있고
@@ -110,6 +116,24 @@ namespace AIVillage.M0
             r.LeftDay = day;
             r.Cause = ExitCause.Unknown;
         }
+
+        /// <summary>사건 기록 (M13-C2) — 레코드의 Events에 **Add만** 한다 (ADR-M13-2:
+        /// C1 필드를 읽지도 고치지도 않는다). 미등장 주체는 무시 (구독 배선이 주민 아닌
+        /// ID를 넘겨도 안전 — 방어).</summary>
+        public void RecordEvent(string subjectId, EventId kind, float day,
+                                string otherId = null, int value = 0)
+        {
+            if (string.IsNullOrEmpty(subjectId)
+                || !_records.TryGetValue(subjectId, out VillagerRecord r)) return;
+            r.Events.Add(new ChronicleEvent
+            {
+                Kind = kind, Day = day, SubjectId = subjectId, OtherId = otherId, Value = value,
+            });
+        }
+
+        /// <summary>레코드 조회 (M13-C2 — 정보줄 표시용 읽기 창구). 미등장 = false.</summary>
+        public bool TryGetRecord(string id, out VillagerRecord record)
+            => _records.TryGetValue(id, out record);
 
         /// <summary>회고용 명부 — **BornDay 오름차순, 동률은 Id 사전순** (결정적 —
         /// PickNearestIndex 동률 규칙과 같은 규약: 같은 판을 다시 봐도 같은 순서).</summary>

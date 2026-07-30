@@ -54,6 +54,53 @@ namespace AIVillage.Tests.EditMode
             StringAssert.Contains("늑대 — 0일 뒤", SeasonHud.ComposeStatus(null, 0, 0, "늑대"));
         }
 
+        // ── M13-T5: 이유·문턱 줄 (D) ─────────────────────────────────────────
+
+        [Test]
+        public void M13_T5_ComposeReason_MarginsMatchJudgeOrder()
+        {
+            // 여유 표기와 실제 거부 판정이 같은 산식(RefuseSatiety/FatigueLimit)을 쓴다 —
+            // 화면이 "여유 있음"이라는데 명령이 거부되면 협상 학습이 무너진다 (ADR-M1-2).
+            var cfg = UnityEngine.ScriptableObject.CreateInstance<AgentConfigSO>();
+            cfg.OrderRefuseSatiety = 35f;
+            cfg.OrderRefuseFatigue = 75f;
+
+            string ok = SeasonHud.ComposeReason(null, null, 0, 45f, 60f,
+                                                InjurySeverity.None, cfg, null, 99);
+            StringAssert.StartsWith("지금: 쉬는 중", ok, "goal 없음 = 쉬는 중 (중립)");
+            StringAssert.Contains("명령 여유 포만 10·피로 15", ok);
+            StringAssert.DoesNotContain("식량", ok, "99(중립) = 식량 표기 없음");
+            Assert.AreEqual(VillagerAgent.OrderResult.Accepted,
+                VillagerAgent.JudgeOrder(45f, 60f, cfg), "여유 양수 = 수락과 일치");
+
+            string hungry = SeasonHud.ComposeReason(null, null, 0, 30f, 60f,
+                                                    InjurySeverity.None, cfg, null, 4);
+            StringAssert.Contains("명령 거부될 것 — 배고픔", hungry);
+            StringAssert.Contains("식량 4일치", hungry);
+            Assert.AreEqual(VillagerAgent.OrderResult.RefusedHungry,
+                VillagerAgent.JudgeOrder(30f, 60f, cfg), "거부 예측 = 실제 판정");
+
+            string tired = SeasonHud.ComposeReason(null, null, 0, 45f, 80f,
+                                                   InjurySeverity.None, cfg, null, 99);
+            StringAssert.Contains("명령 거부될 것 — 피로", tired);
+            Assert.AreEqual(VillagerAgent.OrderResult.RefusedTired,
+                VillagerAgent.JudgeOrder(45f, 80f, cfg));
+
+            StringAssert.Contains("명령 불가 — 부상", SeasonHud.ComposeReason(
+                null, null, 0, 45f, 60f, InjurySeverity.Light, cfg, null, 99));
+        }
+
+        [Test]
+        public void M13_T5_ComposeReason_GoalWithoutPlanShowsNameOnly()
+        {
+            var goal = UnityEngine.ScriptableObject.CreateInstance<GoalSO>();
+            goal.DisplayName = "겨울 비축";
+            string s = SeasonHud.ComposeReason(goal, null, 0, 45f, 60f,
+                                               InjurySeverity.None, null, null, 99);
+            StringAssert.StartsWith("지금: 겨울 비축", s);
+            StringAssert.DoesNotContain("→", s, "계획 없음 = 사슬 없음 (중립)");
+        }
+
         [Test]
         public void M13_T2_Calendar_HasNoFoodSuffix()
         {

@@ -1092,20 +1092,29 @@ namespace AIVillage.M0
         /// 성격·보상은 문턱을 옮길 뿐 판정은 결정적 (ADR-M1-2 계승 — 랜덤 금지,
         /// 플레이어가 학습 가능해야 협상이 성립). 보상은 판정에만 개입, 수행에는 불개입 (ADR-M6-4).
         /// </summary>
+        /// <summary>실효 포만 거부 문턱 (순수, M13-D 추출) — 기준값 + 성향 편향(M12-D) +
+        /// 舊 개별 오프셋(M12-F까지 병존) + 보상 오프셋. JudgeOrder(판정)와 정보줄 여유
+        /// 표기(SeasonHud.ComposeReason)가 **이 함수 하나**를 쓴다 — 문턱 산식이 두 곳이면
+        /// 화면의 여유와 실제 거부가 어긋난다 (판단 규칙 이원화).</summary>
+        public static float RefuseSatietyLimit(AgentConfigSO cfg, PersonalitySO p, RewardSO r)
+            => TraitVector.Threshold(p != null ? p.Traits : null,
+                                     cfg.RefuseSatietyBias, cfg.OrderRefuseSatiety)
+             + (p != null ? p.RefuseSatietyOffset : 0f)
+             + (r != null ? r.RefuseSatietyOffset : 0f);
+
+        /// <summary>실효 피로 거부 문턱 (순수, M13-D 추출) — 위와 동일 사유.</summary>
+        public static float RefuseFatigueLimit(AgentConfigSO cfg, PersonalitySO p, RewardSO r)
+            => TraitVector.Threshold(p != null ? p.Traits : null,
+                                     cfg.RefuseFatigueBias, cfg.OrderRefuseFatigue)
+             + (p != null ? p.RefuseFatigueOffset : 0f)
+             + (r != null ? r.RefuseFatigueOffset : 0f);
+
         public static OrderResult JudgeOrder(float satiety, float fatigue, AgentConfigSO cfg,
                                              PersonalitySO p, RewardSO r)
         {
-            // 문턱 = 기준값 + 성향 편향(M12-D) + 舊 개별 오프셋(M12-F까지 병존) + 보상 오프셋.
             // 성향 가중치가 비면 Threshold가 기준값을 그대로 돌려주므로 현행 판정과 완전히 같다.
-            TraitValue[] traits = p != null ? p.Traits : null;
-            float satLimit = TraitVector.Threshold(traits, cfg.RefuseSatietyBias, cfg.OrderRefuseSatiety)
-                                                    + (p != null ? p.RefuseSatietyOffset : 0f)
-                                                    + (r != null ? r.RefuseSatietyOffset : 0f);
-            float fatLimit = TraitVector.Threshold(traits, cfg.RefuseFatigueBias, cfg.OrderRefuseFatigue)
-                                                    + (p != null ? p.RefuseFatigueOffset : 0f)
-                                                    + (r != null ? r.RefuseFatigueOffset : 0f);
-            if (satiety < satLimit) return OrderResult.RefusedHungry;
-            if (fatigue > fatLimit) return OrderResult.RefusedTired;
+            if (satiety < RefuseSatietyLimit(cfg, p, r)) return OrderResult.RefusedHungry;
+            if (fatigue > RefuseFatigueLimit(cfg, p, r)) return OrderResult.RefusedTired;
             return OrderResult.Accepted;
         }
 

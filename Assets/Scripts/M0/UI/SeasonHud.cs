@@ -58,10 +58,12 @@ namespace AIVillage.M0
             _calendar = MakeText(root.transform, "Calendar", font, new Vector2(12f, -10f), 30f);
             _notice   = MakeText(root.transform, "Notice",   font, new Vector2(12f, -48f), 24f);
             _notice.text = "";
+            // 정보줄 — M13-D부터 2줄 (1줄 = 신상, 2줄 = 이유·문턱). 높이 확대 + 아래 줄들 한 칸 내림.
             _selectedInfo = MakeText(root.transform, "SelectedInfo", font, new Vector2(12f, -86f), 24f);
+            _selectedInfo.rectTransform.sizeDelta = new Vector2(760f, 80f);
             _selectedInfo.text = "";
             // 결정 프롬프트 (M10-E) — 알림과 달리 상시 유지 (해소될 때까지). 노랑 강조.
-            _prompt = MakeText(root.transform, "Prompt", font, new Vector2(12f, -124f), 26f);
+            _prompt = MakeText(root.transform, "Prompt", font, new Vector2(12f, -162f), 26f);
             _prompt.color = new Color(1f, 0.85f, 0.4f);
             _prompt.text = "";
             // 상태 알림 (M13-B) — 순간 사건(Notify)과 달리 조건이 해소될 때까지 남는다
@@ -71,7 +73,7 @@ namespace AIVillage.M0
             // 높이는 폰트 비례(×16 ≈ 12줄) — 굶는 주민 개인 열거 + 부상·위협 줄 수용.
             float statusSize = worldCfg != null && worldCfg.HudStatusFontSize > 0f
                 ? worldCfg.HudStatusFontSize : 24f;
-            _status = MakeText(root.transform, "Status", font, new Vector2(12f, -162f), statusSize);
+            _status = MakeText(root.transform, "Status", font, new Vector2(12f, -200f), statusSize);
             _status.rectTransform.sizeDelta = new Vector2(760f, statusSize * 16f);
             _status.text = "";
         }
@@ -181,8 +183,8 @@ namespace AIVillage.M0
                 // 소지 식량 표기 (M11-A 관측 — 보상 차감·저장 이동을 콘솔 없이 화면에서 확인)
                 $" · 소지 생{a.MyRaw}·조{a.MyCooked}" +
                 // 부상 표기 (M10-A) — 붉은 강조. None이면 표기 없음 (중립 — M9 표시와 동일)
-                (a.Injury != InjurySeverity.None ? " · <color=#FF6B6B>부상</color>" : "") +
-                $" · 지금: {(a.CurrentGoal != null ? a.CurrentGoal.DisplayName : "쉬는 중")}";
+                (a.Injury != InjurySeverity.None ? " · <color=#FF6B6B>부상</color>" : "");
+                // "지금: goal"은 M13-D에서 2번째 줄(ComposeReason)로 이사 — 사슬과 한 몸이 됐다
 
             // 수락한 부탁 표기 (M8 후속) — "부탁: A의 집 지어주기". 진행 중(수락~완수)에만
             if (requests != null && requests.TryGetAssignment(a.AgentId, out string reqId, out string task))
@@ -213,14 +215,72 @@ namespace AIVillage.M0
             }
 
             // 최근 사건 (M13-C2) — 사건 0건이면 표기 없음 (중립). 정보줄은 한 줄 규율이라
-            // 명세 초안의 "3줄"을 "한 줄에 최근 3건"으로 바꿨다 — 정보줄 아래(-124~)에
-            // 프롬프트·상태줄이 살고 있어 다줄 확장은 겹친다 (M8-B 관계 극단 1명 전례와 동일 규율).
+            // 명세 초안의 "3줄"을 "한 줄에 최근 3건"으로 바꿨다 (M8-B 관계 극단 1명 전례와 동일 규율).
             if (chronicle != null && chronicle.TryGetRecord(a.AgentId, out VillagerRecord rec))
             {
                 string recent = ComposeRecentEvents(rec, RECENT_EVENTS_MAX);
                 if (recent.Length > 0) line += $" · <color=#B8B8B8>{recent}</color>";
             }
+
+            // 2번째 줄 = 이유·문턱 (M13-D) — "왜 지금 저걸 하는가"(계획 사슬)와
+            // "언제까지 손쓸 수 있는가"(명령 여유·식량)를 붙인다. 우리 시그니처 —
+            // RimWorld는 계획이 없어(깊이 1) 이 줄을 만들 수 없다.
+            line += "\n" + ComposeReason(a.CurrentGoal, a.CurrentPlan, a.CurrentPlanIndex,
+                                         a.Satiety, a.Fatigue, a.Injury, a.AgentConfig,
+                                         a.Personality, a.EstimateMyFoodDays());
             return line;
+        }
+
+        /// <summary>
+        /// 이유·문턱 줄 (M13-D, 순수 — 게이트 M13-T5). 세 부분:
+        /// ①계획 사슬 — "지금: 겨울 비축 — 채집 → [운반] → 조리" (현재 칸 노랑, 문구는 전부
+        ///   에셋 DisplayName — ADR-M0-1). 계획 없으면 goal명만, goal도 없으면 "쉬는 중" (중립).
+        /// ②명령 여유 — 실효 거부 문턱(JudgeOrder와 같은 산식 — RefuseSatiety/FatigueLimit)까지
+        ///   남은 양. 문턱을 넘었으면 거부 **예측**을 그대로 적는다 — 판정이 결정적(ADR-M1-2)이라
+        ///   예측이 정확하고, 그래서 학습·협상이 성립한다. 값이 아니라 여유를 보여준다 (분석 §6 ②).
+        /// ③식량 일수 — 99(중립)면 생략, 문턱은 상태줄과 같은 FOOD_ALERT_DAYS.
+        /// 내부값(EffectivePriority 등) 노출 금지 — 표기는 플레이어 언어만 (기존 규율).
+        /// </summary>
+        public static string ComposeReason(GoalSO goal, IReadOnlyList<ActionSO> plan, int planIndex,
+                                           float satiety, float fatigue, InjurySeverity injury,
+                                           AgentConfigSO cfg, PersonalitySO p, int foodDays)
+        {
+            var sb = new System.Text.StringBuilder(96);
+            sb.Append(goal != null ? $"지금: {goal.DisplayName}" : "지금: 쉬는 중");
+
+            if (goal != null && plan != null && plan.Count > 0)
+            {
+                sb.Append(" — ");
+                for (int i = 0; i < plan.Count; i++)
+                {
+                    if (i > 0) sb.Append(" → ");
+                    if (i == planIndex) sb.Append($"<color=#FFD966>{plan[i].DisplayName}</color>");
+                    else sb.Append(plan[i].DisplayName);
+                }
+            }
+
+            if (cfg != null)
+            {
+                if (injury != InjurySeverity.None)
+                    sb.Append(" · <color=#FF6B6B>명령 불가 — 부상</color>"); // TryGiveOrder 조기 거절과 동일
+                else
+                {
+                    float satMargin = satiety - VillagerAgent.RefuseSatietyLimit(cfg, p, null);
+                    float fatMargin = VillagerAgent.RefuseFatigueLimit(cfg, p, null) - fatigue;
+                    if (satMargin <= 0f)      // 판정 순서도 JudgeOrder와 동일 (배고픔 먼저)
+                        sb.Append(" · <color=#FF6B6B>명령 거부될 것 — 배고픔</color>");
+                    else if (fatMargin <= 0f)
+                        sb.Append(" · <color=#FF6B6B>명령 거부될 것 — 피로</color>");
+                    else
+                        sb.Append($" · 명령 여유 포만 {satMargin:0}·피로 {fatMargin:0}");
+                }
+            }
+
+            if (foodDays < WorldModel.NO_ESTIMATE)
+                sb.Append(foodDays <= FOOD_ALERT_DAYS
+                    ? $" · <color=#FF6B6B>식량 {foodDays}일치</color>"
+                    : $" · 식량 {foodDays}일치");
+            return sb.ToString();
         }
 
         /// <summary>정보줄 최근 사건 표시 수 (제안치 3 — 명세 §12-1, 유일하게 발명한 수치). 연출 상수.</summary>

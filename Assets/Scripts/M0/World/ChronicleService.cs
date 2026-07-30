@@ -135,6 +135,16 @@ namespace AIVillage.M0
         public bool TryGetRecord(string id, out VillagerRecord record)
             => _records.TryGetValue(id, out record);
 
+        /// <summary>퇴장 관계 스냅샷 (M13-C3) — 호출처는 Die/StarveToDeath 둘뿐 (ADR-M13-3:
+        /// UnregisterAgent의 ReleaseBy가 관계를 지우기 **전**이어야 한다 — 이 배치가 증분이
+        /// 성립한 이유, 명세 §5.4). 멱등 — 첫 스냅샷 보존. null = 단짝/원한 없음 (중립).</summary>
+        public void SnapshotRelations(string id, string buddyId, string grudgeId)
+        {
+            if (!_records.TryGetValue(id, out VillagerRecord r)) return;
+            if (r.BuddyIdAtExit == null) r.BuddyIdAtExit = buddyId;
+            if (r.GrudgeIdAtExit == null) r.GrudgeIdAtExit = grudgeId;
+        }
+
         /// <summary>회고용 명부 — **BornDay 오름차순, 동률은 Id 사전순** (결정적 —
         /// PickNearestIndex 동률 규칙과 같은 규약: 같은 판을 다시 봐도 같은 순서).</summary>
         public IReadOnlyList<VillagerRecord> RosterByBirth()

@@ -373,11 +373,17 @@ namespace AIVillage.M0
         }
 
         /// <summary>무덤·명부 조사 문구 (M13, 순수) — 죽은 주민의 정보줄. 산 주민
-        /// ComposeSelected의 짝. 기록 없으면 생애 구간만 (중립 — 표기 없음).</summary>
+        /// ComposeSelected의 짝. 기록·관계 없으면 생애 구간만 (중립 — 표기 없음).</summary>
         public static string ComposeGraveInfo(VillagerRecord r)
         {
             if (r == null) return "";
             string line = $"† {r.ShortName} — {r.PersonalityName}, {r.JobName}. {KrLifeSpan(r)}";
+            // 퇴장 관계 (M13-C3) — 죽음이 지우지 못한 것. 회상 테스트가 찾던 종류의 줄
+            // ("영희의 단짝이었다"). 산 주민 정보줄과 같은 문턱 판정의 스냅샷이다.
+            if (!string.IsNullOrEmpty(r.BuddyIdAtExit))
+                line += $" · {ToShortName(r.BuddyIdAtExit)}의 단짝이었다";
+            if (!string.IsNullOrEmpty(r.GrudgeIdAtExit))
+                line += $" · <color=#FF8A65>{ToShortName(r.GrudgeIdAtExit)}에게 원한이 있었다</color>";
             string life = ComposeLifeEvents(r);
             return life.Length > 0 ? $"{line} · <color=#B8B8B8>{life}</color>" : line;
         }

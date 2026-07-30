@@ -627,9 +627,24 @@ namespace AIVillage.M0
             // 명부 퇴장 기록 (M13-C1) — 사유를 아는 곳에서만 쓴다 (ADR-M13-3:
             // 호출처는 여기와 StarveToDeath 둘뿐. UnregisterAgent로 옮기면 C3 증분이 무너진다).
             _sim.Chronicle.RecordExit(AgentId, _sim.GameTime, ExitCause.Injury);
+            SnapshotRelationsForChronicle(); // C3 — ReleaseBy(OnDestroy)가 지우기 전에
             ShowTransient(Pick(_cfg.DieLines));
             State = AgentState.Dead;      // SimTick 차단 — Depart와 동일 (새 상태 추가 금지)
             Destroy(gameObject, _cfg.TransientLineSec);
+        }
+
+        /// <summary>퇴장 관계 스냅샷 (M13-C3) — 죽는 순간의 단짝·원한을 명부에 남긴다.
+        /// M13의 유일한 수술 대상이던 ReleaseBy는 결국 무수정 — 지우기 **전에** 찍는 것으로
+        /// 충분했다 (산 자의 사전에서 죽은 자가 지워지는 것은 그대로 옳다).
+        /// 판정은 정보줄과 같은 TryGetExtreme·같은 문턱 에셋 (판단 규칙 이원화 금지).</summary>
+        private void SnapshotRelationsForChronicle()
+        {
+            RelationshipService rel = _sim.Relationship;
+            WorldConfigSO cfg = _sim.WorldConfig;
+            if (rel == null || cfg == null) return;
+            rel.TryGetExtreme(AgentId, buddy: true, cfg.BuddyThreshold, out string buddy);
+            rel.TryGetExtreme(AgentId, buddy: false, cfg.GrudgeThreshold, out string grudge);
+            _sim.Chronicle.SnapshotRelations(AgentId, buddy, grudge);
         }
 
         /// <summary>부상 goal 필터 (순수 — 게이트 M10-T1): 부상 중엔 AllowedWhenInjured goal만 후보.
@@ -690,6 +705,7 @@ namespace AIVillage.M0
                              $"(문턱 {_cfg.DepartAfterStarvingDays}일)");
             _sim.RecordDeath(TileX, TileY, ShortName, (int)_sim.GameTime, AgentId); // 부상 사망과 같은 문 — 무덤·카운터 (원인만 이원)
             _sim.Chronicle.RecordExit(AgentId, _sim.GameTime, ExitCause.Starvation); // 명부 — 사유 이원화 유지 (ADR-M13-3)
+            SnapshotRelationsForChronicle(); // C3 — ReleaseBy(OnDestroy)가 지우기 전에
             _sim.Hud?.Notify($"{ShortName}이(가) 굶어 숨을 거뒀습니다");
             ShowTransient(Pick(_cfg.StarveLines));
             State = AgentState.Dead;      // SimTick 차단 — 새 상태 추가 금지 (ADR-M6-3)

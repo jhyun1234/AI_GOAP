@@ -191,6 +191,33 @@ namespace AIVillage.Tests.EditMode
             Assert.AreEqual("† B — 중립, 무직. Day 1~5, 굶어 죽음", bare);
         }
 
+        // ── M13-T6: 관계 보존 (C3) ───────────────────────────────────────────
+
+        [Test]
+        public void M13_T6_SnapshotRelations_IdempotentAndShownInGraveInfo()
+        {
+            ChronicleService c = Service(("A", 0f));
+            c.SnapshotRelations("A", "M0_Villager_B", null);
+            c.SnapshotRelations("A", "M0_Villager_C", "M0_Villager_D"); // 두 번째 — 단짝은 무시(멱등), 빈 칸(원한)만 채움
+            c.RecordExit("A", 34f, ExitCause.Starvation);
+            VillagerRecord r = c.RosterByBirth()[0];
+            Assert.AreEqual("M0_Villager_B", r.BuddyIdAtExit, "첫 스냅샷 보존");
+            Assert.AreEqual("M0_Villager_D", r.GrudgeIdAtExit, "null이던 칸은 채워진다");
+
+            string info = SeasonHud.ComposeGraveInfo(r);
+            StringAssert.Contains("B의 단짝이었다", info, "죽음이 지우지 못한 것 (S8)");
+            StringAssert.Contains("D에게 원한이 있었다", info);
+
+            // 관계 없던 주민 — 표기 없음 (중립)
+            ChronicleService c2 = Service(("E", 0f));
+            c2.RecordExit("E", 5f, ExitCause.Injury);
+            StringAssert.DoesNotContain("단짝", SeasonHud.ComposeGraveInfo(c2.RosterByBirth()[0]));
+
+            // 명부(목차)에는 관계가 없다 — 깊이는 조사 문구에만
+            StringAssert.DoesNotContain("단짝",
+                SeasonHud.ComposeGameOver(34, settles: 0, roster: c.RosterByBirth()));
+        }
+
         [Test]
         public void M13_T3_ComposeGameOver_RosterReplacesStatistics()
         {

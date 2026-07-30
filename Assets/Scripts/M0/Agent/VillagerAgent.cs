@@ -619,7 +619,7 @@ namespace AIVillage.M0
             Debug.LogWarning($"[VillagerAgent] {AgentId}: 부상 사망 — 방치 {_injuryNeglectDays:F2}일 " +
                              $"(문턱 {_cfg.InjuryDeathAfterDays}일)");
             _sim.Hud?.Notify($"{ShortName}이(가) 숨을 거뒀습니다");
-            _sim.RecordDeath(TileX, TileY);
+            _sim.RecordDeath(TileX, TileY, ShortName, (int)_sim.GameTime);
             ShowTransient(Pick(_cfg.DieLines));
             State = AgentState.Dead;      // SimTick 차단 — Depart와 동일 (새 상태 추가 금지)
             Destroy(gameObject, _cfg.TransientLineSec);
@@ -681,7 +681,7 @@ namespace AIVillage.M0
             Debug.LogWarning($"[VillagerAgent] {AgentId}: 아사 — 포만 {Satiety:F0} " +
                              $"(< {_cfg.StarvingBelowSatiety}) 지속 {_starvingDays:F2}일 " +
                              $"(문턱 {_cfg.DepartAfterStarvingDays}일)");
-            _sim.RecordDeath(TileX, TileY); // 부상 사망과 같은 문 — 무덤·카운터 (원인만 이원)
+            _sim.RecordDeath(TileX, TileY, ShortName, (int)_sim.GameTime); // 부상 사망과 같은 문 — 무덤·카운터 (원인만 이원)
             _sim.Hud?.Notify($"{ShortName}이(가) 굶어 숨을 거뒀습니다");
             ShowTransient(Pick(_cfg.StarveLines));
             State = AgentState.Dead;      // SimTick 차단 — 새 상태 추가 금지 (ADR-M6-3)

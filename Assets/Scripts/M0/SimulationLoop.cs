@@ -427,20 +427,32 @@ namespace AIVillage.M0
             => !alreadyShown && everHadAgents && aliveCount == 0;
 
         /// <summary>
-        /// 사망 기록 (M10-A) — 호출처는 VillagerAgent.Die()뿐 (이탈 이원화 — ADR-M10-3:
-        /// Depart는 여기 오지 않는다). 카운터 +1 + 사망 타일에 무덤 오브젝트 (표현 전용, 영구 흔적).
+        /// 사망 기록 (M10-A → M13-A 이름) — 호출처는 VillagerAgent.Die()·StarveToDeath() 2곳뿐
+        /// (이탈 이원화 — ADR-M10-3: Depart는 여기 오지 않는다). 카운터 +1 + 사망 타일에 무덤 +
+        /// **누구의 흔적인지** (이름·사망일 이름표 — M13-A).
+        /// 이름·날짜는 죽는 순간에 인자로 받는다 — OnDestroy 시점엔 지연 파괴·서비스 기록 정리와
+        /// 순서가 얽힌다 (M13 명세 §6-A ⚠️).
         /// </summary>
-        public void RecordDeath(int tileX, int tileY)
+        public void RecordDeath(int tileX, int tileY, string shortName, int day)
         {
             DeathCount++;
-            var grave = new GameObject($"Grave_{tileX}_{tileY}");
+            var grave = new GameObject($"Grave_{shortName}_{tileX}_{tileY}");
             grave.transform.SetParent(transform, worldPositionStays: false);
             grave.transform.position = new Vector3(tileX, tileY, 0f); // ADR-M0-9 — X-Y 평면
-            var sr = grave.AddComponent<SpriteRenderer>();
+
+            // 비석 마커 — 루트가 아니라 자식을 축소한다 (M13-A): 舊 코드처럼 루트를 0.5배 하면
+            // 이름표까지 반토막 난다. 주민 이름표(스케일 1 루트)와 크기·오프셋을 통일한다.
+            var marker = new GameObject("Marker");
+            marker.transform.SetParent(grave.transform, worldPositionStays: false);
+            marker.transform.localScale = Vector3.one * 0.5f;
+            var sr = marker.AddComponent<SpriteRenderer>();
             sr.sprite = M0Sprites.Circle;
             sr.color = new Color(0.45f, 0.45f, 0.5f, 0.9f); // 회색 비석 마커 (아트 교체는 후속 에셋)
             sr.sortingOrder = 5;                             // 주민(10) 아래, 바닥 위
-            grave.transform.localScale = Vector3.one * 0.5f;
+
+            // 이름표 (M13-A) — 주민과 같은 부품(NameTag)·같은 에셋 설정 공유 (새 수치 발명 없음).
+            if (_agentConfig != null)
+                new NameTag(grave.transform, _bubbleFont, _agentConfig, $"{shortName} · Day {day}");
         }
 
         public void UnregisterAgent(VillagerAgent agent)

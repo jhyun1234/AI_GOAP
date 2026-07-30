@@ -33,6 +33,10 @@ namespace AIVillage.M0
             public readonly HashSet<string> EverSeen = new HashSet<string>();
             public int Alive;
             public int WithHome;
+
+            /// <summary>생존자 직업 구성 (2026-07-31 곁가지 처리 — "게으름뱅이 노동 5%"가 근면
+            /// 축 때문인지 무직(RoutineGoal 부재) 때문인지 로그만으로 분리 불가했다). 틱마다 재집계.</summary>
+            public readonly Dictionary<string, int> Jobs = new Dictionary<string, int>(4);
         }
 
         private readonly Dictionary<string, Entry> _byPersonality = new Dictionary<string, Entry>(8);
@@ -98,6 +102,21 @@ namespace AIVillage.M0
             return pairs;
         }
 
+        /// <summary>직업 구성 문구 — "농부2·무직1" (이름 순 정렬, 결정적). 생존 0명이면 "-".</summary>
+        private static string JoinJobs(Dictionary<string, int> jobs)
+        {
+            if (jobs == null || jobs.Count == 0) return "-";
+            var names = new List<string>(jobs.Keys);
+            names.Sort(string.CompareOrdinal);
+            var sb = new System.Text.StringBuilder(24);
+            for (int i = 0; i < names.Count; i++)
+            {
+                if (i > 0) sb.Append('·');
+                sb.Append(names[i]).Append(jobs[names[i]]);
+            }
+            return sb.ToString();
+        }
+
         /// <summary>상위 N개 goal 이름 집합 (순수 — 동률은 이름 순으로 결정적 절단).</summary>
         public static HashSet<string> TopGoals(Dictionary<string, int> picks, int n)
         {
@@ -124,7 +143,7 @@ namespace AIVillage.M0
 
             foreach (KeyValuePair<string, Entry> kv in _byPersonality)
             {
-                kv.Value.Alive = 0; kv.Value.WithHome = 0;
+                kv.Value.Alive = 0; kv.Value.WithHome = 0; kv.Value.Jobs.Clear();
             }
             if (agents != null)
                 foreach (VillagerAgent a in agents)
@@ -132,7 +151,13 @@ namespace AIVillage.M0
                     if (a == null) continue;
                     Entry e = EntryOf(a.Personality);
                     e.EverSeen.Add(a.AgentId);
-                    if (a.State != AgentState.Dead) e.Alive++;
+                    if (a.State != AgentState.Dead)
+                    {
+                        e.Alive++;
+                        string job = a.Job != null ? a.Job.DisplayName : "무직";
+                        e.Jobs.TryGetValue(job, out int jn);
+                        e.Jobs[job] = jn + 1;
+                    }
                     if (a.TryGetHomeTile(out _)) e.WithHome++;
                 }
 
@@ -148,6 +173,7 @@ namespace AIVillage.M0
                 float laborPct    = e.TotalPicks > 0 ? 100f * e.LaborPicks    / e.TotalPicks : 0f;
                 float communalPct = e.TotalPicks > 0 ? 100f * e.CommunalPicks / e.TotalPicks : 0f;
                 sb.Append($"  {kv.Key}: 생존 {e.Alive}/{e.EverSeen.Count} · 집 {e.WithHome} · " +
+                          $"직업 [{JoinJobs(e.Jobs)}] · " +
                           $"노동 {laborPct:F0}% · 공용 {communalPct:F0}% · 거부 {e.Refusals} · " +
                           $"상위goal [{string.Join(", ", top)}]\n");
             }

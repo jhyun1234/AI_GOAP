@@ -65,9 +65,12 @@ namespace AIVillage.M0
             // 상태 알림 (M13-B) — 순간 사건(Notify)과 달리 조건이 해소될 때까지 남는다
             // ("식량 부족"은 지나가는 소식이 아니라 지금 손쓸 수 있는 상태다 — 예고 휘발성 교훈의 일반화).
             // ⚠️ 다줄이라 이 인스턴스만 높이를 키운다 — MakeText 공유값(760,40)은 불변 (명세 §6-B ⚠️).
-            // 높이 400 = 굶는 주민 개인 열거(2026-07-30 개정)로 최대 주민 수 + 부상·위협 줄 수용.
-            _status = MakeText(root.transform, "Status", font, new Vector2(12f, -162f), 24f);
-            _status.rectTransform.sizeDelta = new Vector2(760f, 400f);
+            // 폰트는 에셋 값 (WorldConfigSO.HudStatusFontSize — "작다" Play 피드백으로 승격),
+            // 높이는 폰트 비례(×16 ≈ 12줄) — 굶는 주민 개인 열거 + 부상·위협 줄 수용.
+            float statusSize = worldCfg != null && worldCfg.HudStatusFontSize > 0f
+                ? worldCfg.HudStatusFontSize : 24f;
+            _status = MakeText(root.transform, "Status", font, new Vector2(12f, -162f), statusSize);
+            _status.rectTransform.sizeDelta = new Vector2(760f, statusSize * 16f);
             _status.text = "";
         }
 
@@ -278,6 +281,10 @@ namespace AIVillage.M0
         /// 굶는 주민은 **개인 단위로 한 줄씩** (2026-07-30 사용자 피드백 — "누구인지 모르는 정보"는
         /// 개입을 못 만든다. N명이면 N줄). 목록은 호출자가 FOOD_ALERT_DAYS로 걸러 넘긴다 —
         /// 여기는 표시만 한다. 위협색은 달력 예고와 같은 주황 (#FF8A65).
+        ///
+        /// ⚠️ 확장 규칙: 새 상태 종류(추위·수면 부족 등)는 인자 + Append 블록을 **굶는 주민 줄
+        /// 뒤에** 추가한다. 클릭 매핑(SimulationLoop.FindStarvingVillagerAt)이 "굶는 줄 =
+        /// 맨 앞 0..N-1"을 전제하므로, 앞에 끼우면 클릭이 엉뚱한 주민을 집는다.
         /// </summary>
         public static string ComposeStatus(IReadOnlyList<(string name, int days)> starving,
                                            int untendedInjured, int threatDaysLeft, string threatName)

@@ -88,6 +88,11 @@ namespace AIVillage.M0
                  "비면 FoodDaysLeft 항상 99 (중립 — 기존 동작과 완전 동일).")]
         public ConsumeActionSO[] FoodSources;
 
+        [Header("HUD (M13-B — 상태 알림 줄)")]
+        [Tooltip("상태 알림 줄 폰트 크기. 초기값 24가 작다는 Play 피드백(2026-07-30)으로 30 제안. " +
+                 "0 이하 = 기본 24. 다른 HUD 줄(달력 30·정보줄 24)은 코드 상수 유지 — 조절 요구가 생기면 그때 승격.")]
+        public float HudStatusFontSize = 30f;
+
         [Tooltip("성격별 행동 프로파일 로그 주기(게임일, M12-J). 0 = 계측 끄기(중립). 제안치 7 — " +
                  "계절 길이(8)와 어긋나게 잡아야 특정 계절만 찍히는 편향이 안 생긴다. 읽기 전용 관측.")]
         public float ProfilerIntervalDays = 7f;

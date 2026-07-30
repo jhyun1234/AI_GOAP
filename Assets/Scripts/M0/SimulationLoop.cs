@@ -245,7 +245,9 @@ namespace AIVillage.M0
 
         /// <summary>상태줄 line번째 굶는 주민 (M13-B 후속 — 클릭 점프용). 굶는 줄 범위 밖이면 null.
         /// _starvingBuf가 표시(ComposeStatus)와 같은 원천이라 줄 순서가 화면과 일치한다 —
-        /// 클릭과 갱신이 한 틱(0.1초) 어긋날 수 있으나 무해 (다른 굶는 주민을 집을 뿐).</summary>
+        /// 클릭과 갱신이 한 틱(0.1초) 어긋날 수 있으나 무해 (다른 굶는 주민을 집을 뿐).
+        /// ⚠️ "굶는 줄 = 상태줄 맨 앞"이 전제 — 새 상태 종류는 반드시 굶는 줄 **뒤에** 추가
+        /// (ComposeStatus의 확장 규칙 주석과 짝).</summary>
         public VillagerAgent FindStarvingVillagerAt(int line)
         {
             if (line < 0 || line >= _starvingBuf.Count) return null;

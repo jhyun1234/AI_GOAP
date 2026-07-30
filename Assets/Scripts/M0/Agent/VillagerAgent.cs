@@ -692,6 +692,18 @@ namespace AIVillage.M0
             Destroy(gameObject, _cfg.TransientLineSec); // 마지막 대사 노출 후 소멸 (ShowTransient와 동일 에셋 값)
         }
 
+#if UNITY_EDITOR
+        /// <summary>디버그 즉사 (M13 — 전멸 회고 관측 장치, 에디터 전용). 실제 아사 경로
+        /// (StarveToDeath)를 그대로 쓴다 — 무덤·카운터·명부·OnDestroy 정리가 실전과 완전히
+        /// 동일해야 관측이 의미 있다 (새 사망 경로 금지 — ADR-M6-3 소멸 경로 단일성).
+        /// Dead 가드 = 중복 발동 시 무덤·카운터 이중 기록 방지.</summary>
+        public void DebugKill()
+        {
+            if (State == AgentState.Dead) return;
+            StarveToDeath();
+        }
+#endif
+
         // ─────────────────────────────────────────────────────────────────────
         // Idle → Planning
         // ─────────────────────────────────────────────────────────────────────

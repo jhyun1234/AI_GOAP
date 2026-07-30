@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using AIVillage.Core;
 using UnityEngine;
 
@@ -56,6 +57,21 @@ namespace AIVillage.M0
             if (M0SimulationLoop.Instance == null || _camera == null) return;
 
             if (Input.GetKeyDown(KeyCode.Escape)) Deselect();
+
+#if UNITY_EDITOR
+            // 디버그 전멸 (M13 — 회고 화면 즉시 관측용): Ctrl+F9. 에디터 전용, 빌드 제외.
+            // 조합키 = 오폭 방지 (F9 단독 오타로 판이 날아가면 안 된다). 전 주민을 실제 아사
+            // 경로로 처리 — 몇 초 뒤(마지막 대사 노출 후) 전멸 화면이 실전과 동일하게 뜬다.
+            if (Input.GetKeyDown(KeyCode.F9)
+                && (Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl)))
+            {
+                Debug.LogWarning("[PlayerInput] 디버그 전멸 (Ctrl+F9) — 전 주민 아사 처리");
+                M0SimulationLoop.Instance.Hud?.Notify("디버그 전멸 — 잠시 후 회고가 표시됩니다");
+                IReadOnlyList<VillagerAgent> agents = M0SimulationLoop.Instance.Agents;
+                for (int i = agents.Count - 1; i >= 0; i--)
+                    if (agents[i] != null) agents[i].DebugKill();
+            }
+#endif
 
             // 배속 (M10 관측 도구) — 숫자키 1=1× 2=2× 3=4× 4=8× (기본 배열 기준, Inspector 조정 가능)
             if (_speedSteps != null)

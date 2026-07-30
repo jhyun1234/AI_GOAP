@@ -450,9 +450,11 @@ namespace AIVillage.M0
             sr.color = new Color(0.45f, 0.45f, 0.5f, 0.9f); // 회색 비석 마커 (아트 교체는 후속 에셋)
             sr.sortingOrder = 5;                             // 주민(10) 아래, 바닥 위
 
-            // 이름표 (M13-A) — 주민과 같은 부품(NameTag)·같은 에셋 설정 공유 (새 수치 발명 없음).
+            // 이름표 (M13-A) — 주민과 같은 부품(NameTag) 공유, 크기만 별도 에셋 값
+            // (Play 피드백 "작아서 확대해야 보임" — GraveTagFontSize로 Inspector 조절).
             if (_agentConfig != null)
-                new NameTag(grave.transform, _bubbleFont, _agentConfig, $"{shortName} · Day {day}");
+                new NameTag(grave.transform, _bubbleFont, _agentConfig, $"{shortName} · Day {day}",
+                            _agentConfig.GraveTagFontSize);
         }
 
         public void UnregisterAgent(VillagerAgent agent)

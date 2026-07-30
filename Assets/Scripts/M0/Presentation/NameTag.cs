@@ -11,7 +11,10 @@ namespace AIVillage.M0
     /// </summary>
     public sealed class NameTag
     {
-        public NameTag(Transform parent, TMP_FontAsset font, AgentConfigSO cfg, string label)
+        /// <summary>fontSizeOverride ≤ 0이면 cfg.NameTagFontSize (주민 기본 — 기존 호출 무변경).
+        /// 비석(M13-A)은 GraveTagFontSize를 넘겨 별개 조절한다 — 수치는 전부 에셋 (ADR-M0-2).</summary>
+        public NameTag(Transform parent, TMP_FontAsset font, AgentConfigSO cfg, string label,
+                       float fontSizeOverride = 0f)
         {
             var go = new GameObject("NameTag");
             go.transform.SetParent(parent, worldPositionStays: false);
@@ -19,7 +22,7 @@ namespace AIVillage.M0
 
             var text = go.AddComponent<TextMeshPro>();
             if (font != null) text.font = font;
-            text.fontSize = cfg.NameTagFontSize;
+            text.fontSize = fontSizeOverride > 0f ? fontSizeOverride : cfg.NameTagFontSize;
             text.alignment = TextAlignmentOptions.Top;
             text.rectTransform.sizeDelta = new Vector2(cfg.BubbleWidth, 1f); // 버그C7: (0,0) 금지
             text.textWrappingMode = TextWrappingModes.NoWrap;

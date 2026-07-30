@@ -65,6 +65,10 @@ namespace AIVillage.M0
         [Tooltip("이름표 WorldSpace TMP 폰트 크기")]
         public float NameTagFontSize = 1.6f;
 
+        [Tooltip("비석 이름표 폰트 크기 (M13-A) — 주민 이름표와 별개로 조절. " +
+                 "제안치 2.4 (주민 1.6의 1.5배 — Play 확인에서 '작아서 확대해야 보임' 피드백, 2026-07-30).")]
+        public float GraveTagFontSize = 2.4f;
+
         [Header("플래닝")]
         [Tooltip("플랜 요청 타임아웃(초). 舊 PLANNING_TIMEOUT_SEC 3.0 이관.")]
         public float PlanningTimeoutSec = 3f;

@@ -12,8 +12,13 @@
 // 제목/본문은 파일로 넘긴다 — 셸 인자 이스케이프 문제(따옴표, 개행)를 피하기 위함.
 
 const fs = require('fs');
-const https = require('https');
 const path = require('path');
+
+// 샌드박스 환경은 outbound HTTPS를 지정된 로컬 프록시(HTTPS_PROXY)로만 허용한다.
+// Node의 https.request는 이 env var를 읽지 않아 직접 접속을 시도하다 막힌다
+// (2026-07-30 관측: googleapis.com DNS 실패). 내장 fetch(undici)는
+// NODE_USE_ENV_PROXY=1일 때 HTTPS_PROXY를 지킨다.
+if (!process.env.NODE_USE_ENV_PROXY) process.env.NODE_USE_ENV_PROXY = '1';
 
 const CRED_DIR = path.join(__dirname, '..', 'credentials');
 const CLIENT_SECRET_PATH = path.join(CRED_DIR, 'client_secret.json');
@@ -37,36 +42,22 @@ function loadJsonWithFallback(filePath, envName) {
   throw new Error(`${filePath}도 없고 env ${envName}도 없음 — 원격 실행이면 routine env vars 설정 필요`);
 }
 
-function httpsJson(urlStr, { method = 'GET', headers = {}, body } = {}) {
-  return new Promise((resolve, reject) => {
-    const req = https.request(
-      urlStr,
-      { method, headers },
-      (res) => {
-        // 청크를 Buffer로 모았다가 마지막에 한 번만 디코드한다.
-        // `data += c`로 이어붙이면 멀티바이트 문자가 청크 경계에 걸릴 때 깨진다
-        // (한글은 UTF-8 3바이트 — 2026-07-22·07-28 실제 관측, "안전"→"안�전").
-        const chunks = [];
-        res.on('data', (c) => chunks.push(Buffer.isBuffer(c) ? c : Buffer.from(c)));
-        res.on('end', () => {
-          const data = Buffer.concat(chunks).toString('utf8');
-          let parsed;
-          try {
-            parsed = data ? JSON.parse(data) : {};
-          } catch (e) {
-            return reject(new Error(`응답 파싱 실패 (status ${res.statusCode}): ${data.slice(0, 500)}`));
-          }
-          if (res.statusCode >= 400) {
-            return reject(new Error(`HTTP ${res.statusCode}: ${JSON.stringify(parsed)}`));
-          }
-          resolve(parsed);
-        });
-      }
-    );
-    req.on('error', reject);
-    if (body) req.write(body);
-    req.end();
-  });
+async function httpsJson(urlStr, { method = 'GET', headers = {}, body } = {}) {
+  // fetch(undici)는 응답 바디를 자체적으로 올바르게 디코드한다 — 청크 경계에서
+  // 멀티바이트 문자가 깨지는 문제(2026-07-22·07-28 실제 관측)가 수동 버퍼 이어붙이기
+  // 방식에서만 발생했고, fetch에는 해당하지 않는다.
+  const res = await fetch(urlStr, { method, headers, body });
+  const data = await res.text();
+  let parsed;
+  try {
+    parsed = data ? JSON.parse(data) : {};
+  } catch (e) {
+    throw new Error(`응답 파싱 실패 (status ${res.status}): ${data.slice(0, 500)}`);
+  }
+  if (res.status >= 400) {
+    throw new Error(`HTTP ${res.status}: ${JSON.stringify(parsed)}`);
+  }
+  return parsed;
 }
 
 async function ensureAccessToken() {

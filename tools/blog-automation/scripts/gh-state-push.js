@@ -16,8 +16,13 @@
 
 const fs = require('fs');
 const path = require('path');
-const https = require('https');
 const { execSync } = require('child_process');
+
+// 샌드박스 환경은 outbound HTTPS를 지정된 로컬 프록시(HTTPS_PROXY)로만 허용한다.
+// Node의 https.request는 이 env var를 읽지 않아 직접 접속을 시도하다 막힌다
+// (2026-07-30 관측: api.github.com 직접 접속이 403으로 거부됨). 내장 fetch(undici)는
+// NODE_USE_ENV_PROXY=1일 때 HTTPS_PROXY를 지킨다.
+if (!process.env.NODE_USE_ENV_PROXY) process.env.NODE_USE_ENV_PROXY = '1';
 
 const OWNER = 'jhyun1234';
 const REPO = 'AI_GOAP';
@@ -32,39 +37,26 @@ if (!token) {
 }
 const message = process.argv[2] || `chore(blog): auto-run state update`;
 
-function api(method, urlPath, body) {
-  return new Promise((resolve, reject) => {
-    const payload = body ? JSON.stringify(body) : null;
-    const req = https.request(
-      `https://api.github.com${urlPath}`,
-      {
-        method,
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'User-Agent': 'aigoap-blog-state-push',
-          Accept: 'application/vnd.github+json',
-          'X-GitHub-Api-Version': '2022-11-28',
-          ...(payload ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) } : {}),
-        },
-      },
-      (res) => {
-        const chunks = [];
-        res.on('data', (c) => chunks.push(c));
-        res.on('end', () => {
-          const text = Buffer.concat(chunks).toString('utf8');
-          let parsed;
-          try { parsed = text ? JSON.parse(text) : {}; } catch { parsed = { raw: text }; }
-          if (res.statusCode >= 400) {
-            return reject(new Error(`${method} ${urlPath} → HTTP ${res.statusCode}: ${text.slice(0, 400)}`));
-          }
-          resolve(parsed);
-        });
-      }
-    );
-    req.on('error', reject);
-    if (payload) req.write(payload);
-    req.end();
+async function api(method, urlPath, body) {
+  const payload = body ? JSON.stringify(body) : null;
+  const res = await fetch(`https://api.github.com${urlPath}`, {
+    method,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'User-Agent': 'aigoap-blog-state-push',
+      Accept: 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+      ...(payload ? { 'Content-Type': 'application/json' } : {}),
+    },
+    body: payload,
   });
+  const text = await res.text();
+  let parsed;
+  try { parsed = text ? JSON.parse(text) : {}; } catch { parsed = { raw: text }; }
+  if (res.status >= 400) {
+    throw new Error(`${method} ${urlPath} → HTTP ${res.status}: ${text.slice(0, 400)}`);
+  }
+  return parsed;
 }
 
 (async () => {

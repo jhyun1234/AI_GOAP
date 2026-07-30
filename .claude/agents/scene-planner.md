@@ -2,7 +2,7 @@
 name: scene-planner
 description: "영상 파이프라인 기획팀(Step 1). Docs/영상_시리즈_구성안.md 순서와 state/schedule.json 을 대조해 다음 회차와 원본 블로그 글을 정하고, 본문을 뽑아 작성팀 브리프를 만든다. 대본은 쓰지 않는다."
 tools: Read, Write, Bash, Glob, Grep, WebFetch
-model: sonnet
+model: claude-opus-5
 color: cyan
 memory: project
 ---

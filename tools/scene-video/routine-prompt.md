@@ -6,9 +6,19 @@
 ## 이 파이프라인이 하는 일과 안 하는 일
 
 - **한다**: 다음 회차 선정 → 대본(씬 JSON) 작성 → 검수 → 승인 → 음성·렌더·점검 →
-  붙여넣을 메타데이터 생성
+  붙여넣을 메타데이터 생성. **격일 09:00 에 사람 없이 여기까지 간다.**
 - **안 한다**: 유튜브 업로드. 감사를 통과하지 않은 API 프로젝트로 올린 영상은 YouTube 가
   비공개로 **잠그고** 스튜디오에서도 못 푼다. 사람이 스튜디오에 끌어다 놓는다.
+
+## 🔴 길이 상한은 없다
+
+사용자 확정 방침이다 — **"길이 상한 없음. 글 분량이 정한다."** 완주율도 목표가 아니다
+(*"끝까지 안 봐도 좋다. 궁금한 사람은 끝까지 볼 테니까."*). 승인된 회차가 109.7초·91.3초다.
+
+⚠️ **길이를 반려 사유로 쓰지 마라.** ep02s 1차본(83.6초)이 *"쇼츠 60초 상한 초과(요구 40~60초)"*
+로 반려돼 **36초가 잘렸다.** 그 숫자는 이 리포 어디에도 없었다 — 바깥 상식이었다.
+🔑 **판정 근거는 리포 안의 문서에서만 가져온다.** 바깥 지식으로 반려하려거든 출처를 리포에서
+먼저 찾고, 못 찾으면 반려하지 않는다.
 
 ## 🔴 그림은 회차가 소유한다
 
@@ -21,13 +31,20 @@
 
 | | 에이전트 | 모델 | 산출 |
 |---|---|---|---|
-| 1 | `scene-planner` | sonnet | `episodes/<ep>/notes/planner.md` |
-| 2 | `scene-writer` | opus | `episodes/<ep>/scene.json` + `kinds/*.js` + `notes/writer.md` |
-| 3 | `scene-reviewer` | opus | `episodes/<ep>/notes/review.md` (또는 작성팀에 반려) |
-| 4 | `scene-master` | opus | `episodes/<ep>/notes/verdict.md` |
+| 1 | `scene-planner` | `claude-opus-5` | `episodes/<ep>/notes/planner.md` |
+| 2 | `scene-writer` | `claude-opus-5` | `episodes/<ep>/scene.json` + `kinds/*.js` + `notes/writer.md` |
+| 3 | `scene-reviewer` | `claude-opus-5` | `episodes/<ep>/notes/review.md` (또는 작성팀에 반려) |
+| 4 | `scene-master` | `claude-opus-5` | `episodes/<ep>/notes/verdict.md` |
 
-기획팀만 sonnet 이다 — 순서표 대조와 본문 추출이라 판단이 들어갈 자리가 없다.
-나머지 셋은 대본의 질을 결정하므로 opus.
+**전부 opus 다. 이 넷을 불러 주는 껍데기 세션(`publish.mjs`)도 opus 다.**
+🔴 처음엔 기획팀만 sonnet 이었다 — "순서표 대조와 본문 추출이라 판단이 들어갈 자리가 없다"는
+이유였는데, **사용자 지시로 2026-07-30 에 올렸다.** 리포에 사본이 없는 회차(13개 중 3개)는
+기획팀이 라이브 블로그에서 WebFetch 로 본문을 받아 브리프를 짜야 해서 판단이 들어간다.
+껍데기 세션도 같은 날 올렸다 — 반려 릴레이와 산출 정리는 기계적이지 않다(사람이 그 자리를
+맡았던 두 회차에서 고아 파일·문서 어긋남·표기 불일치를 거기서 잡았다).
+
+⚠️ **모델은 별칭(`sonnet`/`opus`) 말고 id 로 박는다** — 별칭은 CLI 버전에 따라 다른 세대로
+풀린다(실측: `sonnet` → `claude-sonnet-4-6`).
 
 ## 스테이징 파일 규칙
 
@@ -40,8 +57,14 @@
 ```
 node tools/scene-video/publish.mjs <ep> --prepare
 ```
-음성(캐시 재사용) → mp4 렌더 → `check.mjs` 점검 → `episodes/<ep>/build/upload.txt` 생성.
+음성(캐시 재사용) → mp4 렌더 → `check.mjs` 점검 13종 → `episodes/<ep>/build/upload.txt` 생성.
 **점검이 실패하면 여기서 멈춘다.** 그 경우 검수팀 단계로 되돌아간다.
+
+🔴 **루틴에서는 이 문서를 사람이 읽지 않는다.** `publish.mjs --routine` 이 대본이 없으면
+`claude -p` 로 이 절차를 그대로 물려 4개 부서를 돌리고, 이어서 음성·렌더·점검까지 한다.
+즉 이 문서는 **사람용 안내이자 무인 실행의 지시서**다 — 고칠 때 둘 다 바뀐다고 생각하고 고쳐라.
+무인 실행에는 **CLI 로그인이 유효해야 한다**(OAuth 토큰은 만료된다). 만료되면 대본 단계가
+매번 죽고 `state/routine.log` 에 401 이 남는다.
 
 ## 멈춰야 하는 조건
 
@@ -64,3 +87,15 @@ node tools/scene-video/publish.mjs <ep> --prepare
 로컬 작업 스케줄러 `AI_GOAP scene-video` 가 **격일 09:00**(다음 2026-07-31)에 돈다.
 달력이 아니라 "마지막 제작으로부터 며칠"로 게이트하므로 한 번 밀려도 따라잡는다.
 블로그(짝수일 13:03)와 겹치지 않는다.
+
+```
+routine.cmd → publish.mjs --routine
+                ├ 2일 게이트 · schedule.json 에서 회차 자동 선택
+                ├ scene.json 없으면 → claude -p 로 이 문서를 물려 4개 부서 실행
+                ├ 음성(Supertonic) → mp4(크로미움 CDP) → check.mjs 13종
+                └ build/upload.txt  ← 사람은 여기서 이어받는다
+```
+🔑 **로컬이어야 한다** — TTS 모델 645MB · 크롬 · ffmpeg · 폰트가 전부 이 PC 에 있다.
+블로그처럼 원격 routine 으로는 못 돌린다.
+🔑 기획팀 SKIP 이나 반려 한도 초과로 대본이 안 나오면 `scene.json` 이 없으므로 렌더가
+**exit 0 으로 조용히 건너뛴다**. 사고가 아니라 설계된 결말이고 사유는 `notes/` 에 있다.

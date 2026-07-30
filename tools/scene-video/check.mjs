@@ -94,6 +94,42 @@ try {
   add(!failed?.length, '그림 로드 성공',
     failed?.length ? `import 실패: ${failed.join(', ')}` : '전 kind 로드됨');
 
+  /* 🔴 하단 안전영역 — 유튜브가 영상 위에 자기 UI 를 덮는 자리.
+     이 점검이 없어서 회차 둘이 그대로 나갔다. 업로드된 ep00s 를 쇼츠 앱에서 찍어 보고서야
+     자막 둘째 줄이 채널 아이콘·제목 줄에 통째로 묻혀 있다는 걸 알았다(2026-07-29).
+     기존 점검이 전부 캔버스 픽셀만 보는데 자막은 DOM 이라 처음부터 시야 밖이었다.
+
+     1477 의 출처 = 실측. 화면 좌표 역산으로 영상 상단 = 기기 y 108, 배율 1.3333(전체 폭),
+     영상 하단 = 2668 → 채널 아이콘 상단 기기 2078 = (2078-108)/1.3333 = 1477.
+     ⚠️ 그 화면은 크리에이터 본인 화면이라 `분석`·`공개`·`동영상 공유` 가 오버레이를 위로
+     밀어 올린 최악 조건이다. 일반 시청자는 덜 가리지만 최악에 맞춘다.
+
+     상단(0~130)은 안 본다 — 그 값은 실측한 적이 없다. 잰 것만 판정한다.
+     오른쪽 세로 버튼 열(x≥930·y≥1090)도 아직 안 본다 — 비주얼이 x 1025 까지 그려서
+     지금도 모서리가 겹치는데, 폭을 줄이면 안 가리는 위쪽까지 손해라 미뤘다. 관찰 항목. */
+  const SAFE_BOTTOM = 1477;
+  const low = await cdp.evaluate(`(()=>{
+    const st = document.querySelector('.stage') || document.body;
+    const S = st.getBoundingClientRect();
+    const y = el => (el.getBoundingClientRect().bottom - S.top) / S.height * 1920;
+    const worst = {};
+    // 자막은 페이드 중 translateY 로 움직인다. 한 프레임만 보면 안 되고 전 구간에서 최저점을 본다.
+    const N = 24;
+    for (let i = 0; i < N; i++) {
+      window.seek(window.TOTAL * i / (N - 1));
+      for (const sel of ['.cap', '.vis']) {
+        const el = document.querySelector(sel); if (!el) continue;
+        const b = y(el); if (!(worst[sel] >= b)) worst[sel] = b;
+      }
+    }
+    return worst;
+  })()`);
+  const over = Object.entries(low).filter(([, v]) => v > SAFE_BOTTOM);
+  add(over.length === 0, `하단 안전영역 (바닥 ${1920 - SAFE_BOTTOM}px 비움)`,
+    over.length
+      ? over.map(([s, v]) => `${s} 바닥 ${v.toFixed(0)} > 한계 ${SAFE_BOTTOM}`).join(', ')
+      : `자막 바닥 ${low['.cap']?.toFixed(0)} · 비주얼 바닥 ${low['.vis']?.toFixed(0)} (한계 ${SAFE_BOTTOM})`);
+
   frame = await cdp.evaluate(`(async () => {
     const FPS = ${FPS}, N = Math.max(2, Math.floor(window.TOTAL/1000*FPS));
     const per = {};
@@ -103,7 +139,7 @@ try {
       const el = document.querySelector('.shot.on');
       const id = el?.dataset.id; if (!id) continue;
       const cv = el.querySelector('canvas');
-      if (!per[id]) per[id] = { frames:0, bad:0, total:0, staticRun:0, maxStatic:0, edgeBot:0 };
+      if (!per[id]) per[id] = { frames:0, bad:0, total:0, staticRun:0, maxStatic:0, edgeBot:0, edgeSide:0, edgeSideFrames:0 };
       const P = per[id]; P.frames++;
       if (!cv || !cv.width) { prev = null; prevId = id; continue; }
       const g = cv.getContext('2d');
@@ -147,11 +183,34 @@ try {
       }
       P.bad += bad; P.total += tot;
 
-      // 아래 가장자리에 칠이 닿는가 = 밖으로 나간 것이 잘린 흔적
+      /* 가장자리에 칠이 닿는가 = 밖으로 나간 것이 잘린 흔적.
+         🔴 오래 아래쪽만 봤다. 그래서 ep00s 는 도장이 오른쪽으로 잘린 채 나갔고(사람이 잡음),
+         ep02s 첫 무인 실행은 "GOAP 목표 : HungerLevel" 이 "HungerLe" 로 잘린 채
+         **점검 13종을 전부 통과했다.** 무인이면 눈이 없으니 기계가 봐야 한다.
+         ⚠️ 이 블록은 템플릿 문자열 안이다 — 주석에 백틱을 쓰면 문자열이 끊긴다(실제로 겪었다).
+         좌우도 같은 방법으로 잴 수 있었는데 안 재고 있었을 뿐이다. */
       const W=cv.width, H=cv.height;
       let e=0; const row=g.getImageData(0,H-1,W,1).data;
       for (let x=0;x<W;x++) if (row[x*4+3] > 10) e++;
       P.edgeBot = Math.max(P.edgeBot, e);
+
+      /* 좌우는 아래와 다르게 재야 한다. 두 번 틀리고 나서 얻은 규칙이다.
+         ① **맨 끝 한 열만 보면 놓친다.** ep02s S4 의 잘린 라벨은 969열이 0 이고 968열부터
+            잉크가 있었다(안티에일리어싱이 마지막 열에서 죽는다). → 바깥 4열을 띠로 본다.
+         ② **한 프레임이라도 닿으면 실패로 하면 오탐한다.** 화면을 쓸고 지나가는 그림
+            (ep01s 의 erasure)은 가장자리를 지나는 게 설계다. → "몇 프레임이나 닿아 있었나"를
+            센다. 스쳐 가는 연출은 잠깐이고, **잘린 글자는 몇 초씩 그 자리에 서 있다.** */
+      /* 띠 폭 2 는 실측으로 정했다. 4 로 잡았더니 ep01s 의 shelf 가 100% 로 걸렸는데
+         눈으로 보니 안 잘렸다 — 가장자리에서 **3px 안쪽**에 정상적으로 그려진 요소였다.
+         진짜 잘린 글자(ep02s S4)는 **1px 앞**에 잉크가 선다(맨 끝 열은 안티에일리어싱으로 비어도).
+         2 로 좁히니 승인된 두 회차는 통과하고 잘린 것만 남았다. */
+      const BAND = 2;
+      let sx = 0;
+      for (let i = 0; i < BAND; i++) {
+        const l = g.getImageData(i, 0, 1, H).data, r = g.getImageData(W - 1 - i, 0, 1, H).data;
+        for (let y = 0; y < H; y++) { if (l[y*4+3] > 10) sx++; if (r[y*4+3] > 10) sx++; }
+      }
+      if (sx >= 3) { P.edgeSideFrames++; P.edgeSide = Math.max(P.edgeSide, sx); }
 
       // 정적 구간
       if (prev && prevId === id && prev.length === L.length) {
@@ -206,6 +265,14 @@ if (frame) {
   add(stat.length === 0, '정적 구간 3초 이하',
     stat.length ? stat.map(([id, v]) => `${id} ${v.maxStaticSec}s`).join(', ')
       : `최대 ${Math.max(...rows.map(([, v]) => v.maxStaticSec)).toFixed(1)}s`, 'warn');
+
+  /* 잘린 글자는 몇 초씩 서 있고, 쓸고 지나가는 그림은 스친다. 그 차이로 가른다.
+     샷 프레임의 4분의 1 넘게 가장자리에 붙어 있으면 잘린 것으로 본다. */
+  const side = rows.filter(([id, v]) => !edgeSkip[id] && v.frames && v.edgeSideFrames / v.frames > 0.25);
+  add(side.length === 0, '좌우 가장자리 잘림 없음',
+    side.length
+      ? side.map(([id, v]) => `${id} ${Math.round(v.edgeSideFrames / v.frames * 100)}% 구간 · 최대 ${v.edgeSide}px`).join(', ')
+      : '없음' + (Object.keys(edgeSkip).length ? ` (선언 예외: ${Object.keys(edgeSkip).join(', ')})` : ''));
 
   const bled = rows.filter(([id, v]) => v.edgeBot > 0 && !edgeSkip[id]);
   add(bled.length === 0, '아래 가장자리 잘림 없음',

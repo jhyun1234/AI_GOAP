@@ -226,10 +226,11 @@ namespace AIVillage.M0
         /// <summary>정보줄 최근 사건 표시 수 (제안치 3 — 명세 §12-1, 유일하게 발명한 수치). 연출 상수.</summary>
         private const int RECENT_EVENTS_MAX = 3;
 
-        /// <summary>연속 동일 사건 판정 (압축 단위) — 종류+부가값이 같으면 한 묶음.
-        /// 같은 사건 아홉 번은 이야기가 아니라 스팸이다 (2026-07-30 Play 스크린샷의 B 줄).</summary>
+        /// <summary>연속 동일 사건 판정 (압축 단위) — 종류+부가값+대상이 같아야 한 묶음.
+        /// 같은 사건 아홉 번은 이야기가 아니라 스팸이다 (2026-07-30 Play 스크린샷의 B 줄).
+        /// 대상 비교가 없으면 "밭 완공 ×11"이 "집 완공"을 삼킨다.</summary>
         private static bool SameEvent(in ChronicleEvent a, in ChronicleEvent b)
-            => a.Kind == b.Kind && a.Value == b.Value;
+            => a.Kind == b.Kind && a.Value == b.Value && a.OtherId == b.OtherId;
 
         /// <summary>최근 사건 요약 (M13-C2, 순수 — 게이트 M13-T4). 최신부터 max**묶음**,
         /// 연속 반복은 "명령 거부(피로) ×9"로 압축 (묶음의 날짜 = 최신 발생일).
@@ -299,7 +300,10 @@ namespace AIVillage.M0
                 case EventId.GotHome:      return "집 마련";
                 case EventId.OrderTaken:   return "명령 수락";
                 case EventId.OrderRefused: return "명령 거부" + KrRefuse(e.Value);
-                case EventId.Built:        return "완공";
+                // 건물명은 기록 시점의 에셋 DisplayName (OtherId) — "완공"만으로는 집인지
+                // 밭인지 모른다 (2026-07-30 Play 피드백). 舊 기록(대상 없음)은 "완공" 그대로.
+                case EventId.Built:
+                    return string.IsNullOrEmpty(e.OtherId) ? "완공" : $"{e.OtherId} 완공";
                 default:                   return e.Kind.ToString(); // 미등록 신규 — 이름 그대로 (침묵 금지)
             }
         }

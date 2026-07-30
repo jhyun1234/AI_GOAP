@@ -159,6 +159,21 @@ namespace AIVillage.Tests.EditMode
         }
 
         [Test]
+        public void M13_T4_BuiltCarriesBuildingName_SeparateRunsPerBuilding()
+        {
+            // "완공"만으로는 집인지 밭인지 모른다 (2026-07-30 Play 피드백) — 건물명 병기.
+            ChronicleService c = Service(("A", 0f));
+            c.RecordEvent("A", EventId.Built, 10f, otherId: "밭");
+            c.RecordEvent("A", EventId.Built, 11f, otherId: "밭");
+            c.RecordEvent("A", EventId.Built, 12f, otherId: "집");
+            VillagerRecord r = c.RosterByBirth()[0];
+
+            // 건물명이 다르면 다른 묶음 — "밭 완공 ×2"가 "집 완공"을 삼키면 안 된다
+            Assert.AreEqual("D10 밭 완공 ×2 · D12 집 완공", SeasonHud.ComposeLifeEvents(r));
+            Assert.AreEqual("최근: 집 완공 D12 · 밭 완공 ×2 D11", SeasonHud.ComposeRecentEvents(r, 2));
+        }
+
+        [Test]
         public void M13_T4_GameOverIsIndexOnly_DetailViaGraveInfo()
         {
             // 2026-07-30 개정 — 명부 = 목차 (연대기 서브라인 제거, 깊이는 클릭 드릴다운).

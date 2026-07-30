@@ -680,7 +680,9 @@ namespace AIVillage.M0
             Construction.OnCompleted += (b, x, y, builderId) =>
             {
                 if (!string.IsNullOrEmpty(builderId))
-                    Chronicle.RecordEvent(builderId, EventId.Built, GameTime); // 완공 — 지은 사람의 사건
+                    // 완공 — 지은 사람의 사건. OtherId = 건물명 (에셋 DisplayName — "완공"만으로는
+                    // 집인지 밭인지 모른다는 2026-07-30 Play 피드백. 문구는 에셋 출처 유지, ADR-M0-1)
+                    Chronicle.RecordEvent(builderId, EventId.Built, GameTime, otherId: b.DisplayName);
             };
             // 밭 완공 → FarmService 등록 (RegisterPlot의 유일한 호출 경로, ADR-M2-4)
             Construction.OnCompleted += (b, x, y, builderId) =>

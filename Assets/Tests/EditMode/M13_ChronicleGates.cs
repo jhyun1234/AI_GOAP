@@ -138,39 +138,33 @@ namespace AIVillage.Tests.EditMode
         }
 
         [Test]
-        public void M13_T4_CompressRuns_SameEventRepeatsCollapse()
+        public void M13_T4_GroupCompression_InterleavedAndMultiDay()
         {
-            // 2026-07-30 Play 스크린샷의 B 줄 — "명령 거부(피로)" 9연발은 스팸이지 이야기가 아니다
+            // 2026-07-30 개정 2차 — 舊 "연속" 압축은 사이에 다른 사건이 끼면 묶음이 끊겨
+            // "밭 완공 · 모닥불 완공 · 밭 완공 ×2"가 됐다 (Play 피드백). 순서 무관 전체 묶음.
             ChronicleService c = Service(("A", 0f));
+            c.RecordEvent("A", EventId.Built, 1f, otherId: "밭");
+            c.RecordEvent("A", EventId.Built, 1f, otherId: "모닥불"); // 사이에 낌 — 묶음 안 끊김
+            c.RecordEvent("A", EventId.Built, 1f, otherId: "밭");
+            c.RecordEvent("A", EventId.Built, 1f, otherId: "밭");
+            VillagerRecord r = c.RosterByBirth()[0];
+            Assert.AreEqual("D1 밭 완공 ×3 · D1 모닥불 완공", SeasonHud.ComposeLifeEvents(r),
+                "끼어든 사건이 같은 날 같은 일을 나누지 않는다");
+
+            // 여러 날에 걸친 반복 = 날짜 범위 한 묶음 (게으름뱅이 한 달 거부가 30줄이 되면 안 된다)
+            ChronicleService c2 = Service(("B", 0f));
             for (int day = 5; day < 8; day++)
-                c.RecordEvent("A", EventId.OrderRefused, day, value: ChronicleEvent.REFUSE_TIRED);
-            c.RecordEvent("A", EventId.Built, 8f);
-            VillagerRecord r = c.RosterByBirth()[0];
-
-            // 연대기(시간순): 묶음 날짜 = 첫 발생일
-            Assert.AreEqual("D5 명령 거부(피로) ×3 · D8 완공", SeasonHud.ComposeLifeEvents(r));
-            // 최근(역순): 묶음도 1건으로 센다, 날짜 = 최신 발생일
+                c2.RecordEvent("B", EventId.OrderRefused, day, value: ChronicleEvent.REFUSE_TIRED);
+            c2.RecordEvent("B", EventId.Built, 8f);
+            VillagerRecord r2 = c2.RosterByBirth()[0];
+            Assert.AreEqual("D5~7 명령 거부(피로) ×3 · D8 완공", SeasonHud.ComposeLifeEvents(r2));
+            // 최근 = 마지막 발생일 내림차순, 묶음도 1건
             Assert.AreEqual("최근: 완공 D8 · 명령 거부(피로) ×3 D7",
-                            SeasonHud.ComposeRecentEvents(r, 2));
-            // 사유가 다르면 다른 묶음 (Kind+Value 동일해야 압축)
-            c.RecordEvent("A", EventId.OrderRefused, 9f, value: ChronicleEvent.REFUSE_HUNGRY);
+                            SeasonHud.ComposeRecentEvents(r2, 2));
+            // 사유가 다르면 다른 묶음 (Kind+Value+대상 동일해야 압축)
+            c2.RecordEvent("B", EventId.OrderRefused, 9f, value: ChronicleEvent.REFUSE_HUNGRY);
             StringAssert.Contains("명령 거부(배고픔) D9",
-                SeasonHud.ComposeRecentEvents(c.RosterByBirth()[0], 1));
-        }
-
-        [Test]
-        public void M13_T4_BuiltCarriesBuildingName_SeparateRunsPerBuilding()
-        {
-            // "완공"만으로는 집인지 밭인지 모른다 (2026-07-30 Play 피드백) — 건물명 병기.
-            ChronicleService c = Service(("A", 0f));
-            c.RecordEvent("A", EventId.Built, 10f, otherId: "밭");
-            c.RecordEvent("A", EventId.Built, 11f, otherId: "밭");
-            c.RecordEvent("A", EventId.Built, 12f, otherId: "집");
-            VillagerRecord r = c.RosterByBirth()[0];
-
-            // 건물명이 다르면 다른 묶음 — "밭 완공 ×2"가 "집 완공"을 삼키면 안 된다
-            Assert.AreEqual("D10 밭 완공 ×2 · D12 집 완공", SeasonHud.ComposeLifeEvents(r));
-            Assert.AreEqual("최근: 집 완공 D12 · 밭 완공 ×2 D11", SeasonHud.ComposeRecentEvents(r, 2));
+                SeasonHud.ComposeRecentEvents(c2.RosterByBirth()[0], 1));
         }
 
         [Test]

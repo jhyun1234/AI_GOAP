@@ -226,56 +226,88 @@ namespace AIVillage.M0
         /// <summary>정보줄 최근 사건 표시 수 (제안치 3 — 명세 §12-1, 유일하게 발명한 수치). 연출 상수.</summary>
         private const int RECENT_EVENTS_MAX = 3;
 
-        /// <summary>연속 동일 사건 판정 (압축 단위) — 종류+부가값+대상이 같아야 한 묶음.
-        /// 같은 사건 아홉 번은 이야기가 아니라 스팸이다 (2026-07-30 Play 스크린샷의 B 줄).
+        /// <summary>동일 사건 판정 (압축 단위) — 종류+부가값+대상이 같아야 한 묶음.
         /// 대상 비교가 없으면 "밭 완공 ×11"이 "집 완공"을 삼킨다.</summary>
         private static bool SameEvent(in ChronicleEvent a, in ChronicleEvent b)
             => a.Kind == b.Kind && a.Value == b.Value && a.OtherId == b.OtherId;
 
-        /// <summary>최근 사건 요약 (M13-C2, 순수 — 게이트 M13-T4). 최신부터 max**묶음**,
-        /// 연속 반복은 "명령 거부(피로) ×9"로 압축 (묶음의 날짜 = 최신 발생일).
-        /// 사건 0건 = 빈 문자열 (중립).</summary>
+        /// <summary>사건 묶음 — 같은 사건의 전체 반복 (발생 순서 무관, 2026-07-30 개정).
+        /// 舊 "연속" 압축은 사이에 다른 사건이 끼면 묶음이 끊겨 "밭 완공 · 모닥불 완공 ·
+        /// 밭 완공 ×2"처럼 같은 날 같은 일이 나뉘었다 (Play 피드백). 연대기는 감사 로그가
+        /// 아니라 전기(傳記)다 — 세밀한 순서보다 "무엇을 몇 번 했는가"가 읽기의 단위.</summary>
+        private struct EventGroup
+        {
+            public ChronicleEvent Rep; // 대표 (첫 발생)
+            public int N;
+            public int FirstDay;
+            public int LastDay;
+        }
+
+        /// <summary>사건을 종류별 묶음으로 집계 — 목록 순서 = 첫 발생 순 (결정적).</summary>
+        private static List<EventGroup> GroupEvents(List<ChronicleEvent> events)
+        {
+            var groups = new List<EventGroup>(8);
+            foreach (ChronicleEvent e in events)
+            {
+                int day = (int)e.Day;
+                int found = -1;
+                for (int i = 0; i < groups.Count; i++)
+                    if (SameEvent(groups[i].Rep, e)) { found = i; break; }
+                if (found >= 0)
+                {
+                    EventGroup g = groups[found];
+                    g.N++;
+                    g.LastDay = day;
+                    groups[found] = g;
+                }
+                else groups.Add(new EventGroup { Rep = e, N = 1, FirstDay = day, LastDay = day });
+            }
+            return groups;
+        }
+
+        /// <summary>묶음의 연대기 문구 — 하루면 "D1 밭 완공 ×3", 여러 날이면 "D5~34 명령 거부(피로) ×30".</summary>
+        private static string KrGroup(in EventGroup g)
+        {
+            string days = g.FirstDay == g.LastDay ? $"D{g.FirstDay}" : $"D{g.FirstDay}~{g.LastDay}";
+            return g.N > 1 ? $"{days} {KrEvent(g.Rep)} ×{g.N}" : $"{days} {KrEvent(g.Rep)}";
+        }
+
+        /// <summary>최근 사건 요약 (M13-C2, 순수 — 게이트 M13-T4). 마지막 발생일이 늦은
+        /// 묶음부터 max개, "치료받음 D9 · 명령 거부(피로) ×3 D7". 사건 0건 = 빈 문자열 (중립).</summary>
         public static string ComposeRecentEvents(VillagerRecord r, int max)
         {
             if (r == null || r.Events.Count == 0 || max <= 0) return "";
+            List<EventGroup> groups = GroupEvents(r.Events);
+            // 최신순 — 마지막 발생일 내림차순, 동률은 나중에 시작된 묶음 먼저 (결정적)
+            groups.Sort((a, b) => a.LastDay != b.LastDay
+                ? b.LastDay.CompareTo(a.LastDay)
+                : b.FirstDay.CompareTo(a.FirstDay));
+
             var sb = new System.Text.StringBuilder(48);
             sb.Append("최근: ");
-            int i = r.Events.Count - 1;
-            int shown = 0;
-            while (i >= 0 && shown < max)
+            for (int i = 0; i < groups.Count && i < max; i++)
             {
-                ChronicleEvent e = r.Events[i];
-                int n = 1;
-                while (i - n >= 0 && SameEvent(r.Events[i - n], e)) n++;
-                if (shown > 0) sb.Append(" · ");
-                sb.Append(KrEvent(e));
-                if (n > 1) sb.Append($" ×{n}");
-                sb.Append($" D{(int)e.Day}");
-                i -= n;
-                shown++;
+                if (i > 0) sb.Append(" · ");
+                EventGroup g = groups[i];
+                sb.Append(KrEvent(g.Rep));
+                if (g.N > 1) sb.Append($" ×{g.N}");
+                sb.Append($" D{g.LastDay}");
             }
             return sb.ToString();
         }
 
-        /// <summary>개인 연대기 (M13-C2, 순수 — 무덤 조사·회고 드릴다운용). 시간순 전체,
-        /// 연속 반복 압축 (묶음의 날짜 = 첫 발생일): "D5 명령 거부(피로) ×9 · D12 완공".
+        /// <summary>개인 연대기 (M13-C2, 순수 — 무덤 조사·회고 드릴다운용). 첫 발생 순 묶음,
+        /// "D1 집 마련 · D1 밭 완공 ×3 · D5~34 명령 거부(피로) ×30".
         /// 사건 0건 = 빈 문자열 (그 줄 자체가 없다).</summary>
         public static string ComposeLifeEvents(VillagerRecord r)
         {
             if (r == null || r.Events.Count == 0) return "";
+            List<EventGroup> groups = GroupEvents(r.Events);
             var sb = new System.Text.StringBuilder(64);
-            int i = 0;
-            bool first = true;
-            while (i < r.Events.Count)
+            for (int i = 0; i < groups.Count; i++)
             {
-                ChronicleEvent e = r.Events[i];
-                int n = 1;
-                while (i + n < r.Events.Count && SameEvent(r.Events[i + n], e)) n++;
-                if (!first) sb.Append(" · ");
-                first = false;
-                sb.Append($"D{(int)e.Day} {KrEvent(e)}");
-                if (n > 1) sb.Append($" ×{n}");
-                i += n;
+                if (i > 0) sb.Append(" · ");
+                sb.Append(KrGroup(groups[i]));
             }
             return sb.ToString();
         }

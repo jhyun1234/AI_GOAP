@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 
@@ -13,9 +14,10 @@ namespace AIVillage.M0
     {
         private const float NOTIFY_SEC = 6f; // 알림 노출 시간 (연출 상수)
 
-        /// <summary>식량 경보 문턱 (일치, 이하) — 달력 붉은 강조(FoodSuffix)와 상태 알림(M13-B)이
-        /// 같은 값을 쓴다 (판단 규칙 이원화 금지 — 한쪽만 경보면 화면이 서로 모순). 연출 상수.</summary>
-        private const int FOOD_ALERT_DAYS = 2;
+        /// <summary>식량 경보 문턱 (일치, 이하) — 상태 알림(M13-B)의 굶는 주민 판정 기준.
+        /// SimulationLoop의 열거 필터가 같은 값을 읽는다 (public — 판정 기준의 단일 출처).
+        /// 舊 달력 접미사(FoodSuffix)는 2026-07-30 개정으로 삭제 — 아래 Compose 주석 참조. 연출 상수.</summary>
+        public const int FOOD_ALERT_DAYS = 2;
 
         private readonly TMP_Text _calendar;
         private readonly TMP_Text _notice;
@@ -63,8 +65,9 @@ namespace AIVillage.M0
             // 상태 알림 (M13-B) — 순간 사건(Notify)과 달리 조건이 해소될 때까지 남는다
             // ("식량 부족"은 지나가는 소식이 아니라 지금 손쓸 수 있는 상태다 — 예고 휘발성 교훈의 일반화).
             // ⚠️ 다줄이라 이 인스턴스만 높이를 키운다 — MakeText 공유값(760,40)은 불변 (명세 §6-B ⚠️).
+            // 높이 400 = 굶는 주민 개인 열거(2026-07-30 개정)로 최대 주민 수 + 부상·위협 줄 수용.
             _status = MakeText(root.transform, "Status", font, new Vector2(12f, -162f), 24f);
-            _status.rectTransform.sizeDelta = new Vector2(760f, 120f);
+            _status.rectTransform.sizeDelta = new Vector2(760f, 400f);
             _status.text = "";
         }
 
@@ -88,12 +91,11 @@ namespace AIVillage.M0
         }
 
         /// <summary>SimulationLoop 틱마다 호출 — 문자열은 값이 바뀔 때만 재조립 (GC 절약).
-        /// foodDaysLeft는 전 주민 EstimatePersonalFoodDays 최솟값 (M11-D, SimulationLoop 집계 —
-        /// HUD 자체 재계산 금지는 M9-I 그대로).</summary>
-        public void Tick(float gameTime, SeasonService season, float forecastDays,
-                         int foodDaysLeft = WorldModel.NO_ESTIMATE)
+        /// 舊 foodDaysLeft 인자(M9-I·M11-D 마을 최솟값)는 2026-07-30 개정으로 삭제 —
+        /// 식량 표기는 상태 알림 줄(M13-B)의 개인 열거가 전담한다.</summary>
+        public void Tick(float gameTime, SeasonService season, float forecastDays)
         {
-            string line = Compose(gameTime, season, forecastDays, foodDaysLeft);
+            string line = Compose(gameTime, season, forecastDays);
             if (line != _lastCalendar)
             {
                 _lastCalendar = line;
@@ -203,33 +205,23 @@ namespace AIVillage.M0
         /// <summary>
         /// 달력 문구 조립 — 표시 정책의 단일 지점, 순수 함수 (EditMode 게이트 대상).
         /// 평시 "Day N · 계절" / 예고 "…겨울까지 N일"(주황) / 위기 "…겨울 (남은 N일)"(하늘).
-        /// 뒤에 "식량 N일치"(M9-I) — 99(중립)면 생략, 2일치 이하는 붉은 강조.
+        /// 舊 "식량 최소 N일치" 접미사(M9-I·M11-D)는 2026-07-30 사용자 Play 피드백으로 삭제 —
+        /// 마을 최솟값 요약이 상태 알림 줄(M13-B)의 개인 열거와 겹쳐 "마을 전체가 N일치"로
+        /// 오독됐다. 식량 표기는 개인 열거 한 곳만 남긴다 (같은 정보 두 형태 = 오해 소지).
         /// </summary>
-        public static string Compose(float gameTime, SeasonService season, float forecastDays,
-                                     int foodDaysLeft = WorldModel.NO_ESTIMATE)
+        public static string Compose(float gameTime, SeasonService season, float forecastDays)
         {
             int day = (int)gameTime;
-            string food = FoodSuffix(foodDaysLeft);
-            if (season == null || season.Current == null) return $"Day {day}{food}";
+            if (season == null || season.Current == null) return $"Day {day}";
 
             SeasonSO cur = season.Current;
             if (cur.IsCrisis)
                 return $"Day {day} · <color=#7EC8FF>{cur.DisplayName}</color> " +
-                       $"(남은 {Mathf.CeilToInt(season.DaysLeftInSeason)}일){food}";
+                       $"(남은 {Mathf.CeilToInt(season.DaysLeftInSeason)}일)";
             if (season.NextCrisis != null && season.DaysToCrisis <= forecastDays)
                 return $"Day {day} · {cur.DisplayName} · <color=#FF8A65>" +
-                       $"{season.NextCrisis.DisplayName}까지 {Mathf.CeilToInt(season.DaysToCrisis)}일</color>{food}";
-            return $"Day {day} · {cur.DisplayName}{food}";
-        }
-
-        /// <summary>식량 일수 접미사 (M9-I, M11-D 개인화 — 값 = 전 주민 최솟값 '가장 위험한 주민')
-        /// — 중립(99)이면 빈 문자열, ≤2일치는 붉은 강조.</summary>
-        private static string FoodSuffix(int foodDaysLeft)
-        {
-            if (foodDaysLeft >= WorldModel.NO_ESTIMATE) return ""; // 미배선·풍족 = 표기 없음 (중립)
-            return foodDaysLeft <= FOOD_ALERT_DAYS // 상태 알림(M13-B)과 같은 문턱 — 이원화 금지
-                ? $" · <color=#FF6B6B>식량 최소 {foodDaysLeft}일치</color>"
-                : $" · 식량 최소 {foodDaysLeft}일치";
+                       $"{season.NextCrisis.DisplayName}까지 {Mathf.CeilToInt(season.DaysToCrisis)}일</color>";
+            return $"Day {day} · {cur.DisplayName}";
         }
 
         /// <summary>
@@ -283,19 +275,22 @@ namespace AIVillage.M0
         /// <summary>
         /// 상태 알림 조립 (M13-B, 순수 — 게이트 M13-T2). **해소되면 빈 문자열** = 줄이 사라진다.
         /// 조건이 하나도 없으면 "" — 평온한 마을에 경보가 떠 있으면 잡음이지 알림이 아니다 (중립 불변식).
-        /// 식량 문턱 ≤2는 FoodSuffix의 붉은 강조와 같은 값 — 같은 판정을 두 곳에서 다르게 두면
-        /// 화면이 서로 모순된다 (판단 규칙 이원화 금지). 위협색은 달력 예고와 같은 주황 (#FF8A65).
+        /// 굶는 주민은 **개인 단위로 한 줄씩** (2026-07-30 사용자 피드백 — "누구인지 모르는 정보"는
+        /// 개입을 못 만든다. N명이면 N줄). 목록은 호출자가 FOOD_ALERT_DAYS로 걸러 넘긴다 —
+        /// 여기는 표시만 한다. 위협색은 달력 예고와 같은 주황 (#FF8A65).
         /// </summary>
-        public static string ComposeStatus(int minFoodDays, int untendedInjured,
-                                           int threatDaysLeft, string threatName)
+        public static string ComposeStatus(IReadOnlyList<(string name, int days)> starving,
+                                           int untendedInjured, int threatDaysLeft, string threatName)
         {
             bool threat = threatDaysLeft >= 0 && !string.IsNullOrEmpty(threatName);
-            if (minFoodDays > FOOD_ALERT_DAYS && untendedInjured <= 0 && !threat)
+            bool anyStarving = starving != null && starving.Count > 0;
+            if (!anyStarving && untendedInjured <= 0 && !threat)
                 return ""; // 평시 조기 반환 — 틱마다 불리므로 무경보 시 할당 0 (달력 캐시와 같은 GC 배려)
 
             var sb = new System.Text.StringBuilder(96);
-            if (minFoodDays <= FOOD_ALERT_DAYS)
-                sb.Append($"<color=#FF6B6B>■ 굶는 주민 — 식량 {minFoodDays}일치</color>\n");
+            if (anyStarving)
+                foreach ((string name, int days) s in starving)
+                    sb.Append($"<color=#FF6B6B>■ 굶는 주민 {s.name} — 식량 {s.days}일치</color>\n");
             if (untendedInjured > 0)
                 sb.Append($"<color=#FF6B6B>■ 치료가 필요한 부상자 {untendedInjured}명</color>\n");
             if (threat)

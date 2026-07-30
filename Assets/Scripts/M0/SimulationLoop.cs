@@ -243,6 +243,12 @@ namespace AIVillage.M0
             }
         }
 
+        // 굶는 주민 열거 버퍼 (M13-B) — 프레임 재사용, 할당 0 (부상자 버퍼 패턴).
+        // 정렬 비교자는 정적 캐시 — 틱마다 람다 할당 방지. 급한 순, 동률은 이름 순 (결정적).
+        private readonly List<(string name, int days)> _starvingBuf = new List<(string, int)>(8);
+        private static readonly System.Comparison<(string name, int days)> ByFoodUrgency =
+            (a, b) => a.days != b.days ? a.days.CompareTo(b.days) : string.CompareOrdinal(a.name, b.name);
+
         // 부상자 탐색 버퍼 (M10-B) — 프레임 재사용, 할당 0 (농부 회의 버퍼 패턴)
         private readonly List<VillagerAgent> _injuredBuf = new List<VillagerAgent>(8);
         private readonly List<(string id, int x, int y)> _injuredKeyBuf = new List<(string, int, int)>(8);
@@ -773,19 +779,21 @@ namespace AIVillage.M0
                     Debug.Log($"[M0Sim] 전멸 — Day {(int)GameTime} (사망 {DeathCount} · 이탈 {DepartCount} · 정착 {SettleCount})");
                 }
 
-                // HUD 식량 일수 = 전 주민 최솟값 (M11-D) — 관측 대상은 마을 평균이 아니라 낙오자다
-                int minFoodDays = WorldModel.NO_ESTIMATE;
+                Hud?.Tick(GameTime, Season, _worldConfig.ForecastDays);
+
+                // 상태 알림 줄 (M13-B, 2026-07-30 개정 — 舊 M11-D 마을 최솟값 요약을 개인 열거로).
+                // 관측 대상은 마을 평균이 아니라 낙오자 — 그 정신의 완성형은 "낙오자의 이름"이다.
+                // "누구인지 모르는 정보"는 개입을 못 만든다 (사용자 Play 피드백). N명이면 N줄.
+                _starvingBuf.Clear();
                 for (int i = 0; i < _agents.Count; i++)
                 {
                     VillagerAgent a = _agents[i];
                     if (a == null || a.State == AgentState.Dead) continue;
                     int d = a.EstimateMyFoodDays();
-                    if (d < minFoodDays) minFoodDays = d;
+                    if (d <= SeasonHud.FOOD_ALERT_DAYS) _starvingBuf.Add((a.ShortName, d));
                 }
-                Hud?.Tick(GameTime, Season, _worldConfig.ForecastDays, minFoodDays);
+                _starvingBuf.Sort(ByFoodUrgency); // 급한 순 — 순서가 곧 분류(triage)
 
-                // 상태 알림 줄 (M13-B) — 해소될 때까지 유지. 새 계측 없음: 식량은 위 순회의
-                // 최솟값 재사용, 부상은 기존 집계, 위협만 파생 읽기(DaysToStrike) 1개 추가.
                 int threatDaysLeft = -1;
                 string threatName = null;
                 if (Threats != null && Threats.Forecasting != null)
@@ -793,7 +801,7 @@ namespace AIVillage.M0
                     threatDaysLeft = Mathf.CeilToInt(Threats.DaysToStrike(GameTime));
                     threatName = Threats.Forecasting.DisplayName;
                 }
-                Hud?.TickStatus(SeasonHud.ComposeStatus(minFoodDays, CountUntendedInjured(),
+                Hud?.TickStatus(SeasonHud.ComposeStatus(_starvingBuf, CountUntendedInjured(),
                                                         threatDaysLeft, threatName));
 
                 // 에이전트 틱 (W4) — 역순 순회: SimTick 중 파괴/해제로 리스트가 줄어도 안전

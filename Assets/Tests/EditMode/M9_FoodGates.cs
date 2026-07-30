@@ -172,25 +172,11 @@ namespace AIVillage.Tests.EditMode
                 "정원 참 → 두 번째 주민 제외 (⚠② — 사본을 _goal에 넣으면 매번 새 키라 무력화될 경로)");
         }
 
-        // ── M9-I: HUD 식량 일수 표기 (표현, 중립 불변식) ─────────────────────────
-
-        [Test]
-        public void M9_I_Compose_FoodSuffix_NeutralWhenUnwired_RedWhenLow()
-        {
-            // 미배선(99) = 표기 없음 (기존 달력과 diff 0 — M6 게이트 불변)
-            Assert.AreEqual("Day 4", SeasonHud.Compose(4.2f, null, 3f),
-                "3-arg 기존 호출 = 식량 표기 없음");
-            Assert.AreEqual("Day 4", SeasonHud.Compose(4.2f, null, 3f, WorldModel.NO_ESTIMATE),
-                "99(중립) = 표기 없음");
-
-            // 배선 값 표기 (M11-D — 전 주민 최솟값 라벨) + ≤2일치 붉은 강조
-            StringAssert.Contains("식량 최소 5일치", SeasonHud.Compose(4.2f, null, 3f, 5));
-            string low = SeasonHud.Compose(4.2f, null, 3f, 2);
-            StringAssert.Contains("식량 최소 2일치", low);
-            StringAssert.Contains("FF6B6B", low, "2일치 이하 붉은 강조");
-            StringAssert.DoesNotContain("FF6B6B", SeasonHud.Compose(4.2f, null, 3f, 3),
-                "3일치는 강조 없음");
-        }
+        // ── M9-I: HUD 식량 일수 표기 — 2026-07-30 폐기 ──────────────────────────
+        // 舊 게이트 M9_I_Compose_FoodSuffix는 달력의 "식량 최소 N일치" 접미사를 지켰으나,
+        // 그 접미사가 상태 알림 줄(M13-B)의 개인 열거와 겹쳐 "마을 전체가 N일치"로 오독됨이
+        // Play에서 확인돼 삭제됐다 (사용자 피드백). 회귀 방지는 M13-T2의
+        // Calendar_HasNoFoodSuffix가 반대 방향으로 지킨다 (달력에 식량 표기가 다시 생기면 실패).
 
         /// <summary>
         /// 생존 goal 도달 가능성 게이트 (M4 승격 — 2026-07-24 Play 실측에서 배움):

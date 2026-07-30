@@ -127,6 +127,10 @@ namespace AIVillage.M0
         /// <summary>성격별 행동 계측 (M12-J) — 읽기 전용 관측, 세이브 대상 아님.</summary>
         public BehaviorProfiler Profiler { get; } = new BehaviorProfiler();
 
+        /// <summary>주민 생애 기록 (M13-C1, 새 선반 ②) — 개인 단위, 죽어도 남는다.
+        /// 세이브 대상 (ADR-M0-10). 쓰기 지점은 ADR-M13-3 참조 (Die·StarveToDeath + 등장·보루).</summary>
+        public ChronicleService Chronicle { get; } = new ChronicleService();
+
         /// <summary>스폰 시 성격 랜덤 할당 (M4-A). 풀이 비면 null = 중립 (ADR-M4-2 불변식 경로).</summary>
         public PersonalitySO PickRandomPersonality()
             => _personalityPool != null && _personalityPool.Length > 0
@@ -240,6 +244,11 @@ namespace AIVillage.M0
             {
                 _agents.Add(agent);
                 _everHadAgents = true; // 전멸 판정용 — 시작 전 빈 목록과 전멸을 구분 (M10-F)
+                // 명부 등장 기록 (M13-C1) — 등록의 유일한 문에 얹는다. 성격·직업은 이 시점에
+                // 이미 확정 (VillagerAgent.Start가 할당 후 등록). 문자열 규약 = ComposeSelected와 동일.
+                Chronicle.RecordBirth(agent.AgentId, agent.ShortName,
+                    agent.Personality != null ? agent.Personality.DisplayName : "없음",
+                    agent.Job != null ? agent.Job.DisplayName : "무직", GameTime);
             }
         }
 
@@ -481,6 +490,11 @@ namespace AIVillage.M0
         {
             if (agent == null) return;
             _agents.Remove(agent);
+            // 명부 마감 보루 (M13-C1, ADR-M13-3) — 사망 경로(Die·StarveToDeath)를 안 거친
+            // 소멸만 Unknown으로 닫는다. 사유가 있는 레코드는 건드리지 않는다 (멱등).
+            // ⚠️ 퇴장 기록 본체를 여기 두면 안 된다 — 아래 ReleaseBy와 한 몸이라 C3의 관계
+            // 스냅샷 시점과 얽힌다 (명세 §5.4 — 증분이 무너지는 유일한 배치).
+            Chronicle.CloseIfOpen(agent.AgentId, GameTime);
             Relationship?.ReleaseBy(agent.AgentId); // 이탈 시 관계 기록 정리 (M8-A)
             Ownership?.ReleaseBy(agent.AgentId);    // 이탈 시 소유 해제 — 빈집 (M8-C)
             Requests?.ReleaseBy(agent.AgentId);     // 이탈 시 진행 부탁 정리 (M8-D — 유령 유예 방지)
@@ -789,7 +803,12 @@ namespace AIVillage.M0
                 {
                     _gameOverShown = true;
                     Wanderers?.Resolve(false); // 진행 중 제안 정리 — 프롬프트 소거·후보 퇴장 (이중 호출 안전)
-                    Hud?.ShowGameOver(SeasonHud.ComposeGameOver((int)GameTime, DeathCount, DepartCount, SettleCount));
+                    // 회고 = 통계 대신 명부 (M13-C1). 명부가 비면 舊 통계 문구로 폴백 (반례 ③ⓐ —
+                    // 이론상 도달 불가하지만, 빈 회고 화면보다 숫자가 낫다).
+                    IReadOnlyList<VillagerRecord> roster = Chronicle.RosterByBirth();
+                    Hud?.ShowGameOver(roster.Count > 0
+                        ? SeasonHud.ComposeGameOver((int)GameTime, SettleCount, roster)
+                        : SeasonHud.ComposeGameOver((int)GameTime, DeathCount, DepartCount, SettleCount));
                     Debug.Log($"[M0Sim] 전멸 — Day {(int)GameTime} (사망 {DeathCount} · 이탈 {DepartCount} · 정착 {SettleCount})");
                 }
 

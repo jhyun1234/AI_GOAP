@@ -238,6 +238,39 @@ namespace AIVillage.M0
              + (departs > 0 ? $" · 이탈 {departs}" : string.Empty)
              + $" · 정착 {settles}\n\n아무도 남지 않았다.";
 
+        /// <summary>
+        /// 전멸 회고 — 통계 대신 **명부** (M13-C1, 순수 — 게이트 M13-T3). 한 줄 = 한 사람:
+        /// "A — 게으름뱅이, 무직. Day 3~34, 굶어 죽음". 舊 4인자 오버로드는 게이트
+        /// M10-T6 보존을 위해 유지된다 (명세 §3 — 시그니처 변경 금지, 호출처는 명부 우선).
+        /// </summary>
+        public static string ComposeGameOver(int day, int settles, IReadOnlyList<VillagerRecord> roster)
+        {
+            var sb = new System.Text.StringBuilder(256);
+            sb.Append($"마을의 마지막 날 — Day {day}\n\n");
+            foreach (VillagerRecord r in roster)
+                sb.Append($"{r.ShortName} — {r.PersonalityName}, {r.JobName}. {KrLifeSpan(r)}\n");
+            sb.Append($"\n정착 {settles} · 아무도 남지 않았다.");
+            return sb.ToString();
+        }
+
+        /// <summary>생애 구간 문구 — 생존 중(-1 센티넬)은 열린 구간으로 (Day 0 사망과 구별, 명세 §5.3).</summary>
+        private static string KrLifeSpan(VillagerRecord r)
+            => r.Cause == ExitCause.Alive
+                ? $"Day {(int)r.BornDay}~, 생존"
+                : $"Day {(int)r.BornDay}~{(int)r.LeftDay}, {KrCause(r.Cause)}";
+
+        /// <summary>퇴장 사유의 플레이어 언어 — 결말 이원화(ADR-M10-3)가 기록에서도 보인다.</summary>
+        private static string KrCause(ExitCause c)
+        {
+            switch (c)
+            {
+                case ExitCause.Starvation: return "굶어 죽음";
+                case ExitCause.Injury:     return "부상으로 죽음";
+                case ExitCause.Unknown:    return "행방불명";
+                default:                   return "생존";
+            }
+        }
+
         private GameObject _gameOver; // 전멸 오버레이 (1회 생성 — 재건은 M11)
 
         /// <summary>
@@ -264,6 +297,11 @@ namespace AIVillage.M0
             var txt = txtGo.AddComponent<TextMeshProUGUI>();
             if (_calendar.font != null) txt.font = _calendar.font; // 한글 폰트 공유 (W6 패턴)
             txt.fontSize = 44f;
+            // 오토사이즈 (M13-C1 — 명세 §12-2 제안 채택): 명부는 주민 수만큼 길어지므로
+            // 통계 3줄 기준 고정 44pt로는 넘친다. 스크롤 UI 없이 박스에 맞춰 축소.
+            txt.enableAutoSizing = true;
+            txt.fontSizeMin = 18f;
+            txt.fontSizeMax = 44f;
             txt.alignment = TextAlignmentOptions.Center;
             txt.color = new Color(1f, 0.92f, 0.85f);
             txt.raycastTarget = false;
@@ -272,7 +310,7 @@ namespace AIVillage.M0
             txtRt.anchorMin = txtRt.anchorMax = new Vector2(0.5f, 0.5f);
             txtRt.pivot = new Vector2(0.5f, 0.5f);
             txtRt.anchoredPosition = Vector2.zero;
-            txtRt.sizeDelta = new Vector2(900f, 400f);
+            txtRt.sizeDelta = new Vector2(900f, 700f); // 명부 수용 — 8명 + 여백 (M13-C1)
         }
 
         /// <summary>

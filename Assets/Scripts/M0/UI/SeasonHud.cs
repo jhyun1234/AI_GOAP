@@ -13,12 +13,18 @@ namespace AIVillage.M0
     {
         private const float NOTIFY_SEC = 6f; // 알림 노출 시간 (연출 상수)
 
+        /// <summary>식량 경보 문턱 (일치, 이하) — 달력 붉은 강조(FoodSuffix)와 상태 알림(M13-B)이
+        /// 같은 값을 쓴다 (판단 규칙 이원화 금지 — 한쪽만 경보면 화면이 서로 모순). 연출 상수.</summary>
+        private const int FOOD_ALERT_DAYS = 2;
+
         private readonly TMP_Text _calendar;
         private readonly TMP_Text _notice;
         private readonly TMP_Text _selectedInfo;
         private readonly TMP_Text _prompt; // 결정 프롬프트 (M10-E) — 방랑자 Y/N 등 상시 유지 줄
+        private readonly TMP_Text _status; // 상태 알림 (M13-B) — 해소될 때까지 유지 (_prompt 패턴의 일반화)
         private float _noticeUntil;
         private string _lastCalendar;
+        private string _lastStatus;
         private VillagerAgent _selected;
         private string _lastSelectedLine;
 
@@ -54,6 +60,12 @@ namespace AIVillage.M0
             _prompt = MakeText(root.transform, "Prompt", font, new Vector2(12f, -124f), 26f);
             _prompt.color = new Color(1f, 0.85f, 0.4f);
             _prompt.text = "";
+            // 상태 알림 (M13-B) — 순간 사건(Notify)과 달리 조건이 해소될 때까지 남는다
+            // ("식량 부족"은 지나가는 소식이 아니라 지금 손쓸 수 있는 상태다 — 예고 휘발성 교훈의 일반화).
+            // ⚠️ 다줄이라 이 인스턴스만 높이를 키운다 — MakeText 공유값(760,40)은 불변 (명세 §6-B ⚠️).
+            _status = MakeText(root.transform, "Status", font, new Vector2(12f, -162f), 24f);
+            _status.rectTransform.sizeDelta = new Vector2(760f, 120f);
+            _status.text = "";
         }
 
 
@@ -215,7 +227,7 @@ namespace AIVillage.M0
         private static string FoodSuffix(int foodDaysLeft)
         {
             if (foodDaysLeft >= WorldModel.NO_ESTIMATE) return ""; // 미배선·풍족 = 표기 없음 (중립)
-            return foodDaysLeft <= 2
+            return foodDaysLeft <= FOOD_ALERT_DAYS // 상태 알림(M13-B)과 같은 문턱 — 이원화 금지
                 ? $" · <color=#FF6B6B>식량 최소 {foodDaysLeft}일치</color>"
                 : $" · 식량 최소 {foodDaysLeft}일치";
         }
@@ -266,6 +278,38 @@ namespace AIVillage.M0
             txtRt.pivot = new Vector2(0.5f, 0.5f);
             txtRt.anchoredPosition = Vector2.zero;
             txtRt.sizeDelta = new Vector2(900f, 400f);
+        }
+
+        /// <summary>
+        /// 상태 알림 조립 (M13-B, 순수 — 게이트 M13-T2). **해소되면 빈 문자열** = 줄이 사라진다.
+        /// 조건이 하나도 없으면 "" — 평온한 마을에 경보가 떠 있으면 잡음이지 알림이 아니다 (중립 불변식).
+        /// 식량 문턱 ≤2는 FoodSuffix의 붉은 강조와 같은 값 — 같은 판정을 두 곳에서 다르게 두면
+        /// 화면이 서로 모순된다 (판단 규칙 이원화 금지). 위협색은 달력 예고와 같은 주황 (#FF8A65).
+        /// </summary>
+        public static string ComposeStatus(int minFoodDays, int untendedInjured,
+                                           int threatDaysLeft, string threatName)
+        {
+            bool threat = threatDaysLeft >= 0 && !string.IsNullOrEmpty(threatName);
+            if (minFoodDays > FOOD_ALERT_DAYS && untendedInjured <= 0 && !threat)
+                return ""; // 평시 조기 반환 — 틱마다 불리므로 무경보 시 할당 0 (달력 캐시와 같은 GC 배려)
+
+            var sb = new System.Text.StringBuilder(96);
+            if (minFoodDays <= FOOD_ALERT_DAYS)
+                sb.Append($"<color=#FF6B6B>■ 굶는 주민 — 식량 {minFoodDays}일치</color>\n");
+            if (untendedInjured > 0)
+                sb.Append($"<color=#FF6B6B>■ 치료가 필요한 부상자 {untendedInjured}명</color>\n");
+            if (threat)
+                sb.Append($"<color=#FF8A65>■ {threatName} — {threatDaysLeft}일 뒤</color>\n");
+            return sb.ToString().TrimEnd('\n');
+        }
+
+        /// <summary>상태 알림 갱신 (M13-B) — SimulationLoop 틱마다 호출. 값이 바뀔 때만 재할당
+        /// (달력과 동일 패턴). 빈 문자열 = 줄 소거.</summary>
+        public void TickStatus(string line)
+        {
+            if (line == _lastStatus) return;
+            _lastStatus = line;
+            _status.text = line ?? "";
         }
 
         /// <summary>결정 프롬프트 표시 (M10-E) — 알림(Notify)과 달리 ClearPrompt까지 상시 유지.

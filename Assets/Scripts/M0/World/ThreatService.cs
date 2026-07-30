@@ -51,6 +51,12 @@ namespace AIVillage.M0
         /// <summary>예고 구간 진행 중인 위협 (주민 술렁임 판독용 — Season.NextCrisis 패턴). null = 평시.</summary>
         public ThreatSO Forecasting => _pending;
 
+        /// <summary>발동까지 남은 게임일 (M13-B) — 예고 중이 아니면 음수. 표시 전용 파생값:
+        /// 쓰기 없음, 예고·발동 판정은 Tick이 그대로 소유한다 (ADR-M0-3 상태 쓰기 단일 지점).
+        /// 기존 예고 알림(WarnDays 상수 1회)과 달리 매일 줄어드는 카운트다운의 원천.</summary>
+        public float DaysToStrike(float gameTime)
+            => _pending == null ? -1f : _lastStrikeDay + _pending.PeriodDays - gameTime;
+
         public ThreatService(ThreatSO[] threats, ZoneService zones,
                              ConstructionService construction, IReadOnlyList<VillagerAgent> agents,
                              WorldConfigSO config, Func<IPathfinder> pathfinder, Transform parent)

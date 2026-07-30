@@ -784,6 +784,18 @@ namespace AIVillage.M0
                 }
                 Hud?.Tick(GameTime, Season, _worldConfig.ForecastDays, minFoodDays);
 
+                // 상태 알림 줄 (M13-B) — 해소될 때까지 유지. 새 계측 없음: 식량은 위 순회의
+                // 최솟값 재사용, 부상은 기존 집계, 위협만 파생 읽기(DaysToStrike) 1개 추가.
+                int threatDaysLeft = -1;
+                string threatName = null;
+                if (Threats != null && Threats.Forecasting != null)
+                {
+                    threatDaysLeft = Mathf.CeilToInt(Threats.DaysToStrike(GameTime));
+                    threatName = Threats.Forecasting.DisplayName;
+                }
+                Hud?.TickStatus(SeasonHud.ComposeStatus(minFoodDays, CountUntendedInjured(),
+                                                        threatDaysLeft, threatName));
+
                 // 에이전트 틱 (W4) — 역순 순회: SimTick 중 파괴/해제로 리스트가 줄어도 안전
                 for (int i = _agents.Count - 1; i >= 0; i--)
                     _agents[i].SimTick(TICK_INTERVAL_SEC, deltaGameDays);

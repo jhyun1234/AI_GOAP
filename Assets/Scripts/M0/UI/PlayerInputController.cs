@@ -202,6 +202,9 @@ namespace AIVillage.M0
             _ring.transform.localPosition = Vector3.zero;
             _ring.SetActive(true);
             M0SimulationLoop.Instance.Hud?.SetSelected(agent); // 정보줄 표시 (M7-A)
+            // 선택 = 추적 (M13-B 후속, 몰입 카메라). WASD를 누르면 추적만 풀리고 선택은
+            // 유지된다 — 명령 동선(선택 유지 + 멀리 있는 노드 찾아 우클릭)이 끊기면 안 된다.
+            _cameraCtrl?.Follow(agent.transform);
         }
 
         private void Deselect()
@@ -213,6 +216,7 @@ namespace AIVillage.M0
                 _ring.SetActive(false);
             }
             M0SimulationLoop.Instance.Hud?.SetSelected(null); // 정보줄 소거 (M7-A)
+            _cameraCtrl?.StopFollow(); // 선택 해제 = 자유 카메라 복귀 (M13-B 후속)
         }
     }
 }

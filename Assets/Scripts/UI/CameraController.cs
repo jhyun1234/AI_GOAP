@@ -64,6 +64,10 @@ namespace AIVillage.UI
         [Tooltip("줌 인 최소값 (Orthographic Size). 값이 작을수록 더 가까이 보임.")]
         [SerializeField] private float _minZoom = 3f;
 
+        [Header("추적 설정 (M13-B 후속)")]
+        [Tooltip("선택 주민 추적 속도 (지수 감쇠 계수). 클수록 빨리 따라붙음. 기본 5.")]
+        [SerializeField] private float _followLerpSpeed = 5f;
+
         #endregion
 
         // ══════════════════════════════════════════════════════════════════════
@@ -75,6 +79,10 @@ namespace AIVillage.UI
         // 맵 경계 반크기 (MapConfig.mapOffset — 기본 50)
         // 타일 좌표계: -_mapHalf ~ +_mapHalf (예: -50 ~ +50)
         private float _mapHalf = 50f;
+
+        // 추적 대상 (M13-B 후속) — null = 자유 카메라. 대상 파괴(주민 사망) 시
+        // Unity null 비교로 자동 해제된다 (HandleFollow의 첫 검사).
+        private Transform _followTarget;
 
         #endregion
 
@@ -108,6 +116,7 @@ namespace AIVillage.UI
         private void Update()
         {
             HandleMovement();
+            HandleFollow(); // 이동(수동 취소 판정) 뒤, 줌 앞 — 같은 프레임 취소가 즉시 반영
             HandleZoom();
         }
 
@@ -130,10 +139,16 @@ namespace AIVillage.UI
             float inputX = Input.GetAxisRaw("Horizontal");
             float inputY = Input.GetAxisRaw("Vertical");
 
+            // 추적 해제 (M13-B 후속) — 의도적 입력(키보드)만 추적을 푼다. 수동 조작 우선.
+            // 엣지 패닝은 해제 조건이 아니다: 상태줄이 좌상단이라 클릭 직후 마우스가
+            // 가장자리에 남기 마련인데, 그걸로 풀리면 추적이 시작되자마자 끝난다.
+            if (_followTarget != null && (inputX != 0f || inputY != 0f))
+                _followTarget = null;
+
             Vector2 moveDir = new Vector2(inputX, inputY);
 
-            // ── 마우스 엣지 패닝 ────────────────────────────────────────────
-            if (_edgePanEnabled)
+            // ── 마우스 엣지 패닝 ──────────────────────────────────────────── (추적 중엔 잠금)
+            if (_edgePanEnabled && _followTarget == null)
             {
                 // 마우스가 화면 밖이면 엣지 패닝 비활성 (Alt-Tab 등 방지)
                 Vector3 mouse = Input.mousePosition;
@@ -191,16 +206,42 @@ namespace AIVillage.UI
             Vector3 pos = _camera.transform.position;
             pos.x = worldPos.x;
             pos.y = worldPos.y;
+            _camera.transform.position = ClampToMap(pos);
+        }
 
-            // HandleMovement와 동일한 클램프 (뷰포트가 맵 밖을 비추지 않게)
+        /// <summary>주민 추적 시작 (M13-B 후속 — 선택 = 추적, 몰입 카메라). 해제 경로 3개:
+        /// StopFollow(선택 해제) · 키보드 카메라 입력(수동 우선) · 대상 파괴(사망).</summary>
+        public void Follow(Transform target) => _followTarget = target;
+
+        /// <summary>추적 해제 — 선택 해제의 표현 짝. 카메라는 그 자리에 남는다.</summary>
+        public void StopFollow() => _followTarget = null;
+
+        /// <summary>
+        /// 선택 주민 추적 틱 (M13-B 후속) — 지수 감쇠로 부드럽게 따라붙는다
+        /// (프레임률 무관 — Lerp(1-e^-kt)). 클램프는 이동·줌·점프와 동일 산식.
+        /// </summary>
+        private void HandleFollow()
+        {
+            if (_followTarget == null) return; // Unity 파괴 비교 포함 — 사망 주민 자동 해제
+
+            float t = 1f - Mathf.Exp(-_followLerpSpeed * Time.deltaTime);
+            Vector3 pos = _camera.transform.position;
+            pos.x = Mathf.Lerp(pos.x, _followTarget.position.x, t);
+            pos.y = Mathf.Lerp(pos.y, _followTarget.position.y, t);
+            _camera.transform.position = ClampToMap(pos);
+        }
+
+        /// <summary>맵 경계 클램프 (M13-B 후속 신설분 공용 — FocusOn·HandleFollow).
+        /// HandleMovement·HandleZoom의 인라인 산식과 동일 (기존 메서드는 최소 절제로 무수정).</summary>
+        private Vector3 ClampToMap(Vector3 pos)
+        {
             float halfH = _camera.orthographicSize;
             float halfW = halfH * _camera.aspect;
             float clampX = Mathf.Max(0f, _mapHalf - halfW);
             float clampY = Mathf.Max(0f, _mapHalf - halfH);
             pos.x = Mathf.Clamp(pos.x, -clampX, clampX);
             pos.y = Mathf.Clamp(pos.y, -clampY, clampY);
-
-            _camera.transform.position = pos;
+            return pos;
         }
 
         /// <summary>

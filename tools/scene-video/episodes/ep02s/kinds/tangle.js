@@ -1,6 +1,6 @@
 import {
-  disp, ease, clamp, lerp, frac,
-  fitCanvas, mkCanvas, tone, setShadow, clearShadow, GLOW
+  ease, clamp, lerp, frac,
+  fitCanvas, mkCanvas, tone
 } from '../../../engine/lib.js';
 
 /* tangle — 나중에 고치려면 실타래가 훨씬 두꺼워진다.
@@ -8,8 +8,14 @@ import {
    원문 75행의 마지막 두 문장. 이 편의 결론이다.
    두 어긋남에서 나온 두 가닥이 아래로 내려가며 서로 감긴다. 위쪽은 감김이 성기고 가늘어
    두 가닥이 두 가닥으로 보이지만, 아래로 갈수록 감김이 촘촘해지고 굵어져 한 다발이 된다.
-   위(지금)를 가리키는 화살표에 '반드시 잡아야 합니다'가 붙고, 아래(나중)에
-   '얽힌 실타래가 훨씬 두꺼워집니다'가 붙는다.
+   화살표 하나가 위(지금 = 성긴 곳)를 가리키다가 아래(나중 = 다발)로 내려간다.
+   글자는 두지 않는다.
+
+   🔴 3차 재작업(2026-07-30)에서 라벨 넷을 전부 뺐다. 원문 75행의 마지막 두 문장이
+   그대로 이 샷의 자막 두 줄이라, 화면이 같은 문장을 적으면 두 채널이 같은 일을 한다
+   (ep00s S4 가 같은 사유로 반려됐다). 자막이 말하지 않는 것을 라벨이 말하게 하는 안도
+   검토했지만 이 샷이 쓸 수 있는 원문 문자열이 그 두 문장뿐이라, 어떻게 잘라도 자막과
+   겹친다. 그래서 화면의 몫은 '그 두 시점이 이 실타래의 어디인가' 하나만 남겼다.
 
    🔴 쌓임이 아니다(ep00s stack 은 거짓 전제 위에 판단이 층으로 쌓인다).
    🔴 퍼짐도 아니다(ep01s sprawl 은 넓게 번지다 만 점들이다).
@@ -22,19 +28,11 @@ import {
 const SPIN = 4.2;     // 감김이 한 마디 흘러내리는 초
 
 /* 배치 (캔버스 352×307 기준)
-     24·44   위쪽 두 줄 — 지금 잡아야 한다
-     64~232  두 가닥이 감긴다 (위 성기고 가늘게 → 아래 촘촘하고 굵게)
-     256·278 아래쪽 두 줄 — 나중이면 두꺼워진다 (바닥에서 25px 뜬다) */
+     64~232   두 가닥이 감긴다 (위 성기고 가늘게 → 아래 촘촘하고 굵게)
+     84 → 224 화살표가 훑고 내려가는 구간. 가닥 폭(AMP0→AMP1)을 따라 안쪽으로 좁혀 온다 */
 const Y0 = 64, Y1 = 232;
 const AMP0 = 62, AMP1 = 9;
 const LW0 = 3.5, LW1 = 10;
-
-function fitFont(ctx, text, maxW, make, start, min) {
-  let s = start;
-  ctx.font = make(s);
-  while (s > min && ctx.measureText(text).width > maxW) { s -= 0.5; ctx.font = make(s); }
-  return s;
-}
 
 export default {
   build(root) { root.innerHTML = ''; mkCanvas(root); },
@@ -48,7 +46,6 @@ export default {
     const cx = w / 2;
     const phase = frac(t / SPIN) * Math.PI * 2;
 
-    ctx.textBaseline = 'alphabetic';
     ctx.lineCap = 'round';
 
     /* ── 두 가닥이 감긴다 ─────────────────────────
@@ -86,58 +83,25 @@ export default {
     ctx.strokeStyle = tone('ink'); ctx.lineWidth = LW1 + 3;
     ctx.beginPath(); ctx.moveTo(cx - 6, Y1 + 2); ctx.lineTo(cx + 6, Y1 + 2); ctx.stroke();
 
-    /* ── 위 : 지금이면 두 가닥이다 ─────────────────── */
-    {
-      ctx.textAlign = 'left';
-      if (nk > 0.02) {
-        ctx.globalAlpha = clamp(nk * 1.4);
-        const lead = spec.nowLead || '';
-        const s1 = fitFont(ctx, lead, w - PAD * 2, x => disp(700, x), 10, 8);
-        ctx.fillStyle = tone('sub'); ctx.font = disp(700, s1);
-        ctx.fillText(lead, PAD, 26);
-
-        const head = spec.nowHead || '';
-        const s2 = fitFont(ctx, head, w - PAD * 2, x => disp(900, x), 15, 10);
-        ctx.fillStyle = tone('accent'); ctx.font = disp(900, s2);
-        setShadow(ctx, GLOW, 10, 0);
-        ctx.fillText(head, PAD, 48);
-        clearShadow(ctx);
-        ctx.globalAlpha = 1;
-
-        // 성긴 구간을 가리키는 화살표 — '여기'
-        const ax = cx + AMP0 + 22;
-        const ay = 84;
-        ctx.globalAlpha = clamp(nk * 1.4);
-        ctx.strokeStyle = tone('accent'); ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.moveTo(Math.min(ax + 34, w - PAD), ay);
-        ctx.lineTo(ax, ay);
-        ctx.stroke();
-        ctx.fillStyle = tone('accent');
-        ctx.beginPath();
-        ctx.moveTo(ax - 9, ay); ctx.lineTo(ax + 3, ay - 6); ctx.lineTo(ax + 3, ay + 6);
-        ctx.closePath(); ctx.fill();
-        ctx.globalAlpha = 1;
-      }
-    }
-
-    /* ── 아래 : 나중이면 한 다발이다 ───────────────── */
-    if (lk > 0.02) {
-      ctx.globalAlpha = clamp(lk * 1.4);
-      ctx.textAlign = 'left';
-      const lead = spec.laterLead || '';
-      const s1 = fitFont(ctx, lead, w - PAD * 2, x => disp(700, x), 10, 8);
-      ctx.fillStyle = tone('sub'); ctx.font = disp(700, s1);
-      ctx.fillText(lead, PAD, 258);
-
-      const head = spec.laterHead || '';
-      const s2 = fitFont(ctx, head, w - PAD * 2, x => disp(800, x), 13, 9);
-      ctx.fillStyle = tone('ink'); ctx.font = disp(800, s2);
-      ctx.fillText(head, PAD, 282);
+    /* ── 가리키는 표식 : 지금(위, 성긴 곳) → 나중(아래, 다발) ──
+       🔴 글자를 두지 않는다. 원문 75행 마지막 두 문장은 자막 두 줄이 통째로 말하고,
+       화면이 같은 문장을 옮겨 적으면 두 채널이 같은 일을 한다.
+       화살표가 어디를 가리키느냐만으로 '지금'과 '나중'이 실타래 위의 두 지점이 된다.
+       ⚠️ lk 는 위에서 이미 ease() 를 통과했다 — 여기서 다시 ease(lk) 하지 않는다. */
+    if (nk > 0.02) {
+      const ay = lerp(84, 224, lk);                  // lk = 0 위(성긴 곳) → 1 아래(다발)
+      const ax = cx + lerp(AMP0, AMP1, lk) + 22;     // 가닥 폭을 따라 안쪽으로 좁혀 온다
+      const tail = Math.min(ax + 34, w - PAD);
+      ctx.globalAlpha = clamp(nk * 1.4);
+      ctx.strokeStyle = tone('accent'); ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(tail, ay); ctx.lineTo(ax, ay); ctx.stroke();
+      ctx.fillStyle = tone('accent');
+      ctx.beginPath();
+      ctx.moveTo(ax - 9, ay); ctx.lineTo(ax + 3, ay - 6); ctx.lineTo(ax + 3, ay + 6);
+      ctx.closePath(); ctx.fill();
       ctx.globalAlpha = 1;
     }
 
     ctx.lineCap = 'butt';
-    ctx.textAlign = 'left';
   }
 };

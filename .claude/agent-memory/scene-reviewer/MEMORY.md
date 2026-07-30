@@ -7,6 +7,7 @@
 - [사실 대조는 숫자만이 아니다 — 화면 문자열 전부 원문 대조](review_method_fact_check_strings.md) — spec 안 label·line·expects·note 열거 후 grep. ep02s 1차 반려의 사실관계 위반이 계기
 - [가림은 스틸 한 장이 아니라 수식으로 잰다](review_method_occlusion_measure.md) — 둥근 캡 반경 포함 + 불투명(α>0.7) 겹침만 세기. 반투명 꼬리 위의 주인공은 오히려 잘 보인다
 - [2차 이후 "뭐가 바뀌었나"는 mtime 으로 가른다](review_method_what_changed.md) — 회차가 통째로 미커밋이라 git diff 는 답을 못 준다
+- [다음 편 예고는 정본 두 곳으로만 대조한다](review_method_next_episode_teaser.md) — 원문의 "다음 편에서는…"은 근거가 아니다. 되받기 vs 비트 중복은 네 기준으로 가른다
 
 ## 회차 기록
 - [회차별 판정과 반려 횟수](project_review_log.md) — "반려 3회면 사람에게" 규칙을 세기 위한 표. ep00s·ep01s 각 1차 반려(2026-07-29), ep02s 반려 2회 후 3차 통과, 재작업 트랙은 1차 반려 → 2차 통과(2026-07-30)

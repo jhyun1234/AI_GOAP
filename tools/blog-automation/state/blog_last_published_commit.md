@@ -15,6 +15,54 @@ metadata:
 
 ## 최신 사용 커밋
 
+- `latest_commit`: `7cd9e46` (docs(spec) M11-K 명세 마무리 — 앵커 전수 교체 노트 + DoD
+  체크 — 기획팀 브리프(`01_planner_brief.md`) commit_refs 중 타임스탬프 기준 가장 최신 커밋)
+- `selected_commits_range`: `6a0486e`(spec(goap) M11 개인화 경제 실행명세서) ~ `7cd9e46`
+  (docs(spec) M11-K 명세 마무리) — M11-A~K 구현 22커밋 전체: `6a0486e`(spec M11 개인화
+  경제 실행명세서 — 브레인스토밍 16항+보완 4건) · `1ebdff3`(M11-A 개인 인벤토리 선반 —
+  슬롯 9종·몸 소지·집 저장·상한 컴파일러 주입) · `3912f4c`(M11-B 먹거리 개인화 — 소비·
+  채집·조리·수확 에셋 슬롯 교체) · `bbcae48`(M11-D 식량일수 개인화 — 슬롯 개인 산식·HUD
+  최솟값) · `dc11a61`(fix 조리 goal 3종 MyCookedFood<=6 트리거 제거) · `2807386`(test 구
+  식사·수확 게이트 3종을 개인 경제 의미로 개정) · `939b27f`(M11-C 집 저장 — 넣기/꺼내기
+  액션 4종 + Goal_StoreFood, .cs 0) · `0d622ed`(M11-F 개인 택지 — HomePicker·집들이) ·
+  `78f0791`(M11-G 집 동기 — 피격 플래그·저축 goal·노숙 방향 도피) · `900ae7c`(M11-H 보상
+  실이전 — 개인 잔고 정산·연기, 전역 스톡 통로 제거) · `51278e2`(fix 선불 판정에서 수령
+  공간 제거 — 선불 성격의 구조적 거절 진단) · `3601ae0`(M11-I 간호 2단계 + 목수 자가
+  건축 — crowding 해소·상실 착탄) · `c1a097c`(M11-E 개인 밭 — 소유 등록·집 곁 배치·
+  goal 개인화) · `1d80710`(fix 밭 goal 목표 슬롯 도달 불가로 인한 Burst 0-나눗셈 크래시) ·
+  `669e795`(fix 조리식 집 저장 구조적 불발 진단·설계 확정) · `e53d08a`(M11-J① 전역 식량
+  0 + 명령 보상 휴면) · `b4e79bd`(M11-J② 성격 5종 택지 취향 값 배정) · `1b38c2b`(M11-J③
+  게으름뱅이 성격 신설 — 리허설, .cs 0 증명) · `c31590d`(fix 택지 취향을 선호 거리 대역
+  으로 개선) · `b7519d5`(refactor 순수 판정 함수에서 로그 제거 — 게이트 콘솔 오염 해소) ·
+  `3d504f5`(M11-K 탈중심 마을 — 개인 모닥불·제자리 식사·맵-비례 확산) · `7cd9e46`(docs
+  M11-K 명세 마무리). 기획팀 브리프(`01_planner_brief.md`) commit_refs 전체 반영.
+- `cycle_date`: 2026-07-30 (마스터 Step 6 2차 APPROVED 후 게시팀 Step 7 발행, 반려
+  카운터 0회로 Step 3/4/6 정상 승인 경로 완주 — draft 위임 아님)
+- `publish_status`: PUBLISHED (Blogger published: 2026-07-30 06:20 UTC, status: LIVE)
+- `blogger_post_id`: 6558847625680705861
+- `blog_url`: https://gamedevclaude.blogspot.com/2026/07/unity-goap-claude-code-ai_0280147432.html
+- `title`: 공용 창고를 지웠더니 마을이 뿔뿔이 흩어졌다 — Unity GOAP 개인화 경제 인디게임
+  개발일지 (Claude Code 게임 개발 AI 페어 프로그래밍 후기)
+- `labels`: Unity GOAP, 인디게임 개발일지, Claude Code 게임 개발, AI 페어 프로그래밍 후기
+- `local_archive`: tools/blog-automation/published/2026-07-30-unity-goap-m11-personalized-economy.html
+  (POST 응답 JSON의 content 필드(fetch/undici로 획득, `data += c` 스트림 이어붙이기
+  버그 미해당 경로)와 게시 직전 임시 파일 `_tmp_content.html`을 md5 대조해 완전 일치
+  (byte-identical, 15,629자, U+FFFD 없음)함을 직접 확인.)
+- `비고`: M11 "개인화 경제" 소재(6a0486e~7cd9e46). 마을 전역 창고 하나를 지우고 식량·집·
+  밭·모닥불을 전부 개인 소유로 쪼갠 밀스톤 — "각자 먹고살되, 마을은 함께 짓는다"(식량만
+  개인화, 목재·석재 등 자재는 공용 유지). 핵심 재미 포인트는 Burst Job에서 스택 추적 없이
+  터진 0-나눗셈 크래시를 "밭 goal에 목표 슬롯을 올리는 액션이 카탈로그에 없다"는 데이터
+  결함으로 역추적한 진단(`1d80710`), 보상 경제가 전역 창고 제거로 조용히 죽어 있었던 것과
+  선불 목수가 "수령 공간" 오조건으로 구조적으로 항상 거절하던 버그(`51278e2`), 목수가
+  마을에서 유일하게 집이 없던 오래된 구멍을 목수 전용 자가 건축 goal로 닫은 것(`3601ae0`).
+  마지막 조각(M11-K)에서 공용 모닥불을 개인 시설로 내려 마을이 성격별 선호 거리(순둥이
+  0.1~떠돌이 0.95, 맵 반경 비율)로 흩어진 홈스테드 마을로 시각적으로 바뀜. M11 자체의
+  종료 판정(24일 방치 관측·회상 테스트)은 origin/main에서 검증 불가능해 본문 제외 —
+  구현 완료(M11-K)까지만 다룸. M12(성격 축)·M13(사건과 흔적)·scene-video 트랙은 말미
+  예고 한 문단만 허용하고 본문에서 다루지 않음.
+
+### 이전 회차 이력 (2026-07-28, M10 야생 위협과 방랑자)
+
 - `latest_commit`: `caa23b0` (feat(goap) M10-G 리허설 — 티어3 큰 곰 (.cs 0 증명) + 비용표
   갱신 — 기획팀 브리프(`01_planner_brief.md`) commit_refs 중 타임스탬프 기준 가장 최신 커밋)
 - `selected_commits_range`: `db82ffd`(spec(m10) 야생 위협과 방랑자 실행명세서) ~ `caa23b0`

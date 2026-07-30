@@ -616,7 +616,9 @@ namespace AIVillage.M0
         /// <summary>
         /// 부상 사망 (M10-A) — 이탈(Depart)과 동일 경로 재사용 (ADR-M6-3): State=Dead + 지연 파괴,
         /// 클레임·타일·명령·보상 정리는 전부 OnDestroy 단일 경로. 무덤·카운터는 RecordDeath (표현+기록).
-        /// 굶주림은 여기 오지 않는다 — 결말 이원화 (ADR-M10-3: 이탈=굶주림, 사망=부상).
+        /// 굶주림은 여기가 아니라 StarveToDeath로 — 문(RecordDeath)은 같고 원인·대사만 분리
+        /// (ADR-M10-3 개정 2026-07-24: 굶주림의 결말은 이탈이 아니라 아사다. 舊 주석
+        /// "이탈=굶주림"은 개정을 안 따라간 문언 불일치였다 — 2026-07-27 곁가지 적재분 정정).
         /// </summary>
         private void Die()
         {

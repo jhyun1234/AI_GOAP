@@ -137,12 +137,8 @@ namespace AIVillage.M0
                 ? _personalityPool[Random.Range(0, _personalityPool.Length)]
                 : null;
 
-        /// <summary>스폰 시 직업 랜덤 할당 (M5-A). 풀이 비면 null = 무직(중립, M5-S3 불변식 경로).
-        /// M12-H 이후 직접 호출처는 없다 — PickJobFor가 성향 편향을 얹은 유일한 창구다.</summary>
-        public JobSO PickRandomJob()
-            => _jobPool != null && _jobPool.Length > 0
-                ? _jobPool[Random.Range(0, _jobPool.Length)]
-                : null;
+        // 舊 PickRandomJob(M5-A 균등 랜덤)은 M12-H 이후 호출처 0으로 확인되어 삭제 (ADR-M0-4:
+        // 폐기=삭제, git이 히스토리다). 배정의 유일한 창구는 아래 PickJobFor(성향 편향)뿐.
 
         /// <summary>가중치 하한 (알고리즘 상수 — 밸런스 아님). 0을 허용하면 편향이 결정론이 되어
         /// "게으른데 손재주는 있는 목수"가 구조적으로 불가능해진다 (M12-H ⚠️).</summary>
@@ -206,7 +202,7 @@ namespace AIVillage.M0
 
         /// <summary>
         /// 스폰 시 직업 배정 (M12-H) — 성격·직업 독립 랜덤을 폐기하고 성향으로 편향시킨다.
-        /// 여기가 배정의 유일한 창구다 (PickRandomJob은 편향 없는 舊 경로로 남아 있을 뿐).
+        /// 여기가 배정의 유일한 창구다.
         /// ⚠️ 상태를 세지 않는다 — 카운트는 NotifyJobAssigned가 맡는다(아래 사유).
         /// </summary>
         public JobSO PickJobFor(PersonalitySO p)
@@ -441,11 +437,10 @@ namespace AIVillage.M0
         /// <summary>누적 사망 수 (M10-A) — 쓰기는 RecordDeath뿐. 세이브 대상 (ADR-M0-10).</summary>
         public int DeathCount { get; private set; }
 
-        /// <summary>누적 이탈 수 (M10-F) — 쓰기는 RecordDepart뿐. 세이브 대상 (ADR-M10-10).</summary>
-        public int DepartCount { get; private set; }
-
-        /// <summary>이탈 기록 — 호출처는 VillagerAgent.Depart()뿐. 사망과 기록도 이원화 (ADR-M10-3).</summary>
-        public void RecordDepart() => DepartCount++;
+        // 舊 DepartCount/RecordDepart(M10-F 이탈 계수)는 ADR-M10-3 개정(2026-07-24 — 굶주림이
+        // 이탈에서 아사로)으로 호출처 0이 확인되어 삭제 (ADR-M0-4: 폐기=삭제). 새 이탈 사유가
+        // 생기면 그때 명세와 함께 재도입한다 — ComposeGameOver 4인자(departs)는 게이트
+        // M10-T6이 지키는 순수 함수라 남아 있다.
 
         // 전멸 종료 (M10-F) — 화면만 덮고 틱은 계속 돈다 (관찰 샌드박스 유지, 재건은 M11).
         private bool _everHadAgents;
@@ -842,8 +837,8 @@ namespace AIVillage.M0
                     IReadOnlyList<VillagerRecord> roster = Chronicle.RosterByBirth();
                     Hud?.ShowGameOver(roster.Count > 0
                         ? SeasonHud.ComposeGameOver((int)GameTime, SettleCount, roster)
-                        : SeasonHud.ComposeGameOver((int)GameTime, DeathCount, DepartCount, SettleCount));
-                    Debug.Log($"[M0Sim] 전멸 — Day {(int)GameTime} (사망 {DeathCount} · 이탈 {DepartCount} · 정착 {SettleCount})");
+                        : SeasonHud.ComposeGameOver((int)GameTime, DeathCount, 0, SettleCount)); // 이탈 축 휴면 — 0 (항목 자동 감춤)
+                    Debug.Log($"[M0Sim] 전멸 — Day {(int)GameTime} (사망 {DeathCount} · 정착 {SettleCount})");
                 }
 
                 Hud?.Tick(GameTime, Season, _worldConfig.ForecastDays);

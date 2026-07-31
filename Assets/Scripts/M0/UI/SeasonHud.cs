@@ -55,12 +55,14 @@ namespace AIVillage.M0
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.sortingOrder = 100; // 월드 위 최상단
 
+            // 블록 위치는 전부 Reflow가 정한다 (2026-07-31 수직 스택 개정) — MakeText 오프셋은
+            // 첫 프레임 임시값일 뿐이다. 아래 주석의 舊 고정 오프셋(-10/-48/-86/-162/-200)은 폐기:
+            // 정보줄이 길어지면 상태줄을 덮었다 (사용자 Play 피드백 — 스크린샷 관측).
             _calendar = MakeText(root.transform, "Calendar", font, new Vector2(12f, -10f), 30f);
             _notice   = MakeText(root.transform, "Notice",   font, new Vector2(12f, -48f), 24f);
             _notice.text = "";
-            // 정보줄 — M13-D부터 2줄 (1줄 = 신상, 2줄 = 이유·문턱). 높이 확대 + 아래 줄들 한 칸 내림.
+            // 정보줄 — M13-D부터 2줄 (1줄 = 신상, 2줄 = 이유·문턱). 높이는 Reflow가 실측한다.
             _selectedInfo = MakeText(root.transform, "SelectedInfo", font, new Vector2(12f, -86f), 24f);
-            _selectedInfo.rectTransform.sizeDelta = new Vector2(760f, 80f);
             _selectedInfo.text = "";
             // 결정 프롬프트 (M10-E) — 알림과 달리 상시 유지 (해소될 때까지). 노랑 강조.
             _prompt = MakeText(root.transform, "Prompt", font, new Vector2(12f, -162f), 26f);
@@ -68,14 +70,41 @@ namespace AIVillage.M0
             _prompt.text = "";
             // 상태 알림 (M13-B) — 순간 사건(Notify)과 달리 조건이 해소될 때까지 남는다
             // ("식량 부족"은 지나가는 소식이 아니라 지금 손쓸 수 있는 상태다 — 예고 휘발성 교훈의 일반화).
-            // ⚠️ 다줄이라 이 인스턴스만 높이를 키운다 — MakeText 공유값(760,40)은 불변 (명세 §6-B ⚠️).
-            // 폰트는 에셋 값 (WorldConfigSO.HudStatusFontSize — "작다" Play 피드백으로 승격),
-            // 높이는 폰트 비례(×16 ≈ 12줄) — 굶는 주민 개인 열거 + 부상·위협 줄 수용.
+            // 폰트는 에셋 값 (WorldConfigSO.HudStatusFontSize — "작다" Play 피드백으로 승격).
             float statusSize = worldCfg != null && worldCfg.HudStatusFontSize > 0f
                 ? worldCfg.HudStatusFontSize : 24f;
             _status = MakeText(root.transform, "Status", font, new Vector2(12f, -200f), statusSize);
-            _status.rectTransform.sizeDelta = new Vector2(760f, statusSize * 16f);
             _status.text = "";
+
+            // 수직 스택 순서 (위 → 아래) — 달력 → 알림 → 정보줄 → 프롬프트 → 상태. 순서 불변이
+            // 클릭 매핑의 전제는 아니지만(픽킹은 실제 렌더 좌표 기준), 시선 습관의 전제다.
+            _stack = new[] { _calendar, _notice, _selectedInfo, _prompt, _status };
+        }
+
+        // ── 수직 스택 리플로우 (M14 후속 2026-07-31 — 겹침 해소) ─────────────────
+        // 비지 않은 블록만 위에서부터 실측 높이로 쌓는다: 블록이 길어지면 아래가 밀려 내려가고,
+        // 비면(주민 선택 해제·알림 소멸) 아래가 다시 올라온다. 표시 전용 규약 유지 (상태 쓰기 없음).
+        // 픽킹(PickStatusLine 등)은 TMP가 실제 렌더 좌표로 판독하므로 위치 이동과 무관하게 성립.
+
+        private const float STACK_X = 12f;    // 좌측 여백 (舊 고정 오프셋의 X 계승)
+        private const float STACK_TOP = -10f; // 첫 블록 Y (舊 달력 위치 계승)
+        private const float STACK_GAP = 8f;   // 블록 간 간격 (연출 상수)
+        private readonly TMP_Text[] _stack;
+
+        private void Reflow()
+        {
+            float y = STACK_TOP;
+            for (int i = 0; i < _stack.Length; i++)
+            {
+                TMP_Text t = _stack[i];
+                if (string.IsNullOrEmpty(t.text)) continue; // 빈 블록 = 접힘 — 아래가 올라온다
+                RectTransform rt = t.rectTransform;
+                // 폭 고정(줄바꿈 유지) 상태의 선호 높이 실측 — wrap된 줄 수만큼 자리를 차지한다
+                float h = t.GetPreferredValues(t.text, rt.sizeDelta.x, 0f).y;
+                rt.sizeDelta = new Vector2(rt.sizeDelta.x, h);
+                rt.anchoredPosition = new Vector2(STACK_X, y);
+                y -= h + STACK_GAP;
+            }
         }
 
 
@@ -116,6 +145,9 @@ namespace AIVillage.M0
             }
 
             TickSelected();
+            // 리플로우는 틱 끝 1회 — 이 틱에서 바뀐 모든 블록(달력·알림·정보줄)을 한 번에 쌓는다.
+            // 프롬프트·상태줄 변경은 다음 틱(0.1초)에 따라온다 — 지각 불가 지연 (연출 허용치).
+            Reflow();
         }
 
         /// <summary>주민 선택/해제 (M7-A) — PlayerInputController가 호출 (null = 해제).
@@ -125,6 +157,7 @@ namespace AIVillage.M0
             _selected = agent;
             _graveLine = null;
             TickSelected(); // 다음 틱을 기다리지 않고 즉시 반영 (선택 반응성)
+            Reflow();       // 선택/해제는 정보줄 높이가 크게 출렁이는 지점 — 즉시 재쌓기
         }
 
         private string _graveLine; // 무덤 조사 (M13) — 산 주민 선택이 없을 때만 정보줄에 표시

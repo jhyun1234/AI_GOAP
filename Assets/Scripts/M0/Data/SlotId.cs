@@ -88,11 +88,17 @@ namespace AIVillage.M0
                                 // 미배선(계절 없음) = 1 = 기존 동작(창 상시 열림).
                                 // ⚠️ 액션 효과 금지 — ForageFrozen(33) 규약 동형 (위조 가능하면 겨울 파종이 뚫린다).
                                 // 예산 52칸 중 37.
+
+        // ── M16 확장 (화폐 — 개인 지갑) ──
+        MyMoney           = 37, // 수치형 — 몸 소지 돈(동). 개인 스톡 (원천 = VillagerAgent.ApplyPersonalStock,
+                                // ADR-M11-1). ⚠️ 집 저장 없음·소지 상한 없음 (돈은 부피가 없다 — PersonalCapOf).
+                                // 플래너 전제·효과 금지 (ADR-M16-5 — 스냅샷 값은 부탁 스캔 조건 전용).
+                                // 예산 52칸 중 38.
     }
 
     public static class SlotIds
     {
-        public const int Count = 37;
+        public const int Count = 38;
 
         /// <summary>전역 스톡 슬롯 여부 — EffectApplier/러너가 공유하는 유일한 판정.
         /// ⚠️ 개인 스톡(MyRawFood 등)을 여기 넣으면 안 된다 (명세 M11-A ⚠️①) —
@@ -101,9 +107,11 @@ namespace AIVillage.M0
             => slot == SlotId.WoodStock || slot == SlotId.RawFoodStock || slot == SlotId.StoneStock
             || slot == SlotId.CookedFoodStock;
 
-        /// <summary>몸 소지 개인 스톡 여부 (M11-A) — 원천 = VillagerAgent (ADR-M11-1).</summary>
+        /// <summary>몸 소지 개인 스톡 여부 (M11-A) — 원천 = VillagerAgent (ADR-M11-1).
+        /// MyMoney(M16)도 여기다 — 이전·지급 판정(TransferTo·CanPayReward)이 이 판정 하나를
+        /// 공유한다. ⚠️ IsStock에는 절대 넣지 않는다 (전역 스톡 라우팅 — 명세 W1 ⚠️).</summary>
         public static bool IsPersonalStock(SlotId slot)
-            => slot == SlotId.MyRawFood || slot == SlotId.MyCookedFood;
+            => slot == SlotId.MyRawFood || slot == SlotId.MyCookedFood || slot == SlotId.MyMoney;
 
         /// <summary>집 저장 스톡 여부 (M11-A) — 원천 = HomeStorageService (ADR-M11-1). 무주택이면 효과 실패.</summary>
         public static bool IsHomeStock(SlotId slot)
@@ -125,7 +133,8 @@ namespace AIVillage.M0
             || slot == SlotId.MyFarmPlotCount || slot == SlotId.MyEmptyPlot
             || slot == SlotId.MyRipeCrop || slot == SlotId.UntendedInjuredCount
             || slot == SlotId.CampfireCount // MyHasCampfire(32)는 논리형이라 제외
-            || slot == SlotId.DaysToFreeze; // PlantWindowOpen(36)은 논리형이라 제외
+            || slot == SlotId.DaysToFreeze  // PlantWindowOpen(36)은 논리형이라 제외
+            || slot == SlotId.MyMoney;      // M16 — 지갑(동)
 
         /// <summary>자원 타입 → 스톡 슬롯. M0 미지원 타입이면 null (Iron/Copper/Silver는 M1).</summary>
         public static SlotId? StockOf(ResourceType type)

@@ -653,9 +653,21 @@ namespace AIVillage.M0
             // 호출처는 여기와 StarveToDeath 둘뿐. UnregisterAgent로 옮기면 C3 증분이 무너진다).
             _sim.Chronicle.RecordExit(AgentId, _sim.GameTime, ExitCause.Injury);
             SnapshotRelationsForChronicle(); // C3 — ReleaseBy(OnDestroy)가 지우기 전에
+            BurnWalletOnDeath();             // M16-W1 — 죽은 지갑은 유통에서 소멸 (회계 정합)
             ShowTransient(Pick(_cfg.DieLines));
             State = AgentState.Dead;      // SimTick 차단 — Depart와 동일 (새 상태 추가 금지)
             Destroy(gameObject, _cfg.TransientLineSec);
+        }
+
+        /// <summary>사망 시 지갑 소멸 (M16-W1) — M(통화량)이 유통량보다 영구히 커지는 회계
+        /// 오차 차단 (명세 확정 보완 3). 호출처는 Die·StarveToDeath 둘뿐 (ADR-M13-3 동형 —
+        /// UnregisterAgent 보루로 옮기지 않는다: Unknown 소멸은 판이 끝나는 것이라 회계 무의미).
+        /// 단짝 상속안은 백로그 — 지금은 소멸이 정합이다.</summary>
+        private void BurnWalletOnDeath()
+        {
+            if (MyMoney <= 0) return;
+            World.Burn(MyMoney, $"사망 소멸: {AgentId}");
+            ApplyPersonalStock(SlotId.MyMoney, EffectOp.SubClamp0, MyMoney); // 지갑 비움 — Σ지갑 == M 유지
         }
 
         /// <summary>퇴장 관계 스냅샷 (M13-C3) — 죽는 순간의 단짝·원한을 명부에 남긴다.
@@ -731,6 +743,7 @@ namespace AIVillage.M0
             _sim.RecordDeath(TileX, TileY, ShortName, (int)_sim.GameTime, AgentId); // 부상 사망과 같은 문 — 무덤·카운터 (원인만 이원)
             _sim.Chronicle.RecordExit(AgentId, _sim.GameTime, ExitCause.Starvation); // 명부 — 사유 이원화 유지 (ADR-M13-3)
             SnapshotRelationsForChronicle(); // C3 — ReleaseBy(OnDestroy)가 지우기 전에
+            BurnWalletOnDeath();             // M16-W1 — 죽은 지갑은 유통에서 소멸 (회계 정합)
             _sim.Hud?.Notify($"{ShortName}이(가) 굶어 숨을 거뒀습니다");
             ShowTransient(Pick(_cfg.StarveLines));
             State = AgentState.Dead;      // SimTick 차단 — 새 상태 추가 금지 (ADR-M6-3)
@@ -1540,10 +1553,21 @@ namespace AIVillage.M0
         /// <summary>몸 소지 조리식.</summary>
         public int MyCooked { get; private set; }
 
+        /// <summary>몸 소지 돈(동) — M16-W1. 쓰기는 ApplyPersonalStock만 (ADR-M11-1).
+        /// 발행(적립+M 누적)은 WorldModel.Mint 경유가 유일 (ADR-M16-1). 세이브 대상 (ADR-M11-10).</summary>
+        public int MyMoney { get; private set; }
+
         /// <summary>슬롯별 잔량 — EffectApplier 선검사·스냅샷 주입 공용 (판정 단일).</summary>
         public int GetPersonalStock(SlotId slot)
             => slot == SlotId.MyRawFood ? MyRaw
-             : slot == SlotId.MyCookedFood ? MyCooked : 0;
+             : slot == SlotId.MyCookedFood ? MyCooked
+             : slot == SlotId.MyMoney ? MyMoney : 0;
+
+        /// <summary>개인 스톡 슬롯별 상한 (순수 — 게이트 M16-T1). 돈은 부피가 없다 —
+        /// 상한을 걸면 임금이 BodyCarryCap(식량 기준)에서 막힌다 (명세 실사 ④).
+        /// ⚠️ 상한 예외는 이 함수뿐 — BodyCarryCap 값 인상으로 풀지 않는다 (식량까지 올라간다).</summary>
+        public static int PersonalCapOf(SlotId slot, int bodyCarryCap)
+            => slot == SlotId.MyMoney ? int.MaxValue : bodyCarryCap;
 
         /// <summary>
         /// 개인 스톡 계단 (순수 — 게이트 M11-T1): Sub 부족 = 실패(무변경), Add 상한 초과 = 실패
@@ -1573,10 +1597,12 @@ namespace AIVillage.M0
         public bool ApplyPersonalStock(SlotId slot, EffectOp op, int value)
         {
             if (!SlotIds.IsPersonalStock(slot)) return false;
-            (bool ok, int next) = NextPersonalStock(GetPersonalStock(slot), op, value, _cfg.BodyCarryCap);
+            (bool ok, int next) = NextPersonalStock(GetPersonalStock(slot), op, value,
+                                                    PersonalCapOf(slot, _cfg.BodyCarryCap));
             if (!ok) return false;
             if (slot == SlotId.MyRawFood) MyRaw = next;
-            else MyCooked = next;
+            else if (slot == SlotId.MyCookedFood) MyCooked = next;
+            else MyMoney = next; // M16 — 지갑
             return true;
         }
 
@@ -1589,16 +1615,17 @@ namespace AIVillage.M0
         public bool CanPayReward(SlotId slot, int amount)
             => CanPay(GetPersonalStock(slot), HomeStockOf(slot), amount);
 
-        /// <summary>수령 공간 — 상한은 슬롯별이다 (M11-A 개정). 몸에만 받는다 (집은 걸어가야 하므로).</summary>
+        /// <summary>수령 공간 — 상한은 슬롯별이다 (M11-A 개정). 몸에만 받는다 (집은 걸어가야 하므로).
+        /// 돈은 상한 없음 (PersonalCapOf — M16 실사 ④).</summary>
         public bool HasRoomFor(SlotId slot, int amount)
-            => amount <= 0 || _cfg.BodyCarryCap - GetPersonalStock(slot) >= amount;
+            => amount <= 0 || PersonalCapOf(slot, _cfg.BodyCarryCap) - GetPersonalStock(slot) >= amount;
 
-        /// <summary>내 집 저장 잔량 — 무주택·미배선이면 0.</summary>
+        /// <summary>내 집 저장 잔량 — 무주택·미배선이면 0. 돈은 집 저장 없음 = 0 (몸만, M16).</summary>
         private int HomeStockOf(SlotId slot)
         {
             SlotId homeSlot = slot == SlotId.MyRawFood ? SlotId.MyHomeRawFood
                             : slot == SlotId.MyCookedFood ? SlotId.MyHomeCookedFood : slot;
-            if (homeSlot == slot) return 0; // 개인 스톡이 아니면 집 몫 없음
+            if (homeSlot == slot) return 0; // 개인 스톡이 아니거나 집 매핑 없음(MyMoney) — 집 몫 0
             return HomeStorage != null && TryGetHomeTile(out Vector2Int home)
                 ? HomeStorage.GetStock(home, homeSlot) : 0;
         }

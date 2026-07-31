@@ -89,6 +89,40 @@ namespace AIVillage.M0
 
         public bool GetFlag(SlotId slot) => _slots[(int)slot] != 0;
 
+        // ── 통화량 회계 (M16-W1 — ADR-M16-1: 증감 창구는 Mint·Burn 둘뿐) ──────────
+
+        /// <summary>통화량 M = 발행 총량 − 소멸. 물가(P = M÷Q)의 분자. 세이브 대상 (ADR-M0-10).
+        /// 주민 간 이동(TransferTo)은 M 불변 — 이 값은 "마을에 도는 돈의 총량"이다.</summary>
+        public int MoneySupply { get; private set; }
+
+        /// <summary>통화량 계단 (순수 — 게이트 M16-T2). 음수 클램프 — 소멸이 발행을 넘으면 0.</summary>
+        public static int NextSupply(int current, int delta)
+            => current + delta < 0 ? 0 : current + delta;
+
+        /// <summary>발행 — 지갑 적립과 M 누적이 한 몸 (ADR-M16-1). 호출처는 임금(TickActing)·
+        /// 웃돈(PayReward) 지급 2곳뿐. 적립 실패(이론상 불가 — 돈은 상한 없음)면 M도 안 늘린다.</summary>
+        public bool Mint(VillagerAgent to, int amount, string why)
+        {
+            if (to == null || amount <= 0) return false;
+            if (!to.ApplyPersonalStock(SlotId.MyMoney, EffectOp.Add, amount))
+            {
+                Debug.LogWarning($"[Money] 발행 실패 — {why}: 지갑 적립 불가 (상한 예외 누락 의심)");
+                return false;
+            }
+            MoneySupply = NextSupply(MoneySupply, amount);
+            Debug.Log($"[Money] +{amount}동 {to.AgentId} — {why} (통화량 {MoneySupply})");
+            return true;
+        }
+
+        /// <summary>소멸 — 호출처는 사망(BurnWalletOnDeath) 1곳뿐 (ADR-M16-1). 지갑 차감은
+        /// 호출자가 한다 (죽는 자의 지갑 정리 — 여기는 M 회계만).</summary>
+        public void Burn(int walletAmount, string why)
+        {
+            if (walletAmount <= 0) return;
+            MoneySupply = NextSupply(MoneySupply, -walletAmount);
+            Debug.Log($"[Money] -{walletAmount}동 — {why} (통화량 {MoneySupply})");
+        }
+
         /// <summary>완공 플래그 세팅 — ConstructionService.Complete() 전용 (단일 완료 지점).</summary>
         internal void SetBuiltFlag(SlotId slot, bool value) => _slots[(int)slot] = value ? 1 : 0;
 

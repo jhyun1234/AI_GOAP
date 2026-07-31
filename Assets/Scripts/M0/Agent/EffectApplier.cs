@@ -52,7 +52,8 @@ namespace AIVillage.M0
                 else if (SlotIds.IsPersonalStock(e.Slot))
                 {
                     (bool ok, _) = VillagerAgent.NextPersonalStock(
-                        agent.GetPersonalStock(e.Slot), e.Op, e.Value, agent.AgentConfig.BodyCarryCap);
+                        agent.GetPersonalStock(e.Slot), e.Op, e.Value,
+                        VillagerAgent.PersonalCapOf(e.Slot, agent.AgentConfig.BodyCarryCap)); // 돈 = 상한 없음 (M16)
                     if (!ok)
                     {
                         // Add 상한 초과로 여기 오면 컴파일러 주입이 있는 한 플랜이 성립하지 않았어야 한다
@@ -124,6 +125,7 @@ namespace AIVillage.M0
         }
 
         private static string Kr(SlotId slot)
-            => slot == SlotId.MyRawFood || slot == SlotId.MyHomeRawFood ? "생식" : "조리식";
+            => slot == SlotId.MyRawFood || slot == SlotId.MyHomeRawFood ? "생식"
+             : slot == SlotId.MyMoney ? "돈" : "조리식"; // 돈(M16) — v1은 Mint 경유라 이 경로에 안 오지만 라벨은 정직하게
     }
 }

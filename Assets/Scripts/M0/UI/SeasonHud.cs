@@ -447,6 +447,9 @@ namespace AIVillage.M0
                 // 밭인지 모른다 (2026-07-30 Play 피드백). 舊 기록(대상 없음)은 "완공" 그대로.
                 case EventId.Built:
                     return string.IsNullOrEmpty(e.OtherId) ? "완공" : $"{e.OtherId} 완공";
+                // 거래 (M16-W5) — 생존 서사의 핵심 사건: "굶다가 사 먹고 살았다"가 연대기에 남는다
+                case EventId.Traded:
+                    return $"식량 구입({ComposeMoney(e.Value)})";
                 default:                   return e.Kind.ToString(); // 미등록 신규 — 이름 그대로 (침묵 금지)
             }
         }

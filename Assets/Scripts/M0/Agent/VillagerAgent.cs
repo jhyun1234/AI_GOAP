@@ -499,7 +499,8 @@ namespace AIVillage.M0
                 Farm != null ? Farm.CountEmptyOf(AgentId) : 0,
                 Farm != null ? Farm.CountRipeOf(AgentId) : 0,
                 hasCampfire,                                                   // 내 모닥불 (M11-K)
-                MyWasStarved);                                                 // 아사 직전 경험 (M12-G)
+                MyWasStarved,                                                  // 아사 직전 경험 (M12-G)
+                MyMoney);                                                      // 지갑 (M16-W5 — 부탁 스캔 조건 전용)
         }
 
         /// <summary>
@@ -1445,9 +1446,12 @@ namespace AIVillage.M0
         /// (ADR-M8-4: 새 실행 경로 없음, Select의 request 칸). 말풍선·관계 델타·사유 로그는
         /// 호출자(RequestService)가 수행 (ADR-M8-5의 단일 지점).
         /// </summary>
-        public RequestResult TryGiveRequest(RequestSO r, string requesterId, bool upfrontAvailable = false)
+        public RequestResult TryGiveRequest(RequestSO r, string requesterId, bool upfrontAvailable = false,
+                                            bool instantTrade = false)
         {
-            if (r == null || r.InjectGoal == null) return RequestResult.RefusedBusy; // 방어 — 에셋 오류
+            // 즉시 교환(M16-W5)은 InjectGoal이 없는 게 정상 — 일이 아니라 교환이다
+            if (r == null || (!instantTrade && r.InjectGoal == null))
+                return RequestResult.RefusedBusy; // 방어 — 에셋 오류
             // 부상 거절 (M10-A) — 명령과 동일한 앞단 조기 반환 (JudgeRequest 순수 함수 무변경)
             if (Injury != InjurySeverity.None) return RequestResult.RefusedInjured;
             // 선불 가용성 (ADR-보상2)은 호출자(RequestService)가 의뢰인 개인 잔고로 판정해 넘긴다
@@ -1457,9 +1461,13 @@ namespace AIVillage.M0
                 upfrontAvailable);
             if (verdict != RequestResult.Accepted) return verdict;
 
-            _request = ResolveRelativeGoal(r.InjectGoal, out _requestIsRuntimeClone);
-            _goalRetryAt.Remove(_request); // 새 부탁은 과거 실패 쿨다운을 잊는다 (명령과 동일)
-            if (State == AgentState.Idle) _idleCooldownSec = 0f; // 즉시 재평가 (반응성)
+            if (!instantTrade)
+            {
+                _request = ResolveRelativeGoal(r.InjectGoal, out _requestIsRuntimeClone);
+                _goalRetryAt.Remove(_request); // 새 부탁은 과거 실패 쿨다운을 잊는다 (명령과 동일)
+                if (State == AgentState.Idle) _idleCooldownSec = 0f; // 즉시 재평가 (반응성)
+            }
+            // 즉시 교환은 상태 무변경 — 이전(TransferTo)은 호출자(RequestService.Ask)가 같은 틱에 한다
             return RequestResult.Accepted;
         }
 

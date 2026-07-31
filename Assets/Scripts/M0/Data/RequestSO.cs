@@ -40,6 +40,23 @@ namespace AIVillage.M0
         [Tooltip("부탁 대상 직업 (참조 매핑). 비면 아무나 — 능력 조건 없는 부탁")]
         public JobSO TargetJob;
 
+        [Tooltip("대상(수행자/판매자) 성립 조건 (M16-W5 — 스냅샷 대역, 예: MyFoodDaysLeft ≥ 3). " +
+                 "비면 무조건 (중립 — 기존 부탁과 동일). 직업 필터(TargetJob)와 AND.")]
+        public SlotCondition[] TargetConditions;
+
+        [Header("즉시 교환 (M16-W5 — 직거래: 수락 순간 실물↔돈 쌍방 이전. 완수·빚·정산 없음)")]
+        [Tooltip(">0이면 즉시 교환 부탁: 대상이 이 수량의 실물(TradeGiveSlot)을 의뢰인에게 넘기고 " +
+                 "값(RewardCostSlot·RewardCostAmount = 기준가)을 받는다. InjectGoal 불필요.\n" +
+                 "실가격 = 기준가 × 물가% (코드가 스케일 — 조건 Value는 필터일 뿐, 명세 확정 보완 2)")]
+        public int TradeGiveAmount;
+
+        [Tooltip("대상이 넘길 실물 슬롯 (개인 스톡만 — 예: MyRawFood)")]
+        public SlotId TradeGiveSlot = SlotId.MyRawFood;
+
+        [Tooltip("구매자 불평 응수 (M16-W5, 확정 보완 9 — 물가 > 100% 성사 거래에서만. " +
+                 "공유 시세: 몰랐다가 아는 게 아니라 알면서 마음에 안 드는 것)")]
+        public string[] TradeInflatedLines;
+
         [Tooltip("수락 시 대상의 개인 사다리에 주입할 goal — RelativeToCurrent 재사용 (M1-C 사본 규약)")]
         public GoalSO InjectGoal;
 
@@ -103,8 +120,15 @@ namespace AIVillage.M0
         {
             if (GrantOwnership && !SlotIds.IsNumeric(OwnershipSlot))
                 Debug.LogError($"[RequestSO] {name}: OwnershipSlot({OwnershipSlot})은 수량형(수치) 슬롯이어야 합니다.", this);
-            if (InjectGoal == null)
+            // 즉시 교환(M16-W5)은 InjectGoal이 정상적으로 비어 있다 — 일이 아니라 교환이다
+            if (InjectGoal == null && TradeGiveAmount <= 0)
                 Debug.LogWarning($"[RequestSO] {name}: InjectGoal이 비어 있음 — 성립해도 아무 일도 일어나지 않습니다.", this);
+            if (TradeGiveAmount > 0 && !SlotIds.IsPersonalStock(TradeGiveSlot))
+                Debug.LogError($"[RequestSO] {name}: TradeGiveSlot({TradeGiveSlot})은 개인 스톡 슬롯이어야 " +
+                               "합니다 (M16-W5 — 즉시 교환은 개인 잔고끼리의 이전).", this);
+            if (TradeGiveAmount > 0 && InjectGoal != null)
+                Debug.LogWarning($"[RequestSO] {name}: 즉시 교환인데 InjectGoal이 설정됨 — 교환 부탁은 " +
+                                 "goal을 주입하지 않습니다 (무시됨, M16-W5).", this);
             // M11-H: 보상은 의뢰인 개인 잔고에서 나간다 — 개인 스톡이 정상, 전역 스톡은 휴면 경고.
             if (RewardCostAmount > 0 && !SlotIds.IsPersonalStock(RewardCostSlot))
                 Debug.LogError($"[RequestSO] {name}: RewardCostSlot({RewardCostSlot})은 개인 스톡 슬롯이어야 " +

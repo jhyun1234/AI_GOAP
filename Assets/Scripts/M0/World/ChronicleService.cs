@@ -22,6 +22,7 @@ namespace AIVillage.M0
         OrderTaken   = 3, // 명령 수락   ← VillagerAgent.TryGiveOrder
         OrderRefused = 4, // 명령 거부   ← 같은 곳 (거부 3종은 한 칸 — 종류는 Value에)
         Built        = 5, // 완공        ← ConstructionService.OnCompleted (구독)
+        Traded       = 6, // 식량 구입   ← RequestService.AskTrade (M16-W5. Value = 지불액 동, OtherId = 판매자)
     }
 
     /// <summary>사건 1건 (M13-C2) — 값 타입 취급: 서비스만 만들고 밖에서 고치지 않는다.</summary>

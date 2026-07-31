@@ -53,6 +53,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 34af30806cdc45afbd0a0f59baf4d853, type: 2}
   - {fileID: 11400000, guid: 9c4b27e6a1d840f3b85c0e97d2461fa8, type: 2}
   - {fileID: 11400000, guid: 4fdca1c64979469496b3211ddb80c0ef, type: 2}
+  - {fileID: 11400000, guid: 38ac8e70b7914c4ba155a1cec4894066, type: 2}
   RequestIntervalSec: 5
   RequestCooldownSec: 90
   ReportErrandGoal: {fileID: 11400000, guid: aa6b2978caa84d9abb5197a6b56ffc5e, type: 2}

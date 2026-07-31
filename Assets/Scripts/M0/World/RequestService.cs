@@ -19,6 +19,11 @@ namespace AIVillage.M0
         private readonly ConstructionService _construction;
         private readonly ChatterService _chatter; // 대화 쿨다운 공유 — 장면 연쇄 방지 (2026-07-17 피드백)
         private readonly IReadOnlyList<VillagerAgent> _agents; // SimulationLoop 소유 리스트 (살아있는 참조)
+        // 즉시 교환(M16-W5) 배선 — 정적 Instance 참조 금지 (명세 ⚠️), 생성자 주입 (Chatter 자리 패턴).
+        // null 허용 = 교환 부탁이 없는 구성에서 중립 (기존 게이트·구형 생성 호환).
+        private readonly ChronicleService _chronicle;   // Traded 사건 기록
+        private readonly System.Func<int> _pricePct;    // 하루 1회 캐시 (ADR-M16-3 — 산식 재계산 금지)
+        private readonly System.Func<float> _gameDay;   // 연대기 사건의 게임일 (nowSec은 실시간이라 부적합)
 
         private float _nextScanAt;
         // 의뢰인 개인 쿨다운 — 거절당하면 한동안 다시 조르지 않는다 (수락 시에도 기록 — 중복 방지 이중화)
@@ -37,7 +42,9 @@ namespace AIVillage.M0
 
         public RequestService(WorldConfigSO world, AgentConfigSO agentCfg, RelationshipService relationship,
                               OwnershipService ownership, ConstructionService construction,
-                              IReadOnlyList<VillagerAgent> agents, ChatterService chatter = null)
+                              IReadOnlyList<VillagerAgent> agents, ChatterService chatter = null,
+                              ChronicleService chronicle = null, System.Func<int> pricePct = null,
+                              System.Func<float> gameDay = null)
         {
             _world = world;
             _agentCfg = agentCfg;
@@ -46,6 +53,9 @@ namespace AIVillage.M0
             _construction = construction;
             _agents = agents;
             _chatter = chatter;
+            _chronicle = chronicle;
+            _pricePct = pricePct;
+            _gameDay = gameDay;
         }
 
         /// <summary>정보줄용 (M8 후속) — agentId가 수락해 진행 중인 부탁의 (의뢰인, 할 일 라벨).</summary>
@@ -181,6 +191,9 @@ namespace AIVillage.M0
                         if (target == requester) continue;
                         if (_chatter != null && _chatter.IsCoolingDown(target.AgentId, nowSec)) continue;
                         if (r.TargetJob != null && target.Job != r.TargetJob) continue; // 참조 매핑 (ADR-M0-1)
+                        // 대상 상태 조건 (M16-W5 — 예: 판매자 식량 여유). 비면 무조건 (중립)
+                        if (r.TargetConditions != null && r.TargetConditions.Length > 0
+                            && !GoalSelector.AllHold(r.TargetConditions, target.BuildSnapshot())) continue;
                         int dist = Mathf.Abs(requester.TileX - target.TileX)
                                  + Mathf.Abs(requester.TileY - target.TileY);
                         if (dist > r.RadiusTiles) continue;
@@ -205,6 +218,14 @@ namespace AIVillage.M0
             requester.ShowTransient(Pick(r.AskLines));
             requester.FaceForChat(target.transform.position, _agentCfg.ChatPauseSec);
             target.FaceForChat(requester.transform.position, _agentCfg.ChatPauseSec);
+
+            // 즉시 교환 (M16-W5, 확정 보완 1) — 수락 순간 실물↔돈 원자 교환. 완수·빚·정산을
+            // 타지 않는다 (판매자가 지금 실물을 갖고 있으므로 떼먹기·연기가 구조적으로 없다).
+            if (r.TradeGiveAmount > 0)
+            {
+                AskTrade(r, requester, target, nowSec);
+                return;
+            }
 
             // 선불 가용성 판정도 개인 잔고로 (M11-H) — 전역 스톡 조회는 폐지됐다.
             // 가난한 의뢰인은 선불 성격 수행자에게 RefusedNoReward (기존 대사 재사용).
@@ -244,6 +265,77 @@ namespace AIVillage.M0
             }
             Debug.Log($"[Request] {requester.AgentId}→{target.AgentId}: {r.DisplayName} — {Kr(verdict)}");
         }
+
+        /// <summary>
+        /// 즉시 교환 장면 (M16-W5) — 실가격 재검사 → 판매자 거부 판정(재사용) → 원자 교환 →
+        /// 호가·응수. 가격 = 기준가 × 물가% 올림 (ADR-M16-4 — 조건 Value는 필터일 뿐, 확정 보완 2).
+        /// 돈을 먼저 옮기고 실물을 옮긴다 — 실물 선검사를 통과했으므로 두 번째 이전은 실패할 수
+        /// 없다 (실패 = 버그, 돈 반환 후 경고).
+        /// </summary>
+        private void AskTrade(RequestSO r, VillagerAgent requester, VillagerAgent target, float nowSec)
+        {
+            _requesterCooldownUntil[requester.AgentId] = nowSec + _world.RequestCooldownSec;
+            _chatter?.RecordChat(requester.AgentId, target.AgentId, nowSec);
+
+            int pct = _pricePct != null ? _pricePct() : 100; // 미주입 = 기준가 (중립)
+            int price = TradePrice(r.RewardCostAmount, pct);
+
+            // 실가격 재검사 — 의뢰인 조건(기준가 필터)보다 실가격이 클 수 있다. 조용한 불성립
+            // 금지 (관측 가능해야 한다 — 명세 ⚠️W5)
+            if (!requester.CanPayReward(SlotId.MyMoney, price))
+            {
+                Debug.Log($"[Trade] 불발 — {requester.AgentId}: 잔고 부족 (실가격 {price}동 · 물가 {pct}%)");
+                return;
+            }
+            // 판매자 거부 판정 재사용 (부상·바쁨·배고픔·원한) — 거절도 장면이다 (ADR-M8-5)
+            VillagerAgent.RequestResult verdict = target.TryGiveRequest(r, requester.AgentId,
+                upfrontAvailable: true, instantTrade: true);
+            target.ShowTransientDelayed(
+                verdict == VillagerAgent.RequestResult.Accepted
+                    // 호가 = 아는 값을 부르는 것 (공유 시세, 확정 보완 9) — 액수 병기 (8-②)
+                    ? $"{Pick(r.AcceptLines)} — {SeasonHud.ComposeMoney(price)}"
+                    : Pick(ReplyLinesFor(r, target, verdict)),
+                _agentCfg.ReplyDelaySec);
+            if (verdict != VillagerAgent.RequestResult.Accepted)
+            {
+                _relationship.AddAffinity(requester.AgentId, target.AgentId, r.RefusedDelta,
+                                          $"{r.DisplayName} 거절");
+                Debug.Log($"[Trade] {requester.AgentId}→{target.AgentId}: {r.DisplayName} — {Kr(verdict)}");
+                return;
+            }
+
+            // 원자성 (ADR-M0-8) — 선검사 전부 통과 후에만 손을 댄다
+            if (!target.CanPayReward(r.TradeGiveSlot, r.TradeGiveAmount)
+                || !requester.HasRoomFor(r.TradeGiveSlot, r.TradeGiveAmount)
+                || !requester.TransferTo(target, SlotId.MyMoney, price))
+            {
+                Debug.Log($"[Trade] 불발 — 재고/공간 선검사 실패 ({requester.AgentId}→{target.AgentId}, " +
+                          $"{r.TradeGiveSlot} {r.TradeGiveAmount}개)");
+                return;
+            }
+            if (!target.TransferTo(requester, r.TradeGiveSlot, r.TradeGiveAmount))
+            {
+                target.TransferTo(requester, SlotId.MyMoney, price); // 돈만 사라지는 쪽이 최악 — 반환
+                Debug.LogWarning("[Trade] 실물 이전 실패 — 돈 반환 (판정 이원화 의심)");
+                return;
+            }
+
+            // 성사 — 구매자 응수: 물가 > 100%면 불평 (알지만 마음에 안 듦 — 확정 보완 9)
+            if (pct > 100 && r.TradeInflatedLines != null && r.TradeInflatedLines.Length > 0)
+                requester.ShowTransientDelayed(Pick(r.TradeInflatedLines), _agentCfg.ReplyDelaySec * 2f);
+            _relationship.AddAffinity(requester.AgentId, target.AgentId, r.AcceptDelta,
+                                      $"{r.DisplayName} 성사");
+            _chronicle?.RecordEvent(requester.AgentId, EventId.Traded,
+                                    _gameDay != null ? _gameDay() : 0f, target.AgentId, price);
+            Debug.Log($"[Trade] {requester.AgentId}→{target.AgentId}: {r.TradeGiveSlot} " +
+                      $"{r.TradeGiveAmount}개 ← {price}동 (물가 {pct}%)");
+        }
+
+        /// <summary>실가격 (M16-W5, 순수 — 게이트 M16-T6. ADR-M16-4): 기준가 × 물가% 올림.
+        /// 올림인 이유 — 내림이면 물가가 조금 올라도 정수 절사로 가격이 안 움직여 인플레가
+        /// 저액 거래에 착탄하지 않는다.</summary>
+        public static int TradePrice(int basePrice, int pricePct)
+            => Mathf.CeilToInt(basePrice * Mathf.Max(100, pricePct) / 100f);
 
         /// <summary>결과별 응수 대사 — 배고픔·피로는 성격 거부 대사 재사용 (이중 기입 금지, 명세 §4).</summary>
         private string[] ReplyLinesFor(RequestSO r, VillagerAgent target, VillagerAgent.RequestResult verdict)

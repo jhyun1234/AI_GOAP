@@ -210,7 +210,8 @@ namespace AIVillage.M0
                                            bool wasAttacked = false,
                                            int myPlots = 0, int myEmptyPlots = 0, int myRipeCrops = 0,
                                            bool hasCampfire = false,
-                                           bool wasStarved = false)
+                                           bool wasStarved = false,
+                                           int myMoney = 0)
         {
             var slots = new int[PlanningConfig.TotalSlots];
 
@@ -275,6 +276,9 @@ namespace AIVillage.M0
             // 위협 근접 (M10-D) — My* 계열 개인 파생 슬롯 (에이전트가 개인 감지 배율로 계산해
             // 인자로 넘긴다, MySatiety 패턴). 기본 false = 0 (중립 — Goal_Flee 영구 불발).
             slots[(int)SlotId.ThreatNear] = threatNear ? 1 : 0;
+            // 지갑 (M16-W5) — 원천 = VillagerAgent. 부탁 스캔 조건 전용 (플래너 전제·효과 금지,
+            // ADR-M16-5). 기본 0 = 중립 (직거래 의뢰인 조건 MyMoney ≥ N 영구 불발 = 화폐 이전 동작).
+            slots[(int)SlotId.MyMoney] = myMoney;
             return new WorldSnapshot(slots);
         }
 

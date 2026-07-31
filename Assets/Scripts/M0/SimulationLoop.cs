@@ -704,7 +704,10 @@ namespace AIVillage.M0
             HomeStorage  = new HomeStorageService(); // M11-A — 집 저장 (타일 키, ADR-M11-1)
             Requests     = new RequestService(_worldConfig, _agentConfig, Relationship,
                                               Ownership, Construction, _agents,
-                                              Chatter); // M8-D — 부탁 선반 (보상은 개인 잔고, M11-H)
+                                              Chatter, // M8-D — 부탁 선반 (보상은 개인 잔고, M11-H)
+                                              // 즉시 교환 배선 (M16-W5) — 물가·게임일은 델리게이트
+                                              // (정적 Instance 참조 금지, 명세 ⚠️. 하루 1회 캐시를 읽는다)
+                                              Chronicle, () => PricePct, () => GameTime);
             // 대화 → 관계 축적의 유일한 배선 (M8-A, ADR-M8-1) — 본체는 ApplyChat (게이트 대상)
             Chatter.OnChatted += (c, speaker, target) => Relationship.ApplyChat(c, speaker.AgentId, target.AgentId);
 

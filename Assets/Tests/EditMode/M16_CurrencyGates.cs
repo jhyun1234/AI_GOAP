@@ -93,6 +93,16 @@ namespace AIVillage.Tests.EditMode
         }
 
         [Test]
+        public void M16_T6_TradePrice_CeilingScalesWithInflation()
+        {
+            Assert.AreEqual(3, RequestService.TradePrice(3, 100), "기준 물가 = 기준가");
+            Assert.AreEqual(5, RequestService.TradePrice(3, 150), "150% — 4.5 올림 = 5 (저액도 착탄)");
+            Assert.AreEqual(6, RequestService.TradePrice(3, 200));
+            Assert.AreEqual(3, RequestService.TradePrice(3, 50), "100 미만 방어 (디플레 없음)");
+            Assert.AreEqual(4, RequestService.TradePrice(3, 101), "1%만 올라도 올림으로 반영");
+        }
+
+        [Test]
         public void M16_T8_ComposeMoney_TieredDisplay()
         {
             Assert.AreEqual("0동", SeasonHud.ComposeMoney(0));

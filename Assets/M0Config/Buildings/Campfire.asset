@@ -21,6 +21,7 @@ MonoBehaviour:
   CountSlot: 31
   OwnedBuilding: 1
   PlaceNearOwnedHome: 1
+  FallbackToSelfIfNoHome: 1
   Prefab: {fileID: 0}
   FallbackColor: {r: 1, g: 0.55, b: 0.15, a: 1}
   FallbackSize: 1

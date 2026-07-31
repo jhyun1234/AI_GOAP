@@ -59,6 +59,13 @@ namespace AIVillage.M0
                  "MyHasHome==1로 이미 막지만 방어선). ZoneRadius·MinSpacingTiles와 배타.")]
         public bool PlaceNearOwnedHome;
 
+        [Tooltip("집이 없으면 **제자리 곁**에 짓는다 (M16-B — 모닥불 전용). false면 집이 없을 때 " +
+                 "배치 실패 = 기존 동작(밭 등 집을 전제하는 소유물).\n" +
+                 "왜 필요한가: 모닥불 → 조리 → 조리식이 겨울 생존의 사슬인데, 집을 전제하면 " +
+                 "집을 못 산 주민은 조리 자체가 불가능해 반드시 아사한다 (2026-08-01 Play 관측: " +
+                 "집 있는 목수만 생존). 집은 '더 많이 저장하는 자산'이지 생존 관문이 아니다.")]
+        public bool FallbackToSelfIfNoHome;
+
         [Tooltip("완공 시 스폰할 프리팹. 비우면 MarkerSprite → 원형 마커 순으로 폴백.")]
         public GameObject Prefab;
 

@@ -19,7 +19,7 @@ MonoBehaviour:
   GoalConditions:
   - Slot: 22
     Op: 1
-    Value: 4
+    Value: 6
   TraitWeights:
   - Trait: 0
     Weight: 0.5

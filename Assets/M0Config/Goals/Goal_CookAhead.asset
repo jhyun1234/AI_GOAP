@@ -23,7 +23,7 @@ MonoBehaviour:
     Value: 3
   - Slot: 22
     Op: 1
-    Value: 5
+    Value: 4
   GoalConditions:
   - Slot: 23
     Op: 1

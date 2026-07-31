@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Goal_SaveForHome
   m_EditorClassIdentifier:
   DisplayName: "집값 모으기"
-  Priority: 44
+  Priority: 15
   TriggerConditions:
   - Slot: 17
     Op: 0
@@ -23,7 +23,7 @@ MonoBehaviour:
     Value: 1
   - Slot: 19
     Op: 1
-    Value: 2
+    Value: 3
   - Slot: 37
     Op: 2
     Value: 49

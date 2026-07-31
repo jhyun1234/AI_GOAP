@@ -30,7 +30,7 @@ MonoBehaviour:
     Value: 1
   TargetJob: {fileID: 11400000, guid: fda218a4d94842849b31a189131a4926, type: 2}
   InjectGoal: {fileID: 11400000, guid: 985a7498ebc14268bb07b6118224dccc, type: 2}
-  RadiusTiles: 6
+  RadiusTiles: 12
   RefuseAffinityBelow: -10
   GrantOwnership: 1
   OwnershipSlot: 14

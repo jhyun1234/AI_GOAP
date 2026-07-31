@@ -15,9 +15,6 @@ MonoBehaviour:
   DisplayName: "내 모닥불 짓기"
   Priority: 50
   TriggerConditions:
-  - Slot: 17
-    Op: 0
-    Value: 1
   - Slot: 32
     Op: 0
     Value: 0

@@ -44,15 +44,15 @@ namespace AIVillage.M0
             // goal 트리거(MyHasHome==1)가 이미 막지만, 배치 규칙 자체도 집을 전제한다.
             if (_so.Building.PlaceNearOwnedHome)
             {
-                bool hasHome = agent.TryGetHomeTile(out Vector2Int home);
-                if (!hasHome && !_so.Building.FallbackToSelfIfNoHome)
+                // 집이 없으면 실패 — 개인 소유물은 제 집 둘레에 모인다 (M11-E 홈스테드).
+                // ⚠️ 2026-08-01: 아사를 막으려 "집 없으면 제자리" 폴백을 넣었다가 되돌렸다 —
+                // 모닥불이 마을 곳곳에 흩어져 배치가 무너졌고, 진짜 병목은 배치가 아니라
+                // **조리 전제**였다 (내 모닥불 → 마을 모닥불로 전환해 해소, 명세 §9.5).
+                if (!agent.TryGetHomeTile(out Vector2Int home))
                 {
                     FailReason = $"{_so.Building.DisplayName}: 내 집이 없어 곁에 지을 수 없음";
                     return false;
                 }
-                // 집 없는 주민의 폴백 (M16-B) — 제자리 곁. 모닥불이 집을 전제하면 집을 못 산
-                // 주민은 조리를 못 해 반드시 아사한다 (BuildingSO.FallbackToSelfIfNoHome 주석).
-                if (!hasHome) home = new Vector2Int(agent.TileX, agent.TileY);
                 int r = agent.WorldConfig != null ? agent.WorldConfig.FarmNearHomeRadius : 2;
                 if (!TryFindFreeTileNear(Occupied, home.x, home.y, minX, maxX, minY, maxY, r, out _buildTile))
                 {

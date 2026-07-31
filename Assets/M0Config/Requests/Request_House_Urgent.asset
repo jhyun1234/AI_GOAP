@@ -30,8 +30,8 @@ MonoBehaviour:
   AcceptDelta: 5
   FulfillDelta: 15
   RefusedDelta: -5
-  RewardCostSlot: 22
-  RewardCostAmount: 5
+  RewardCostSlot: 37
+  RewardCostAmount: 50
   RewardSatietyGain: 0
   AskLines:
   - "늑대한테 물렸어... 집 좀 지어줘. 곡식 다섯 알은 어떻게든 마련할게"

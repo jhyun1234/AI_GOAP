@@ -88,10 +88,12 @@ namespace AIVillage.M0
                  "비면 FoodDaysLeft 항상 99 (중립 — 기존 동작과 완전 동일).")]
         public ConsumeActionSO[] FoodSources;
 
-        [Header("화폐 (M16-W4 — 물가 산식. 전부 제안치, Play 튜닝 대상)")]
-        [Tooltip("식량 1개(생식)의 기준가(동) — 가격 공식의 앵커 (포만 가치 비례: 조리식 = 3×35÷15 = 7). " +
-                 "물가 분모 Q×기준가의 기준가이기도 하다 (ADR-M16-3).")]
-        public int MoneyBasePrice = 3;
+        [Header("화폐 (M16-W4 — 물가 산식. Play 리뷰 ① 후 재조정, M16-B)")]
+        [Tooltip("물가 분모의 기준가 계수 — 물가 % = 100 × 통화량 ÷ (마을 식량 개수 × 이 값), ADR-M16-3.\n" +
+                 "⚠️ 거래 실가격(RequestSO.RewardCostAmount)과는 별개다 — 이 값은 **인플레 속도**만 정한다.\n" +
+                 "10 = M16-B 재조정치: 임금 2.5배 인상 + 채집 산출 감소(식량 개수 ↓)를 상쇄해 " +
+                 "인플레 곡선을 M16 최초안과 같게 유지한다 (그 전 3).")]
+        public int MoneyBasePrice = 10;
 
         [Tooltip("물가 상한 % (폭주 클램프 — 회복 불능 나선 차단). 하한은 100 고정 (디플레는 M17).")]
         public int PriceCapPct = 400;

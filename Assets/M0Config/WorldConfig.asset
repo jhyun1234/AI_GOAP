@@ -58,3 +58,5 @@ MonoBehaviour:
   RequestCooldownSec: 90
   ReportErrandGoal: {fileID: 11400000, guid: aa6b2978caa84d9abb5197a6b56ffc5e, type: 2}
   ReportTimeoutSec: 60
+  MoneyBasePrice: 10
+  PriceCapPct: 400

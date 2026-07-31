@@ -31,5 +31,5 @@ MonoBehaviour:
   Effects:
   - Slot: 22
     Op: 1
-    Value: 5
+    Value: 4
   TargetResource: 0

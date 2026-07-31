@@ -16,12 +16,12 @@ MonoBehaviour:
   CostSlot: 10
   CostAmount: 0
   SatietyGain: 0
-  MoneyGain: 5
+  MoneyGain: 10
   RefuseSatietyOffset: -20
   RefuseFatigueOffset: 20
   PromiseLines:
   - "좋아, 그 값이면 하지."
-  - "약속한 겁니다? 5동."
+  - "약속한 겁니다? 10동."
   - "돈은 거짓말 안 하지."
   PayLines:
   - "약속한 품삯이군. 잘 받았소."

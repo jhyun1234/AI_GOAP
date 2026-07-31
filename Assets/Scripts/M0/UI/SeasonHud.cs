@@ -538,7 +538,10 @@ namespace AIVillage.M0
                 ? "첫 기록이다."
                 : (newRecord ? "<color=#FFD966>신기록!</color> " : "역대 최고: ")
                   + $"겨울 {best.BestWinters}번 · Day {best.BestDay} · 최대 {best.BestPeakPop}명";
-            return ComposeGameOver(day, settles, roster) + $"\n\n{run}\n{record}";
+            // 힌트 줄 (M15-W3, 확정 보완 1) — 전멸 화면은 이미 현재 판 명부라 아카이브 패널을
+            // 자동으로 겹치지 않는다 (같은 정보 두 형태 = 오독). 열람 통로는 C 토글 하나.
+            return ComposeGameOver(day, settles, roster) + $"\n\n{run}\n{record}"
+                 + "\n<color=#B8B8B8>C — 역대 연대기</color>";
         }
 
         /// <summary>생애 구간 문구 — 생존 중(-1 센티넬)은 열린 구간으로 (Day 0 사망과 구별, 명세 §5.3).</summary>
@@ -661,6 +664,176 @@ namespace AIVillage.M0
             txtRt.pivot = new Vector2(0.5f, 0.5f);
             txtRt.anchoredPosition = Vector2.zero;
             txtRt.sizeDelta = new Vector2(900f, 700f); // 명부 수용 — 8명 + 여백 (M13-C1)
+        }
+
+        // ── 연대기 패널 (M15-W3) — 판 목록 + 판 상세. 한 패널을 두 지점(게임 중 C 토글 ·
+        // 전멸 화면 힌트)에서 연다. 표현 전용 — 시뮬레이션 상태를 쓰지 않는다 (ADR-M13-4 정신). ──
+        private GameObject _chroniclePanel; // _chronicle(ChronicleService)과 구별 — 이쪽은 오버레이
+        private TextMeshProUGUI _chronicleList;
+        private TextMeshProUGUI _chronicleDetail;
+
+        /// <summary>연대기 패널 표시 중인가 — PlayerInputController의 키·클릭 분기용.</summary>
+        public bool ChronicleShown => _chroniclePanel != null && _chroniclePanel.activeSelf;
+
+        /// <summary>표시 행 구성 (순수) — 진행 중 판(있으면)이 맨 위, 그 뒤 저장된 판 최신순.
+        /// 클릭 인덱스 매핑의 단일 출처 — ComposeChronicleList와 호출자가 같은 목록을 쓴다.</summary>
+        public static List<ChronicleArchive.RunEntry> BuildChronicleRows(
+            IReadOnlyList<ChronicleArchive.RunEntry> archived, ChronicleArchive.RunEntry current)
+        {
+            var rows = new List<ChronicleArchive.RunEntry>((archived?.Count ?? 0) + 1);
+            if (current != null) rows.Add(current);
+            if (archived != null)
+                for (int i = archived.Count - 1; i >= 0; i--) rows.Add(archived[i]); // 최신이 위
+            return rows;
+        }
+
+        /// <summary>판 목록 문구 (M15-W3, 순수 — 게이트 M15-T4). 헤더 2줄(제목·빈 줄) 뒤가 목록 —
+        /// TryPickChronicleRunIndex의 오프셋과 한 몸. 빈 목록 = 안내 한 줄.</summary>
+        public static string ComposeChronicleList(IReadOnlyList<ChronicleArchive.RunEntry> rows,
+                                                  bool firstIsCurrent)
+        {
+            var sb = new System.Text.StringBuilder(256);
+            sb.Append("연대기 — 지난 마을들\n\n");
+            if (rows == null || rows.Count == 0)
+            {
+                sb.Append("아직 기록된 마을이 없다.");
+                return sb.ToString();
+            }
+            for (int i = 0; i < rows.Count; i++)
+            {
+                ChronicleArchive.RunEntry r = rows[i];
+                if (i > 0) sb.Append('\n');
+                if (i == 0 && firstIsCurrent)
+                    // 진행 중 판 — 번호는 store만 알므로 안 붙인다 ("이번 판"이면 충분)
+                    sb.Append($"▶ 이번 판 — 겨울 {r.Winters} · Day {r.LastDay} · 최대 {r.PeakPop}명");
+                else
+                    sb.Append($"판 {r.RunNumber} — 겨울 {r.Winters} · Day {r.LastDay} · 최대 {r.PeakPop}명" +
+                              $" · {(r.Ended ? "전멸" : "중단")} · {r.EndedAt}");
+            }
+            return sb.ToString();
+        }
+
+        /// <summary>판 상세 = 명부 (M15-W3, 순수 — 게이트 M15-T4). 한 줄 = 한 사람,
+        /// ComposeGraveInfo와 같은 문형 (VillagerEntry판 — 아카이브·현재 판 공용).</summary>
+        public static string ComposeRunDetail(ChronicleArchive.RunEntry run)
+        {
+            if (run == null) return "";
+            var sb = new System.Text.StringBuilder(256);
+            sb.Append(run.RunNumber > 0 ? $"판 {run.RunNumber}" : "이번 판");
+            sb.Append($" — 겨울 {run.Winters} · Day {run.LastDay} · 최대 {run.PeakPop}명 · {(run.Ended ? "전멸" : "진행 중")}");
+            foreach (ChronicleArchive.VillagerEntry v in run.Roster)
+                sb.Append('\n').Append(ComposeArchiveGrave(v));
+            return sb.ToString();
+        }
+
+        /// <summary>아카이브 명부 한 줄 (순수) — ComposeGraveInfo의 VillagerEntry판.
+        /// 생존 중(현재 판)은 † 없이 열린 구간으로 (죽지 않은 사람에게 비석을 세우지 않는다).</summary>
+        public static string ComposeArchiveGrave(ChronicleArchive.VillagerEntry v)
+        {
+            bool alive = v.Cause == (int)ExitCause.Alive;
+            string span = alive
+                ? $"Day {v.BornDay}~, 생존"
+                : $"Day {v.BornDay}~{v.LeftDay}, {KrCause((ExitCause)v.Cause)}";
+            string line = $"{(alive ? "" : "† ")}{v.ShortName} — {v.Personality}, {v.Job}. {span}";
+            if (!string.IsNullOrEmpty(v.BuddyShort))
+                line += $" · {v.BuddyShort}의 단짝이었다";
+            if (!string.IsNullOrEmpty(v.GrudgeShort))
+                line += $" · <color=#FF8A65>{v.GrudgeShort}에게 원한이 있었다</color>";
+            if (!string.IsNullOrEmpty(v.LifeEvents))
+                line += $" · <color=#B8B8B8>{v.LifeEvents}</color>";
+            return line;
+        }
+
+        /// <summary>판 목록 클릭 판독 — TryPickGameOverRosterIndex와 같은 기법 (원문 줄 계산 —
+        /// wrap 밀림 차단). 헤더 2줄 뒤가 목록. 목록 밖 = false.</summary>
+        public bool TryPickChronicleRunIndex(Vector2 screenPos, out int runIndex)
+        {
+            runIndex = -1;
+            if (_chronicleList == null || string.IsNullOrEmpty(_chronicleList.text)) return false;
+            int line = TMP_TextUtilities.FindIntersectingLine(_chronicleList, screenPos, null);
+            if (line < 0) return false;
+
+            TMP_TextInfo info = _chronicleList.textInfo;
+            if (line >= info.lineCount) return false;
+            int chArr = info.lineInfo[line].firstCharacterIndex;
+            if (chArr < 0 || chArr >= info.characterCount) return false;
+            int src = info.characterInfo[chArr].index;
+
+            string t = _chronicleList.text;
+            int composedLine = 0;
+            for (int i = 0; i < src && i < t.Length; i++)
+                if (t[i] == '\n') composedLine++;
+            runIndex = composedLine - 2; // 제목 + 빈 줄
+            return runIndex >= 0;
+        }
+
+        /// <summary>연대기 패널 토글 — 열 때 목록 텍스트를 받고 상세는 비운다. 닫기 = SetActive
+        /// (재생성 없음). 열 때 SetAsLastSibling — 전멸 오버레이가 나중에 생겨도 그 위로 뜬다.</summary>
+        public void ToggleChronicle(string listText)
+        {
+            if (ChronicleShown)
+            {
+                _chroniclePanel.SetActive(false);
+                return;
+            }
+            if (_chroniclePanel == null) BuildChroniclePanel();
+            _chronicleList.text = listText ?? "";
+            _chronicleDetail.text = "판을 클릭하면 그 마을의 명부가 여기 펼쳐진다.";
+            _chroniclePanel.transform.SetAsLastSibling();
+            _chroniclePanel.SetActive(true);
+        }
+
+        /// <summary>판 상세 표시 — 클릭한 판의 명부를 하단에 (다른 판 클릭 시 교체).</summary>
+        public void ShowChronicleDetail(string detailText)
+        {
+            if (_chronicleDetail != null) _chronicleDetail.text = detailText ?? "";
+        }
+
+        private void BuildChroniclePanel()
+        {
+            Transform canvas = _calendar.rectTransform.parent; // ShowGameOver와 같은 캔버스 재사용
+
+            _chroniclePanel = new GameObject("Chronicle");
+            _chroniclePanel.transform.SetParent(canvas, false);
+            var bg = _chroniclePanel.AddComponent<UnityEngine.UI.Image>();
+            bg.color = new Color(0f, 0f, 0f, 0.85f); // 전멸 오버레이보다 살짝 진하게 — 겹쳐도 구분
+            bg.raycastTarget = false; // 클릭 소비는 PlayerInputController가 담당 (기존 판독 순서 규약)
+            RectTransform bgRt = bg.rectTransform;
+            bgRt.anchorMin = Vector2.zero;
+            bgRt.anchorMax = Vector2.one;
+            bgRt.offsetMin = bgRt.offsetMax = Vector2.zero;
+
+            var listGo = new GameObject("ChronicleList");
+            listGo.transform.SetParent(_chroniclePanel.transform, false);
+            _chronicleList = listGo.AddComponent<TextMeshProUGUI>();
+            if (_calendar.font != null) _chronicleList.font = _calendar.font;
+            _chronicleList.enableAutoSizing = true; // 판이 쌓이면 길어진다 — 회고 명부와 동일 방침
+            _chronicleList.fontSizeMin = 16f;
+            _chronicleList.fontSizeMax = 36f;
+            _chronicleList.alignment = TextAlignmentOptions.Center;
+            _chronicleList.color = new Color(1f, 0.92f, 0.85f);
+            _chronicleList.raycastTarget = false;
+            RectTransform listRt = _chronicleList.rectTransform;
+            listRt.anchorMin = listRt.anchorMax = new Vector2(0.5f, 0.5f);
+            listRt.pivot = new Vector2(0.5f, 0f);
+            listRt.anchoredPosition = new Vector2(0f, -20f); // 화면 상반부 = 목록
+            listRt.sizeDelta = new Vector2(900f, 340f);
+
+            var detailGo = new GameObject("ChronicleDetail");
+            detailGo.transform.SetParent(_chroniclePanel.transform, false);
+            _chronicleDetail = detailGo.AddComponent<TextMeshProUGUI>();
+            if (_calendar.font != null) _chronicleDetail.font = _calendar.font;
+            _chronicleDetail.enableAutoSizing = true;
+            _chronicleDetail.fontSizeMin = 14f;
+            _chronicleDetail.fontSizeMax = 26f;
+            _chronicleDetail.alignment = TextAlignmentOptions.Center;
+            _chronicleDetail.color = new Color(0.92f, 0.9f, 0.78f); // 드릴다운과 같은 톤
+            _chronicleDetail.raycastTarget = false;
+            RectTransform detailRt = _chronicleDetail.rectTransform;
+            detailRt.anchorMin = detailRt.anchorMax = new Vector2(0.5f, 0.5f);
+            detailRt.pivot = new Vector2(0.5f, 1f);
+            detailRt.anchoredPosition = new Vector2(0f, -60f); // 하반부 = 명부 상세
+            detailRt.sizeDelta = new Vector2(1100f, 300f);
         }
 
         /// <summary>

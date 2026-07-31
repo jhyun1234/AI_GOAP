@@ -113,5 +113,70 @@ namespace AIVillage.Tests.EditMode
             Assert.IsNull(ChronicleArchive.Parse("{ 깨진 json"), "손상 — 예외 전파 없이 null");
             Assert.IsNull(ChronicleArchive.Parse("3"), "루트가 객체가 아님");
         }
+
+        // ── M15-T4 — 패널 조립 순수 함수 (표시 정책이 데이터를 배반하지 않는가) ──
+
+        [Test]
+        public void M15_T4_BuildChronicleRows_CurrentFirstThenLatest()
+        {
+            var file = new ChronicleArchive.ArchiveFile();
+            ChronicleArchive.Apply(file, -1, Entry(1, 15, false, "A")); // 판 1 (옛날)
+            ChronicleArchive.Apply(file, -1, Entry(3, 44, true, "B"));  // 판 2 (최신)
+            ChronicleArchive.RunEntry current = Entry(0, 5, false, "C");
+
+            List<ChronicleArchive.RunEntry> rows = SeasonHud.BuildChronicleRows(file.Runs, current);
+            Assert.AreEqual(3, rows.Count);
+            Assert.AreSame(current, rows[0], "진행 중 판이 맨 위");
+            Assert.AreEqual(2, rows[1].RunNumber, "저장된 판은 최신순");
+            Assert.AreEqual(1, rows[2].RunNumber);
+
+            // 전멸 후(현재 판 없음) — 저장분만 최신순
+            List<ChronicleArchive.RunEntry> noCurrent = SeasonHud.BuildChronicleRows(file.Runs, null);
+            Assert.AreEqual(2, noCurrent.Count);
+            Assert.AreEqual(2, noCurrent[0].RunNumber);
+        }
+
+        [Test]
+        public void M15_T4_ComposeChronicleList_MarksCurrentAndOutcome()
+        {
+            Assert.That(SeasonHud.ComposeChronicleList(new List<ChronicleArchive.RunEntry>(), false),
+                        Does.Contain("아직 기록된 마을이 없다"), "빈 아카이브 = 안내 문구");
+
+            var file = new ChronicleArchive.ArchiveFile();
+            ChronicleArchive.Apply(file, -1, Entry(1, 15, false, "A"));
+            ChronicleArchive.Apply(file, -1, Entry(3, 44, true, "B"));
+            List<ChronicleArchive.RunEntry> rows =
+                SeasonHud.BuildChronicleRows(file.Runs, Entry(0, 5, false, "C"));
+
+            string s = SeasonHud.ComposeChronicleList(rows, firstIsCurrent: true);
+            StringAssert.Contains("▶ 이번 판 — 겨울 0 · Day 5 · 최대 1명", s);
+            StringAssert.Contains("판 2 — 겨울 3 · Day 44 · 최대 1명 · 전멸 · 2026-07-31 21:04", s);
+            StringAssert.Contains("판 1 — 겨울 1 · Day 15 · 최대 1명 · 중단", s, "Ended false = 중단");
+            // 헤더 2줄 뒤가 목록 — 클릭 오프셋(TryPickChronicleRunIndex -2)과 한 몸
+            string[] lines = s.Split('\n');
+            StringAssert.StartsWith("▶ 이번 판", lines[2], "행 0 = 원문 3번째 줄 (헤더 2줄 규약)");
+        }
+
+        [Test]
+        public void M15_T4_ComposeRunDetail_RosterLinesWithCauseAndRelations()
+        {
+            ChronicleArchive.RunEntry run = Entry(3, 44, true, "A"); // 사망자 (아사, 단짝 B)
+            run.Roster.Add(new ChronicleArchive.VillagerEntry
+            {
+                ShortName = "C", Personality = "중립", Job = "농부",
+                BornDay = 12, LeftDay = -1, Cause = (int)ExitCause.Alive,
+                BuddyShort = "", GrudgeShort = "D", LifeEvents = "",
+            });
+            run.RunNumber = 3;
+
+            string s = SeasonHud.ComposeRunDetail(run);
+            StringAssert.Contains("판 3 — 겨울 3 · Day 44 · 최대 1명 · 전멸", s);
+            StringAssert.Contains("† A — 게으름뱅이, 무직. Day 3~34, 굶어 죽음", s, "Cause 정수 → 문구");
+            StringAssert.Contains("B의 단짝이었다", s);
+            StringAssert.Contains("D5~34 명령 거부(피로) ×30", s, "사건 요약 문자열 그대로");
+            StringAssert.Contains("C — 중립, 농부. Day 12~, 생존", s, "LeftDay -1 = 열린 구간");
+            StringAssert.DoesNotContain("† C", s, "산 사람에게 비석을 세우지 않는다");
+            StringAssert.Contains("D에게 원한이 있었다", s);
+        }
     }
 }

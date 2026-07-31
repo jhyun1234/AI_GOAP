@@ -144,6 +144,13 @@ namespace AIVillage.M0
             "보상은 나중에 얘기하자.",
         };
 
+        [Tooltip("생애 첫 임금 대사 (M16-W2 — 1회만, 임금 시스템의 존재 알림. 이후는 로그·지갑 표기)")]
+        public string[] FirstWageLines =
+        {
+            "첫 품삯이다!",
+            "일한 값을 받았어.",
+        };
+
         [Header("욕구 (초기값은 舊 VillagerBrain 기본값 이관)")]
         public float InitialSatiety = 70f;
         public float InitialFatigue = 20f;

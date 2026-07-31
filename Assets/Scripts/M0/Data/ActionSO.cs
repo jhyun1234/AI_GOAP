@@ -31,6 +31,13 @@ namespace AIVillage.M0
         [Tooltip("실행 소요 시간(초). 舊 코드는 도착 즉시 완료였으므로 기본 0 — 표현 연출용 여유 필드.")]
         public float DurationSec = 0f;
 
+        [Tooltip("임금 (M16-W2 — 공용 기여 노동만 유급, 0 = 무급 중립). 이 액션 완료 시 촌장이 " +
+                 "자동 지급하는 동(銅). 명령·자율 무관 — 지불은 액션이 결정한다 (ADR-M16-2).\n" +
+                 "유급 = 공용 스톡 적재·마을 시설 건설만. 자기 채집·자기 밭·자기 집은 0으로 둘 것.\n" +
+                 "⚠️ 임금을 Effects(MyMoney Add)로 넣지 않는다 — 효과는 플래너 시야에 들어가 " +
+                 "'돈 벌려고 벌목' 플랜이 생긴다 (ADR-M16-5). 임금은 플랜 밖의 부산물이다.")]
+        public int WagePay = 0;
+
         public SlotCondition[] Preconditions;
         public SlotEffect[] Effects;
 

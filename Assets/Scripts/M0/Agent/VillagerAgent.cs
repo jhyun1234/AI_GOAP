@@ -1051,6 +1051,17 @@ namespace AIVillage.M0
                 }
             }
 
+            // 임금 (M16-W2) — 유일한 지급 지점 (명세 실사 ①: BuildRunner도 이 경로를 지난다).
+            // 명령·자율 무관 — 지불은 액션이 결정 (ADR-M16-2). 발행은 Mint뿐 (ADR-M16-1).
+            if (_plan[_planIndex].WagePay > 0
+                && World.Mint(this, _plan[_planIndex].WagePay, $"임금: {_plan[_planIndex].DisplayName}")
+                && !_everPaid)
+            {
+                // 생애 첫 임금만 말풍선 1회 (명세 확정 보완 8-③ — 이후는 로그·지갑 표기가 맡는다)
+                _everPaid = true;
+                ShowTransient(Pick(_cfg.FirstWageLines));
+            }
+
             _runner.Cleanup(this);
             _runner = null;
             _planIndex++;
@@ -1556,6 +1567,9 @@ namespace AIVillage.M0
         /// <summary>몸 소지 돈(동) — M16-W1. 쓰기는 ApplyPersonalStock만 (ADR-M11-1).
         /// 발행(적립+M 누적)은 WorldModel.Mint 경유가 유일 (ADR-M16-1). 세이브 대상 (ADR-M11-10).</summary>
         public int MyMoney { get; private set; }
+
+        // 생애 첫 임금 표식 (M16-W2) — 첫 지급만 말풍선 (스팸 방지). 세이브 대상 (ADR-M0-10)
+        private bool _everPaid;
 
         /// <summary>슬롯별 잔량 — EffectApplier 선검사·스냅샷 주입 공용 (판정 단일).</summary>
         public int GetPersonalStock(SlotId slot)

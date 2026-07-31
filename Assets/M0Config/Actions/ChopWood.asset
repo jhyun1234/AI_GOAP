@@ -19,6 +19,7 @@ MonoBehaviour:
   - "이 나무가 좋겠다"
   - "영차, 영차"
   - "결 따라 베면 금방이지"
+  WagePay: 2
   BaseCost: 10
   DurationSec: 2.5
   Preconditions:

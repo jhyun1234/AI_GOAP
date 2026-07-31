@@ -676,14 +676,18 @@ namespace AIVillage.M0
         public bool ChronicleShown => _chroniclePanel != null && _chroniclePanel.activeSelf;
 
         /// <summary>표시 행 구성 (순수) — 진행 중 판(있으면)이 맨 위, 그 뒤 저장된 판 최신순.
-        /// 클릭 인덱스 매핑의 단일 출처 — ComposeChronicleList와 호출자가 같은 목록을 쓴다.</summary>
+        /// 클릭 인덱스 매핑의 단일 출처 — ComposeChronicleList와 호출자가 같은 목록을 쓴다.
+        /// skipIndex = 현재 판의 저장 자리 (첫 겨울 이후 존재) — 라이브 행과 같은 판이 두 줄로
+        /// 겹치지 않게 제외한다 (Play 검증에서 발견된 중복, 2026-07-31). -1 = 제외 없음.</summary>
         public static List<ChronicleArchive.RunEntry> BuildChronicleRows(
-            IReadOnlyList<ChronicleArchive.RunEntry> archived, ChronicleArchive.RunEntry current)
+            IReadOnlyList<ChronicleArchive.RunEntry> archived, ChronicleArchive.RunEntry current,
+            int skipIndex = -1)
         {
             var rows = new List<ChronicleArchive.RunEntry>((archived?.Count ?? 0) + 1);
             if (current != null) rows.Add(current);
             if (archived != null)
-                for (int i = archived.Count - 1; i >= 0; i--) rows.Add(archived[i]); // 최신이 위
+                for (int i = archived.Count - 1; i >= 0; i--) // 최신이 위
+                    if (i != skipIndex) rows.Add(archived[i]);
             return rows;
         }
 
@@ -774,11 +778,17 @@ namespace AIVillage.M0
             if (ChronicleShown)
             {
                 _chroniclePanel.SetActive(false);
+                // 전멸 화면 복원 — 열 때 숨겼던 것 (겹침 수정, 2026-07-31). GameOverShown은
+                // null 검사라 래치·클릭 분기에 영향 없다.
+                if (_gameOver != null) _gameOver.SetActive(true);
                 return;
             }
             if (_chroniclePanel == null) BuildChroniclePanel();
             _chronicleList.text = listText ?? "";
             _chronicleDetail.text = "판을 클릭하면 그 마을의 명부가 여기 펼쳐진다.";
+            // 전멸 화면과 겹치면 두 겹의 밝은 글자가 서로를 뚫고 읽힌다 (Play 검증 스크린샷) —
+            // 반투명 배경으로는 못 가리므로 여는 동안 숨긴다.
+            if (_gameOver != null) _gameOver.SetActive(false);
             _chroniclePanel.transform.SetAsLastSibling();
             _chroniclePanel.SetActive(true);
         }

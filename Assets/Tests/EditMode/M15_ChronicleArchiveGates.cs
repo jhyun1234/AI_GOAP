@@ -134,6 +134,14 @@ namespace AIVillage.Tests.EditMode
             List<ChronicleArchive.RunEntry> noCurrent = SeasonHud.BuildChronicleRows(file.Runs, null);
             Assert.AreEqual(2, noCurrent.Count);
             Assert.AreEqual(2, noCurrent[0].RunNumber);
+
+            // 첫 겨울 이후 — 현재 판의 저장분(skipIndex)은 제외한다: 라이브 행과 같은 판이
+            // 두 줄로 겹치면 안 된다 (Play 검증에서 발견된 중복, 2026-07-31)
+            List<ChronicleArchive.RunEntry> skip1 =
+                SeasonHud.BuildChronicleRows(file.Runs, current, skipIndex: 1);
+            Assert.AreEqual(2, skip1.Count, "저장분 2 중 1 제외 + 라이브 행");
+            Assert.AreSame(current, skip1[0]);
+            Assert.AreEqual(1, skip1[1].RunNumber, "제외된 건 index 1(판 2)뿐");
         }
 
         [Test]

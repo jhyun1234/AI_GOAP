@@ -493,6 +493,10 @@ namespace AIVillage.M0
         // 수명 (M10-F "새 시작은 재실행"). static 금지 — Enter Play Mode(도메인 리로드 꺼짐)에서 오염.
         private int _archiveRunIndex = -1;
 
+        /// <summary>이번 판의 아카이브 인덱스 (M15 — 패널이 현재 판의 저장분을 목록에서 제외할 때
+        /// 쓴다: 첫 겨울 이후엔 라이브 행과 저장 행이 같은 판이라 겹쳐 보인다). -1 = 아직 저장 없음.</summary>
+        public int ArchiveRunIndex => _archiveRunIndex;
+
         /// <summary>전멸 래치 판정 (순수 — 게이트 M10-T6): 주민이 있었던 마을이 0명이 된 첫 순간만.</summary>
         public static bool ShouldShowGameOver(bool alreadyShown, bool everHadAgents, int aliveCount)
             => !alreadyShown && everHadAgents && aliveCount == 0;

@@ -87,12 +87,16 @@ namespace AIVillage.M0
                     if (hud.ChronicleShown) hud.ToggleChronicle(null);
                     else
                     {
-                        // 전멸 후엔 현재 판이 이미 아카이브에 마감돼 있다 — 진행 중 행을 겹치지 않는다
-                        ChronicleArchive.RunEntry current = hud.GameOverShown
+                        // 전멸 후엔 현재 판이 이미 아카이브에 마감돼 있다 — 진행 중 행을 겹치지 않는다.
+                        // 진행 중엔 반대로 현재 판의 저장분(첫 겨울 이후 존재)을 목록에서 제외한다 —
+                        // 라이브 행과 같은 판이 두 줄로 겹친다 (Play 검증에서 발견, 2026-07-31).
+                        bool over = hud.GameOverShown;
+                        ChronicleArchive.RunEntry current = over
                             ? null : M0SimulationLoop.Instance.SnapshotCurrentRun(ended: false);
                         _chronicleRows.Clear();
                         _chronicleRows.AddRange(SeasonHud.BuildChronicleRows(
-                            ChronicleArchive.Load().Runs, current));
+                            ChronicleArchive.Load().Runs, current,
+                            over ? -1 : M0SimulationLoop.Instance.ArchiveRunIndex));
                         hud.ToggleChronicle(SeasonHud.ComposeChronicleList(_chronicleRows, current != null));
                     }
                 }

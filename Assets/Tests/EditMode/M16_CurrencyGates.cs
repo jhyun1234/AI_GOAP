@@ -103,24 +103,34 @@ namespace AIVillage.Tests.EditMode
         }
 
         [Test]
-        public void M16_T9_InjectWageEffect_PlannerSeesMoneyWithoutCap()
+        public void M16_T9_WageEffect_PlannerSeesMoneyWithoutCap()
         {
-            // 무급 = 중립 (기존 액션 전부 동작 불변)
+            // 유급 액션: 플래너 입력에는 임금이 보이고, 실행 입력에는 안 보인다 (이중 지급 차단)
+            var paid = UnityEngine.ScriptableObject.CreateInstance<GatherActionSO>();
+            paid.WagePay = 5;
+            var runEffs = new System.Collections.Generic.List<SlotEffect>();
             var effs = new System.Collections.Generic.List<SlotEffect>();
-            ActionCompiler.InjectWageEffect(effs, 0);
-            Assert.AreEqual(0, effs.Count, "WagePay 0 = 효과 주입 없음");
-
-            // 유급 = MyMoney Add 주입 (플래너가 '이 일을 하면 돈이 생긴다'를 안다)
-            ActionCompiler.InjectWageEffect(effs, 5);
-            Assert.AreEqual(1, effs.Count);
+            paid.CollectEffects(runEffs);
+            paid.CollectPlannerEffects(effs);
+            Assert.AreEqual(0, runEffs.Count, "실행 경로엔 임금 없음 — 지급은 Mint 1곳");
+            Assert.AreEqual(1, effs.Count, "플래너는 '이 일을 하면 돈이 생긴다'를 안다");
             Assert.AreEqual(SlotId.MyMoney, effs[0].Slot);
             Assert.AreEqual(EffectOp.Add, effs[0].Op);
             Assert.AreEqual(5, effs[0].Value);
+
+            // 무급 = 중립 (기존 액션 전부 동작 불변)
+            var free = UnityEngine.ScriptableObject.CreateInstance<GatherActionSO>();
+            var freeEffs = new System.Collections.Generic.List<SlotEffect>();
+            free.CollectPlannerEffects(freeEffs);
+            Assert.AreEqual(0, freeEffs.Count, "WagePay 0 = 주입 없음");
 
             // 🔴 상한 전제가 붙으면 안 된다 — 붙으면 "지갑 8동 넘으면 벌목 불가" 플랜이 나온다
             var precs = new System.Collections.Generic.List<SlotCondition>();
             ActionCompiler.InjectCapPreconditions(precs, effs, bodyCap: 8, homeCap: 12);
             Assert.AreEqual(0, precs.Count, "돈은 부피가 없다 — 상한 전제 주입 금지");
+
+            UnityEngine.Object.DestroyImmediate(paid);
+            UnityEngine.Object.DestroyImmediate(free);
 
             // 대조: 식량 Add는 여전히 상한 전제가 붙는다 (M11-A 불변)
             var foodEffs = new System.Collections.Generic.List<SlotEffect>

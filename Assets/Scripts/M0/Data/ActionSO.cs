@@ -47,10 +47,27 @@ namespace AIVillage.M0
             if (Preconditions != null) into.AddRange(Preconditions);
         }
 
-        /// <summary>플래너·실행이 공유하는 효과 수집.</summary>
+        /// <summary>플래너·실행이 공유하는 효과 수집. **실행이 읽는 것은 이쪽뿐**이다 —
+        /// 임금은 여기 들어오지 않는다 (지급은 Mint 한 곳, 이중 지급 차단).</summary>
         public virtual void CollectEffects(List<SlotEffect> into)
         {
             if (Effects != null) into.AddRange(Effects);
+        }
+
+        /// <summary>
+        /// 플래너 전용 효과 수집 (M16-B, ADR-M16-5 개정) = 에셋 효과 + **임금**(WagePay > 0이면
+        /// MyMoney Add). 플래너가 "이 일을 하면 돈이 생긴다"를 알아야 저축 goal이 성립한다.
+        ///
+        /// 왜 Data 계층인가: SlotEffect 생성은 데이터 계층 전용이다 (게이트 M0-T3 —
+        /// "실행 계층에서 효과를 만들면 수치 이원화의 시작"). 컴파일러가 만들면 액션의 계획
+        /// 데이터가 에셋 밖에 생겨 ADR-M0-1(단일 응집)도 흔들린다. 수치의 출처는 WagePay 필드
+        /// 하나 그대로다 — 이 메서드는 그것을 플래너 언어로 옮길 뿐이다.
+        /// </summary>
+        public void CollectPlannerEffects(List<SlotEffect> into)
+        {
+            CollectEffects(into);
+            if (WagePay > 0)
+                into.Add(new SlotEffect { Slot = SlotId.MyMoney, Op = EffectOp.Add, Value = WagePay });
         }
 
         /// <summary>

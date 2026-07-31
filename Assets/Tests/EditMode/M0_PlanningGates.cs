@@ -67,7 +67,9 @@ namespace AIVillage.Tests.EditMode
                 ActionSO so = catalog.Actions[i];
                 precs.Clear(); effs.Clear();
                 so.CollectPreconditions(precs);
-                so.CollectEffects(effs);
+                // 컴파일러와 같은 입력을 본다 (M16-B): 에셋 효과 + 임금 (CollectPlannerEffects).
+                // 실행이 읽는 CollectEffects와 다르다 — 임금은 플래너 시야에만 있고 지급은 Mint 1곳.
+                so.CollectPlannerEffects(effs);
 
                 Assert.AreEqual(i, defs[i].ActionStringHash, $"{so.name}: 인덱스 신원(ADR-M0-6) 불일치");
                 Assert.AreEqual(so.BaseCost, defs[i].BaseCost, 0.001f, $"{so.name}: BaseCost 불일치");

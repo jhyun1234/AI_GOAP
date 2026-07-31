@@ -39,8 +39,7 @@ namespace AIVillage.M0
                 precs.Clear();
                 effs.Clear();
                 so.CollectPreconditions(precs);
-                so.CollectEffects(effs);
-                InjectWageEffect(effs, so.WagePay);                    // M16-B — 임금을 플래너 시야에
+                so.CollectPlannerEffects(effs); // M16-B — 에셋 효과 + 임금 (생성은 Data 계층, M0-T3)
                 InjectCapPreconditions(precs, effs, bodyCap, homeCap); // M11-A — 상한 전제 자동 주입
 
                 if (precs.Count > MAX_CONDITIONS || effs.Count > MAX_CONDITIONS)
@@ -68,25 +67,6 @@ namespace AIVillage.M0
         /// 선검사(EffectApplier)와 같은 판정이라 어긋날 수 없다 (판정 단일).
         /// cap ≤ 0 = 주입 없음 (중립 — 미배선 테스트·기존 게이트웨이 동작 불변).
         /// </summary>
-        /// <summary>
-        /// 임금 효과 주입 (M16-B, 순수 — 게이트 M16-T9. ADR-M16-5 개정의 실행부):
-        /// WagePay > 0인 액션에 MyMoney Add 효과를 **플래너 입력에만** 더한다.
-        ///
-        /// 왜 여기인가: 실행 지급은 TickActing의 Mint 한 곳뿐이고(ADR-M16-1), 그 경로는
-        /// 원본 CollectEffects만 읽으므로 이중 지급이 구조적으로 불가능하다. 에셋의 단일
-        /// 출처(WagePay 필드)도 그대로다 — 플래너만 "이 일을 하면 돈이 생긴다"를 알게 된다.
-        ///
-        /// 왜 개정했나 (ADR-M16-5 원본은 "화폐는 플래너 시야 밖"): 집을 화폐로만 살 수 있게
-        /// 되면서(M16-B) 돈이 "있으면 좋은 것"에서 **집의 유일한 관문**이 됐다. 저축 goal이
-        /// 목표를 세워도 돈 버는 길을 플래너가 모르면 NoSolution뿐이다 (Play 관측 2026-08-01:
-        /// "돈이 없어도 돈을 벌러 가지 않는다"). 전제가 바뀌었으므로 규칙도 바뀐다.
-        /// </summary>
-        public static void InjectWageEffect(List<SlotEffect> effs, int wagePay)
-        {
-            if (wagePay <= 0) return; // 무급 = 중립 (기존 액션 전부 동작 불변)
-            effs.Add(new SlotEffect { Slot = SlotId.MyMoney, Op = EffectOp.Add, Value = wagePay });
-        }
-
         public static void InjectCapPreconditions(List<SlotCondition> precs, List<SlotEffect> effs,
                                                   int bodyCap, int homeCap)
         {

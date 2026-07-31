@@ -151,6 +151,14 @@ namespace AIVillage.M0
             "일한 값을 받았어.",
         };
 
+        [Tooltip("물가 사유 웃돈 거부 대사 (M16-W3, 공유 시세 — 기준 물가면 수락했을 거부에만. " +
+                 "배고픔·피로 대사를 대체한다 — 한 장면 한 말풍선)")]
+        public string[] RefusePriceLines =
+        {
+            "요즘 돈 값이 예전 같지 않잖소.",
+            "그 돈으론 어림없어요. 물가를 보세요.",
+        };
+
         [Header("욕구 (초기값은 舊 VillagerBrain 기본값 이관)")]
         public float InitialSatiety = 70f;
         public float InitialFatigue = 20f;

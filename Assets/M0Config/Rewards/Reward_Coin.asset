@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bb3c09ce3ac74550981a9dbcd7e1f263, type: 3}
+  m_Name: Reward_Coin
+  m_EditorClassIdentifier:
+  DisplayName: "웃돈"
+  CostSlot: 10
+  CostAmount: 0
+  SatietyGain: 0
+  MoneyGain: 5
+  RefuseSatietyOffset: -20
+  RefuseFatigueOffset: 20
+  PromiseLines:
+  - "좋아, 그 값이면 하지."
+  - "약속한 겁니다? 5동."
+  - "돈은 거짓말 안 하지."
+  PayLines:
+  - "약속한 품삯이군. 잘 받았소."
+  - "이 맛에 일하지."

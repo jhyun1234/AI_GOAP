@@ -59,6 +59,40 @@ namespace AIVillage.Tests.EditMode
         }
 
         [Test]
+        public void M16_T4_EffectiveRewardScale_AndPriceFlipsVerdict()
+        {
+            Assert.AreEqual(1f, VillagerAgent.EffectiveRewardScale(100), 1e-4f);
+            Assert.AreEqual(0.5f, VillagerAgent.EffectiveRewardScale(200), 1e-4f);
+            Assert.AreEqual(1f, VillagerAgent.EffectiveRewardScale(50), 1e-4f, "100 미만 방어 (디플레 없음)");
+
+            // 물가가 판정을 뒤집는다 (ADR-M16-4): 화폐 웃돈(-20 오프셋)으로 기준 물가에선
+            // 수락하던 배고픔이, 물가 200%(실효 -10)에선 거부로. 실물 보상은 물가 무관.
+            var cfg = UnityEngine.ScriptableObject.CreateInstance<AgentConfigSO>();
+            var money = UnityEngine.ScriptableObject.CreateInstance<RewardSO>();
+            money.MoneyGain = 5; money.RefuseSatietyOffset = -20f; money.RefuseFatigueOffset = 20f;
+            var food = UnityEngine.ScriptableObject.CreateInstance<RewardSO>();
+            food.MoneyGain = 0; food.RefuseSatietyOffset = -20f; food.RefuseFatigueOffset = 20f;
+            // 기준 문턱과 실효 문턱 사이의 포만 = 물가에만 반응하는 회색 지대
+            float satiety = cfg.OrderRefuseSatiety - 15f; // 기준 -20이면 수락, 실효 -10이면 거부
+            float fatigue = 0f;
+
+            Assert.AreEqual(VillagerAgent.OrderResult.Accepted,
+                VillagerAgent.JudgeOrder(satiety, fatigue, cfg, null, null, money, 100), "기준 물가 = 수락");
+            Assert.AreEqual(VillagerAgent.OrderResult.RefusedHungry,
+                VillagerAgent.JudgeOrder(satiety, fatigue, cfg, null, null, money, 200), "물가 200% = 거부 (실질 가치 미달)");
+            Assert.AreEqual(VillagerAgent.OrderResult.Accepted,
+                VillagerAgent.JudgeOrder(satiety, fatigue, cfg, null, null, food, 200), "실물 보상은 물가 무관");
+            Assert.AreEqual(
+                VillagerAgent.JudgeOrder(satiety, fatigue, cfg, null, null, money),
+                VillagerAgent.JudgeOrder(satiety, fatigue, cfg, null, null, money, 100),
+                "호환 진입점 = 물가 100 위임 (기존 게이트 동작 불변)");
+
+            UnityEngine.Object.DestroyImmediate(cfg);
+            UnityEngine.Object.DestroyImmediate(money);
+            UnityEngine.Object.DestroyImmediate(food);
+        }
+
+        [Test]
         public void M16_T8_ComposeMoney_TieredDisplay()
         {
             Assert.AreEqual("0동", SeasonHud.ComposeMoney(0));

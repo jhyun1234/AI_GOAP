@@ -201,5 +201,54 @@ namespace AIVillage.Tests.EditMode
             Assert.Less(plantWins, 100,
                 "게으름뱅이 100명 전원이 파종 — 성격이 붕괴했다. 진폭 과대");
         }
+
+        // ── M14-T3: 최소 기록 (W4) — 경주의 자 ──
+
+        [Test]
+        public void M14_T3_RecordCompare_WintersFirstThenDays()
+        {
+            var best = new RunRecordStore.RunRecord { BestWinters = 2, BestDay = 50 };
+
+            Assert.IsTrue(RunRecordStore.IsBetter(3, 10, best), "(3,10) > (2,50) — 겨울 우선");
+            Assert.IsTrue(RunRecordStore.IsBetter(2, 51, best), "겨울 동률이면 생존일");
+            Assert.IsFalse(RunRecordStore.IsBetter(2, 50, best), "완전 동률 = 갱신 아님");
+            Assert.IsFalse(RunRecordStore.IsBetter(1, 99, best), "겨울이 밀리면 생존일이 길어도 미달");
+            Assert.IsTrue(RunRecordStore.IsBetter(1, 1, new RunRecordStore.RunRecord()),
+                "빈 기록(0,0)은 첫 겨울로 즉시 갱신");
+        }
+
+        [Test]
+        public void M14_T3_WinterAlert_PreventionOnlyLine()
+        {
+            // 중립 불변식 — 새 인자 기본값(-1, null)은 기존 4인자 출력과 완전 동일
+            Assert.AreEqual("", SeasonHud.ComposeStatus(null, 0, -1, null), "무경보 = 빈 문자열 유지");
+
+            var unprepared = new[] { ("응이", 2), ("콩이", 1) };
+            string s = SeasonHud.ComposeStatus(null, 0, -1, null, 3, unprepared);
+            StringAssert.Contains("겨울까지 3일", s);
+            StringAssert.Contains("응이(2일)", s);
+            StringAssert.Contains("콩이(1일)", s);
+
+            // 예방 전용 — 봉쇄 중(0)·창 밖(-1)·전원 대비 완료(빈 목록)면 줄 자체가 없다
+            Assert.AreEqual("", SeasonHud.ComposeStatus(null, 0, -1, null, 0, unprepared),
+                "봉쇄 진행 중(0) = 경보 없음 (심판 중 — 굶는 주민 줄의 몫)");
+            Assert.AreEqual("", SeasonHud.ComposeStatus(null, 0, -1, null, 3, new (string, int)[0]),
+                "전원 대비 완료 = 경보 없음");
+        }
+
+        [Test]
+        public void M14_T3_CalendarShowsYear()
+        {
+            SeasonSO[] cycle = MakeStandardCycle();
+            var svc = new SeasonService(cycle);
+
+            svc.Tick(1f); // 1년째 온화
+            StringAssert.Contains("1년째 온화", SeasonHud.Compose(1f, svc, 3f),
+                "연차 병기 — 경주의 자는 살아 있는 동안 보여야 한다 (ADR-M13-1의 정신)");
+            svc.Tick(13f); // 사이클 12일 → 2년째 온화
+            StringAssert.Contains("2년째", SeasonHud.Compose(13f, svc, 3f), "사이클 2바퀴째 = 2년째");
+
+            DestroyAll(cycle);
+        }
     }
 }

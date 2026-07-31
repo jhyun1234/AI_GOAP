@@ -41,6 +41,10 @@ namespace AIVillage.M0
         /// <summary>현재 계절의 잔여 게임일 — HUD "겨울 (남은 N일)" 표시용 (M6-C).</summary>
         public float DaysLeftInSeason { get; private set; }
 
+        /// <summary>연차 (M14-W4) — 사이클 순환 수 + 1. 달력 "N년째" 표기의 출처 (기록 경주의
+        /// 자를 살아 있는 동안에도 보이게 — 전멸 화면에만 있으면 아무도 못 본다).</summary>
+        public int Year => _cycle.Length > 0 ? SeasonOrdinal / _cycle.Length + 1 : 1;
+
         /// <summary>다가오는(위기 중이면 현재) 위기 계절 — 예고 대사·HUD 이름의 출처. 사이클에 없으면 null.</summary>
         public SeasonSO NextCrisis { get; private set; }
 

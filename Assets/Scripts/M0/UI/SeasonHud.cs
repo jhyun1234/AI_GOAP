@@ -446,14 +446,17 @@ namespace AIVillage.M0
             int day = (int)gameTime;
             if (season == null || season.Current == null) return $"Day {day}";
 
+            // 연차 병기 (M14-W4) — "N번째 겨울까지"라는 경주의 자를 상시 노출 (ADR-M13-1의 정신:
+            // 기록 카운터가 전멸 화면에만 있으면 살아 있는 동안 아무도 못 본다).
             SeasonSO cur = season.Current;
+            string yearSeason = $"{season.Year}년째 {cur.DisplayName}";
             if (cur.IsCrisis)
-                return $"Day {day} · <color=#7EC8FF>{cur.DisplayName}</color> " +
+                return $"Day {day} · <color=#7EC8FF>{yearSeason}</color> " +
                        $"(남은 {Mathf.CeilToInt(season.DaysLeftInSeason)}일)";
             if (season.NextCrisis != null && season.DaysToCrisis <= forecastDays)
-                return $"Day {day} · {cur.DisplayName} · <color=#FF8A65>" +
+                return $"Day {day} · {yearSeason} · <color=#FF8A65>" +
                        $"{season.NextCrisis.DisplayName}까지 {Mathf.CeilToInt(season.DaysToCrisis)}일</color>";
-            return $"Day {day} · {cur.DisplayName}";
+            return $"Day {day} · {yearSeason}";
         }
 
         /// <summary>
@@ -483,6 +486,25 @@ namespace AIVillage.M0
                 sb.Append($"{r.ShortName} — {r.PersonalityName}, {r.JobName}. {KrLifeSpan(r)}\n");
             sb.Append($"\n정착 {settles} · 아무도 남지 않았다.");
             return sb.ToString();
+        }
+
+        /// <summary>
+        /// 전멸 회고 + 경주 기록 (M14-W4, 순수 — 게이트 M14-T3). 명부 오버로드 위에 기록 2줄:
+        /// 이번 판(넘긴 겨울·생존일·최대 인구)과 역대 최고. best는 **저장 후** 값이라 이번 판이
+        /// 최고면 자기 자신이 찍힌다 — newRecord가 그 사실을 문구로 밝힌다.
+        /// "N번째 겨울에 쓰러졌다"가 아니라 "겨울 N번을 넘기고"다 — 여름 전멸에서도 어색하지 않은
+        /// 전천후 문형 (명세 🟡 문구 조정의 이행).
+        /// </summary>
+        public static string ComposeGameOver(int day, int settles, IReadOnlyList<VillagerRecord> roster,
+                                             int winters, int peakPop,
+                                             RunRecordStore.RunRecord best, bool newRecord)
+        {
+            string run = $"겨울 {winters}번을 넘기고 Day {day}에 쓰러졌다 · 최대 {peakPop}명";
+            string record = best == null || (best.BestWinters == 0 && best.BestDay == 0)
+                ? "첫 기록이다."
+                : (newRecord ? "<color=#FFD966>신기록!</color> " : "역대 최고: ")
+                  + $"겨울 {best.BestWinters}번 · Day {best.BestDay} · 최대 {best.BestPeakPop}명";
+            return ComposeGameOver(day, settles, roster) + $"\n\n{run}\n{record}";
         }
 
         /// <summary>생애 구간 문구 — 생존 중(-1 센티넬)은 열린 구간으로 (Day 0 사망과 구별, 명세 §5.3).</summary>
@@ -619,11 +641,15 @@ namespace AIVillage.M0
         /// 맨 앞 0..N-1"을 전제하므로, 앞에 끼우면 클릭이 엉뚱한 주민을 집는다.
         /// </summary>
         public static string ComposeStatus(IReadOnlyList<(string name, int days)> starving,
-                                           int untendedInjured, int threatDaysLeft, string threatName)
+                                           int untendedInjured, int threatDaysLeft, string threatName,
+                                           int freezeDaysLeft = -1,
+                                           IReadOnlyList<(string name, int days)> unprepared = null)
         {
             bool threat = threatDaysLeft >= 0 && !string.IsNullOrEmpty(threatName);
             bool anyStarving = starving != null && starving.Count > 0;
-            if (!anyStarving && untendedInjured <= 0 && !threat)
+            // 겨울 경보 (M14-W4) — 예방 전용: 봉쇄 중(0)·창 밖(-1)·전원 대비 완료면 줄 자체가 없다.
+            bool winterAlert = freezeDaysLeft > 0 && unprepared != null && unprepared.Count > 0;
+            if (!anyStarving && untendedInjured <= 0 && !threat && !winterAlert)
                 return ""; // 평시 조기 반환 — 틱마다 불리므로 무경보 시 할당 0 (달력 캐시와 같은 GC 배려)
 
             var sb = new System.Text.StringBuilder(96);
@@ -634,8 +660,22 @@ namespace AIVillage.M0
                 sb.Append($"<color=#FF6B6B>■ 치료가 필요한 부상자 {untendedInjured}명</color>\n");
             if (threat)
                 sb.Append($"<color=#FF8A65>■ {threatName} — {threatDaysLeft}일 뒤</color>\n");
+            // 확장 규칙 준수 — 굶는 줄 뒤에만 추가 (클릭 매핑 "굶는 줄 = 맨 앞" 전제 보존)
+            if (winterAlert)
+            {
+                sb.Append($"<color=#7EC8FF>■ 겨울까지 {freezeDaysLeft}일 — 준비 부족: ");
+                for (int i = 0; i < unprepared.Count; i++)
+                {
+                    if (i > 0) sb.Append(" · ");
+                    sb.Append($"{unprepared[i].name}({unprepared[i].days}일)");
+                }
+                sb.Append("</color>\n");
+            }
             return sb.ToString().TrimEnd('\n');
         }
+
+        /// <summary>겨울 경보 창 (게임일) — WinterPrep 트리거 창(DaysToFreeze ≤ 5)과 같은 제안치 (명세 W4).</summary>
+        public const int WINTER_ALERT_DAYS = 5;
 
         /// <summary>상태 알림 갱신 (M13-B) — SimulationLoop 틱마다 호출. 값이 바뀔 때만 재할당
         /// (달력과 동일 패턴). 빈 문자열 = 줄 소거.</summary>

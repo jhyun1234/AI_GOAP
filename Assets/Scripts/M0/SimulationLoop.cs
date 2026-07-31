@@ -240,6 +240,7 @@ namespace AIVillage.M0
             {
                 _agents.Add(agent);
                 _everHadAgents = true; // 전멸 판정용 — 시작 전 빈 목록과 전멸을 구분 (M10-F)
+                PeakPopulation = Mathf.Max(PeakPopulation, _agents.Count); // 최대 인구 (M14-W4 — 쓰기 이 한 곳)
                 // 명부 등장 기록 (M13-C1) — 등록의 유일한 문에 얹는다. 성격·직업은 이 시점에
                 // 이미 확정 (VillagerAgent.Start가 할당 후 등록). 문자열 규약 = ComposeSelected와 동일.
                 Chronicle.RecordBirth(agent.AgentId, agent.ShortName,
@@ -267,6 +268,9 @@ namespace AIVillage.M0
         private readonly List<(string name, int days)> _starvingBuf = new List<(string, int)>(8);
         private static readonly System.Comparison<(string name, int days)> ByFoodUrgency =
             (a, b) => a.days != b.days ? a.days.CompareTo(b.days) : string.CompareOrdinal(a.name, b.name);
+
+        // 겨울 미대비 열거 버퍼 (M14-W4) — _starvingBuf와 동일 패턴 (재사용·정렬·급한 순)
+        private readonly List<(string name, int days)> _unpreparedBuf = new List<(string, int)>(8);
 
         // 부상자 탐색 버퍼 (M10-B) — 프레임 재사용, 할당 0 (농부 회의 버퍼 패턴)
         private readonly List<VillagerAgent> _injuredBuf = new List<VillagerAgent>(8);
@@ -436,6 +440,15 @@ namespace AIVillage.M0
 
         /// <summary>누적 사망 수 (M10-A) — 쓰기는 RecordDeath뿐. 세이브 대상 (ADR-M0-10).</summary>
         public int DeathCount { get; private set; }
+
+        /// <summary>넘긴 봉쇄 계절(겨울) 수 (M14-W4) — 쓰기는 계절 전환 핸들러 1곳 ("이전이 봉쇄,
+        /// 지금은 아님"일 때 +1 — 봉쇄 술어라 여름 위기를 세지 않는다, ADR-M14-2). 세이브 대상.</summary>
+        public int WintersSurvived { get; private set; }
+
+        /// <summary>최대 동시 생존 인구 (M14-W4) — 쓰기는 RegisterAgent뿐. 세이브 대상.</summary>
+        public int PeakPopulation { get; private set; }
+
+        private bool _prevSeasonFrozen; // 겨울 결산 판정용 — 직전 계절의 봉쇄 여부
 
         // 舊 DepartCount/RecordDepart(M10-F 이탈 계수)는 ADR-M10-3 개정(2026-07-24 — 굶주림이
         // 이탈에서 아사로)으로 호출처 0이 확인되어 삭제 (ADR-M0-4: 폐기=삭제). 새 이탈 사유가
@@ -607,6 +620,18 @@ namespace AIVillage.M0
                         ? $"계절이 바뀌었습니다 — {s.DisplayName} · 열매가 얼어 채집할 수 없습니다"
                         : $"계절이 바뀌었습니다 — {s.DisplayName}");
                     if (s.ForageFrozen) LogWinterReadiness(s);
+                    // 겨울 결산 (M14-W4) — 봉쇄 계절을 **넘긴** 전환에서 +1 (봉쇄 술어라 여름 위기를
+                    // 세지 않는다, ADR-M14-2). 기록 저장 지점 ① (⚠️W4-③ — 나머지는 전멸 래치뿐).
+                    // ⚠️ 전멸 후 차단 (자가 재검토 2026-07-31): 전멸 후에도 틱·계절은 계속 돈다
+                    // (M10-F 관찰 샌드박스) — 게이트 없으면 빈 마을이 겨울을 무한히 "넘겨" 기록이 오염된다.
+                    if (_prevSeasonFrozen && !s.ForageFrozen && !_gameOverShown)
+                    {
+                        WintersSurvived++;
+                        bool newBest = RunRecordStore.SaveIfBetter(WintersSurvived, (int)GameTime, PeakPopulation);
+                        Debug.Log($"[M0Sim] 겨울 {WintersSurvived}번째를 넘겼다 — Day {(int)GameTime}, " +
+                                  $"생존 {_agents.Count}명{(newBest ? " · 역대 최고 갱신" : "")}");
+                    }
+                    _prevSeasonFrozen = s.ForageFrozen;
                 };
             }
             else
@@ -835,10 +860,15 @@ namespace AIVillage.M0
                     // 회고 = 통계 대신 명부 (M13-C1). 명부가 비면 舊 통계 문구로 폴백 (반례 ③ⓐ —
                     // 이론상 도달 불가하지만, 빈 회고 화면보다 숫자가 낫다).
                     IReadOnlyList<VillagerRecord> roster = Chronicle.RosterByBirth();
+                    // 기록 마감 (M14-W4) — 저장 지점 ② (마지막 생존일·최대 인구 확정, ⚠️W4-③).
+                    bool newRecord = RunRecordStore.SaveIfBetter(WintersSurvived, (int)GameTime, PeakPopulation);
+                    RunRecordStore.RunRecord best = RunRecordStore.Load();
                     Hud?.ShowGameOver(roster.Count > 0
-                        ? SeasonHud.ComposeGameOver((int)GameTime, SettleCount, roster)
+                        ? SeasonHud.ComposeGameOver((int)GameTime, SettleCount, roster,
+                                                    WintersSurvived, PeakPopulation, best, newRecord)
                         : SeasonHud.ComposeGameOver((int)GameTime, DeathCount, 0, SettleCount)); // 이탈 축 휴면 — 0 (항목 자동 감춤)
-                    Debug.Log($"[M0Sim] 전멸 — Day {(int)GameTime} (사망 {DeathCount} · 정착 {SettleCount})");
+                    Debug.Log($"[M0Sim] 전멸 — Day {(int)GameTime} (사망 {DeathCount} · 정착 {SettleCount} · " +
+                              $"겨울 {WintersSurvived}번 · 최대 {PeakPopulation}명{(newRecord ? " · 역대 최고 갱신" : "")})");
                 }
 
                 Hud?.Tick(GameTime, Season, _worldConfig.ForecastDays);
@@ -863,8 +893,29 @@ namespace AIVillage.M0
                     threatDaysLeft = Mathf.CeilToInt(Threats.DaysToStrike(GameTime));
                     threatName = Threats.Forecasting.DisplayName;
                 }
+
+                // 겨울 경보 (M14-W4) — "누가 겨울을 못 넘기는가"의 예방 열거. 봉쇄 중(0)·창 밖은
+                // 침묵 (경보는 예방 전용 — 심판 중엔 굶는 주민 줄이 맡는다). 문턱 = 다음 봉쇄 계절의
+                // 실제 길이 (에셋에서 읽는다 — 상수 4 금지, 명세 W4).
+                int freezeDaysLeft = -1;
+                _unpreparedBuf.Clear();
+                if (Season != null && Season.NextFreeze != null
+                    && Season.DaysToFreeze > 0f && Season.DaysToFreeze <= SeasonHud.WINTER_ALERT_DAYS)
+                {
+                    freezeDaysLeft = Mathf.CeilToInt(Season.DaysToFreeze);
+                    int winterLen = Mathf.CeilToInt(Season.NextFreeze.DurationDays);
+                    for (int i = 0; i < _agents.Count; i++)
+                    {
+                        VillagerAgent a = _agents[i];
+                        if (a == null || a.State == AgentState.Dead) continue;
+                        int d = a.EstimateMyFoodDays();
+                        if (d < winterLen) _unpreparedBuf.Add((a.ShortName, d));
+                    }
+                    _unpreparedBuf.Sort(ByFoodUrgency);
+                }
                 Hud?.TickStatus(SeasonHud.ComposeStatus(_starvingBuf, CountUntendedInjured(),
-                                                        threatDaysLeft, threatName));
+                                                        threatDaysLeft, threatName,
+                                                        freezeDaysLeft, _unpreparedBuf));
 
                 // 에이전트 틱 (W4) — 역순 순회: SimTick 중 파괴/해제로 리스트가 줄어도 안전
                 for (int i = _agents.Count - 1; i >= 0; i--)
@@ -926,7 +977,10 @@ namespace AIVillage.M0
             {
                 if (a == null || a.State == AgentState.Dead) continue;
                 WorldSnapshot snap = a.BuildSnapshot();
-                Debug.Log($"[M0Sim]   {a.AgentId}: 집={(snap.Get(SlotId.MyHasHome) == 1 ? "O" : "X")} " +
+                // 성격 병기 (M14-W4) — 성공 기준 2("성격별 대비 격차")의 유일한 탐지기.
+                Debug.Log($"[M0Sim]   {a.AgentId}" +
+                          $"({(a.Personality != null ? a.Personality.DisplayName : "중립")})" +
+                          $": 집={(snap.Get(SlotId.MyHasHome) == 1 ? "O" : "X")} " +
                           $"모닥불={(snap.Get(SlotId.MyHasCampfire) == 1 ? "O" : "X")} · " +
                           $"몸 생식{snap.Get(SlotId.MyRawFood)}/조리{snap.Get(SlotId.MyCookedFood)} · " +
                           $"집 생식{snap.Get(SlotId.MyHomeRawFood)}/조리{snap.Get(SlotId.MyHomeCookedFood)} · " +

@@ -24,6 +24,7 @@ namespace AIVillage.M0
         // 마을 인원(aliveCount)은 M11-D에서 산식 입력에서 제거됨 — 식량은 개인 단위다.
         private readonly (SlotId slot, int gain)[] _foodValues;
         private readonly float _decayPerDay;            // AgentConfig.SatietyDecayPerGameDay
+        private readonly float _farmGrowthDays;         // 심기 창 판정 (M14) — 심고 익는 데 필요한 일수. 미배선 0 = 창 항상 충족(중립)
         private readonly System.Func<int> _injuredCount; // 부상 주민 수 (M10-A) — 원천 = SimulationLoop.CountInjured
         private readonly System.Func<int> _untendedInjuredCount; // 미안정 부상자 수 (M11-I) — SimulationLoop.CountUntendedInjured
 
@@ -44,6 +45,7 @@ namespace AIVillage.M0
                 _slots[(int)SlotId.RawFoodStock] = config.InitialRawFoodStock;
                 _slots[(int)SlotId.StoneStock]   = config.InitialStoneStock;
                 _foodValues = DeriveFoodValues(config.FoodSources); // ADR-M9-10 — 액션 에셋에서 파생
+                _farmGrowthDays = config.FarmGrowthDays;            // 심기 창 판정 입력 (M14-W1)
             }
         }
 
@@ -56,6 +58,12 @@ namespace AIVillage.M0
                 if (TryGetFoodValue(a, out SlotId slot, out int gain)) list.Add((slot, gain));
             return list.Count > 0 ? list.ToArray() : null;
         }
+
+        /// <summary>심기 창 판정 (순수 — 게이트 M14-T1): "지금 심으면 봉쇄 전에 익는다".
+        /// 계절 성장 배율(가을 1.2)로 나누는 정밀화는 하지 않는다 — 보수적 기본 성장일수 기준 (명세 W1).
+        /// GrowthMult 0(겨울) 차단 항이 없으면 겨울 중 "다음 겨울까지 8일"로 창이 열린다 (명세 ⚠️W1-②).</summary>
+        public static bool ComputePlantWindow(float growthMult, float daysToFreeze, float farmGrowthDays)
+            => growthMult > 0f && daysToFreeze >= farmGrowthDays;
 
         public int GetStock(SlotId slot) => _slots[(int)slot];
 
@@ -189,6 +197,12 @@ namespace AIVillage.M0
             // 걸어 플래너 단계에서 빠진다. ⚠️ 어떤 액션도 이 슬롯에 효과를 두지 말 것 — 위조 가능하면
             // Explore가 NearDiscoveredFood를 되세우던 우회가 재현된다. 밭·조리·저장분은 무관(안 막힘).
             slots[(int)SlotId.ForageFrozen] = _season != null && _season.ForageFrozen ? 1 : 0;
+            // M14 계절 방아쇠 (ADR-M14-2) — 봉쇄 기준 카운트다운 + 심기 창. 원천 = SeasonService.
+            // 미배선 중립 = 99/열림 (계절 없던 시절과 동일 판정 — DaysToCrisis 관례와 짝).
+            slots[(int)SlotId.DaysToFreeze] = _season != null
+                ? Mathf.CeilToInt(_season.DaysToFreeze) : (int)SeasonService.NO_CRISIS;
+            slots[(int)SlotId.PlantWindowOpen] = _season == null
+                || ComputePlantWindow(_season.GrowthMult, _season.DaysToFreeze, _farmGrowthDays) ? 1 : 0;
             // 내 식량 일수 (M11-D — 마을 합산에서 개인 파생으로 전환. 트리거 전용 ADR-M9-9 유지).
             slots[(int)SlotId.MyFoodDaysLeft] = EstimatePersonalFoodDays(myRaw, myCooked, homeRaw, homeCooked);
             // 개인 인벤토리 (M11-A) — 몸 소지는 VillagerAgent, 집 저장은 HomeStorageService가 원천.

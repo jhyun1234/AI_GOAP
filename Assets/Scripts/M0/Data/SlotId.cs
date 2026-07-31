@@ -78,11 +78,21 @@ namespace AIVillage.M0
                                 // ⚠️ "포만 0을 한 번 찍음"이 아니라 **죽음 문턱 근처까지 갔다 살아남음** —
                                 // 겨울 봉쇄로 굶주림이 흔해진 지금 전자로 두면 전원 참이 되어 성향 문턱이
                                 // 다시 무력해진다(M12 결정 11의 희소성).
+
+        // ── M14 확장 (가을과 겨울 — 계절 방아쇠, ADR-M14-2 "위기 ≠ 봉쇄") ──
+        DaysToFreeze      = 35, // 수치형 파생 — 다음 채집 봉쇄 계절 시작까지 일수(올림). 봉쇄 중 0,
+                                // 사이클에 봉쇄 없으면 99. DaysToCrisis(15)와 다르다: 여름(위기·봉쇄X)
+                                // 앞·중에도 0이 되지 않는다 (원천 = SeasonService.DaysToFreeze). 예산 52칸 중 36.
+        PlantWindowOpen   = 36, // 논리형 파생 — "지금 심으면 봉쇄 전에 익는다"
+                                // (GrowthMult > 0 && DaysToFreeze ≥ FarmGrowthDays — WorldModel.ComputePlantWindow).
+                                // 미배선(계절 없음) = 1 = 기존 동작(창 상시 열림).
+                                // ⚠️ 액션 효과 금지 — ForageFrozen(33) 규약 동형 (위조 가능하면 겨울 파종이 뚫린다).
+                                // 예산 52칸 중 37.
     }
 
     public static class SlotIds
     {
-        public const int Count = 35;
+        public const int Count = 37;
 
         /// <summary>전역 스톡 슬롯 여부 — EffectApplier/러너가 공유하는 유일한 판정.
         /// ⚠️ 개인 스톡(MyRawFood 등)을 여기 넣으면 안 된다 (명세 M11-A ⚠️①) —
@@ -114,7 +124,8 @@ namespace AIVillage.M0
             || slot == SlotId.MyHomeRawFood || slot == SlotId.MyHomeCookedFood
             || slot == SlotId.MyFarmPlotCount || slot == SlotId.MyEmptyPlot
             || slot == SlotId.MyRipeCrop || slot == SlotId.UntendedInjuredCount
-            || slot == SlotId.CampfireCount; // MyHasCampfire(32)는 논리형이라 제외
+            || slot == SlotId.CampfireCount // MyHasCampfire(32)는 논리형이라 제외
+            || slot == SlotId.DaysToFreeze; // PlantWindowOpen(36)은 논리형이라 제외
 
         /// <summary>자원 타입 → 스톡 슬롯. M0 미지원 타입이면 null (Iron/Copper/Silver는 M1).</summary>
         public static SlotId? StockOf(ResourceType type)

@@ -29,6 +29,15 @@ namespace AIVillage.M0
         /// <summary>다음 위기 계절 시작까지 남은 게임일. 위기 진행 중 0, 위기 없으면 NO_CRISIS.</summary>
         public float DaysToCrisis { get; private set; } = NO_CRISIS;
 
+        /// <summary>다음 채집 봉쇄(ForageFrozen) 계절 시작까지 남은 게임일 (M14 — ADR-M14-2).
+        /// DaysToCrisis와 다르다: 비봉쇄 위기(여름) 앞·중에도 0이 되지 않는다.
+        /// 봉쇄 진행 중 0, 사이클에 봉쇄가 없으면 NO_CRISIS.</summary>
+        public float DaysToFreeze { get; private set; } = NO_CRISIS;
+
+        /// <summary>다가오는(봉쇄 중이면 현재) 봉쇄 계절 — NextCrisis의 봉쇄판 (M14).
+        /// 겨울 경보가 "겨울 길이"를 이 에셋의 DurationDays에서 읽는다 (상수 하드코딩 금지).</summary>
+        public SeasonSO NextFreeze { get; private set; }
+
         /// <summary>현재 계절의 잔여 게임일 — HUD "겨울 (남은 N일)" 표시용 (M6-C).</summary>
         public float DaysLeftInSeason { get; private set; }
 
@@ -82,6 +91,9 @@ namespace AIVillage.M0
             // 유예분을 더해 카운트다운을 정직하게 — 유예 중 "위기까지"가 멈춰 보이면 안 된다.
             DaysToCrisis = days >= NO_CRISIS ? NO_CRISIS : days + graceLeft;
             DaysLeftInSeason = left + graceLeft;
+            // 봉쇄 카운트다운 (M14) — 유예 보정은 DaysToCrisis와 동일 규약.
+            float freezeDays = ComputeDaysToFreeze(_cycle, seasonTime);
+            DaysToFreeze = freezeDays >= NO_CRISIS ? NO_CRISIS : freezeDays + graceLeft;
             // 서수 = 누적 사이클 × 계절수 + 현재 인덱스 (M9-C). gameTime 단조 증가라 단조 증가.
             int cyclesElapsed = _totalDays > 0f ? Mathf.FloorToInt(seasonTime / _totalDays) : 0;
             SeasonOrdinal = cyclesElapsed * _cycle.Length + index;
@@ -89,12 +101,19 @@ namespace AIVillage.M0
             {
                 _lastIndex = index;
                 Current = _cycle[index];
-                // 다가오는 위기 계절 (현재 포함 순방향 첫 IsCrisis) — 예고 대사의 출처
+                // 다가오는 위기 계절 (현재 포함 순방향 첫 IsCrisis) — 예고 대사·HUD 이름의 출처
                 NextCrisis = null;
                 for (int step = 0; step < _cycle.Length; step++)
                 {
                     SeasonSO s = _cycle[(index + step) % _cycle.Length];
                     if (s.IsCrisis) { NextCrisis = s; break; }
+                }
+                // 다가오는 봉쇄 계절 (현재 포함 순방향 첫 ForageFrozen) — 겨울 경보 길이의 출처 (M14)
+                NextFreeze = null;
+                for (int step = 0; step < _cycle.Length; step++)
+                {
+                    SeasonSO s = _cycle[(index + step) % _cycle.Length];
+                    if (s.ForageFrozen) { NextFreeze = s; break; }
                 }
                 OnSeasonChanged?.Invoke(Current);
             }
@@ -150,6 +169,29 @@ namespace AIVillage.M0
                 dist += next.DurationDays;
             }
             daysToCrisis = NO_CRISIS;
+        }
+
+        /// <summary>
+        /// 순수 코어 (M14 — 게이트 M14-T1): 다음 채집 봉쇄 계절 시작까지 일수.
+        /// Compute의 위상 계산을 그대로 쓰고 판정 술어만 IsCrisis → ForageFrozen이다
+        /// (ADR-M14-2 "위기 ≠ 봉쇄" — 여름은 위기지만 봉쇄가 아니라서 DaysToCrisis로는
+        /// 가을 준비 창을 표현할 수 없다). 봉쇄 진행 중 0, 사이클에 봉쇄가 없으면 NO_CRISIS.
+        /// </summary>
+        public static float ComputeDaysToFreeze(SeasonSO[] cycle, float gameTime)
+        {
+            if (cycle == null || cycle.Length == 0) return NO_CRISIS;
+
+            Compute(cycle, gameTime, out int seasonIndex, out _, out float daysLeftInSeason);
+            if (cycle[seasonIndex].ForageFrozen) return 0f;
+
+            float dist = daysLeftInSeason;
+            for (int step = 1; step <= cycle.Length; step++)
+            {
+                SeasonSO next = cycle[(seasonIndex + step) % cycle.Length];
+                if (next.ForageFrozen) return dist;
+                dist += next.DurationDays;
+            }
+            return NO_CRISIS;
         }
     }
 }

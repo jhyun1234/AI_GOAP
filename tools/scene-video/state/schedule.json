@@ -87,6 +87,6 @@
     "local": "2026-07-24-unity-goap-methodology-spec-constellation.html",
     "url": "https://gamedevclaude.blogspot.com/2026/07/claude-code-ai-unity-goap-ai-ai.html"
   },
-  "scriptBy": "local",
+  "scriptBy": "cloud",
   "_scriptBy": "🔀 대본을 누가 만드나. local = 이 PC 가 claude -p 로 만든다 / cloud = 클라우드 루틴이 만들어 push 하고 로컬은 렌더만. 🔴 클라우드 루틴을 실제로 등록한 뒤에 cloud 로 바꿔라 — 먼저 바꾸면 아무도 대본을 안 만든다. 절차 = tools/scene-video/cloud-routine-prompt.md"
 }

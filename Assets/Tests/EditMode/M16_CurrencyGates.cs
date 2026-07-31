@@ -103,6 +103,35 @@ namespace AIVillage.Tests.EditMode
         }
 
         [Test]
+        public void M16_T9_InjectWageEffect_PlannerSeesMoneyWithoutCap()
+        {
+            // 무급 = 중립 (기존 액션 전부 동작 불변)
+            var effs = new System.Collections.Generic.List<SlotEffect>();
+            ActionCompiler.InjectWageEffect(effs, 0);
+            Assert.AreEqual(0, effs.Count, "WagePay 0 = 효과 주입 없음");
+
+            // 유급 = MyMoney Add 주입 (플래너가 '이 일을 하면 돈이 생긴다'를 안다)
+            ActionCompiler.InjectWageEffect(effs, 5);
+            Assert.AreEqual(1, effs.Count);
+            Assert.AreEqual(SlotId.MyMoney, effs[0].Slot);
+            Assert.AreEqual(EffectOp.Add, effs[0].Op);
+            Assert.AreEqual(5, effs[0].Value);
+
+            // 🔴 상한 전제가 붙으면 안 된다 — 붙으면 "지갑 8동 넘으면 벌목 불가" 플랜이 나온다
+            var precs = new System.Collections.Generic.List<SlotCondition>();
+            ActionCompiler.InjectCapPreconditions(precs, effs, bodyCap: 8, homeCap: 12);
+            Assert.AreEqual(0, precs.Count, "돈은 부피가 없다 — 상한 전제 주입 금지");
+
+            // 대조: 식량 Add는 여전히 상한 전제가 붙는다 (M11-A 불변)
+            var foodEffs = new System.Collections.Generic.List<SlotEffect>
+                { new SlotEffect { Slot = SlotId.MyRawFood, Op = EffectOp.Add, Value = 4 } };
+            var foodPrecs = new System.Collections.Generic.List<SlotCondition>();
+            ActionCompiler.InjectCapPreconditions(foodPrecs, foodEffs, bodyCap: 8, homeCap: 12);
+            Assert.AreEqual(1, foodPrecs.Count, "식량 상한 주입은 그대로 (ADR-M11-3)");
+            Assert.AreEqual(4, foodPrecs[0].Value, "8 - 4");
+        }
+
+        [Test]
         public void M16_T8_ComposeMoney_TieredDisplay()
         {
             Assert.AreEqual("0동", SeasonHud.ComposeMoney(0));

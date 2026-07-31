@@ -21,15 +21,21 @@ MonoBehaviour:
   - Slot: 26
     Op: 0
     Value: 1
-  - Slot: 22
-    Op: 2
-    Value: 4
-  GoalConditions:
-  - Slot: 22
+  - Slot: 19
     Op: 1
-    Value: 5
+    Value: 2
+  - Slot: 37
+    Op: 2
+    Value: 49
+  - Slot: 35
+    Op: 1
+    Value: 6
+  GoalConditions:
+  - Slot: 37
+    Op: 1
+    Value: 10
   DirectActionPool: []
-  RelativeToCurrent: 0
+  RelativeToCurrent: 1
   SkipFailureCooldown: 0
   MaxWorkers: 0
   AllowedWhenInjured: 0

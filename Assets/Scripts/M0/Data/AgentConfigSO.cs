@@ -159,6 +159,14 @@ namespace AIVillage.M0
             "그 돈으론 어림없어요. 물가를 보세요.",
         };
 
+        [Tooltip("정산 연기 기본 대사 (M16-B) — 부탁 에셋의 DeferLines가 비면 사용. " +
+                 "빚은 남고 다음 마주침에 다시 시도한다 (소실 없음)")]
+        public string[] DeferRewardLines =
+        {
+            "미안해... 아직 품삯이 다 안 모였어.",
+            "조금만 기다려줘. 꼭 갚을게.",
+        };
+
         [Header("욕구 (초기값은 舊 VillagerBrain 기본값 이관)")]
         public float InitialSatiety = 70f;
         public float InitialFatigue = 20f;

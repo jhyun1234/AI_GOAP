@@ -18,9 +18,9 @@ MonoBehaviour:
   - Slot: 17
     Op: 0
     Value: 0
-  - Slot: 22
+  - Slot: 37
     Op: 1
-    Value: 5
+    Value: 50
   RequesterTraits:
   - Trait: 1
     MinValue: -50
@@ -41,9 +41,9 @@ MonoBehaviour:
   RewardCostAmount: 50
   RewardSatietyGain: 0
   AskLines:
-  - "집 좀 지어줄 수 있어? 곡식 다섯 알 쳐줄게"
-  - "나도 내 집이 있었으면 좋겠는데... 품삯은 곡식 다섯 알, 어때?"
-  - "밤마다 한데서 자는 것도 지긋지긋해. 곡식 다섯 알 줄 테니 집 하나만"
+  - "집 좀 지어줄 수 있어? 50동 쳐줄게"
+  - "나도 내 집이 있었으면 좋겠는데... 품삯은 50동, 어때?"
+  - "밤마다 한데서 자는 것도 지긋지긋해. 50동 줄 테니 집 하나만"
   AcceptLines:
   - "좋아, 맡겨 둬"
   - "그래, 자재만 모이면 바로 지어줄게"

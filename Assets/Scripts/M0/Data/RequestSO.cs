@@ -116,6 +116,10 @@ namespace AIVillage.M0
         [Tooltip("선불 거절 대사 (M8 보완 — 선불 성격 수행자가 보상 재고 없음/보상 0 부탁을 거절)")]
         public string[] RefuseNoRewardLines;
 
+        [Tooltip("정산 연기 대사 (M16-B — 잔고가 모자라 못 갚을 때 의뢰인의 첫 한마디. " +
+                 "비면 AgentConfig.DeferRewardLines. 두 번째 마주침부터는 침묵)")]
+        public string[] DeferLines;
+
         private void OnValidate()
         {
             if (GrantOwnership && !SlotIds.IsNumeric(OwnershipSlot))

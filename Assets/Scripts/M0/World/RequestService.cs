@@ -471,10 +471,26 @@ namespace AIVillage.M0
                                            : Settlement.Thanks; // 의뢰인 부재 = 장면만 정리
             if (how == Settlement.Defer)
             {
+                // 첫 마주침에는 장면을 연다 (M16-B, Play 관측 2026-08-01: "집을 지어줬는데
+                // 아무 말도 없다"). 舊 설계는 전면 침묵이었는데, 보상이 식량 5개에서 50동이
+                // 되며 연기가 예외에서 상시 경로가 됐다 — 목수가 빈손으로 돌아서는 장면이
+                // 화면에 있어야 플레이어가 "저 집은 빚으로 지어졌다"를 안다.
+                // 두 번째부터는 침묵 (장면 스팸 방지 — 舊 설계의 정신은 유지).
                 if (_deferLogged.Add(builder.AgentId))
+                {
                     Debug.Log($"[Request] 정산 연기 — {rec.requesterId} 잔고/공간 부족 " +
                               $"({rec.so.RewardCostSlot} {rec.so.RewardCostAmount}). 빚 유지");
-                return; // 빚 유지 · 장면 없음 (다음 마주침에 재시도)
+                    builder.ShowTransientDelayed(Pick(rec.so.FulfillLines), 0f);
+                    if (payer != null)
+                    {
+                        builder.FaceForChat(payer.transform.position, _agentCfg.ChatPauseSec);
+                        payer.FaceForChat(builder.transform.position, _agentCfg.ChatPauseSec);
+                        payer.ShowTransientDelayed(Pick(FirstNonEmpty(rec.so.DeferLines, _agentCfg.DeferRewardLines)),
+                                                   _agentCfg.ReplyDelaySec);
+                        _chatter?.RecordChat(builder.AgentId, payer.AgentId, Time.time);
+                    }
+                }
+                return; // 빚 유지 (다음 마주침엔 조용히 재시도)
             }
             _pendingReports.Remove(builder.AgentId);
             _deferLogged.Remove(builder.AgentId);

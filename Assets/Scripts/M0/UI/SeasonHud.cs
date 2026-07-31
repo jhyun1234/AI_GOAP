@@ -460,8 +460,9 @@ namespace AIVillage.M0
             }
         }
 
-        /// <summary>AgentId → 표시명 ("M0_Villager_A" → "A") — VillagerAgent.ShortName과 동일 규칙.</summary>
-        private static string ToShortName(string agentId)
+        /// <summary>AgentId → 표시명 ("M0_Villager_A" → "A") — VillagerAgent.ShortName과 동일 규칙.
+        /// public (M15-W2) — 아카이브 스냅샷(SimulationLoop)이 같은 규칙을 쓴다 (표시 정책 단일 지점).</summary>
+        public static string ToShortName(string agentId)
         {
             int sep = agentId.LastIndexOf('_');
             return sep >= 0 && sep < agentId.Length - 1 ? agentId.Substring(sep + 1) : agentId;

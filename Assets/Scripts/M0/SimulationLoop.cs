@@ -448,6 +448,37 @@ namespace AIVillage.M0
         /// <summary>최대 동시 생존 인구 (M14-W4) — 쓰기는 RegisterAgent뿐. 세이브 대상.</summary>
         public int PeakPopulation { get; private set; }
 
+        /// <summary>현재 판 스냅샷 (M15-W2 — 저장과 열람이 같은 함수: 직렬화 경로가 평소
+        /// 열람으로도 검증된다, 명세 확정 보완 3). World+UI를 둘 다 아는 조립자는 여기뿐
+        /// (ComposeGameOver 호출부 선례 — World→UI 역참조 금지). RunNumber는 안 채운다
+        /// (ChronicleArchive.Apply가 부여). EndedAt = 벽시계 — 게임 밖 이력이 목적.</summary>
+        public ChronicleArchive.RunEntry SnapshotCurrentRun(bool ended)
+        {
+            var entry = new ChronicleArchive.RunEntry
+            {
+                EndedAt = System.DateTime.Now.ToString("yyyy-MM-dd HH:mm"),
+                Winters = WintersSurvived,
+                LastDay = (int)GameTime,
+                PeakPop = PeakPopulation,
+                Settles = SettleCount,
+                Ended   = ended,
+            };
+            foreach (VillagerRecord r in Chronicle.RosterByBirth())
+                entry.Roster.Add(new ChronicleArchive.VillagerEntry
+                {
+                    ShortName   = r.ShortName,
+                    Personality = r.PersonalityName,
+                    Job         = r.JobName,
+                    BornDay     = (int)r.BornDay,
+                    LeftDay     = (int)r.LeftDay, // -1 센티넬 그대로 (생존 중)
+                    Cause       = (int)r.Cause,
+                    BuddyShort  = string.IsNullOrEmpty(r.BuddyIdAtExit) ? "" : SeasonHud.ToShortName(r.BuddyIdAtExit),
+                    GrudgeShort = string.IsNullOrEmpty(r.GrudgeIdAtExit) ? "" : SeasonHud.ToShortName(r.GrudgeIdAtExit),
+                    LifeEvents  = SeasonHud.ComposeLifeEvents(r), // 묶음 요약 재사용 (실사 ③, ADR-M15-3)
+                });
+            return entry;
+        }
+
         private bool _prevSeasonFrozen; // 겨울 결산 판정용 — 직전 계절의 봉쇄 여부
 
         // 舊 DepartCount/RecordDepart(M10-F 이탈 계수)는 ADR-M10-3 개정(2026-07-24 — 굶주림이
@@ -458,6 +489,9 @@ namespace AIVillage.M0
         // 전멸 종료 (M10-F) — 화면만 덮고 틱은 계속 돈다 (관찰 샌드박스 유지, 재건은 M11).
         private bool _everHadAgents;
         private bool _gameOverShown;
+        // 이번 판의 아카이브 자리 (M15-W2). -1 = 아직 안 씀. 세이브 대상 아님 — 판 = 프로세스
+        // 수명 (M10-F "새 시작은 재실행"). static 금지 — Enter Play Mode(도메인 리로드 꺼짐)에서 오염.
+        private int _archiveRunIndex = -1;
 
         /// <summary>전멸 래치 판정 (순수 — 게이트 M10-T6): 주민이 있었던 마을이 0명이 된 첫 순간만.</summary>
         public static bool ShouldShowGameOver(bool alreadyShown, bool everHadAgents, int aliveCount)
@@ -628,8 +662,11 @@ namespace AIVillage.M0
                     {
                         WintersSurvived++;
                         bool newBest = RunRecordStore.SaveIfBetter(WintersSurvived, (int)GameTime, PeakPopulation);
+                        // 연대기 갱신 (M15-W2) — 쓰기 지점 ① (ADR-M15-2). 같은 가드 안이라
+                        // 전멸 후 빈 마을의 겨울은 아카이브도 오염 못 한다 (M14 버그 수정 공유).
+                        _archiveRunIndex = ChronicleArchive.SaveRun(_archiveRunIndex, SnapshotCurrentRun(ended: false));
                         Debug.Log($"[M0Sim] 겨울 {WintersSurvived}번째를 넘겼다 — Day {(int)GameTime}, " +
-                                  $"생존 {_agents.Count}명{(newBest ? " · 역대 최고 갱신" : "")}");
+                                  $"생존 {_agents.Count}명{(newBest ? " · 역대 최고 갱신" : "")} · 연대기 기록");
                     }
                     _prevSeasonFrozen = s.ForageFrozen;
                 };
@@ -862,6 +899,8 @@ namespace AIVillage.M0
                     IReadOnlyList<VillagerRecord> roster = Chronicle.RosterByBirth();
                     // 기록 마감 (M14-W4) — 저장 지점 ② (마지막 생존일·최대 인구 확정, ⚠️W4-③).
                     bool newRecord = RunRecordStore.SaveIfBetter(WintersSurvived, (int)GameTime, PeakPopulation);
+                    // 연대기 마감 (M15-W2) — 쓰기 지점 ② (ADR-M15-2). 겨울 0번 판도 여기서 처음 남는다.
+                    _archiveRunIndex = ChronicleArchive.SaveRun(_archiveRunIndex, SnapshotCurrentRun(ended: true));
                     RunRecordStore.RunRecord best = RunRecordStore.Load();
                     Hud?.ShowGameOver(roster.Count > 0
                         ? SeasonHud.ComposeGameOver((int)GameTime, SettleCount, roster,

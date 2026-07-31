@@ -10,3 +10,5 @@
 ## 검증 절차
 - [그림 회차 소유 = 회귀 검증 4단계](project_kind_ownership_check.md) — kind 해석 경로 확인법 + ep01 의 기존 🔴 실패는 무관하다는 것
 - [ep02s 부분 재작업 = APPROVED (2026-07-30)](verdict_ep02s_fix.md) — 렌더 후 국소 수정 판정 4단계 + "밀어내기→소멸"이 reads 를 깨는가
+- [효과음 판정 4항목](verdict_ep02s_sfx.md) — ep02s 효과음 = APPROVED. check.mjs 에 sfx 검사가 0건 = 기계 게이트 없는 유일한 계층
+- [delayMs 는 timed.json 종속](procedure_sfx_retiming_fragility.md) — tts 재실행이 효과음 6개를 통째로 무효화. `t` 기반 그림은 앞줄 길이 합에 매달린다

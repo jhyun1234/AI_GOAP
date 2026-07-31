@@ -21,6 +21,7 @@ import fs from 'fs';
 import path from 'path';
 import { spawn } from 'child_process';
 import { ROOT, OUT_W, OUT_H, findFfmpeg, openEngine, epScene, epBuild } from './lib-node.mjs';
+import { synth } from './sfx.mjs';
 
 const argv = process.argv.slice(2);
 const EP = argv.find(a => !a.startsWith('--')) || 'ep01';
@@ -88,8 +89,45 @@ function buildTrack(timeline, outFile) {
     }
     placed++;
   }
+
+  /* ── 효과음 ──────────────────────────────────────
+     씬의 shot.sfx = [{ at, kind, gain?, dur?, ... }] — `at` 은 **그 샷 안의 자막 인덱스**다.
+     그림이 `cue(i)` 로 자막에 물리는 것과 **같은 자리에 문다** — 나레이션이 무언가를 부르는
+     순간 화면이 그것을 보여주고, 소리도 같이 난다. 새 타이밍 개념을 만들지 않았다.
+
+     🔑 여기가 이미 PCM 을 더하는 자리라 붙일 곳이 정확히 여기다. ffmpeg 필터 그래프를
+     새로 쓰지 않는다 — 나레이션과 같은 배열에 더하면 끝이다.
+     sfx 가 없는 회차는 이 블록이 통째로 안 돈다(기존 동작 그대로). */
+  const scene = JSON.parse(fs.readFileSync(epScene(EP), 'utf8'));
+  let sfxN = 0, sfxPeak = 0;
+  let li = 0;                                    // 샷의 첫 자막이 평탄화 목록에서 몇 번째인가
+  for (const sh of scene.shots) {
+    const base = li; li += sh.lines.length;
+    for (const s of sh.sfx || []) {
+      const idx = base + (s.at ?? 0);
+      const line = timeline.lines[idx];
+      if (!line) { console.log(`소리     ⚠️ ${sh.id} 의 at=${s.at} 이 자막 범위 밖 — 건너뜀`); continue; }
+      const pcm = synth(s.kind, s, rate);
+      const at = Math.round((line.t + (s.delayMs ?? 0)) / 1000 * rate);
+      for (let i = 0; i < pcm.length; i++) {
+        const j = at + i;
+        if (j >= total) break;
+        track[j] += pcm[i];
+      }
+      sfxN++;
+    }
+  }
+  for (const v of track) { const a = Math.abs(v); if (a > sfxPeak) sfxPeak = a; }
+  /* 나레이션 피크가 0.5 언저리라 여유가 있지만, 겹치면 1.0 을 넘길 수 있다.
+     넘으면 16비트로 쓸 때 잘려서 '지직' 소리가 난다 — 통째로 줄여서 피한다. */
+  if (sfxPeak > 0.98) {
+    const g = 0.98 / sfxPeak;
+    for (let i = 0; i < track.length; i++) track[i] *= g;
+    console.log(`소리     ⚠️ 합계 피크 ${sfxPeak.toFixed(2)} → ${(g * 100).toFixed(0)}% 로 줄임`);
+  }
+
   writeWav16(outFile, track, rate);
-  return { placed, clipped, seconds: total / rate };
+  return { placed, clipped, seconds: total / rate, sfx: sfxN, peak: sfxPeak };
 }
 
 /* ── 본체 ────────────────────────────────────────── */
@@ -133,7 +171,12 @@ try {
 
   const trackFile = epBuild(EP, 'track.wav');
   const tr = buildTrack(timeline, trackFile);
-  console.log(`소리     ${tr.placed}줄 배치 · ${tr.seconds.toFixed(1)}s` + (tr.clipped ? ` · 🔴 잘림 ${tr.clipped}` : ''));
+  /* 효과음 개수를 반드시 찍는다. 안 찍었더니 넣고도 들어갔는지 알 수가 없어서
+     전체 피크로 판단했다가 오판했다 — 효과음은 나레이션보다 작아서 전체 피크를 안 바꾼다. */
+  console.log(`소리     ${tr.placed}줄 배치 · ${tr.seconds.toFixed(1)}s`
+    + (tr.sfx ? ` · 효과음 ${tr.sfx}개` : ' · 효과음 없음')
+    + ` · 피크 ${tr.peak.toFixed(2)}`
+    + (tr.clipped ? ` · 🔴 잘림 ${tr.clipped}` : ''));
 
   // 첫 프레임으로 실제 크기 확인 — 어긋나면 스케일 필터가 맞춘다
   await cdp.evaluate('window.seek(0)');

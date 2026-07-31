@@ -59,13 +59,40 @@ if (!EP) {
    크론은 홀수일에 돌지만 달이 바뀌면 31일 다음이 1일이라 이틀이 아니라 하루 만에 돈다.
    달력에 기대지 말고 "마지막으로 만든 날로부터 며칠 지났나"를 직접 본다.
    실행이 한 번 밀려도 다음 날 알아서 따라잡는다. */
+/* 🔀 대본을 누가 만드는가 — schedule.json 의 `scriptBy`
+     "local" (기본) : 이 스크립트가 claude -p 로 에이전트를 돌린다
+     "cloud"        : 클라우드 루틴이 만들어 push 하고, 여기서는 **렌더만** 한다
+
+   왜 나눴나: 블로그는 PC 가 꺼져 있어도 발행된다 — 원격 샌드박스에서 돌기 때문이다.
+   영상은 TTS 645MB · 크로미움 · ffmpeg 가 이 PC 에만 있어 통째로는 못 옮긴다.
+   그런데 **대본 절반은 Claude 만 있으면 된다.** 그 절반만 클라우드로 보내면
+   PC 가 꺼져 있어도 대본이 쌓이고, PC 를 켜면 밀린 것을 렌더한다. */
+const SCRIPT_BY = sched.scriptBy ?? 'local';
+const CLOUD = SCRIPT_BY === 'cloud';
+
+/* 🔴 클라우드가 만든 대본을 먼저 받아온다. 이게 없으면 로컬은 영원히 옛 상태만 본다. */
+if (ROUTINE && CLOUD && !DRY) {
+  const g = spawnSync('git', ['pull', '--ff-only', '--quiet'], { cwd: path.resolve(ROOT, '..', '..'), encoding: 'utf8' });
+  if (g.status !== 0) {
+    console.error(`⚠️ git pull 실패 — 있는 것으로 진행한다.\n${(g.stderr || '').trim()}`);
+  } else {
+    console.log('받기     git pull 완료');
+  }
+}
+
 if (ROUTINE && !FORCE) {
-  const last = Object.values(state).map(v => v.preparedAt || v.uploadedAt).filter(Boolean).sort().at(-1);
-  if (last) {
-    const days = (Date.now() - new Date(last).getTime()) / 86400000;
-    if (days < (sched.everyDays ?? 2) - 0.5) {
-      console.log(`아직 이르다 — 마지막 제작 ${days.toFixed(1)}일 전 (간격 ${sched.everyDays ?? 2}일). 종료.`);
-      process.exit(0);
+  /* 간격 게이트는 **대본을 만드는 쪽**의 것이다.
+     클라우드가 만들면 박자는 그쪽이 정하므로 로컬은 게이트를 보지 않는다 —
+     "아직 안 렌더한 대본이 있으면 지금 렌더한다"가 로컬의 규칙이다.
+     안 그러면 클라우드가 어제 만든 대본을 로컬이 "아직 이르다"로 하루 더 묵힌다. */
+  if (!CLOUD) {
+    const last = Object.values(state).map(v => v.preparedAt || v.uploadedAt).filter(Boolean).sort().at(-1);
+    if (last) {
+      const days = (Date.now() - new Date(last).getTime()) / 86400000;
+      if (days < (sched.everyDays ?? 2) - 0.5) {
+        console.log(`아직 이르다 — 마지막 제작 ${days.toFixed(1)}일 전 (간격 ${sched.everyDays ?? 2}일). 종료.`);
+        process.exit(0);
+      }
     }
   }
   if (state[EP]) { console.log(`만들 회차가 없다 — ${EP} 까지 전부 처리됨. 씬을 추가해라.`); process.exit(0); }
@@ -435,6 +462,14 @@ Agent 도구로 \`scene-reviewer\` 에게 원인을 짚게 하고, \`scene-write
   꼭 필요하면 사유를 \`notes/\` 에 남겨라.
 
 끝나면 무엇을 어떻게 고쳤는지 한 줄로 보고해라.`, `점검 반려 수정 (${ep})`);
+}
+
+/* 클라우드가 대본을 맡으면 로컬은 만들지 않는다 — 조용히 기다린다.
+   여기서 에러를 내면 격일마다 로그에 빨간 줄이 쌓이는데, 대본이 아직 안 온 것은
+   사고가 아니라 정상 상태다. 다음 로그온/09:00 에 다시 와서 본다. */
+if (!fs.existsSync(scenePath) && ROUTINE && CLOUD) {
+  console.log(`대본 대기 — ${EP} 의 scene.json 이 아직 없다. 클라우드 루틴이 만들어 push 하면 렌더한다.`);
+  process.exit(0);
 }
 
 if (!fs.existsSync(scenePath) && ROUTINE && !DRY) {

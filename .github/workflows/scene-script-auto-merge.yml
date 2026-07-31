@@ -1,0 +1,86 @@
+name: Scene script auto-merge
+
+# 영상 대본 루틴(원격 sandbox)이 push한 대본 브랜치를 main에 fast-forward 머지한다.
+#
+# 왜 필요한가: 영상 파이프라인은 반씩 나뉘어 있다.
+#   - 대본 절반(기획→작성→검수→마스터)은 Claude 만 있으면 되므로 **클라우드**에서 돈다.
+#     PC 가 꺼져 있어도 대본이 쌓인다.
+#   - 렌더 절반(음성 645MB 모델 · 크로미움 · ffmpeg)은 **로컬 PC** 여야 한다.
+#     로컬은 로그온/격일 트리거로 깨어나 밀린 대본을 렌더한다.
+# 그 사이를 잇는 게 이 워크플로우다.
+#
+# blog-state-auto-merge.yml 과 같은 구조이고 받는 경로만 다르다.
+# 그쪽은 tools/blog-automation/{state,published}/ 만 받으므로 씬 파일은 조용히 건너뛴다.
+#
+# 🔴 build/ 는 .gitignore 라 애초에 안 올라온다(mp4·wav 를 리포에 넣지 않는다).
+#    혹시 올라오면 아래 검사가 막는다 — 경로를 episodes/**/{scene.json,kinds,notes} 로 좁혔다.
+
+on:
+  push:
+    branches:
+      - 'claude/**'
+
+concurrency:
+  group: scene-script-merge
+  cancel-in-progress: false
+
+jobs:
+  merge:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Fast-forward main to script branch
+        env:
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git fetch origin "$BRANCH"
+
+          CHANGED=$(git diff --name-only origin/main..."origin/$BRANCH")
+          if [ -z "$CHANGED" ]; then
+            if [[ "$BRANCH" == claude/scene-* ]]; then
+              echo "No changes on $BRANCH vs main — deleting stale script branch."
+              git push origin --delete "$BRANCH"
+            else
+              echo "No changes on $BRANCH vs main — not a script branch, leaving it alone."
+            fi
+            exit 0
+          fi
+
+          echo "Changed files:"
+          echo "$CHANGED"
+
+          # 대본 산출물만 받는다. scene.json · kinds/*.js · notes/*.md
+          ALLOW='^tools/scene-video/episodes/[^/]+/(scene\.json|kinds/.+\.js|notes/.+)$'
+          if echo "$CHANGED" | grep -qEv "$ALLOW" ; then
+            if [[ "$BRANCH" == claude/scene-* ]]; then
+              echo "::error::$BRANCH is a script branch but modifies files outside episodes/**/{scene.json,kinds,notes} — refusing to merge."
+              exit 1
+            fi
+            echo "$BRANCH modifies non-script paths — normal session branch, skipping."
+            exit 0
+          fi
+
+          if git merge-base --is-ancestor origin/main "origin/$BRANCH" ; then
+            git merge --ff-only "origin/$BRANCH"
+            git push origin main
+            echo "Fast-forwarded main to $BRANCH."
+            if [[ "$BRANCH" == claude/scene-* ]]; then
+              git push origin --delete "$BRANCH"
+              echo "Deleted script branch $BRANCH."
+            fi
+          else
+            echo "::error::$BRANCH is not a fast-forward of main. Manual review needed."
+            exit 1
+          fi

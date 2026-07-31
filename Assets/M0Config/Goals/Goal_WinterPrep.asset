@@ -15,9 +15,9 @@ MonoBehaviour:
   DisplayName: "비축"
   Priority: 30
   TriggerConditions:
-  - Slot: 15
+  - Slot: 35
     Op: 2
-    Value: 3
+    Value: 5
   - Slot: 19
     Op: 2
     Value: 5

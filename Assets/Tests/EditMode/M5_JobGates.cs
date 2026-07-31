@@ -91,7 +91,10 @@ namespace AIVillage.Tests.EditMode
             GoalSO snack = LoadGoal("Goal_Snack");
             GoalSO plant = LoadGoal("Goal_Plant");
             var selector = new GoalSelector(new[] { snack, plant });
-            WorldSnapshot snap = Snap((SlotId.MySatiety, 30), (SlotId.MyEmptyPlot, 1));
+            // M14-W2 재배선: Plant 트리거 = 심기 창(舊 식량일수 ≤3 — 수동 스냅샷은 기본 0이라
+            // 우연히 발동하던 구조). 창 열림을 명시해야 발동한다 (WorldModel 경유 시 미배선 중립 = 1).
+            WorldSnapshot snap = Snap((SlotId.MySatiety, 30), (SlotId.MyEmptyPlot, 1),
+                                      (SlotId.PlantWindowOpen, 1));
 
             Assert.AreSame(snack, selector.Select(snap), "무직: 기존 순서 (Snack 30 > Plant 22)");
 
@@ -105,7 +108,8 @@ namespace AIVillage.Tests.EditMode
                             "에셋 Priority 원본 불변 (ADR-M5-1 — bias는 어디에도 저장 안 됨)");
 
             // bias는 순위에만 — 발동 판정(Passes)에는 불개입: 빈 밭 없으면 boost가 있어도 Plant 제외
-            WorldSnapshot noPlot = Snap((SlotId.MySatiety, 30), (SlotId.MyEmptyPlot, 0));
+            WorldSnapshot noPlot = Snap((SlotId.MySatiety, 30), (SlotId.MyEmptyPlot, 0),
+                                        (SlotId.PlantWindowOpen, 1));
             Assert.AreSame(snack, selector.Select(noPlot, null, null, farmer.BoostFor),
                            "미발동 goal은 boost로 부활하지 않는다");
 

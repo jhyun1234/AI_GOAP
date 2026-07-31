@@ -195,6 +195,9 @@ namespace AIVillage.M0
         // 실패 goal 재시도 쿨다운 — 공회전(실패→즉시 재선택) 방지, 그동안 하위 goal로
         private readonly Dictionary<GoalSO, float> _goalRetryAt = new Dictionary<GoalSO, float>();
 
+        // 계측 전용 (M14-W2) — 직전 채택 goal. [GoalPick] 로그의 연속 중복 제거용, 판정에 안 쓴다.
+        private GoalSO _lastPickedGoal;
+
         // ── 촌장 명령 (M1-C, ADR-M1-1: 상태머신이 아니라 사다리의 한 칸) ──
         private GoalSO _order;
         private bool _orderIsRuntimeClone; // 상대 목표 해석용 사본 여부 (수명 관리)
@@ -769,6 +772,13 @@ namespace AIVillage.M0
             _sim.Profiler?.RecordGoalPick(AgentId, Personality, _goal,
                 GoalWants(_goal, TraitId.Diligence) > 0f,
                 GoalWants(_goal, TraitId.Willfulness) < 0f);
+            // 계측 (M14-W2, 읽기 전용) — goal이 **바뀔 때만** 1줄. 성공 기준 1(자발 파종 =
+            // "식량이 남았는데 심는다")을 콘솔에서 판독하는 유일한 탐지기다. 매 재선택 로그는 소음.
+            if (_goal != _lastPickedGoal)
+            {
+                _lastPickedGoal = _goal;
+                Debug.Log($"[GoalPick] {AgentId}: {_goal.DisplayName} (식량 {snap.Get(SlotId.MyFoodDaysLeft)}일)");
+            }
 
             // M1-A DirectActionPool 특례: 여가는 플래너를 태우지 않는다 (ADR-M1-3)
             if (_goal.DirectActionPool != null && _goal.DirectActionPool.Length > 0)

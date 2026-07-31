@@ -123,6 +123,15 @@ namespace AIVillage.M0
             Debug.Log($"[Money] -{walletAmount}동 — {why} (통화량 {MoneySupply})");
         }
 
+        /// <summary>물가 산식 (M16-W4, 순수 — 게이트 M16-T5. ADR-M16-3: 하루 1회 캐시의 원천).
+        /// P% = clamp(100 × M ÷ (Q × 기준가), 100 ~ 상한). M이 작으면 100(기준가 그대로 —
+        /// 화폐가 없던 판과 연속). Q = 마을 식량 합 (거래 대상 재화만 — 자재 제외, 단위 정합).</summary>
+        public static int ComputePricePct(int moneySupply, int foodCount, int basePrice, int capPct)
+        {
+            int denom = Mathf.Max(1, foodCount * Mathf.Max(1, basePrice)); // Q=0 방어 (전멸 직전)
+            return Mathf.Clamp(100 * moneySupply / denom, 100, Mathf.Max(100, capPct));
+        }
+
         /// <summary>완공 플래그 세팅 — ConstructionService.Complete() 전용 (단일 완료 지점).</summary>
         internal void SetBuiltFlag(SlotId slot, bool value) => _slots[(int)slot] = value ? 1 : 0;
 

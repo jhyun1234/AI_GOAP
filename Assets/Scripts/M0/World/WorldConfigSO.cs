@@ -88,6 +88,14 @@ namespace AIVillage.M0
                  "비면 FoodDaysLeft 항상 99 (중립 — 기존 동작과 완전 동일).")]
         public ConsumeActionSO[] FoodSources;
 
+        [Header("화폐 (M16-W4 — 물가 산식. 전부 제안치, Play 튜닝 대상)")]
+        [Tooltip("식량 1개(생식)의 기준가(동) — 가격 공식의 앵커 (포만 가치 비례: 조리식 = 3×35÷15 = 7). " +
+                 "물가 분모 Q×기준가의 기준가이기도 하다 (ADR-M16-3).")]
+        public int MoneyBasePrice = 3;
+
+        [Tooltip("물가 상한 % (폭주 클램프 — 회복 불능 나선 차단). 하한은 100 고정 (디플레는 M17).")]
+        public int PriceCapPct = 400;
+
         [Header("HUD (M13-B — 상태 알림 줄)")]
         [Tooltip("상태 알림 줄 폰트 크기. 초기값 24가 작다는 Play 피드백(2026-07-30)으로 30 제안. " +
                  "0 이하 = 기본 24. 다른 HUD 줄(달력 30·정보줄 24)은 코드 상수 유지 — 조절 요구가 생기면 그때 승격.")]

@@ -265,9 +265,20 @@ namespace AIVillage.M0
 
         // 굶는 주민 열거 버퍼 (M13-B) — 프레임 재사용, 할당 0 (부상자 버퍼 패턴).
         // 정렬 비교자는 정적 캐시 — 틱마다 람다 할당 방지. 급한 순, 동률은 이름 순 (결정적).
-        private readonly List<(string name, int days)> _starvingBuf = new List<(string, int)>(8);
+        // money(M16-W4) = 경보 줄 지갑 병기 — 정렬 후 병렬 리스트로 투영해 ComposeStatus에
+        // 넘긴다 (튜플 시그니처 변경은 기존 게이트 8곳과 오버로드 모호성 충돌 — 구현 중 발견)
+        private readonly List<(string name, int days, int money)> _starvingBuf =
+            new List<(string, int, int)>(8);
+        private readonly List<(string name, int days)> _starvingPairsBuf = new List<(string, int)>(8);
+        private readonly List<int> _starvingMoneyBuf = new List<int>(8);
+        private static readonly System.Comparison<(string name, int days, int money)> ByFoodUrgency3 =
+            (a, b) => a.days != b.days ? a.days.CompareTo(b.days) : string.CompareOrdinal(a.name, b.name);
         private static readonly System.Comparison<(string name, int days)> ByFoodUrgency =
             (a, b) => a.days != b.days ? a.days.CompareTo(b.days) : string.CompareOrdinal(a.name, b.name);
+
+        /// <summary>물가 % (M16-W4 — 판정·표시 공용 캐시, ADR-M16-3). 하루 1회 갱신 (하루 경계
+        /// 로그와 같은 리듬). 100 = 기준가 그대로. 세이브 대상 아님 — 파생 (로드 후 재계산).</summary>
+        public int PricePct { get; private set; } = 100;
 
         // 겨울 미대비 열거 버퍼 (M14-W4) — _starvingBuf와 동일 패턴 (재사용·정렬·급한 순)
         private readonly List<(string name, int days)> _unpreparedBuf = new List<(string, int)>(8);
@@ -914,7 +925,7 @@ namespace AIVillage.M0
                               $"겨울 {WintersSurvived}번 · 최대 {PeakPopulation}명{(newRecord ? " · 역대 최고 갱신" : "")})");
                 }
 
-                Hud?.Tick(GameTime, Season, _worldConfig.ForecastDays);
+                Hud?.Tick(GameTime, Season, _worldConfig.ForecastDays, PricePct);
 
                 // 상태 알림 줄 (M13-B, 2026-07-30 개정 — 舊 M11-D 마을 최솟값 요약을 개인 열거로).
                 // 관측 대상은 마을 평균이 아니라 낙오자 — 그 정신의 완성형은 "낙오자의 이름"이다.
@@ -925,9 +936,17 @@ namespace AIVillage.M0
                     VillagerAgent a = _agents[i];
                     if (a == null || a.State == AgentState.Dead) continue;
                     int d = a.EstimateMyFoodDays();
-                    if (d <= SeasonHud.FOOD_ALERT_DAYS) _starvingBuf.Add((a.ShortName, d));
+                    if (d <= SeasonHud.FOOD_ALERT_DAYS) _starvingBuf.Add((a.ShortName, d, a.MyMoney));
                 }
-                _starvingBuf.Sort(ByFoodUrgency); // 급한 순 — 순서가 곧 분류(triage)
+                _starvingBuf.Sort(ByFoodUrgency3); // 급한 순 — 순서가 곧 분류(triage)
+                // 정렬 후 병렬 투영 (M16-W4) — 이름·일수와 지갑이 같은 순서를 공유
+                _starvingPairsBuf.Clear();
+                _starvingMoneyBuf.Clear();
+                foreach ((string name, int days, int money) s in _starvingBuf)
+                {
+                    _starvingPairsBuf.Add((s.name, s.days));
+                    _starvingMoneyBuf.Add(s.money);
+                }
 
                 int threatDaysLeft = -1;
                 string threatName = null;
@@ -956,9 +975,10 @@ namespace AIVillage.M0
                     }
                     _unpreparedBuf.Sort(ByFoodUrgency);
                 }
-                Hud?.TickStatus(SeasonHud.ComposeStatus(_starvingBuf, CountUntendedInjured(),
+                Hud?.TickStatus(SeasonHud.ComposeStatus(_starvingPairsBuf, CountUntendedInjured(),
                                                         threatDaysLeft, threatName,
-                                                        freezeDaysLeft, _unpreparedBuf));
+                                                        freezeDaysLeft, _unpreparedBuf,
+                                                        _starvingMoneyBuf));
 
                 // 에이전트 틱 (W4) — 역순 순회: SimTick 중 파괴/해제로 리스트가 줄어도 안전
                 for (int i = _agents.Count - 1; i >= 0; i--)
@@ -974,6 +994,16 @@ namespace AIVillage.M0
                 if (day > _lastLoggedDay)
                 {
                     _lastLoggedDay = day;
+                    // 물가 갱신 (M16-W4) — 하루 1회 "아침 시세" (ADR-M16-3 — 실시간 재계산 금지.
+                    // 공유 시세 모델: 이 캐시 하나가 마을 전체의 시세 감각이다, 확정 보완 9).
+                    int q = 0;
+                    foreach (VillagerAgent a in _agents)
+                        if (a != null && a.State != AgentState.Dead) q += a.TotalFoodCount();
+                    int prevPct = PricePct;
+                    PricePct = WorldModel.ComputePricePct(World.MoneySupply, q,
+                                                          _worldConfig.MoneyBasePrice, _worldConfig.PriceCapPct);
+                    if (PricePct != prevPct)
+                        Debug.Log($"[Money] 물가 {prevPct}% → {PricePct}% (통화량 {World.MoneySupply} · 식량 {q}개)");
                     string seasonStr = Season?.Current != null
                         ? $"{Season.Current.DisplayName}(위기까지 {Mathf.CeilToInt(Season.DaysToCrisis)}일)" : "-";
                     // 위협 경주 게이지 (M10R 관측용) — 마을 크기(정보)와 게임일 래칫 활성밴드를 매일 노출.

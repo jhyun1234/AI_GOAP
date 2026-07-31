@@ -1694,6 +1694,19 @@ namespace AIVillage.M0
                 Debug.LogWarning($"[Inventory] {AgentId}: 몸 소지 복원 실패 {fromBody} — 소실");
         }
 
+        /// <summary>내 식량 총 개수 (M16-W4 — 물가 분모 Q의 재료: 몸+집, 생식+조리).
+        /// EstimateMyFoodDays(일수 환산)와 다르다 — 물가는 재화 "개수" 대 돈의 비율이다.</summary>
+        public int TotalFoodCount()
+        {
+            int home = 0;
+            if (HomeStorage != null && TryGetHomeTile(out Vector2Int t))
+            {
+                (int raw, int cooked) = HomeStorage.Get(t);
+                home = raw + cooked;
+            }
+            return MyRaw + MyCooked + home;
+        }
+
         /// <summary>피격 경험 (M11-G, MyWasAttacked 슬롯의 유일한 원천) — 쓰기는 Injure뿐이고
         /// 되돌리는 경로는 없다 (영구). 회복·간호는 이 값을 건드리지 않는다.</summary>
         public bool MyWasAttacked { get; private set; }

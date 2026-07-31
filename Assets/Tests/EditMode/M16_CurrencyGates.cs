@@ -45,5 +45,28 @@ namespace AIVillage.Tests.EditMode
             Assert.AreEqual(2, WorldModel.NextSupply(5, -3), "소멸");
             Assert.AreEqual(0, WorldModel.NextSupply(3, -10), "소멸이 발행을 넘으면 0 (음수 금지)");
         }
+
+        [Test]
+        public void M16_T5_ComputePricePct_FloorCapAndProportion()
+        {
+            // 기준가 3, 상한 400 (명세 제안치와 동일한 산식 검증 — 값 자체는 에셋이 정본)
+            Assert.AreEqual(100, WorldModel.ComputePricePct(0, 10, 3, 400), "M=0 → 100 (화폐 없던 판과 연속)");
+            Assert.AreEqual(100, WorldModel.ComputePricePct(30, 10, 3, 400), "M = Q×기준가 → 정확히 100");
+            Assert.AreEqual(200, WorldModel.ComputePricePct(60, 10, 3, 400), "M 2배 → 200");
+            Assert.AreEqual(400, WorldModel.ComputePricePct(9999, 10, 3, 400), "상한 클램프");
+            Assert.AreEqual(400, WorldModel.ComputePricePct(9999, 0, 3, 400), "Q=0 방어 (denom 1) — 상한으로");
+            Assert.AreEqual(100, WorldModel.ComputePricePct(15, 10, 3, 400), "M이 작으면 하한 100 (디플레 없음)");
+        }
+
+        [Test]
+        public void M16_T8_ComposeMoney_TieredDisplay()
+        {
+            Assert.AreEqual("0동", SeasonHud.ComposeMoney(0));
+            Assert.AreEqual("7동", SeasonHud.ComposeMoney(7));
+            Assert.AreEqual("1은 3동", SeasonHud.ComposeMoney(13));
+            Assert.AreEqual("1금", SeasonHud.ComposeMoney(100), "0 단위 생략");
+            Assert.AreEqual("2금 4은 7동", SeasonHud.ComposeMoney(247));
+            Assert.AreEqual("0동", SeasonHud.ComposeMoney(-5), "음수 방어");
+        }
     }
 }

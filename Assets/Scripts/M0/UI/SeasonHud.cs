@@ -129,9 +129,9 @@ namespace AIVillage.M0
         /// <summary>SimulationLoop 틱마다 호출 — 문자열은 값이 바뀔 때만 재조립 (GC 절약).
         /// 舊 foodDaysLeft 인자(M9-I·M11-D 마을 최솟값)는 2026-07-30 개정으로 삭제 —
         /// 식량 표기는 상태 알림 줄(M13-B)의 개인 열거가 전담한다.</summary>
-        public void Tick(float gameTime, SeasonService season, float forecastDays)
+        public void Tick(float gameTime, SeasonService season, float forecastDays, int pricePct = 100)
         {
-            string line = Compose(gameTime, season, forecastDays);
+            string line = Compose(gameTime, season, forecastDays, pricePct);
             if (line != _lastCalendar)
             {
                 _lastCalendar = line;
@@ -215,6 +215,8 @@ namespace AIVillage.M0
                 $" · 포만 {Mathf.RoundToInt(a.Satiety)} · 피로 {Mathf.RoundToInt(a.Fatigue)}" +
                 // 소지 식량 표기 (M11-A 관측 — 보상 차감·저장 이동을 콘솔 없이 화면에서 확인)
                 $" · 소지 생{a.MyRaw}·조{a.MyCooked}" +
+                // 지갑 표기 (M16-W4 — 명세 확정 보완 8. 0동도 표시: "가난"은 정보다)
+                $" · 지갑 {ComposeMoney(a.MyMoney)}" +
                 // 부상 표기 (M10-A) — 붉은 강조. None이면 표기 없음 (중립 — M9 표시와 동일)
                 (a.Injury != InjurySeverity.None ? " · <color=#FF6B6B>부상</color>" : "");
                 // "지금: goal"은 M13-D에서 2번째 줄(ComposeReason)로 이사 — 사슬과 한 몸이 됐다
@@ -475,10 +477,15 @@ namespace AIVillage.M0
         /// 마을 최솟값 요약이 상태 알림 줄(M13-B)의 개인 열거와 겹쳐 "마을 전체가 N일치"로
         /// 오독됐다. 식량 표기는 개인 열거 한 곳만 남긴다 (같은 정보 두 형태 = 오해 소지).
         /// </summary>
-        public static string Compose(float gameTime, SeasonService season, float forecastDays)
+        public static string Compose(float gameTime, SeasonService season, float forecastDays,
+                                     int pricePct = 100)
         {
+            // 물가 접미사 (M16-W4) — 100% 초과에만 표시 (평시 잡음 억제, 명세 W4).
+            // 주황 = 예고와 같은 톤 ("돈을 풀면 여기가 물든다"). 촌장의 장부 — 주민 대사는 장면에서만.
+            string price = pricePct > 100 ? $" · <color=#FF8A65>물가 ×{pricePct / 100f:0.0#}</color>" : "";
+
             int day = (int)gameTime;
-            if (season == null || season.Current == null) return $"Day {day}";
+            if (season == null || season.Current == null) return $"Day {day}{price}";
 
             // 연차 병기 (M14-W4) — "N번째 겨울까지"라는 경주의 자를 상시 노출 (ADR-M13-1의 정신:
             // 기록 카운터가 전멸 화면에만 있으면 살아 있는 동안 아무도 못 본다).
@@ -486,11 +493,25 @@ namespace AIVillage.M0
             string yearSeason = $"{season.Year}년째 {cur.DisplayName}";
             if (cur.IsCrisis)
                 return $"Day {day} · <color=#7EC8FF>{yearSeason}</color> " +
-                       $"(남은 {Mathf.CeilToInt(season.DaysLeftInSeason)}일)";
+                       $"(남은 {Mathf.CeilToInt(season.DaysLeftInSeason)}일){price}";
             if (season.NextCrisis != null && season.DaysToCrisis <= forecastDays)
                 return $"Day {day} · {yearSeason} · <color=#FF8A65>" +
-                       $"{season.NextCrisis.DisplayName}까지 {Mathf.CeilToInt(season.DaysToCrisis)}일</color>";
-            return $"Day {day} · {yearSeason}";
+                       $"{season.NextCrisis.DisplayName}까지 {Mathf.CeilToInt(season.DaysToCrisis)}일</color>{price}";
+            return $"Day {day} · {yearSeason}{price}";
+        }
+
+        /// <summary>화폐 표시 (M16-W4, 순수 — 게이트 M16-T8. ADR-M16-6: 표시 변환은 이 함수뿐).
+        /// 동 정수 → "N금 N은 N동" (1은 = 10동, 1금 = 100동 — 표시 계층일 뿐 실물 아님).
+        /// 0인 단위는 생략, 전부 0이면 "0동". 지갑·대사·결산·경보가 전부 여기를 지난다.</summary>
+        public static string ComposeMoney(int coins)
+        {
+            if (coins <= 0) return "0동";
+            int gold = coins / 100, silver = coins % 100 / 10, copper = coins % 10;
+            var sb = new System.Text.StringBuilder(12);
+            if (gold > 0) sb.Append(gold).Append('금');
+            if (silver > 0) { if (sb.Length > 0) sb.Append(' '); sb.Append(silver).Append('은'); }
+            if (copper > 0) { if (sb.Length > 0) sb.Append(' '); sb.Append(copper).Append('동'); }
+            return sb.ToString();
         }
 
         /// <summary>
@@ -860,7 +881,8 @@ namespace AIVillage.M0
         public static string ComposeStatus(IReadOnlyList<(string name, int days)> starving,
                                            int untendedInjured, int threatDaysLeft, string threatName,
                                            int freezeDaysLeft = -1,
-                                           IReadOnlyList<(string name, int days)> unprepared = null)
+                                           IReadOnlyList<(string name, int days)> unprepared = null,
+                                           IReadOnlyList<int> starvingMoney = null)
         {
             bool threat = threatDaysLeft >= 0 && !string.IsNullOrEmpty(threatName);
             bool anyStarving = starving != null && starving.Count > 0;
@@ -871,8 +893,16 @@ namespace AIVillage.M0
 
             var sb = new System.Text.StringBuilder(96);
             if (anyStarving)
-                foreach ((string name, int days) s in starving)
-                    sb.Append($"<color=#FF6B6B>■ 굶는 주민 {s.name} — 식량 {s.days}일치</color>\n");
+                for (int i = 0; i < starving.Count; i++)
+                {
+                    // 지갑 병기 (M16-W4, 확정 보완 8-①) — 이 줄이 곧 "웃돈 명령을 줄까"의 판단
+                    // 재료다 (돈 있는 굶주림 = 거래 후보, 빈 지갑 = 웃돈 후보). 병렬 리스트가
+                    // null·짧으면 미표기 (호환 — 기존 게이트·호출 무수정).
+                    string wallet = starvingMoney != null && i < starvingMoney.Count
+                        ? $" · 지갑 {ComposeMoney(starvingMoney[i])}" : "";
+                    sb.Append($"<color=#FF6B6B>■ 굶는 주민 {starving[i].name} — " +
+                              $"식량 {starving[i].days}일치{wallet}</color>\n");
+                }
             if (untendedInjured > 0)
                 sb.Append($"<color=#FF6B6B>■ 치료가 필요한 부상자 {untendedInjured}명</color>\n");
             if (threat)

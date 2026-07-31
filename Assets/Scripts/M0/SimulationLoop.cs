@@ -279,6 +279,7 @@ namespace AIVillage.M0
         /// <summary>물가 % (M16-W4 — 판정·표시 공용 캐시, ADR-M16-3). 하루 1회 갱신 (하루 경계
         /// 로그와 같은 리듬). 100 = 기준가 그대로. 세이브 대상 아님 — 파생 (로드 후 재계산).</summary>
         public int PricePct { get; private set; } = 100;
+        private int _peakPricePct = 100; // 판 중 최고 물가 (M16-W6 — 연대기 RunEntry 기록용)
 
         // 겨울 미대비 열거 버퍼 (M14-W4) — _starvingBuf와 동일 패턴 (재사용·정렬·급한 순)
         private readonly List<(string name, int days)> _unpreparedBuf = new List<(string, int)>(8);
@@ -473,6 +474,7 @@ namespace AIVillage.M0
                 PeakPop = PeakPopulation,
                 Settles = SettleCount,
                 Ended   = ended,
+                PeakPricePct = _peakPricePct, // M16-W6 — 부(富)의 흔적: "물가 2배까지 갔던 판"
             };
             foreach (VillagerRecord r in Chronicle.RosterByBirth())
                 entry.Roster.Add(new ChronicleArchive.VillagerEntry
@@ -999,14 +1001,24 @@ namespace AIVillage.M0
                     _lastLoggedDay = day;
                     // 물가 갱신 (M16-W4) — 하루 1회 "아침 시세" (ADR-M16-3 — 실시간 재계산 금지.
                     // 공유 시세 모델: 이 캐시 하나가 마을 전체의 시세 감각이다, 확정 보완 9).
-                    int q = 0;
+                    int q = 0, walletSum = 0;
                     foreach (VillagerAgent a in _agents)
-                        if (a != null && a.State != AgentState.Dead) q += a.TotalFoodCount();
+                        if (a != null && a.State != AgentState.Dead)
+                        {
+                            q += a.TotalFoodCount();
+                            walletSum += a.MyMoney;
+                        }
                     int prevPct = PricePct;
                     PricePct = WorldModel.ComputePricePct(World.MoneySupply, q,
                                                           _worldConfig.MoneyBasePrice, _worldConfig.PriceCapPct);
+                    _peakPricePct = Mathf.Max(_peakPricePct, PricePct); // 연대기 기록용 (M16-W6)
                     if (PricePct != prevPct)
                         Debug.Log($"[Money] 물가 {prevPct}% → {PricePct}% (통화량 {World.MoneySupply} · 식량 {q}개)");
+                    // 회계 정합 상시 탐지기 (M16-W6, 명세 탐지기 표 — Σ지갑 == M): 발행·소멸·이전
+                    // 어딘가에 두 번째 경로가 생기면 여기서 하루 안에 발각된다 (ADR-M16-1 감시).
+                    if (walletSum != World.MoneySupply)
+                        Debug.LogWarning($"[Money] 회계 불일치 — Σ지갑 {walletSum} ≠ 통화량 {World.MoneySupply} " +
+                                         "(Mint/Burn 밖의 화폐 쓰기 경로 의심, ADR-M16-1)");
                     string seasonStr = Season?.Current != null
                         ? $"{Season.Current.DisplayName}(위기까지 {Mathf.CeilToInt(Season.DaysToCrisis)}일)" : "-";
                     // 위협 경주 게이지 (M10R 관측용) — 마을 크기(정보)와 게임일 래칫 활성밴드를 매일 노출.
@@ -1060,7 +1072,10 @@ namespace AIVillage.M0
                           $"모닥불={(snap.Get(SlotId.MyHasCampfire) == 1 ? "O" : "X")} · " +
                           $"몸 생식{snap.Get(SlotId.MyRawFood)}/조리{snap.Get(SlotId.MyCookedFood)} · " +
                           $"집 생식{snap.Get(SlotId.MyHomeRawFood)}/조리{snap.Get(SlotId.MyHomeCookedFood)} · " +
-                          $"식량일수={snap.Get(SlotId.MyFoodDaysLeft)}");
+                          $"식량일수={snap.Get(SlotId.MyFoodDaysLeft)} · " +
+                          // 지갑 병기 (M16-W6) — 성공 기준 1("성격 분화의 경제 증폭")의 탐지기:
+                          // 게으름뱅이의 빈 지갑이 근면 주민 곁에 찍힌다
+                          $"지갑={a.MyMoney}동");
             }
         }
 

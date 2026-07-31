@@ -43,6 +43,8 @@ namespace AIVillage.M0
             public int    PeakPop;
             public int    Settles;
             public bool   Ended;        // true = 전멸 마감 / false = 겨울 갱신까지 (중도 종료 판)
+            public int    PeakPricePct; // 판 중 최고 물가 % (M16-W6 append — ADR-M14-3: 필드 append는
+                                        // Version 인상 없음. 0 = 화폐 이전 기록·물가 무변동 판)
             public List<VillagerEntry> Roster = new List<VillagerEntry>();
         }
 

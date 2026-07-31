@@ -39,7 +39,9 @@ namespace AIVillage.Tests.EditMode
         public void M15_T1_JsonRoundtrip_PreservesAllFields()
         {
             var file = new ChronicleArchive.ArchiveFile();
-            ChronicleArchive.Apply(file, -1, Entry(3, 44, true, "A", "B"));
+            ChronicleArchive.RunEntry src = Entry(3, 44, true, "A", "B");
+            src.PeakPricePct = 150; // M16-W6 append 필드 — 왕복 보존 (append-only 규약)
+            ChronicleArchive.Apply(file, -1, src);
 
             ChronicleArchive.ArchiveFile back =
                 ChronicleArchive.Parse(JsonUtility.ToJson(file, prettyPrint: true));
@@ -53,6 +55,7 @@ namespace AIVillage.Tests.EditMode
             Assert.AreEqual(44, r.LastDay);
             Assert.AreEqual(2, r.PeakPop);
             Assert.IsTrue(r.Ended);
+            Assert.AreEqual(150, r.PeakPricePct, "M16 append 필드도 왕복 보존");
             Assert.AreEqual(2, r.Roster.Count);
             ChronicleArchive.VillagerEntry v = r.Roster[0];
             Assert.AreEqual("A", v.ShortName);

@@ -112,10 +112,16 @@ namespace AIVillage.M0
         /// 두 번째 유도 경로다). 성향 조건이 비면 항상 true = 현행 동작(중립 불변식).
         /// 성격 미배정(p == null)도 중립 — 벡터가 전 축 0인 것과 같다.
         /// </summary>
+        /// <summary>호환 진입점 (게이트·구형 호출 전용 — 벡터 = 성격 원본, 편차 없음. ⚠️W3-⑤).</summary>
         public static bool RequesterQualifies(RequestSO r, PersonalitySO p, in WorldSnapshot snap)
+            => RequesterQualifies(r, p, p != null ? p.Traits : null, snap);
+
+        public static bool RequesterQualifies(RequestSO r, PersonalitySO p, TraitValue[] traits,
+                                              in WorldSnapshot snap)
         {
             if (r == null) return false;
-            if (TraitVector.Meets(p != null ? p.Traits : null, r.RequesterTraits)) return true;
+            // 벡터는 인자(M14-W3 개체 편차 포함) — "기질이 되는가"도 개체마다 조금씩 다르다
+            if (TraitVector.Meets(traits, r.RequesterTraits)) return true;
             // 기질이 모자라도 경험이 있으면 성립 — "죽다 살아난 자가 집을 원한다".
             // 우회 조건이 비면 AllHold가 true를 돌려주므로, 여기서 무조건 성립하지 않도록
             // 빈 배열을 "우회 없음"으로 먼저 거른다.
@@ -168,7 +174,7 @@ namespace AIVillage.M0
                 {
                     if (r == null || r.InjectGoal == null) continue;
                     if (!GoalSelector.AllHold(r.RequesterConditions, snap)) continue;
-                    if (!RequesterQualifies(r, requester.Personality, snap)) continue; // M12-G 기질 문턱
+                    if (!RequesterQualifies(r, requester.Personality, requester.MyTraits, snap)) continue; // M12-G 기질 문턱
 
                     foreach (VillagerAgent target in _scratch)
                     {
@@ -223,7 +229,7 @@ namespace AIVillage.M0
                                           $"{r.DisplayName} 수락");
                 // 선불 성격 (ADR-보상2): 수락 즉시 지급 — 판정(가용성 검사)과 같은 틱이라 안전.
                 // 선불 완료 부탁은 보고 장면에서 지급·떼먹기 판정 없음 (prepaid — 이중 지급 차단)
-                bool prepaid = _agentCfg != null && _agentCfg.DemandsUpfront(target.Personality)
+                bool prepaid = _agentCfg != null && _agentCfg.DemandsUpfront(target.Personality, target.MyTraits)
                                && canPayNow
                                && requester.TransferTo(target, r.RewardCostSlot, r.RewardCostAmount);
                 if (prepaid)

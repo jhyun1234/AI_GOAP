@@ -54,6 +54,32 @@ namespace AIVillage.M0
             => baseValue + Bias(traits, bias.Weights) * bias.Sensitivity;
 
         /// <summary>
+        /// 개체 편차 벡터 생성 (M14-W3, 순수 — 게이트 M14-T2). 스폰 1회 호출 — **판정 시점 랜덤이
+        /// 아니다**: 같은 주민은 언제나 같은 벡터라 학습 가능성이 보존된다 (ADR-M14-1 · ADR-M1-2 양립).
+        /// 전 축(TraitId 열거)을 축별 시드(FNV-1a(agentId, "trait"+축번호))로 독립 편차 — 전 축이
+        /// 같은 방향으로 쏠리지 않는다. src null(성격 없음)·amp ≤ 0 = 원본 그대로 (중립 불변식).
+        /// ⚠️ 유도식(Bias/Threshold/Meets)에 지터를 넣지 말 것 — 지터는 입력(벡터)에서 끝난다
+        /// (명세 ⚠️W3-③, 유도식 순수 게이트 M12-T1 보존).
+        /// </summary>
+        public static TraitValue[] Jitter(TraitValue[] src, string agentId, int amp)
+        {
+            if (src == null || amp <= 0) return src;
+
+            var axes = (TraitId[])System.Enum.GetValues(typeof(TraitId));
+            var result = new TraitValue[axes.Length];
+            for (int i = 0; i < axes.Length; i++)
+            {
+                int delta = Mathf.RoundToInt(StableHash.Spread(agentId, "trait" + (int)axes[i]) * amp);
+                result[i] = new TraitValue
+                {
+                    Trait = axes[i],
+                    Value = Mathf.Clamp(ValueOf(src, axes[i]) + delta, -100, 100),
+                };
+            }
+            return result;
+        }
+
+        /// <summary>
         /// 성향 조건 판정 (M12-G의 부탁 성립 등). 조건이 비면 항상 성립 = 현행 동작.
         /// 결정적이다 — 랜덤 금지 (ADR-M1-2: 플레이어가 학습 가능해야 협상이 성립한다).
         /// </summary>

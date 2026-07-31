@@ -113,10 +113,15 @@ namespace AIVillage.M0
         /// M12-F에서 개별 필드를 끄면 성향만 남는다. 두 호출처(JudgeRequest·RequestService)가
         /// 각자 이산화하면 규칙이 이원화된다 (ADR-M0-3 정신).
         /// </summary>
+        /// <summary>호환 진입점 (게이트·구형 호출 전용 — 벡터 = 성격 원본, 편차 없음. ⚠️W3-⑤).</summary>
         public bool DemandsUpfront(PersonalitySO p)
+            => DemandsUpfront(p, p != null ? p.Traits : null);
+
+        public bool DemandsUpfront(PersonalitySO p, TraitValue[] traits)
             => p != null
                && (p.DemandsRewardUpfront
-                   || TraitVector.Bias(p.Traits, UpfrontBias.Weights) >= UpfrontBiasThreshold);
+                   // 벡터는 인자 (M14-W3 개체 편차 포함) — SO 직접 읽기는 반쪽 개체 (⚠️W3-⑤)
+                   || TraitVector.Bias(traits, UpfrontBias.Weights) >= UpfrontBiasThreshold);
 
         [Tooltip("배고픔 거부 대사 (랜덤 선택)")]
         public string[] RefuseHungryLines =

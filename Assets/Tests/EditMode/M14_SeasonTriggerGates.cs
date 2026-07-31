@@ -1,5 +1,6 @@
 using AIVillage.M0;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 
 namespace AIVillage.Tests.EditMode
@@ -124,6 +125,81 @@ namespace AIVillage.Tests.EditMode
 
             DestroyAll(cycle);
             Object.DestroyImmediate(cfg);
+        }
+
+        // ── M14-T2: 개체 성향 지터 (W3) — 정체성이지 주사위가 아니다 (ADR-M14-1) ──
+
+        [Test]
+        public void M14_T2a_Jitter_NeutralInvariant()
+        {
+            var src = new[] { new TraitValue { Trait = TraitId.Diligence, Value = -80 } };
+
+            // amp 0 = 원본 그대로 (참조 동일 허용 — 사본 의무 없음). 전 기존 게이트 green의 근거.
+            Assert.AreSame(src, TraitVector.Jitter(src, "아무개", 0), "amp 0 = 원본 그대로");
+            Assert.IsNull(TraitVector.Jitter(null, "아무개", 25), "성격 없음(null) = 중립 유지");
+        }
+
+        [Test]
+        public void M14_T2b_Jitter_DeterministicPerIdentity()
+        {
+            var src = new[]
+            {
+                new TraitValue { Trait = TraitId.Diligence, Value = -80 },
+                new TraitValue { Trait = TraitId.Foresight, Value = -70 },
+            };
+
+            TraitValue[] a1 = TraitVector.Jitter(src, "응이", 25);
+            TraitValue[] a2 = TraitVector.Jitter(src, "응이", 25);
+            for (int i = 0; i < a1.Length; i++)
+            {
+                Assert.AreEqual(a1[i].Trait, a2[i].Trait, "같은 신원 = 같은 축 순서");
+                Assert.AreEqual(a1[i].Value, a2[i].Value, "같은 신원 = 같은 벡터 (재계산 = 세이브 불필요)");
+                Assert.GreaterOrEqual(a1[i].Value, -100, "클램프 하한");
+                Assert.LessOrEqual(a1[i].Value, 100, "클램프 상한");
+            }
+
+            // 다른 신원 = 어딘가는 다른 벡터 (표본 5쌍 중 1쌍 이상 — FNV 충돌 방어적 완화)
+            bool anyDiff = false;
+            string[] ids = { "응이", "콩이", "돌이", "밤이", "새벽이" };
+            TraitValue[] baseline = TraitVector.Jitter(src, ids[0], 25);
+            for (int n = 1; n < ids.Length && !anyDiff; n++)
+            {
+                TraitValue[] other = TraitVector.Jitter(src, ids[n], 25);
+                for (int i = 0; i < baseline.Length; i++)
+                    if (baseline[i].Value != other[i].Value) { anyDiff = true; break; }
+            }
+            Assert.IsTrue(anyDiff, "다른 신원인데 전원 같은 벡터 — 시드가 신원을 안 탄다");
+        }
+
+        /// <summary>
+        /// 확률사의 물리 증거 (명세 성공 기준 3): 게으름뱅이 **실제 에셋** + TraitRules **실제 진폭**
+        /// 기준, 표본 100명 중 파종(Plant)이 여가(Leisure)를 이기는 개체와 못 이기는 개체가
+        /// **둘 다** 존재해야 한다. 0/100 = 확정사 그대로(진폭 부족) · 100/100 = 성격 붕괴.
+        /// 진폭 25 근거 = 검산 2026-07-31 (10 → 0/100 · 25 → 13/100). 에셋 값을 내리면 여기가 잡는다.
+        /// </summary>
+        [Test]
+        public void M14_T2c_LazyFateIsProbabilisticNotCertain()
+        {
+            var lazy = AssetDatabase.LoadAssetAtPath<PersonalitySO>(
+                "Assets/M0Config/Personalities/Personality_Lazy.asset");
+            var plant = AssetDatabase.LoadAssetAtPath<GoalSO>("Assets/M0Config/Goals/Goal_Plant.asset");
+            var leisure = AssetDatabase.LoadAssetAtPath<GoalSO>("Assets/M0Config/Goals/Goal_Leisure.asset");
+            var rules = AssetDatabase.LoadAssetAtPath<TraitRulesSO>("Assets/M0Config/TraitRules.asset");
+            Assert.IsNotNull(lazy); Assert.IsNotNull(plant); Assert.IsNotNull(leisure); Assert.IsNotNull(rules);
+
+            int plantWins = 0;
+            for (int i = 0; i < 100; i++)
+            {
+                TraitValue[] traits = TraitVector.Jitter(lazy.Traits, $"Jitter_{i}", rules.TraitJitterAmp);
+                // 실효 우선순위 = §4 식 (무직 기준 — 직업 boost 0)
+                int effPlant = plant.Priority + lazy.BoostFor(plant) + plant.TraitBoost(traits);
+                int effLeisure = leisure.Priority + lazy.BoostFor(leisure) + leisure.TraitBoost(traits);
+                if (effPlant > effLeisure) plantWins++;
+            }
+            Assert.Greater(plantWins, 0,
+                $"게으름뱅이 100명 전원이 파종 문턱 미달 (amp {rules.TraitJitterAmp}) — 확정사 그대로다. 진폭·가중치 재검토");
+            Assert.Less(plantWins, 100,
+                "게으름뱅이 100명 전원이 파종 — 성격이 붕괴했다. 진폭 과대");
         }
     }
 }

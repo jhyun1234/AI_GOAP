@@ -105,12 +105,18 @@ namespace AIVillage.M0
         /// "최근접"이라는 기존 의미 그대로다 — 사교가 아주 높으면 자연히 여기로 수렴한다.
         /// ⚠️ 절대 거리로 바꾸는 것은 WorldConfig.PreferredHomeDist의 몫 (맵-비례, M11-K).
         /// </summary>
+        /// <summary>호환 진입점 (게이트·구형 호출 전용 — 벡터 = 성격 원본, 편차 없음).</summary>
         public static float PreferredDist(PersonalitySO p, JobSO j, TraitRulesSO rules = null)
+            => PreferredDist(p, j, p != null ? p.Traits : null, rules);
+
+        public static float PreferredDist(PersonalitySO p, JobSO j, TraitValue[] traits,
+                                          TraitRulesSO rules = null)
         {
             float baseFrac = (p != null ? p.HomePreferredDist : 0f) + (j != null ? j.HomePreferredDist : 0f);
             if (rules == null || p == null) return baseFrac; // 미배선 = 기존 경로 (중립 불변식)
 
-            return Mathf.Clamp(TraitVector.Threshold(p.Traits, rules.HomeDistanceBias, baseFrac), 0f, 0.95f);
+            // 벡터는 인자(M14-W3 개체 편차 포함 MyTraits) — 같은 성격도 조금씩 다른 자리에 앉는다
+            return Mathf.Clamp(TraitVector.Threshold(traits, rules.HomeDistanceBias, baseFrac), 0f, 0.95f);
         }
 
         /// <summary>주민 신원 → 안정적 seed (순수 — .NET string.GetHashCode는 프로세스마다 달라

@@ -90,7 +90,9 @@ namespace AIVillage.M0
             // M12-H: 방랑자도 성향이 직업을 편향시킨다 — 문 앞에 선 사람이 "게으른데 목수"인
             // 조합으로만 나오면 UI가 보여주는 인물상이 성격과 따로 논다.
             // 목수 최소 보장은 시작 주민 전용이라 여기 오는 사람에겐 걸리지 않는다(정원 밖).
-            _candJob = _sim.PickJobFor(_candPersonality);
+            // 후보는 신원(AgentId) 확정 전이라 개체 편차 없이 성격 원본 벡터로 추첨한다 (M14-W3).
+            // 편차는 수락 → 스폰 시점에 확정되어 나머지 통로(우선순위·문턱·비용)에 적용된다.
+            _candJob = _sim.PickJobFor(_candPersonality != null ? _candPersonality.Traits : null);
 
             // 진입점 = 위협과 같은 결정적 가장자리 선택 (순수 함수 재사용)
             MapBounds.Get(out int minX, out int maxX, out int minY, out int maxY);

@@ -205,7 +205,7 @@ namespace AIVillage.M0
         /// 여기가 배정의 유일한 창구다.
         /// ⚠️ 상태를 세지 않는다 — 카운트는 NotifyJobAssigned가 맡는다(아래 사유).
         /// </summary>
-        public JobSO PickJobFor(PersonalitySO p)
+        public JobSO PickJobFor(TraitValue[] traits) // M14-W3: 개체 편차 포함 벡터를 직접 받는다
         {
             if (_jobPool == null || _jobPool.Length == 0) return null; // 중립 — 전원 무직 (M5-S3)
 
@@ -217,7 +217,7 @@ namespace AIVillage.M0
                 return _guaranteedJob;
             }
 
-            int idx = PickJobIndex(p != null ? p.Traits : null, _jobPool,
+            int idx = PickJobIndex(traits, _jobPool,
                                    _worldConfig != null ? _worldConfig.TraitRules : null, Random.value);
             return idx >= 0 ? _jobPool[idx] : null;
         }

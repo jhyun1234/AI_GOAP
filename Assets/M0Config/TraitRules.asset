@@ -41,6 +41,7 @@ MonoBehaviour:
   JobBiasStrength: 1
   NoJobBelowDiligence: -50
   NoJobWeight: 3
+  TraitJitterAmp: 25
   MoodPools:
   - Trait: 5
     ForHighValue: 1

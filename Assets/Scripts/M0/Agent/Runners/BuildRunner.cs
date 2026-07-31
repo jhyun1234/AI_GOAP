@@ -115,7 +115,7 @@ namespace AIVillage.M0
             // 맵-비례 (M11-K): 반경·선호 거리 모두 맵 크기에 비례. 성격 값은 비율(0~1)이라
             // 실효 반경을 곱해 절대 거리로 바꾼다. 맵이 커지면 마을이 자동으로 넓게 퍼진다.
             int radius = agent.WorldConfig.EffectiveVillageRadius();
-            float preferredFrac = HomePicker.PreferredDist(owner.Personality, owner.Job,
+            float preferredFrac = HomePicker.PreferredDist(owner.Personality, owner.Job, owner.MyTraits,
                 agent.WorldConfig != null ? agent.WorldConfig.TraitRules : null);
             int preferred = agent.WorldConfig.PreferredHomeDist(preferredFrac);
             int seed = HomePicker.StableSeed(owner.AgentId); // 집주인 신원 → 대역 내 결정적 자리

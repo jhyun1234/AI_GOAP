@@ -227,7 +227,7 @@ namespace AIVillage.M0
             // RimWorld는 계획이 없어(깊이 1) 이 줄을 만들 수 없다.
             line += "\n" + ComposeReason(a.CurrentGoal, a.CurrentPlan, a.CurrentPlanIndex,
                                          a.Satiety, a.Fatigue, a.Injury, a.AgentConfig,
-                                         a.Personality, a.EstimateMyFoodDays());
+                                         a.Personality, a.MyTraits, a.EstimateMyFoodDays());
             return line;
         }
 
@@ -241,9 +241,18 @@ namespace AIVillage.M0
         /// ③식량 일수 — 99(중립)면 생략, 문턱은 상태줄과 같은 FOOD_ALERT_DAYS.
         /// 내부값(EffectivePriority 등) 노출 금지 — 표기는 플레이어 언어만 (기존 규율).
         /// </summary>
+        /// <summary>호환 진입점 (게이트·구형 호출 전용 — 벡터 = 성격 원본, 편차 없음).
+        /// 런타임(ComposeInfoLine)은 traits 인자판(MyTraits)을 쓴다 (⚠️W3-⑤).</summary>
         public static string ComposeReason(GoalSO goal, IReadOnlyList<ActionSO> plan, int planIndex,
                                            float satiety, float fatigue, InjurySeverity injury,
                                            AgentConfigSO cfg, PersonalitySO p, int foodDays)
+            => ComposeReason(goal, plan, planIndex, satiety, fatigue, injury, cfg, p,
+                             p != null ? p.Traits : null, foodDays);
+
+        public static string ComposeReason(GoalSO goal, IReadOnlyList<ActionSO> plan, int planIndex,
+                                           float satiety, float fatigue, InjurySeverity injury,
+                                           AgentConfigSO cfg, PersonalitySO p, TraitValue[] traits,
+                                           int foodDays)
         {
             var sb = new System.Text.StringBuilder(96);
             sb.Append(goal != null ? $"지금: {goal.DisplayName}" : "지금: 쉬는 중");
@@ -265,8 +274,9 @@ namespace AIVillage.M0
                     sb.Append(" · <color=#FF6B6B>명령 불가 — 부상</color>"); // TryGiveOrder 조기 거절과 동일
                 else
                 {
-                    float satMargin = satiety - VillagerAgent.RefuseSatietyLimit(cfg, p, null);
-                    float fatMargin = VillagerAgent.RefuseFatigueLimit(cfg, p, null) - fatigue;
+                    // 문턱은 개체 편차 포함 벡터로 (M14-W3) — 화면의 여유와 실제 거부가 어긋나면 안 된다
+                    float satMargin = satiety - VillagerAgent.RefuseSatietyLimit(cfg, p, traits, null);
+                    float fatMargin = VillagerAgent.RefuseFatigueLimit(cfg, p, traits, null) - fatigue;
                     if (satMargin <= 0f)      // 판정 순서도 JudgeOrder와 동일 (배고픔 먼저)
                         sb.Append(" · <color=#FF6B6B>명령 거부될 것 — 배고픔</color>");
                     else if (fatMargin <= 0f)

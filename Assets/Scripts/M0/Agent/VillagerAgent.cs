@@ -124,6 +124,11 @@ namespace AIVillage.M0
         /// <summary>성격 아키타입 (M4-A). null = 중립 — M3와 동작 동일 (ADR-M4-2).</summary>
         public PersonalitySO Personality { get; private set; }
 
+        /// <summary>내 성향 벡터 (M14-W3) — 성격 원본 + 개체 편차, 스폰 1회 고정 (ADR-M14-1:
+        /// FNV-1a 결정적 = 세이브 불필요·재계산). 성향 읽기는 전부 이것을 쓴다 —
+        /// PersonalitySO.Traits 직접 읽기는 '반쪽 개체'를 만든다 (명세 ⚠️W3-⑤).</summary>
+        public TraitValue[] MyTraits { get; private set; }
+
         /// <summary>직업 (M5-A). null = 무직 — M4와 goal 선택 동일 (M5-S3). 세이브 대상 (ADR-M5-5).</summary>
         public JobSO Job { get; private set; }
 
@@ -136,14 +141,21 @@ namespace AIVillage.M0
         /// 성격 보정이 위기 대응을 가른다: 같은 트리거를 봐도 실효 우선순위가 달라
         /// 돌입 시점·참여 여부가 성격따라 흩어진다 (2026-07-17 "동시 돌입 = AI티" 대응).
         /// </summary>
+        /// <summary>호환 진입점 (게이트·구형 호출 전용 — 벡터 = 성격 원본, 편차 없음).
+        /// 런타임은 반드시 3인자(MyTraits)를 쓴다 (⚠️W3-⑤ 반쪽 개체 방지).</summary>
         public static System.Func<GoalSO, int> BuildGoalBias(JobSO job, PersonalitySO personality)
+            => BuildGoalBias(job, personality, personality != null ? personality.Traits : null);
+
+        public static System.Func<GoalSO, int> BuildGoalBias(JobSO job, PersonalitySO personality,
+                                                             TraitValue[] traits)
         {
             if (job == null && personality == null) return null;
             if (personality == null) return job.BoostFor;
             // 성격 = 舊 나열(GoalBoosts) + 新 벡터(TraitWeights). M12-F에서 나열을 비우면
             // 벡터만 남는다 — 합산 지점은 이 함수 하나뿐이다 (ADR-M12-5).
-            if (job == null) return g => personality.BoostFor(g) + g.TraitBoost(personality.Traits);
-            return g => job.BoostFor(g) + personality.BoostFor(g) + g.TraitBoost(personality.Traits);
+            // 벡터는 인자(M14-W3 개체 편차 포함 MyTraits)로 받는다 — SO 직접 읽기는 반쪽 개체 (⚠️W3-⑤).
+            if (job == null) return g => personality.BoostFor(g) + g.TraitBoost(traits);
+            return g => job.BoostFor(g) + personality.BoostFor(g) + g.TraitBoost(traits);
         }
 
         // 직업 일과 goal (M5-C, ADR-M5-2) — 개인 사다리 주입, 씬 _goals에 넣지 않는다.
@@ -170,8 +182,7 @@ namespace AIVillage.M0
         /// </summary>
         private float FleeRadius()
             => (Personality != null ? Personality.FleeRadiusMult : 1f)
-               * TraitVector.Threshold(Personality != null ? Personality.Traits : null,
-                                       _cfg.FleeRadiusBias, 1f);
+               * TraitVector.Threshold(MyTraits, _cfg.FleeRadiusBias, 1f); // 개체 편차 포함 (M14-W3)
 
         /// <summary>배율 개체 편차 [채집, 농사, 건설, 탐험] — 스폰 1회 고정, M4-B 비용 배열 계산에 사용.</summary>
         public float[] MultJitter => _multJitter;
@@ -297,10 +308,16 @@ namespace AIVillage.M0
             // 인스펙터 필드는 **비면 랜덤**이라 주입과 의미가 다르다 — 둘을 한 플래그로 묶지 말 것.
             Personality = PresetOrRandom(_hasPreset, _presetPersonality,
                 () => _startPersonality != null ? _startPersonality : _sim.PickRandomPersonality());
+            // 개체 편차 벡터 (M14-W3) — 성격 확정 직후·직업 픽 **이전** (직업 편향도 '이 사람'을
+            // 따라야 한다). 진폭은 TraitRules 에셋의 몫 — 0 또는 미배선이면 원본 그대로 (중립 불변식).
+            int traitAmp = _sim.WorldConfig != null && _sim.WorldConfig.TraitRules != null
+                ? _sim.WorldConfig.TraitRules.TraitJitterAmp : 0;
+            MyTraits = TraitVector.Jitter(Personality != null ? Personality.Traits : null,
+                                          AgentId, traitAmp);
             // 직업 할당 (M5-A → M12-H) — 이제 성격과 독립이 아니라 성향이 편향시킨다.
-            // 성격이 위에서 먼저 확정되므로 그 벡터를 그대로 넘긴다. 스폰 1회 고정 (세이브 대상, ADR-M5-5)
+            // 개체 편차가 위에서 먼저 확정되므로 그 벡터를 그대로 넘긴다. 스폰 1회 고정 (세이브 대상, ADR-M5-5)
             Job = PresetOrRandom(_hasPreset, _presetJob,
-                () => _startJob != null ? _startJob : _sim.PickJobFor(Personality));
+                () => _startJob != null ? _startJob : _sim.PickJobFor(MyTraits));
             // 배정 완료 통보 — 어느 경로로 정해졌든 한 번씩 (목수 최소 보장의 카운터가 이걸 센다).
             // ⚠️ PickJobFor 안에서 세면 씬 지정 주민이 카운트를 건너뛰어 보장이 영영 발동하지 않는다.
             _sim.NotifyJobAssigned(Job);
@@ -311,10 +328,13 @@ namespace AIVillage.M0
             };
             Debug.Log($"[VillagerAgent] {AgentId}: 성격 = {(Personality != null ? Personality.DisplayName : "없음(중립)")}"
                       + $" / 직업 = {(Job != null ? Job.DisplayName : "무직(공용)")}");
-            _goalBias = BuildGoalBias(Job, Personality); // 직업+성격 합산 (M6 후속, ADR-M5-6 동일 인자 유지)
+            // 편차 요약 계측 (ADR-M13-1 — 지터는 로그에 보여야 존재한다). amp 0이면 침묵 = 기존 로그 불변.
+            if (traitAmp > 0 && Personality != null && MyTraits != null)
+                Debug.Log($"[VillagerAgent] {AgentId}: 성향 편차 = {TraitDeltaSummary(Personality.Traits, MyTraits)}");
+            _goalBias = BuildGoalBias(Job, Personality, MyTraits); // 직업+성격 합산 (M6 후속, ADR-M5-6 동일 인자 유지)
             _routine = Job != null ? Job.RoutineGoal : null;
             // 배율 배열 1회 캐시 (M4-B) — 성격·직업 둘 다 null이면 null = 중립 (RequestPlan이 무시)
-            _costMult = PersonalityCost.Build(_sim.Catalog, Personality, Job, _multJitter,
+            _costMult = PersonalityCost.Build(_sim.Catalog, Personality, MyTraits, Job, _multJitter,
                                              _sim.WorldConfig != null ? _sim.WorldConfig.TraitRules : null);
             _motion = new MoveMotion(_cfg, AgentId);
             SetupView();
@@ -932,7 +952,7 @@ namespace AIVillage.M0
                 string[] pool = Personality.MoodLines != null && Personality.MoodLines.Length > 0
                     ? Personality.MoodLines
                     : (_sim.WorldConfig != null && _sim.WorldConfig.TraitRules != null
-                        ? _sim.WorldConfig.TraitRules.MoodPoolFor(Personality.Traits) : null);
+                        ? _sim.WorldConfig.TraitRules.MoodPoolFor(MyTraits) : null); // 개체 편차 포함 (M14-W3)
                 if (pool != null && pool.Length > 0) ShowTransient(Pick(pool));
             }
 
@@ -1109,11 +1129,12 @@ namespace AIVillage.M0
         /// 배고픔이 피로보다 먼저 판정된다 (둘 다면 배고픔 사유).
         /// </summary>
         public static OrderResult JudgeOrder(float satiety, float fatigue, AgentConfigSO cfg)
-            => JudgeOrder(satiety, fatigue, cfg, null, null);
+            => JudgeOrder(satiety, fatigue, cfg, null, null, null);
 
-        /// <summary>성격 오프셋 포함 거부 판정 (M4-C, 순수 — 게이트 M4-T3). p=null이면 기존과 완전 동일.</summary>
+        /// <summary>성격 오프셋 포함 거부 판정 (M4-C, 순수 — 게이트 M4-T3). p=null이면 기존과 완전 동일.
+        /// 호환 진입점 — 벡터는 성격 원본 (편차 없음 = 게이트·구형 호출 전용, 런타임은 MyTraits를 넘길 것).</summary>
         public static OrderResult JudgeOrder(float satiety, float fatigue, AgentConfigSO cfg, PersonalitySO p)
-            => JudgeOrder(satiety, fatigue, cfg, p, null);
+            => JudgeOrder(satiety, fatigue, cfg, p, p != null ? p.Traits : null, null);
 
         /// <summary>
         /// 보상 오프셋 포함 최종 판정 (M6-E, 순수 — 게이트 M6-T4). r=null이면 기존과 완전 동일.
@@ -1124,26 +1145,47 @@ namespace AIVillage.M0
         /// 舊 개별 오프셋(M12-F까지 병존) + 보상 오프셋. JudgeOrder(판정)와 정보줄 여유
         /// 표기(SeasonHud.ComposeReason)가 **이 함수 하나**를 쓴다 — 문턱 산식이 두 곳이면
         /// 화면의 여유와 실제 거부가 어긋난다 (판단 규칙 이원화).</summary>
-        public static float RefuseSatietyLimit(AgentConfigSO cfg, PersonalitySO p, RewardSO r)
-            => TraitVector.Threshold(p != null ? p.Traits : null,
-                                     cfg.RefuseSatietyBias, cfg.OrderRefuseSatiety)
+        public static float RefuseSatietyLimit(AgentConfigSO cfg, PersonalitySO p, TraitValue[] traits,
+                                               RewardSO r)
+            => TraitVector.Threshold(traits, cfg.RefuseSatietyBias, cfg.OrderRefuseSatiety)
              + (p != null ? p.RefuseSatietyOffset : 0f)
              + (r != null ? r.RefuseSatietyOffset : 0f);
 
         /// <summary>실효 피로 거부 문턱 (순수, M13-D 추출) — 위와 동일 사유.</summary>
-        public static float RefuseFatigueLimit(AgentConfigSO cfg, PersonalitySO p, RewardSO r)
-            => TraitVector.Threshold(p != null ? p.Traits : null,
-                                     cfg.RefuseFatigueBias, cfg.OrderRefuseFatigue)
+        public static float RefuseFatigueLimit(AgentConfigSO cfg, PersonalitySO p, TraitValue[] traits,
+                                               RewardSO r)
+            => TraitVector.Threshold(traits, cfg.RefuseFatigueBias, cfg.OrderRefuseFatigue)
              + (p != null ? p.RefuseFatigueOffset : 0f)
              + (r != null ? r.RefuseFatigueOffset : 0f);
 
+        /// <summary>호환 진입점 (게이트·구형 호출 전용 — 벡터 = 성격 원본, 편차 없음. ⚠️W3-⑤).</summary>
         public static OrderResult JudgeOrder(float satiety, float fatigue, AgentConfigSO cfg,
                                              PersonalitySO p, RewardSO r)
+            => JudgeOrder(satiety, fatigue, cfg, p, p != null ? p.Traits : null, r);
+
+        public static OrderResult JudgeOrder(float satiety, float fatigue, AgentConfigSO cfg,
+                                             PersonalitySO p, TraitValue[] traits, RewardSO r)
         {
             // 성향 가중치가 비면 Threshold가 기준값을 그대로 돌려주므로 현행 판정과 완전히 같다.
-            if (satiety < RefuseSatietyLimit(cfg, p, r)) return OrderResult.RefusedHungry;
-            if (fatigue > RefuseFatigueLimit(cfg, p, r)) return OrderResult.RefusedTired;
+            // 벡터(traits)는 호출자가 개체 편차 포함본(MyTraits)을 넘긴다 (M14-W3 — ⚠️W3-⑤).
+            if (satiety < RefuseSatietyLimit(cfg, p, traits, r)) return OrderResult.RefusedHungry;
+            if (fatigue > RefuseFatigueLimit(cfg, p, traits, r)) return OrderResult.RefusedTired;
             return OrderResult.Accepted;
+        }
+
+        /// <summary>개체 편차 요약 (계측 전용, 순수 — 스폰 로그 1줄). 편차 0인 축은 생략.</summary>
+        public static string TraitDeltaSummary(TraitValue[] baseTraits, TraitValue[] jittered)
+        {
+            if (jittered == null) return "없음";
+            var sb = new System.Text.StringBuilder(64);
+            for (int i = 0; i < jittered.Length; i++)
+            {
+                int delta = jittered[i].Value - TraitVector.ValueOf(baseTraits, jittered[i].Trait);
+                if (delta == 0) continue;
+                if (sb.Length > 0) sb.Append(" · ");
+                sb.Append(jittered[i].Trait).Append(delta > 0 ? " +" : " ").Append(delta);
+            }
+            return sb.Length > 0 ? sb.ToString() : "없음";
         }
 
         /// <summary>성격 대사 우선, 비면 기본 대사 (중립 경로 — ADR-M4-2).</summary>
@@ -1174,7 +1216,7 @@ namespace AIVillage.M0
             if (reward != null && World.GetStock(reward.CostSlot) < reward.CostAmount)
                 return OrderResult.FailedNoStock; // 말풍선 없음 — 주민이 아니라 촌장의 실수
 
-            OrderResult verdict = JudgeOrder(Satiety, Fatigue, _cfg, Personality, reward);
+            OrderResult verdict = JudgeOrder(Satiety, Fatigue, _cfg, Personality, MyTraits, reward);
             if (verdict == OrderResult.RefusedHungry || verdict == OrderResult.RefusedTired)
                 _sim.Profiler?.RecordRefusal(Personality); // 계측 (M12-J) — 자존 축의 관측 신호
             if (verdict == OrderResult.RefusedHungry)
@@ -1293,18 +1335,27 @@ namespace AIVillage.M0
         /// 선불 성격은 불가 시 거절, 보상 0 부탁도 여기로 (ADR-보상4 — 공짜로는 안 한다).
         /// 랜덤 금지 — 플레이어가 학습 가능해야 협상이 성립 (ADR-M1-2 계승).
         /// </summary>
+        /// <summary>호환 진입점 (게이트·구형 호출 전용 — 벡터 = 성격 원본, 편차 없음).
+        /// 런타임은 traits 인자판(MyTraits)을 쓴다 (⚠️W3-⑤).</summary>
         public static RequestResult JudgeRequest(bool busy, float satiety, float fatigue,
                                                  int affinityTowardRequester, AgentConfigSO cfg,
                                                  PersonalitySO p, RequestSO r,
                                                  bool upfrontAvailable = false)
+            => JudgeRequest(busy, satiety, fatigue, affinityTowardRequester, cfg, p,
+                            p != null ? p.Traits : null, r, upfrontAvailable);
+
+        public static RequestResult JudgeRequest(bool busy, float satiety, float fatigue,
+                                                 int affinityTowardRequester, AgentConfigSO cfg,
+                                                 PersonalitySO p, TraitValue[] traits, RequestSO r,
+                                                 bool upfrontAvailable = false)
         {
             if (busy) return RequestResult.RefusedBusy;
-            OrderResult body = JudgeOrder(satiety, fatigue, cfg, p, null);
+            OrderResult body = JudgeOrder(satiety, fatigue, cfg, p, traits, null);
             if (body == OrderResult.RefusedHungry) return RequestResult.RefusedHungry;
             if (body == OrderResult.RefusedTired) return RequestResult.RefusedTired;
             if (r != null && affinityTowardRequester < r.RefuseAffinityBelow)
                 return RequestResult.RefusedLowAffinity;
-            if (cfg != null && cfg.DemandsUpfront(p) && !upfrontAvailable)
+            if (cfg != null && cfg.DemandsUpfront(p, traits) && !upfrontAvailable)
                 return RequestResult.RefusedNoReward;
             return RequestResult.Accepted;
         }
@@ -1322,7 +1373,7 @@ namespace AIVillage.M0
             // 선불 가용성 (ADR-보상2)은 호출자(RequestService)가 의뢰인 개인 잔고로 판정해 넘긴다
             // (M11-H — 전역 스톡 조회 폐지. 판정과 이전이 같은 시뮬 틱이라 검사~지급 경쟁 없음)
             RequestResult verdict = JudgeRequest(_request != null, Satiety, Fatigue,
-                _sim.Relationship.AffinityOf(AgentId, requesterId), _cfg, Personality, r,
+                _sim.Relationship.AffinityOf(AgentId, requesterId), _cfg, Personality, MyTraits, r,
                 upfrontAvailable);
             if (verdict != RequestResult.Accepted) return verdict;
 

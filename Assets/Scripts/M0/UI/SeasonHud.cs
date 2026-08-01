@@ -132,11 +132,12 @@ namespace AIVillage.M0
         public void Tick(float gameTime, SeasonService season, float forecastDays, int pricePct = 100,
                          int forecastPct = -1, int moneyPct = 0, int mintPct = 0,
                          int treasury = -1, int taxRatePct = 0,
-                         int mintDebt = 0, int capPct = 0, int chargesLeft = -1)
+                         int mintDebt = 0, int capPct = 0, int chargesLeft = -1,
+                         int debtDaysLeft = -1)
         {
             string line = Compose(gameTime, season, forecastDays, pricePct,
                                   forecastPct, moneyPct, mintPct, treasury, taxRatePct,
-                                  mintDebt, capPct, chargesLeft);
+                                  mintDebt, capPct, chargesLeft, debtDaysLeft);
             if (line != _lastCalendar)
             {
                 _lastCalendar = line;
@@ -489,11 +490,13 @@ namespace AIVillage.M0
                                      int pricePct = 100, int forecastPct = -1,
                                      int moneyPct = 0, int mintPct = 0,
                                      int treasury = -1, int taxRatePct = 0,
-                                     int mintDebt = 0, int capPct = 0, int chargesLeft = -1)
+                                     int mintDebt = 0, int capPct = 0, int chargesLeft = -1,
+                                     int debtDaysLeft = -1)
         {
             // 재정 접미사 (M17-W5) — 촌장의 장부. 금고가 음수면 미표기 = 기존 호출·게이트 불변.
             string price = ComposeTreasury(treasury, taxRatePct, chargesLeft)
-                         + ComposePriceSuffix(pricePct, forecastPct, moneyPct, mintPct, mintDebt, capPct);
+                         + ComposePriceSuffix(pricePct, forecastPct, moneyPct, mintPct,
+                                              mintDebt, capPct, debtDaysLeft);
 
             int day = (int)gameTime;
             if (season == null || season.Current == null) return $"Day {day}{price}";
@@ -557,7 +560,7 @@ namespace AIVillage.M0
         ///    부채는 클램프 밖의 값이라 계속 움직인다: **포화돼도 "얼마나 깊이 들어갔는지"가 보인다.**
         /// forecastPct &lt; 0 = 예보 없음 · capPct ≤ 0 = 상한 판정 없음 (기존 호출 호환).</summary>
         public static string ComposePriceSuffix(int pricePct, int forecastPct, int moneyPct, int mintPct,
-                                                int mintDebt = 0, int capPct = 0)
+                                                int mintDebt = 0, int capPct = 0, int debtDaysLeft = -1)
         {
             bool moves = forecastPct >= 0 && forecastPct != pricePct;
             if (pricePct <= 100 && !moves) return string.Empty;
@@ -573,10 +576,17 @@ namespace AIVillage.M0
                 sb.Append($" <color={(up ? "#FF6B6B" : "#7ED694")}>→ 내일 ×{forecastPct / 100f:0.0#} " +
                           $"{(up ? "▲" : "▼")}</color>");
             }
+            // 라벨이 인과를 말한다 (M17-R7): "발행 여파"는 무엇 때문인지 안 알려 준다.
+            // **찍은 탓** — 쓰지 않고 금고에 둔 돈도 값을 떨어뜨린다는 것이 이 축의 전부다
+            // (ADR-M17-4). 현실 경제와 다른 게임적 선택이므로 화면이 그걸 대신 설명해야 한다.
             if (capped && mintDebt > 0)
-                sb.Append($" <color=#FF6B6B>· 발행 부채 {ComposeMoney(mintDebt)}</color>");
+            {
+                sb.Append($" <color=#FF6B6B>· 찍은 여파 {ComposeMoney(mintDebt)}");
+                if (debtDaysLeft > 0) sb.Append($" · {debtDaysLeft}일 뒤 사라짐");
+                sb.Append("</color>");
+            }
             else if (mintPct > 0)
-                sb.Append($" <size=80%>(도는 돈 ×{moneyPct / 100f:0.0#} · 발행 여파 ×{mintPct / 100f:0.0#})</size>");
+                sb.Append($" <size=80%>(도는 돈 ×{moneyPct / 100f:0.0#} · 찍은 탓 ×{mintPct / 100f:0.0#})</size>");
             return sb.ToString();
         }
 

@@ -423,8 +423,14 @@ namespace AIVillage.M0
 
             World.IssueCurrency(amount, "촌장 발행");
             _forecastCachedAt = -1f; // 즉시 재계산 — 찍은 결과가 같은 프레임에 화면에 도착해야 한다
-            Hud?.Notify($"{SeasonHud.ComposeMoney(amount)}을 찍었습니다 — 돈값이 떨어집니다 " +
-                        $"(남은 발행 {MintChargesLeft}회)");
+            // 인과를 찍는 순간에 말한다 (M17-R7): "쓰지 않아도"가 핵심이다. 금고에 넣어만
+            // 뒀는데 물가가 오르는 것은 현실 경제와 다른 게임적 선택이고(ADR-M17-4),
+            // 화면이 설명하지 않으면 플레이어가 인과를 못 세운다 (Play 관측 2026-08-02).
+            int days = WorldModel.MintDebtDaysToClear(World.MintDebt, _worldConfig.MintDebtDecayPct);
+            Hud?.Notify($"{SeasonHud.ComposeMoney(amount)}을 찍었습니다 — " +
+                        $"쓰지 않아도 돈값이 떨어집니다" +
+                        (days > 0 ? $" ({days}일 뒤 회복 · 남은 발행 {MintChargesLeft}회)"
+                                  : $" (남은 발행 {MintChargesLeft}회)"));
         }
 
         // 겨울 미대비 열거 버퍼 (M14-W4) — _starvingBuf와 동일 패턴 (재사용·정렬·급한 순)
@@ -1087,7 +1093,8 @@ namespace AIVillage.M0
                 Hud?.Tick(GameTime, Season, _worldConfig.ForecastDays, PricePct,
                           PriceForecastPct, _pricePartMoney, _pricePartMint,
                           World.Treasury, TaxRatePct,
-                          World.MintDebt, _worldConfig.PriceCapPct, MintChargesLeft);
+                          World.MintDebt, _worldConfig.PriceCapPct, MintChargesLeft,
+                          WorldModel.MintDebtDaysToClear(World.MintDebt, _worldConfig.MintDebtDecayPct));
 
                 // 상태 알림 줄 (M13-B, 2026-07-30 개정 — 舊 M11-D 마을 최솟값 요약을 개인 열거로).
                 // 관측 대상은 마을 평균이 아니라 낙오자 — 그 정신의 완성형은 "낙오자의 이름"이다.

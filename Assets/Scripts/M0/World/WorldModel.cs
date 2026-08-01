@@ -212,6 +212,19 @@ namespace AIVillage.M0
             return next < 5 ? 0 : next;
         }
 
+        /// <summary>발행 여파가 사라지기까지 남은 게임일 (M17-R7, 순수 — 게이트 M17-T11).
+        /// 감쇠가 곱셈이라 사람이 암산할 수 없다 — "며칠 참으면 되는가"는 플레이어가 기다릴지
+        /// 세금을 올릴지 판단하는 재료이므로 게임이 대신 세어 준다.
+        /// 감쇠율 0(영구 부채)이거나 99일 안에 안 끝나면 -1.</summary>
+        public static int MintDebtDaysToClear(int debt, int decayPct)
+        {
+            if (debt <= 0) return 0;
+            if (Mathf.Clamp(decayPct, 0, 100) <= 0) return -1; // 감쇠 없음 = 영구
+            int d = debt, days = 0;
+            while (d > 0 && days < 99) { d = DecayMintDebt(d, decayPct); days++; }
+            return d > 0 ? -1 : days;
+        }
+
         /// <summary>감쇠 적용 (M17-W3) — 하루 경계 블록에서 1회 호출. 순수 함수와 쓰기 지점을
         /// 나눈 이유는 게이트가 곡선만 따로 검증할 수 있게 하기 위함이다.</summary>
         public void TickMintDebtDecay(int decayPct)

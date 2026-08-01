@@ -208,7 +208,8 @@ namespace AIVillage.Tests.EditMode
                                         "부채 0이면 괄호 없음 (평시 줄 길이 보호)");
             string split = SeasonHud.ComposePriceSuffix(145, -1, 125, 20);
             StringAssert.Contains("도는 돈 ×1.25", split);
-            StringAssert.Contains("발행 여파 ×0.2", split);
+            // 라벨이 인과를 말해야 한다 — "발행 여파"는 무엇 때문인지 안 알려 준다 (M17-R7)
+            StringAssert.Contains("찍은 탓 ×0.2", split);
         }
 
         [Test]
@@ -217,9 +218,11 @@ namespace AIVillage.Tests.EditMode
             // §8.5 발견 A·B: 물가가 상한에 닿으면 예보도 같은 값이 되어 화살표가 사라지고,
             // 더 찍어도 화면이 안 변한다. 게다가 그 구간의 분해는 두 몫이 모두 클램프에 걸려
             // 실제 기여도와 다르다. 부채는 클램프 밖이라 계속 움직인다 — 그게 남은 신호다.
-            string capped = SeasonHud.ComposePriceSuffix(400, 400, 100, 300, mintDebt: 1200, capPct: 400);
+            string capped = SeasonHud.ComposePriceSuffix(400, 400, 100, 300, mintDebt: 1200, capPct: 400,
+                                                         debtDaysLeft: 9);
             StringAssert.Contains("(상한)", capped, "포화 사실 자체가 보여야 한다");
-            StringAssert.Contains("발행 부채 12은", capped, "클램프 밖의 값 = 유일하게 움직이는 신호");
+            StringAssert.Contains("찍은 여파 12은", capped, "클램프 밖의 값 = 유일하게 움직이는 신호");
+            StringAssert.Contains("9일 뒤 사라짐", capped, "기다릴지 세금을 올릴지의 판단 재료");
             StringAssert.DoesNotContain("도는 돈", capped, "상한에서는 분해가 왜곡이라 내지 않는다");
 
             // 상한 아래에서는 기존대로 분해를 낸다 (부채가 있어도)
@@ -505,6 +508,22 @@ namespace AIVillage.Tests.EditMode
             Assert.IsTrue(WorldModel.IsLedgerBalanced(world.MintedTotal, world.MoneySupply,
                                                       world.Treasury, world.BurnedTotal),
                           "MintDebt는 실물 돈이 아니므로 폐곡선 밖이다");
+        }
+
+        [Test]
+        public void M17_T11_DaysToClear_CountsWhatNobodyCanDoInTheirHead()
+        {
+            // 감쇠가 곱셈이라 "며칠 참으면 되는가"를 사람이 암산할 수 없다.
+            // 100동 · 50%/일 = 100→50→25→12→6→0 이므로 5일 (M17-T3와 같은 곡선).
+            Assert.AreEqual(5, WorldModel.MintDebtDaysToClear(100, 50));
+            Assert.AreEqual(0, WorldModel.MintDebtDaysToClear(0, 50), "부채 없음 = 0일");
+            Assert.AreEqual(0, WorldModel.MintDebtDaysToClear(-5, 50), "음수 방어");
+            Assert.AreEqual(-1, WorldModel.MintDebtDaysToClear(100, 0), "감쇠 0% = 영구 (-1)");
+            Assert.AreEqual(1, WorldModel.MintDebtDaysToClear(100, 100), "전량 감쇠 = 하루");
+
+            // 20%/일이면 훨씬 오래 간다 — 제안치를 50으로 바로잡은 근거가 이 곡선이다
+            Assert.Greater(WorldModel.MintDebtDaysToClear(100, 20),
+                           WorldModel.MintDebtDaysToClear(100, 50));
         }
 
         [Test]

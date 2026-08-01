@@ -132,11 +132,11 @@ namespace AIVillage.M0
         public void Tick(float gameTime, SeasonService season, float forecastDays, int pricePct = 100,
                          int forecastPct = -1, int moneyPct = 0, int mintPct = 0,
                          int treasury = -1, int taxRatePct = 0,
-                         int mintDebt = 0, int capPct = 0)
+                         int mintDebt = 0, int capPct = 0, int chargesLeft = -1)
         {
             string line = Compose(gameTime, season, forecastDays, pricePct,
                                   forecastPct, moneyPct, mintPct, treasury, taxRatePct,
-                                  mintDebt, capPct);
+                                  mintDebt, capPct, chargesLeft);
             if (line != _lastCalendar)
             {
                 _lastCalendar = line;
@@ -489,10 +489,10 @@ namespace AIVillage.M0
                                      int pricePct = 100, int forecastPct = -1,
                                      int moneyPct = 0, int mintPct = 0,
                                      int treasury = -1, int taxRatePct = 0,
-                                     int mintDebt = 0, int capPct = 0)
+                                     int mintDebt = 0, int capPct = 0, int chargesLeft = -1)
         {
             // 재정 접미사 (M17-W5) — 촌장의 장부. 금고가 음수면 미표기 = 기존 호출·게이트 불변.
-            string price = ComposeTreasury(treasury, taxRatePct)
+            string price = ComposeTreasury(treasury, taxRatePct, chargesLeft)
                          + ComposePriceSuffix(pricePct, forecastPct, moneyPct, mintPct, mintDebt, capPct);
 
             int day = (int)gameTime;
@@ -523,11 +523,23 @@ namespace AIVillage.M0
 
         /// <summary>촌장 장부 접미사 (M17-W5 ①⑥, 순수 — 게이트 M17-T6).
         /// 금고와 세율은 늘 붙어 다닌다: "얼마 있나"와 "어떻게 채우고 있나"가 한 쌍이다.
-        /// treasury &lt; 0 = 미표기 (기존 3인자 Compose 호출·게이트가 그대로 통과한다).</summary>
-        public static string ComposeTreasury(int treasury, int taxRatePct)
-            => treasury < 0
-                ? string.Empty
-                : $" · 금고 {ComposeMoney(treasury)} · 세율 {TaxStageName(taxRatePct)} {taxRatePct}%";
+        /// treasury &lt; 0 = 미표기 (기존 3인자 Compose 호출·게이트가 그대로 통과한다).
+        ///
+        /// 발행 여력(M17-R6)은 **남았을 때가 아니라 얼마 안 남았을 때** 붙인다 — 촌장의 급전
+        /// 수단이 바닥나 간다는 것이 판단 재료이고, 넉넉할 때의 큰 숫자는 잡음이다.
+        /// 0회면 붉게: 그 순간 촌장에게 남은 길은 세금뿐이다. chargesLeft &lt; 0 = 미표기.</summary>
+        public static string ComposeTreasury(int treasury, int taxRatePct, int chargesLeft = -1)
+        {
+            if (treasury < 0) return string.Empty;
+            string line = $" · 금고 {ComposeMoney(treasury)} · 세율 {TaxStageName(taxRatePct)} {taxRatePct}%";
+            if (chargesLeft < 0 || chargesLeft > MintChargesWarnAt) return line;
+            return line + (chargesLeft == 0
+                ? " · <color=#FF6B6B>발행 불가</color>"
+                : $" · <color=#FF8A65>발행 {chargesLeft}회</color>");
+        }
+
+        /// <summary>발행 여력 경고 문턱 (M17-R6) — 이 이하로 남으면 화면에 띄운다.</summary>
+        public const int MintChargesWarnAt = 3;
 
         /// <summary>물가 접미사 (M16-W4 · M17-W5 ③④, 순수 — 게이트 M17-T6).
         ///

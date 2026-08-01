@@ -249,6 +249,33 @@ namespace AIVillage.M0
             return Mathf.Clamp(100 * numer / denom, 100, Mathf.Max(100, capPct));
         }
 
+        /// <summary>남은 발행 여력, 동 단위 (M17-R6, 순수 — 게이트 M17-T10).
+        ///
+        /// **물가 산식을 역으로 푼 값이다** — 새 개념이 아니다:
+        ///   P = 100 × (M + k·D) ÷ (Q × 기준가) ≤ 상한
+        ///   → D_max = (상한 × Q × 기준가 ÷ 100 − M) ÷ k
+        /// 여력 = D_max − 현재 부채. 이만큼까지만 찍을 수 있다.
+        ///
+        /// 왜 필요한가 (§8.5 발견 A): 상한이 있으면 그 위로는 발행 페널티가 포화되어 **추가
+        /// 발행이 공짜**가 된다. 무한히 찍을 수 있으면 "촌장의 돈은 유한하다"는 M17의 전제가
+        /// 무너진다. 부채가 상한을 넘지 못하게 막으면 상한이 비로소 진짜 벽이 된다.
+        ///
+        /// 따라오는 성질: ①부채가 감쇠하면 여력이 돌아온다 (회복 곡선 = 발행 여유)
+        /// ②마을이 커지면(Q↑) 더 찍을 수 있다 (경제 규모에 비례한 발행 여력)
+        /// ③금고가 마르고 여력도 0이면 세율 인상 말고 길이 없다 (정책 판단의 강제).
+        ///
+        /// k ≤ 0(마찰 없음)이면 부채가 물가를 안 밀므로 한도가 없다 — int.MaxValue.</summary>
+        public static int MintHeadroom(int moneySupply, int mintDebt, float surchargeK,
+                                       int foodCount, int basePrice, int capPct)
+        {
+            if (surchargeK <= 0f) return int.MaxValue; // 마찰 0 = 무제한 (에셋의 선택)
+            long budget = (long)Mathf.Max(1, foodCount) * Mathf.Max(1, basePrice)
+                          * Mathf.Max(100, capPct) / 100;          // 분자가 쓸 수 있는 총액
+            long maxDebt = (long)((budget - moneySupply) / surchargeK);
+            long room = maxDebt - Mathf.Max(0, mintDebt);
+            return room <= 0 ? 0 : (int)System.Math.Min(room, int.MaxValue);
+        }
+
         /// <summary>물가의 두 몫 (M17-W4, 순수 — 게이트 M17-T1). 화면의 "원인 분해"가 읽는
         /// 단일 출처: 도는 돈 몫과 발행 여파 몫으로 나눈다.
         /// ⚠️ 발행 몫은 반드시 **잔여**로 구한다 — 따로 계산하면 clamp 때문에 두 숫자의 합이

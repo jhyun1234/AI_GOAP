@@ -371,6 +371,64 @@ namespace AIVillage.Tests.EditMode
             Assert.AreEqual(12, owing.Slots[(int)SlotId.MyMoney], "지갑 주입은 그대로 (M16-W5 회귀 방지)");
         }
 
+        // ── T10: 발행 한도 = 물가 산식의 역함수 (M17-R6, §8.5 발견 A) ─────────
+
+        [Test]
+        public void M17_T10_MintHeadroom_StopsExactlyAtTheCap()
+        {
+            // Q 20 · 기준가 10 · 상한 400 → 분자 예산 = 400×20×10/100 = 800
+            // M 150 · k 1 → 부채 한도 650. 100동씩이면 6회.
+            int room = WorldModel.MintHeadroom(150, 0, 1f, 20, 10, 400);
+            Assert.AreEqual(650, room, "여력 = (상한 예산 800 − M 150) ÷ k");
+
+            // 여력을 다 쓰면 물가가 **정확히** 상한에 닿는다 = 한도가 산식과 어긋나지 않는다.
+            // 그 너머는 클램프 구간(더 찍어도 물가가 안 움직임 = 공짜)이라 애초에 막는다.
+            Assert.AreEqual(400, WorldModel.ComputePricePct(150, 20, 10, 400, room, 1f), "정확히 상한");
+            Assert.AreEqual(399, WorldModel.ComputePricePct(150, 20, 10, 400, room - 2, 1f),
+                            "한 뼘 덜 찍으면 상한 아래 — 경계가 1동 단위로 맞다");
+
+            // 이미 진 부채는 여력에서 빠진다
+            Assert.AreEqual(450, WorldModel.MintHeadroom(150, 200, 1f, 20, 10, 400));
+            Assert.AreEqual(0, WorldModel.MintHeadroom(150, 650, 1f, 20, 10, 400), "한도 소진");
+            Assert.AreEqual(0, WorldModel.MintHeadroom(150, 5000, 1f, 20, 10, 400), "초과해도 음수 아님");
+        }
+
+        [Test]
+        public void M17_T10_MintHeadroom_RecoversAndScalesWithVillage()
+        {
+            // ①부채가 감쇠하면 여력이 돌아온다 = 회복 곡선이 곧 발행 여유
+            int tight = WorldModel.MintHeadroom(150, 600, 1f, 20, 10, 400);
+            int afterDecay = WorldModel.MintHeadroom(150, WorldModel.DecayMintDebt(600, 50), 1f, 20, 10, 400);
+            Assert.Greater(afterDecay, tight, "부채가 반으로 줄면 여력이 늘어야 한다");
+
+            // ②마을이 커지면(식량 Q↑) 더 찍을 수 있다 = 경제 규모에 비례한 발행 여력
+            Assert.Greater(WorldModel.MintHeadroom(150, 0, 1f, 40, 10, 400),
+                           WorldModel.MintHeadroom(150, 0, 1f, 20, 10, 400));
+
+            // ③도는 돈이 많을수록 여력이 준다 (이미 물가를 밀고 있으므로)
+            Assert.Less(WorldModel.MintHeadroom(600, 0, 1f, 20, 10, 400),
+                        WorldModel.MintHeadroom(150, 0, 1f, 20, 10, 400));
+
+            // k = 0 (마찰 없음)이면 한도가 없다 — 에셋의 명시적 선택
+            Assert.AreEqual(int.MaxValue, WorldModel.MintHeadroom(150, 0, 0f, 20, 10, 400));
+
+            // 전멸 직전(Q=0) 방어 — 음수 여력이 나오지 않는다
+            Assert.GreaterOrEqual(WorldModel.MintHeadroom(9999, 0, 1f, 0, 10, 400), 0);
+        }
+
+        [Test]
+        public void M17_T10_TreasuryLine_WarnsOnlyWhenRunningOut()
+        {
+            // 넉넉할 때의 큰 숫자는 잡음이다 — 얼마 안 남았을 때만 띄운다
+            StringAssert.DoesNotContain("발행", SeasonHud.ComposeTreasury(500, 15, 99));
+            StringAssert.DoesNotContain("발행", SeasonHud.ComposeTreasury(500, 15, -1), "미표기");
+            StringAssert.Contains("발행 2회", SeasonHud.ComposeTreasury(500, 15, 2));
+            StringAssert.Contains("발행 불가", SeasonHud.ComposeTreasury(500, 15, 0),
+                                  "0회 = 세금 말고 길이 없다");
+            StringAssert.Contains("발행", SeasonHud.ComposeTreasury(500, 15, SeasonHud.MintChargesWarnAt),
+                                  "문턱 값은 포함");
+        }
+
         // ── T4: 예보가 판정에 새지 않는다 (소스 스캔 — ADR-M17-3) ─────────────
 
         [Test]

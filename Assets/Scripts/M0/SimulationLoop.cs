@@ -288,6 +288,7 @@ namespace AIVillage.M0
         private const float FORECAST_CACHE_SEC = 0.25f; // 주민 순회를 매 프레임 돌 이유가 없다
         private float _forecastCachedAt = -1f;
         private int _forecastCache = 100;
+        private int _headroomCache = int.MaxValue; // 남은 발행 여력(동) — M17-R6
 
         /// <summary>물가 예보 % (M17-W4) — 🚫 **판정 금지. 화면 전용** (ADR-M17-3, 게이트 M17-T4).
         /// 지금 이 순간의 M·발행부채·Q를 확정 물가와 **같은 함수**에 넣은 값이다.
@@ -299,17 +300,37 @@ namespace AIVillage.M0
         /// 그래서 **결과를 앞당기는 대신 원인을 실시간으로 보여준다.**</summary>
         public int PriceForecastPct
         {
+            get { RefreshFinanceCache(); return _forecastCache; }
+        }
+
+        /// <summary>남은 발행 횟수 (M17-R6) — 여력 ÷ 1회 발행량. 화면·발행 판정 공용.
+        /// 상한이 진짜 벽이 되게 하는 값이다 (§8.5 발견 A): 0이면 더 찍을 수 없고,
+        /// 부채가 감쇠하거나 마을 식량이 늘면 다시 돌아온다.</summary>
+        public int MintChargesLeft
+        {
             get
             {
-                // Time.time이 아니라 unscaledTime — 배속에서 갱신 주기가 흔들리면 안 된다
-                if (_forecastCachedAt >= 0f && Time.unscaledTime < _forecastCachedAt + FORECAST_CACHE_SEC)
-                    return _forecastCache;
-                _forecastCachedAt = Time.unscaledTime;
-                _forecastCache = WorldModel.ComputePricePct(
-                    World.MoneySupply, CountVillageFood(), _worldConfig.MoneyBasePrice,
-                    _worldConfig.PriceCapPct, World.MintDebt, _worldConfig.MintSurchargeK);
-                return _forecastCache;
+                int amount = _worldConfig != null ? _worldConfig.MintIssueAmount : 0;
+                if (amount <= 0) return 0;
+                RefreshFinanceCache();
+                return _headroomCache == int.MaxValue ? int.MaxValue : _headroomCache / amount;
             }
+        }
+
+        /// <summary>예보·발행 여력 동시 갱신 (M17-R6) — 둘 다 같은 순간의 M·부채·Q를 봐야
+        /// "예보가 상한이면 여력도 0"이 어긋나지 않는다. 주민 순회는 여기 한 번뿐이다.
+        /// Time.time이 아니라 unscaledTime — 배속에서 갱신 주기가 흔들리면 안 된다.</summary>
+        private void RefreshFinanceCache()
+        {
+            if (_forecastCachedAt >= 0f && Time.unscaledTime < _forecastCachedAt + FORECAST_CACHE_SEC) return;
+            _forecastCachedAt = Time.unscaledTime;
+            int q = CountVillageFood();
+            _forecastCache = WorldModel.ComputePricePct(
+                World.MoneySupply, q, _worldConfig.MoneyBasePrice,
+                _worldConfig.PriceCapPct, World.MintDebt, _worldConfig.MintSurchargeK);
+            _headroomCache = WorldModel.MintHeadroom(
+                World.MoneySupply, World.MintDebt, _worldConfig.MintSurchargeK,
+                q, _worldConfig.MoneyBasePrice, _worldConfig.PriceCapPct);
         }
 
         /// <summary>물가 분모의 Q — 살아있는 주민의 식량 합 (M17-W4 추출).
@@ -388,8 +409,22 @@ namespace AIVillage.M0
         {
             int amount = _worldConfig != null ? _worldConfig.MintIssueAmount : 0;
             if (amount <= 0) return;
+
+            // 발행 한도 (M17-R6, §8.5 발견 A) — 부채가 물가를 상한 너머로 밀 수는 없다.
+            // 이 거절이 없으면 상한 위로 발행이 공짜가 되어 "촌장의 돈은 유한하다"가 무너진다.
+            RefreshFinanceCache();
+            if (_headroomCache < amount)
+            {
+                Debug.Log($"[Money] 발행 거부 — 여력 {_headroomCache}동 < {amount}동 " +
+                          $"(발행 부채 {World.MintDebt}동 · 물가가 상한에 닿아 있다)");
+                Hud?.Notify("더 찍을 수 없습니다 — 돈값이 바닥입니다. 여파가 가라앉기를 기다리거나 세금을 걷으세요");
+                return;
+            }
+
             World.IssueCurrency(amount, "촌장 발행");
-            Hud?.Notify($"{SeasonHud.ComposeMoney(amount)}을 찍었습니다 — 돈값이 떨어집니다");
+            _forecastCachedAt = -1f; // 즉시 재계산 — 찍은 결과가 같은 프레임에 화면에 도착해야 한다
+            Hud?.Notify($"{SeasonHud.ComposeMoney(amount)}을 찍었습니다 — 돈값이 떨어집니다 " +
+                        $"(남은 발행 {MintChargesLeft}회)");
         }
 
         // 겨울 미대비 열거 버퍼 (M14-W4) — _starvingBuf와 동일 패턴 (재사용·정렬·급한 순)
@@ -1052,7 +1087,7 @@ namespace AIVillage.M0
                 Hud?.Tick(GameTime, Season, _worldConfig.ForecastDays, PricePct,
                           PriceForecastPct, _pricePartMoney, _pricePartMint,
                           World.Treasury, TaxRatePct,
-                          World.MintDebt, _worldConfig.PriceCapPct);
+                          World.MintDebt, _worldConfig.PriceCapPct, MintChargesLeft);
 
                 // 상태 알림 줄 (M13-B, 2026-07-30 개정 — 舊 M11-D 마을 최솟값 요약을 개인 열거로).
                 // 관측 대상은 마을 평균이 아니라 낙오자 — 그 정신의 완성형은 "낙오자의 이름"이다.

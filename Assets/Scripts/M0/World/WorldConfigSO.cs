@@ -111,6 +111,25 @@ namespace AIVillage.M0
                  "통화량 증가를 늦출 뿐이다. 물가는 며칠에 걸쳐 움직인다.")]
         public int[] TaxRatePcts = { 0, 15, 30 };
 
+        [Header("발행 (M17-W3 — 화폐 신뢰. ⚠️ 아래 셋은 짝이다: 방법론 M17)")]
+        [Tooltip("한 번 찍을 때의 발행량(동). 제안치 100 — 집값 50동·웃돈 10동 세계에서 " +
+                 "웃돈 10회분이라 '비상 수혈' 감각이 된다. 실측 근거 없음, Play 재조정 대상.")]
+        public int MintIssueAmount = 100;
+
+        [Tooltip("발행 가산 계수 k (M17-W3) — 물가 분자에 k × 발행부채가 더해진다.\n" +
+                 "0 = 마찰 없음(찍어도 안 아프다) · 1 = 액면 전액이 분자에 실린다.\n" +
+                 "⚠️ MintDebtDecayPct와 **짝**이다 — k가 커도 하루 만에 잦아들면 안 아프고, " +
+                 "k가 작아도 안 잦아들면 영구 페널티다. 하나만 바꾸지 않는다.\n" +
+                 "제안치 1.0 — 실측 근거 없음.")]
+        public float MintSurchargeK = 1f;
+
+        [Tooltip("발행 부채의 하루 감쇠율 % (M17-W3). 제안치 50 — 100동 발행 시\n" +
+                 "100 → 50 → 25 → 12 → 6 → 0 (5일. 5 미만 잔량은 떨어뜨린다).\n" +
+                 "⚠️ 곱셈 감쇠라 체감이 직관과 다르다: 20%/일이면 5일 뒤가 0이 아니라 32이고 " +
+                 "0에 닿기까지 13일이 걸린다 — 겨울이 4일인 이 게임에서는 사실상 영구 페널티다.\n" +
+                 "0 = 감쇠 없음(영구 부채). ⚠️ MintSurchargeK와 짝 — 위 설명 참조.")]
+        public int MintDebtDecayPct = 50;
+
         /// <summary>세율 상한 90 % (M17-W2) — 100%면 실수령이 0이 되어 임금이 플래너 시야에서
         /// 통째로 사라지고 Goal_SaveForHome이 NoSolution이 된다. 손잡이의 사각지대를 에디터에서 막는다.</summary>
         public const int MaxTaxRatePct = 90;
@@ -118,6 +137,9 @@ namespace AIVillage.M0
         private void OnValidate()
         {
             if (StartingTreasury < 0) StartingTreasury = 0;
+            if (MintIssueAmount < 0) MintIssueAmount = 0;
+            MintSurchargeK   = Mathf.Max(0f, MintSurchargeK);
+            MintDebtDecayPct = Mathf.Clamp(MintDebtDecayPct, 0, 100);
             if (TaxRatePcts == null) return;
             for (int i = 0; i < TaxRatePcts.Length; i++)
                 TaxRatePcts[i] = Mathf.Clamp(TaxRatePcts[i], 0, MaxTaxRatePct);

@@ -122,6 +122,74 @@ namespace AIVillage.Tests.EditMode
             Assert.AreEqual("중과", M0SimulationLoop.TaxStageName(90), "상한 근처도 중과");
         }
 
+        // ── T3: 발행 부채의 감쇠 곡선 (순수 — ADR-M17-4) ──────────────────────
+
+        [Test]
+        public void M17_T3_DecayMintDebt_Curve()
+        {
+            Assert.AreEqual(50, WorldModel.DecayMintDebt(100, 50), "제안치 50%/일");
+            Assert.AreEqual(12, WorldModel.DecayMintDebt(25, 50),  "12.5 내림");
+            Assert.AreEqual(0,  WorldModel.DecayMintDebt(6, 50),   "3 → 5 미만이라 떨군다");
+            Assert.AreEqual(80, WorldModel.DecayMintDebt(100, 20), "다른 감쇠율도 곡선은 같다");
+            Assert.AreEqual(0,  WorldModel.DecayMintDebt(0, 50));
+            Assert.AreEqual(0,  WorldModel.DecayMintDebt(-10, 50), "음수 방어");
+            Assert.AreEqual(100, WorldModel.DecayMintDebt(100, 0), "감쇠 0% = 영구 부채 (에셋의 선택)");
+            Assert.AreEqual(0,  WorldModel.DecayMintDebt(100, 100), "전량 감쇠");
+        }
+
+        [Test]
+        public void M17_T3_MintDebt_ReachesZero_NotStuckAtDust()
+        {
+            // 감쇠가 **곱셈**이라 체감이 직관과 어긋난다. 명세 초안은 "20%/일 → 5일이면 소멸"
+            // 이라고 적었는데 실제로는 5일 뒤가 32이고 0까지 13일이 걸린다 — 겨울이 4일인
+            // 이 게임에서는 사실상 영구 페널티다. 제안치를 50%/일로 바로잡은 근거가 이 계산이다.
+            int slow = 100;
+            for (int day = 1; day <= 5; day++) slow = WorldModel.DecayMintDebt(slow, 20);
+            Assert.AreEqual(32, slow, "20%/일은 5일 뒤에도 32가 남는다 (100·0.8⁵ = 32.8)");
+
+            // 50%/일 = 의도한 곡선: 100 → 50 → 25 → 12 → 6 → 0 (5 미만 절단이 꼬리를 끊는다)
+            int fast = 100;
+            int[] expected = { 50, 25, 12, 6, 0 };
+            for (int day = 0; day < expected.Length; day++)
+            {
+                fast = WorldModel.DecayMintDebt(fast, 50);
+                Assert.AreEqual(expected[day], fast, $"{day + 1}일째");
+            }
+        }
+
+        [Test]
+        public void M17_T3_IssueCurrency_FillsChestAndDebt_ButNotMoneySupply()
+        {
+            var world = new WorldModel(null, null);
+
+            world.IssueCurrency(100, "게이트");
+
+            Assert.AreEqual(100, world.Treasury,    "금고가 찬다");
+            Assert.AreEqual(100, world.MintDebt,    "쓰기 전부터 여파가 붙는다");
+            Assert.AreEqual(100, world.IssuedTotal, "찍은 몫만 따로 센다 (연대기 W6용)");
+            Assert.AreEqual(100, world.MintedTotal, "무에서 나왔으므로 발행 누적에도 실린다");
+            Assert.AreEqual(0,   world.MoneySupply, "ADR-M17-1 — 시중에는 아직 안 나갔다");
+            Assert.IsTrue(WorldModel.IsLedgerBalanced(world.MintedTotal, world.MoneySupply,
+                                                      world.Treasury, world.BurnedTotal),
+                          "MintDebt는 실물 돈이 아니므로 폐곡선 밖이다");
+        }
+
+        [Test]
+        public void M17_T3_MintDebt_NotReducedBySpending()
+        {
+            // ⚠️ ADR-M17-4의 핵심: 찍은 돈을 써도 부채는 그대로다. 차감하면 발행 마찰이
+            // 사라져 기각한 "마찰 없음" 안으로 되돌아간다. 줄어드는 길은 감쇠뿐이다.
+            var world = new WorldModel(null, null);
+            world.IssueCurrency(100, "게이트");
+
+            // 지급 실패 경로(대상 null)로도, 성공 경로로도 부채는 건드려지지 않는다
+            world.PayFromTreasury(null, 50, "게이트");
+            Assert.AreEqual(100, world.MintDebt, "지급 시도는 부채를 안 건드린다");
+
+            world.TickMintDebtDecay(50);
+            Assert.AreEqual(50, world.MintDebt, "줄어드는 유일한 길 = 하루 감쇠");
+        }
+
         // ── T5-c: 금고 흐름의 실제 회계 (인스턴스 — 지갑을 안 건드리는 경로만) ──
 
         [Test]

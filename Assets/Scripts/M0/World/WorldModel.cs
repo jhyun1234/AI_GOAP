@@ -112,6 +112,18 @@ namespace AIVillage.M0
         public int MintedTotal { get; private set; }
         public int BurnedTotal { get; private set; }
 
+        /// <summary>촌장이 **찍어서** 만든 돈의 누적 (M17-W3) — 연대기 기록용 (W6).
+        /// ⚠️ MintedTotal과 다르다: 그쪽은 임금·원천징수까지 포함하므로 "찍어서 버텼다"를
+        /// 왜곡한다. 이 값만이 발행 버튼을 몇 번 눌렀는지를 말한다. 세이브 대상.</summary>
+        public int IssuedTotal { get; private set; }
+
+        /// <summary>발행 부채 (M17-W3, ADR-M17-4) — 찍은 돈이 물가에 남기는 여파.
+        /// 발행 순간 액수만큼 붙고 하루마다 일정 비율 감쇠한다. **쓰지 않고 쌓아만 둬도 아프다**:
+        /// "찍었다"는 사실 자체가 돈값을 떨어뜨린다는 것이 이 축의 전부다.
+        /// ⚠️ 실물 돈이 아니다 — 폐곡선 항등식(§8 D2)에 들어가지 않는다. MoneySupply에
+        /// 더하지 않는다. 물가 산식의 항으로만 쓰인다 (W4). 세이브 대상.</summary>
+        public int MintDebt { get; private set; }
+
         /// <summary>회계 폐곡선 (순수 — 게이트 M17-T5). 무에서 나온 총량은 언제나
         /// "도는 돈 + 금고 + 소멸한 돈"과 같다. 다섯 번째 쓰기 경로가 생기면 여기서 깨진다.</summary>
         public static bool IsLedgerBalanced(int minted, int supply, int treasury, int burned)
@@ -173,6 +185,42 @@ namespace AIVillage.M0
             MoneySupply = NextSupply(MoneySupply, amount);
             Debug.Log($"[Money] 금고 →{to.AgentId} {amount}동 — {why} (금고 {Treasury} · 통화량 {MoneySupply})");
             return true;
+        }
+
+        /// <summary>촌장의 발행 (M17-W3) — 무 → 금고. 금고는 M 밖이라 통화량은 안 늘지만
+        /// MintDebt가 즉시 붙어 물가(예보)가 그 자리에서 움직인다.
+        /// ⚠️ 이 부채는 웃돈으로 나갈 때 **차감하지 않는다** — 차감하면 발행 마찰이 사라져
+        /// 브레인스토밍에서 기각한 "마찰 없음" 안으로 되돌아간다. 감쇠만 한다 (ADR-M17-4).</summary>
+        public void IssueCurrency(int amount, string why)
+        {
+            if (amount <= 0) return;
+            MintToTreasury(amount, why);   // 회계는 한 통로로 (폐곡선 유지)
+            IssuedTotal += amount;
+            MintDebt    += amount;
+            Debug.Log($"[Money] 발행 여파 +{amount} (누적 {MintDebt}) — 찍은 돈은 값이 더 떨어진다");
+        }
+
+        /// <summary>발행 부채 감쇠 (M17-W3, 순수 — 게이트 M17-T3). 하루 1회.
+        /// 내림이라 잔량이 1~4에서 영원히 안 사라지므로 5 미만은 0으로 떨군다
+        /// (감쇠율 0%면 영구 부채가 의도이므로 그때는 떨구지 않는다).</summary>
+        public static int DecayMintDebt(int debt, int decayPct)
+        {
+            if (debt <= 0) return 0;
+            int rate = Mathf.Clamp(decayPct, 0, 100);
+            if (rate <= 0) return debt;                 // 감쇠 없음 = 영구 부채 (에셋의 선택)
+            int next = Mathf.FloorToInt(debt * (100 - rate) / 100f);
+            return next < 5 ? 0 : next;
+        }
+
+        /// <summary>감쇠 적용 (M17-W3) — 하루 경계 블록에서 1회 호출. 순수 함수와 쓰기 지점을
+        /// 나눈 이유는 게이트가 곡선만 따로 검증할 수 있게 하기 위함이다.</summary>
+        public void TickMintDebtDecay(int decayPct)
+        {
+            if (MintDebt <= 0) return;
+            int next = DecayMintDebt(MintDebt, decayPct);
+            if (next == MintDebt) return;
+            Debug.Log($"[Money] 발행 여파 {MintDebt} → {next} (하루 감쇠 {decayPct}%)");
+            MintDebt = next;
         }
 
         /// <summary>소멸: 주민 → 무 (ADR-M17-2 ④). 호출처는 사망(BurnWalletOnDeath) 1곳뿐.

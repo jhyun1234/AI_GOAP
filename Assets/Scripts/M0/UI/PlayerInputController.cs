@@ -81,6 +81,10 @@ namespace AIVillage.M0
             // 되돌릴 수 있는 조작이라 확인 창을 두지 않는다 (C·Y/N 전례).
             if (Input.GetKeyDown(KeyCode.T)) M0SimulationLoop.Instance.CycleTaxStage();
 
+            // 발행 (M17-W3) — M 키. 금고가 비었을 때의 급전이지만, 찍는 순간 발행 부채가 붙어
+            // 아직 쓰지도 않았는데 돈값이 떨어진다. 며칠이면 감쇠하므로 확인 창은 두지 않는다.
+            if (Input.GetKeyDown(KeyCode.M)) M0SimulationLoop.Instance.IssueCurrency();
+
             // 연대기 토글 (M15-W3) — C 키 하나가 유일한 열람 통로 (게임 중·전멸 화면 공용).
             // 파일 IO는 여는 순간 1회뿐 (⚠️ 매 프레임 Load 금지). 행 목록은 클릭 매핑용 캐시 —
             // BuildChronicleRows가 목록 문구와 같은 순서를 보장한다 (단일 출처).

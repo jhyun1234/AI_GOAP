@@ -334,6 +334,17 @@ namespace AIVillage.M0
         public static string TaxStageName(int ratePct)
             => ratePct <= 0 ? "면세" : ratePct < 25 ? "보통" : "중과";
 
+        /// <summary>발행 (M17-W3) — PlayerInputController의 M 키가 유일한 호출처.
+        /// 금고가 차는 대신 발행 부채가 붙어 물가가 오른다. 되돌릴 수 없는 조작이지만
+        /// 며칠이면 감쇠하므로 확인 창을 두지 않는다 — 대신 무슨 일이 일어났는지 반드시 알린다.</summary>
+        public void IssueCurrency()
+        {
+            int amount = _worldConfig != null ? _worldConfig.MintIssueAmount : 0;
+            if (amount <= 0) return;
+            World.IssueCurrency(amount, "촌장 발행");
+            Hud?.Notify($"{SeasonHud.ComposeMoney(amount)}을 찍었습니다 — 돈값이 떨어집니다");
+        }
+
         // 겨울 미대비 열거 버퍼 (M14-W4) — _starvingBuf와 동일 패턴 (재사용·정렬·급한 순)
         private readonly List<(string name, int days)> _unpreparedBuf = new List<(string, int)>(8);
 
@@ -1088,6 +1099,9 @@ namespace AIVillage.M0
                     if (TaxToday > 0)
                         Debug.Log($"[Money] 어제 세수 {TaxToday}동 (판 누적 {TaxTotal}동 · 금고 {World.Treasury}동)");
                     TaxToday = 0;
+                    // 발행 부채 감쇠 (M17-W3) — 찍고 가만두면 여파가 잦아든다.
+                    // ⚠️ 웃돈으로 나갈 때 차감하는 것이 아니다 (ADR-M17-4): 감쇠는 여기 한 곳뿐.
+                    World.TickMintDebtDecay(_worldConfig.MintDebtDecayPct);
                     string seasonStr = Season?.Current != null
                         ? $"{Season.Current.DisplayName}(위기까지 {Mathf.CeilToInt(Season.DaysToCrisis)}일)" : "-";
                     // 위협 경주 게이지 (M10R 관측용) — 마을 크기(정보)와 게임일 래칫 활성밴드를 매일 노출.

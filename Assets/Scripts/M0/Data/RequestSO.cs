@@ -100,6 +100,15 @@ namespace AIVillage.M0
                  "먹어서 포만을 얻는다 (결정 10). 0으로 둘 것")]
         public int RewardSatietyGain;
 
+        [Tooltip("수락 즉시 지급 (M17-R4) — 성격의 선불 요구(AgentConfig.DemandsUpfront)와 무관하게 " +
+                 "**언제나** 선불로 처리한다.\n" +
+                 "집 부탁이 이 값을 켠다: 의뢰인 조건이 이미 '돈 50동 이상'이라 부탁하는 순간 지불 능력이 " +
+                 "보장되므로, 완수 후 정산으로 미룰 이유가 없다. 미루면 정산이 반경 3의 우연에 걸려 " +
+                 "빚이 영영 안 갚아지고 채무자는 빚 goal을 무한히 돈다 (Play 관측 2026-08-01 — 아사).\n" +
+                 "⚠️ 지불 능력이 부탁 조건으로 보장되지 않는 부탁에는 켜지 말 것 — 선불 실패 시 " +
+                 "기존 후불·연기 경로로 조용히 되돌아간다(손실 없음)지만, 그러면 켠 의미가 없다.")]
+        public bool AlwaysUpfront;
+
         [Header("대사 (배고픔·피로 거절은 성격 RefuseLines 재사용 — 이중 기입 금지)")]
         public string[] AskLines;
         public string[] AcceptLines;

@@ -40,6 +40,7 @@ MonoBehaviour:
   RewardCostSlot: 37
   RewardCostAmount: 50
   RewardSatietyGain: 0
+  AlwaysUpfront: 1
   AskLines:
   - "집 좀 지어줄 수 있어? 50동 쳐줄게"
   - "나도 내 집이 있었으면 좋겠는데... 품삯은 50동, 어때?"

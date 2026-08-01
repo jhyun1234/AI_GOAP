@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using AIVillage.M0;
 using NUnit.Framework;
 using UnityEngine;
@@ -273,6 +274,50 @@ namespace AIVillage.Tests.EditMode
             // 🔴 PeakPricePct는 M16-W6에서 기록되고도 화면에 나온 적이 없었다 (W6 실사에서 발견).
             // 이 게이트가 그 회귀를 막는다 — 기록만 하고 안 보여 주는 것은 M13이 진단한 실패다.
             StringAssert.Contains("최고 물가 ×2.4", SeasonHud.ComposeRunEconomy(240, 0, 0));
+        }
+
+        // ── T9: 선불 부탁의 짝 (M17-R4) ──────────────────────────────────────
+
+        [Test]
+        public void M17_T9_AlwaysUpfront_RequiresGuaranteedAbilityToPay()
+        {
+            // AlwaysUpfront에는 짝이 있다: **켰으면 지불 능력이 부탁 성립 조건으로 보장돼야 한다.**
+            // 안 그러면 선불이 조용히 실패해 후불로 되돌아가고, 빚이 다시 생겨 켠 의미가 사라진다
+            // (그 빚은 반경 3의 우연에 걸려 영영 안 갚아진다 — Play 관측 2026-08-01, 아사).
+            var requests = UnityEditor.AssetDatabase.FindAssets("t:RequestSO", new[] { "Assets/M0Config/Requests" })
+                .Select(UnityEditor.AssetDatabase.GUIDToAssetPath)
+                .Select(UnityEditor.AssetDatabase.LoadAssetAtPath<RequestSO>)
+                .Where(r => r != null)
+                .ToList();
+            Assert.IsNotEmpty(requests, "부탁 에셋 로드");
+
+            foreach (RequestSO r in requests)
+            {
+                if (!r.AlwaysUpfront || r.RewardCostAmount <= 0) continue;
+
+                bool guaranteed = r.RequesterConditions != null && r.RequesterConditions.Any(
+                    c => c.Slot == r.RewardCostSlot
+                         && c.Op == CompareOp.GreaterOrEqual
+                         && c.Value >= r.RewardCostAmount);
+                Assert.IsTrue(guaranteed,
+                    $"{r.name}: AlwaysUpfront인데 의뢰인 조건이 지불 능력을 보장하지 않는다 — " +
+                    $"'{r.RewardCostSlot} ≥ {r.RewardCostAmount}'가 RequesterConditions에 있어야 한다");
+            }
+        }
+
+        [Test]
+        public void M17_T9_HouseRequests_LeaveNoDebt()
+        {
+            // 집 부탁이 선불이라는 것이 "빚이 안 생긴다"의 근거다 (M17-R4).
+            // 후불로 되돌리려면 빚 정산을 능동으로 만드는 설계가 먼저 있어야 한다.
+            foreach (string name in new[] { "Request_BuildMyHouse", "Request_House_Urgent" })
+            {
+                var r = UnityEditor.AssetDatabase.LoadAssetAtPath<RequestSO>(
+                    $"Assets/M0Config/Requests/{name}.asset");
+                Assert.IsNotNull(r, $"{name} 에셋 존재");
+                Assert.IsTrue(r.AlwaysUpfront, $"{name}: 집 부탁은 선불이어야 한다");
+                Assert.AreEqual(SlotId.MyMoney, r.RewardCostSlot, $"{name}: 대가는 돈");
+            }
         }
 
         // ── T8: 빚 슬롯의 분류와 스냅샷 주입 (M17-W7) ────────────────────────

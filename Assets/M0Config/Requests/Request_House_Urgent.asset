@@ -36,6 +36,7 @@ MonoBehaviour:
   RewardCostSlot: 37
   RewardCostAmount: 50
   RewardSatietyGain: 0
+  AlwaysUpfront: 1
   AskLines:
   - "늑대한테 물렸어... 집 좀 지어줘. 50동은 어떻게든 마련할게"
   - "한데서 자다간 죽겠어. 품삯 50동, 지금 없으면 나중에라도 갚을게"

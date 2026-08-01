@@ -94,11 +94,18 @@ namespace AIVillage.M0
                                 // ADR-M11-1). ⚠️ 집 저장 없음·소지 상한 없음 (돈은 부피가 없다 — PersonalCapOf).
                                 // 플래너 전제·효과 금지 (ADR-M16-5 — 스냅샷 값은 부탁 스캔 조건 전용).
                                 // 예산 52칸 중 38.
+
+        // ── M17 확장 (재정 — 빚) ──
+        MyDebt            = 38, // 수치형 — 내가 남에게 갚아야 할 돈(동). 원천 = RequestService
+                                // (미정산 보상 = 조각 Y의 빚 사전). ⚠️ **IsPersonalStock 아님** —
+                                // 빚은 소지품이 아니다. 넣으면 TransferTo가 "빚을 남에게 주는"
+                                // 경로를 열어 준다. 액션 효과 금지 (원천이 서비스 한 곳).
+                                // 예산 52칸 중 39.
     }
 
     public static class SlotIds
     {
-        public const int Count = 38;
+        public const int Count = 39;
 
         /// <summary>전역 스톡 슬롯 여부 — EffectApplier/러너가 공유하는 유일한 판정.
         /// ⚠️ 개인 스톡(MyRawFood 등)을 여기 넣으면 안 된다 (명세 M11-A ⚠️①) —
@@ -134,7 +141,8 @@ namespace AIVillage.M0
             || slot == SlotId.MyRipeCrop || slot == SlotId.UntendedInjuredCount
             || slot == SlotId.CampfireCount // MyHasCampfire(32)는 논리형이라 제외
             || slot == SlotId.DaysToFreeze  // PlantWindowOpen(36)은 논리형이라 제외
-            || slot == SlotId.MyMoney;      // M16 — 지갑(동)
+            || slot == SlotId.MyMoney       // M16 — 지갑(동)
+            || slot == SlotId.MyDebt;       // M17 — 빚(동)
 
         /// <summary>자원 타입 → 스톡 슬롯. M0 미지원 타입이면 null (Iron/Copper/Silver는 M1).</summary>
         public static SlotId? StockOf(ResourceType type)

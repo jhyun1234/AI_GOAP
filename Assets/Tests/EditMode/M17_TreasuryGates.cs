@@ -275,6 +275,36 @@ namespace AIVillage.Tests.EditMode
             StringAssert.Contains("최고 물가 ×2.4", SeasonHud.ComposeRunEconomy(240, 0, 0));
         }
 
+        // ── T8: 빚 슬롯의 분류와 스냅샷 주입 (M17-W7) ────────────────────────
+
+        [Test]
+        public void M17_T8_MyDebt_IsNotAPossession()
+        {
+            // 빚은 소지품이 아니라 관계다. IsPersonalStock에 들어가면 TransferTo·CanPayReward가
+            // 빚을 재화처럼 다뤄 "빚을 남에게 주는" 경로가 열린다.
+            Assert.IsFalse(SlotIds.IsPersonalStock(SlotId.MyDebt), "이전 대상 아님");
+            Assert.IsFalse(SlotIds.IsStock(SlotId.MyDebt), "전역 스톡 아님 (라우팅 오염 금지)");
+            Assert.IsFalse(SlotIds.IsHomeStock(SlotId.MyDebt), "집에 저장되지 않는다");
+            Assert.IsTrue(SlotIds.IsNumeric(SlotId.MyDebt), "수치형 — goal 트리거가 읽는다");
+            Assert.AreEqual(38, (int)SlotId.MyDebt, "기존 인덱스 뒤 append (ADR-M0-9)");
+        }
+
+        [Test]
+        public void M17_T8_MyDebt_ReachesThePlanner()
+        {
+            // 🔴 M16-W5에서 MyMoney를 스냅샷에 안 넣어 직거래 조건이 영원히 불성립할 뻔했다.
+            // 주입이 없으면 트리거가 늘 0을 읽어 Goal_RepayDebt가 **절대** 안 뜨는데,
+            // 컴파일도 다른 게이트도 그걸 못 잡는다. 여기서 잡는다.
+            var world = new WorldModel(null, null);
+
+            WorldSnapshot none = world.BuildSnapshot(50, 10);
+            Assert.AreEqual(0, none.Slots[(int)SlotId.MyDebt], "기본 0 = 화폐 이전과 동일 (중립)");
+
+            WorldSnapshot owing = world.BuildSnapshot(50, 10, myMoney: 12, myDebt: 50);
+            Assert.AreEqual(50, owing.Slots[(int)SlotId.MyDebt], "빚이 플래너 입력에 도착한다");
+            Assert.AreEqual(12, owing.Slots[(int)SlotId.MyMoney], "지갑 주입은 그대로 (M16-W5 회귀 방지)");
+        }
+
         // ── T4: 예보가 판정에 새지 않는다 (소스 스캔 — ADR-M17-3) ─────────────
 
         [Test]

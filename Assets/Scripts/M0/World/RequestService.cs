@@ -414,6 +414,12 @@ namespace AIVillage.M0
                 return;
             }
             _pendingReports[builderId] = (rec.so, rec.requesterId, rec.prepaid);
+
+            // 빚 표식 (M17-W7) — 갚아야 할 사람은 **의뢰인**이다. 화폐 보상에만 붙인다:
+            // 실물(식량) 보상은 "돈을 벌어 갚는다"는 goal로 이어지지 않는다.
+            // 선불이면 이미 치렀으므로 빚이 아니다.
+            if (!rec.prepaid && rec.so.RewardCostSlot == SlotId.MyMoney && rec.so.RewardCostAmount > 0)
+                requester.SetDebt(rec.so.RewardCostAmount, $"{rec.so.DisplayName} 미정산");
         }
 
         /// <summary>
@@ -494,6 +500,9 @@ namespace AIVillage.M0
             }
             _pendingReports.Remove(builder.AgentId);
             _deferLogged.Remove(builder.AgentId);
+            // 빚 청산 (M17-W7) — 지급(Pay)이든 떼먹기(Stiff)든 감사(Thanks)든, 이 장면으로
+            // 채무 관계는 끝난다. 떼먹힌 원한은 관계 축이 따로 기억한다 (M11-H).
+            payer?.SetDebt(0, $"{rec.so.DisplayName} 정산 종료");
 
             // 목수 완수 대사도 지연 경로로 (2026-07-18 버그 수정): 즉시 ShowTransient는 정산
             // 순간(마주침=이동 중단)의 AbortPlan.Clear에 지워져 목수만 침묵하고 의뢰인 감사만
@@ -578,6 +587,10 @@ namespace AIVillage.M0
                     _keysToRemove.Add(kv.Key);
             foreach (string key in _keysToRemove)
             {
+                // 빚 표식도 함께 지운다 (M17-W7) — 안 지우면 상대가 죽은 뒤에도 의뢰인이
+                // 영원히 갚을 곳 없는 빚을 지고 Goal_RepayDebt가 계속 뜬다 (유령 채무).
+                if (_pendingReports.TryGetValue(key, out (RequestSO so, string requesterId, bool prepaid) gone))
+                    FindAgent(gone.requesterId)?.SetDebt(0, "정산 상대 부재 — 채무 소멸");
                 _pendingReports.Remove(key); // 목수든 의뢰인이든 이탈 → 정산 불가, 빚 소멸
                 _deferLogged.Remove(key);    // 연기 로그 표식도 함께 (M11-H)
             }

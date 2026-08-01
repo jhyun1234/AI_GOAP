@@ -511,7 +511,8 @@ namespace AIVillage.M0
                 Farm != null ? Farm.CountRipeOf(AgentId) : 0,
                 hasCampfire,                                                   // 내 모닥불 (M11-K)
                 MyWasStarved,                                                  // 아사 직전 경험 (M12-G)
-                MyMoney);                                                      // 지갑 (M16-W5 — 부탁 스캔 조건 전용)
+                MyMoney,                                                       // 지갑 (M16-W5 — 부탁 스캔 조건 전용)
+                MyDebt);                                                       // 빚 (M17-W7 — Goal_RepayDebt 트리거)
         }
 
         /// <summary>
@@ -1666,6 +1667,21 @@ namespace AIVillage.M0
         /// <summary>몸 소지 돈(동) — M16-W1. 쓰기는 ApplyPersonalStock만 (ADR-M11-1).
         /// 발행(적립+M 누적)은 WorldModel.Mint 경유가 유일 (ADR-M16-1). 세이브 대상 (ADR-M11-10).</summary>
         public int MyMoney { get; private set; }
+
+        /// <summary>내가 남에게 갚아야 할 돈(동) — M17-W7. **원천은 RequestService 하나뿐**이다
+        /// (미정산 보상 = 조각 Y의 빚). 액션 효과로 바뀌지 않고 이전 대상도 아니다:
+        /// 빚은 소지품이 아니라 관계다. 세이브 대상 (ADR-M0-10).</summary>
+        public int MyDebt { get; private set; }
+
+        /// <summary>빚 설정 (M17-W7) — RequestService 전용 창구 (상태 쓰기 단일 지점).
+        /// 0을 넣으면 청산이다 (정산·떼먹기·이탈 어느 쪽이든 빚은 끝난다).</summary>
+        public void SetDebt(int amount, string why)
+        {
+            int next = Mathf.Max(0, amount);
+            if (next == MyDebt) return;
+            MyDebt = next;
+            Debug.Log($"[Request] {AgentId}: 빚 {(next > 0 ? $"{next}동 발생" : "청산")} — {why}");
+        }
 
         // 생애 첫 임금 표식 (M16-W2) — 첫 지급만 말풍선 (스팸 방지). 세이브 대상 (ADR-M0-10)
         private bool _everPaid;

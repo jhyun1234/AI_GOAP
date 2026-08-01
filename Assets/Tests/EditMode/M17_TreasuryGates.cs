@@ -243,6 +243,38 @@ namespace AIVillage.Tests.EditMode
                             "문턱 직전은 아직 보통 — 불평도 안 나온다");
         }
 
+        // ── T7: 연대기의 경제 한 줄 (순수 — M17-W6) ──────────────────────────
+
+        [Test]
+        public void M17_T7_RunEconomy_SilentOnPreCurrencyRuns()
+        {
+            // 구버전 아카이브(화폐 이전)는 세 값이 전부 0이다 — 줄이 생기면 안 된다 (M15 표기 규약).
+            Assert.AreEqual(string.Empty, SeasonHud.ComposeRunEconomy(0, 0, 0), "화폐 이전 기록");
+            Assert.AreEqual(string.Empty, SeasonHud.ComposeRunEconomy(100, 0, 0), "물가 무변동 판");
+        }
+
+        [Test]
+        public void M17_T7_RunEconomy_SplitsTheStory()
+        {
+            // 세수와 발행의 비율이 곧 서사다 — 굴린 판과 찍은 판이 목록에서 갈려야 한다.
+            string taxRun = SeasonHud.ComposeRunEconomy(240, 1240, 0);
+            StringAssert.Contains("최고 물가 ×2.4", taxRun);
+            StringAssert.Contains("세수 12은 40동", taxRun);
+            StringAssert.DoesNotContain("발행", taxRun, "안 찍은 판에는 발행 항목이 없다");
+
+            string mintRun = SeasonHud.ComposeRunEconomy(400, 0, 10000);
+            StringAssert.Contains("발행 1금", mintRun);
+            StringAssert.DoesNotContain("세수", mintRun, "면세 판에는 세수 항목이 없다");
+        }
+
+        [Test]
+        public void M17_T7_RunEconomy_PeakPriceFinallyReachesScreen()
+        {
+            // 🔴 PeakPricePct는 M16-W6에서 기록되고도 화면에 나온 적이 없었다 (W6 실사에서 발견).
+            // 이 게이트가 그 회귀를 막는다 — 기록만 하고 안 보여 주는 것은 M13이 진단한 실패다.
+            StringAssert.Contains("최고 물가 ×2.4", SeasonHud.ComposeRunEconomy(240, 0, 0));
+        }
+
         // ── T4: 예보가 판정에 새지 않는다 (소스 스캔 — ADR-M17-3) ─────────────
 
         [Test]

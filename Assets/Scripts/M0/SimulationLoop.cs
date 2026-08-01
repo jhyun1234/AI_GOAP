@@ -586,6 +586,8 @@ namespace AIVillage.M0
                 Settles = SettleCount,
                 Ended   = ended,
                 PeakPricePct = _peakPricePct, // M16-W6 — 부(富)의 흔적: "물가 2배까지 갔던 판"
+                TaxTotal     = TaxTotal,          // M17-W6 — 세수로 굴렸는가
+                MintTotal    = World.IssuedTotal, // M17-W6 — 찍어서 버텼는가 (MintedTotal 아님)
             };
             foreach (VillagerRecord r in Chronicle.RosterByBirth())
                 entry.Roster.Add(new ChronicleArchive.VillagerEntry

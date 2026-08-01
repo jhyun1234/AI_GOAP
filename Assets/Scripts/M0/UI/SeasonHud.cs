@@ -806,8 +806,31 @@ namespace AIVillage.M0
             var sb = new System.Text.StringBuilder(256);
             sb.Append(run.RunNumber > 0 ? $"판 {run.RunNumber}" : "이번 판");
             sb.Append($" — 겨울 {run.Winters} · Day {run.LastDay} · 최대 {run.PeakPop}명 · {(run.Ended ? "전멸" : "진행 중")}");
+            sb.Append(ComposeRunEconomy(run.PeakPricePct, run.TaxTotal, run.MintTotal));
             foreach (ChronicleArchive.VillagerEntry v in run.Roster)
                 sb.Append('\n').Append(ComposeArchiveGrave(v));
+            return sb.ToString();
+        }
+
+        /// <summary>판의 경제 한 줄 (M17-W6, 순수 — 게이트 M17-T7).
+        ///
+        /// **세수와 발행의 비율이 곧 서사다**: 세금으로 굴린 판인가, 찍어서 버틴 판인가.
+        /// 북극성("성장하며 버티는 기록 경주")에서 이 판이 어떤 방식으로 버텼는지가 여기 남는다.
+        ///
+        /// 🔴 `PeakPricePct`는 M16-W6에서 RunEntry에 기록되고도 **화면에 나온 적이 없었다**
+        /// (2026-08-01 W6 실사에서 발견 — SeasonHud 전체에 참조 0건). 기록해 놓고 아무도 못
+        /// 읽는 것은 M13이 "이야기가 로그에만 있었다"로 진단한 실패와 같은 종류다. 여기서 낸다.
+        ///
+        /// 세 항목 모두 0이면 줄 자체가 없다 — 화폐 이전 기록·무변동 판과의 호환 (M15 표기 규약).</summary>
+        public static string ComposeRunEconomy(int peakPricePct, int taxTotal, int mintTotal)
+        {
+            bool anyPrice = peakPricePct > 100;
+            if (!anyPrice && taxTotal <= 0 && mintTotal <= 0) return string.Empty;
+
+            var sb = new System.Text.StringBuilder(64);
+            if (anyPrice) sb.Append($" · 최고 물가 ×{peakPricePct / 100f:0.0#}");
+            if (taxTotal > 0)  sb.Append($" · 세수 {ComposeMoney(taxTotal)}");
+            if (mintTotal > 0) sb.Append($" · 발행 {ComposeMoney(mintTotal)}");
             return sb.ToString();
         }
 

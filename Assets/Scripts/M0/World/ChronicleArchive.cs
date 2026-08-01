@@ -45,6 +45,11 @@ namespace AIVillage.M0
             public bool   Ended;        // true = 전멸 마감 / false = 겨울 갱신까지 (중도 종료 판)
             public int    PeakPricePct; // 판 중 최고 물가 % (M16-W6 append — ADR-M14-3: 필드 append는
                                         // Version 인상 없음. 0 = 화폐 이전 기록·물가 무변동 판)
+            public int    TaxTotal;     // 판 전체 세수 누적(동) — M17-W6 append
+            public int    MintTotal;    // 판 전체 **발행** 누적(동) — M17-W6 append.
+                                        // ⚠️ WorldModel.IssuedTotal만 담는다. MintedTotal에는
+                                        // 임금·원천징수가 섞여 있어 "찍어서 버텼다"를 왜곡한다.
+                                        // 이 둘의 비율이 곧 서사다: 세수로 굴린 판인가, 찍어서 버틴 판인가.
             public List<VillagerEntry> Roster = new List<VillagerEntry>();
         }
 

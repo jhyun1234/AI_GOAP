@@ -1541,6 +1541,27 @@ namespace AIVillage.M0
             return null;
         }
 
+        /// <summary>탐색 반경 안에서 가장 가까운 해당 직업 주민 (M17-R3, SeekJobRunner 전용).
+        /// 자기 자신·사망자 제외. maxDist 0 이하 = 무제한. 없으면 null.
+        /// 에이전트 목록 순회를 VillagerAgent 안에 가둔다 — FindVisitTarget과 같은 이유
+        /// (러너가 _sim을 직접 잡으면 주민 전용 로직이 밖으로 샌다, CLAUDE.md 후반 확장 규칙 2).</summary>
+        public VillagerAgent FindNearestWithJob(JobSO job, int maxDist)
+        {
+            if (job == null) return null;
+            VillagerAgent best = null;
+            int bestDist = int.MaxValue;
+            foreach (VillagerAgent a in _sim.Agents)
+            {
+                if (a == null || a == this || a.State == AgentState.Dead || a.Job != job) continue;
+                int d = Mathf.Abs(TileX - a.TileX) + Mathf.Abs(TileY - a.TileY);
+                if (maxDist > 0 && d > maxDist) continue;
+                if (d >= bestDist) continue;
+                bestDist = d;
+                best = a;
+            }
+            return best;
+        }
+
         /// <summary>
         /// 보고 심부름 부여 (RequestService 전용) — 부탁 슬롯 재사용 (ADR-M8-4: 새 실행 경로 없음).
         /// 심부름 goal은 GoalConditions가 비어 완수 판정을 타지 않는다 — 소멸은 PlayReport/타임아웃.

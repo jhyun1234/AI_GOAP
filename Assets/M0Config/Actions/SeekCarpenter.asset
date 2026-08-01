@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8411c179dc59462f996f67c0ad019df9, type: 3}
+  m_Name: SeekCarpenter
+  m_EditorClassIdentifier:
+  DisplayName: "목수를 찾아가자"
+  BubbleLines:
+  - "목수를 찾아가자"
+  - "이만하면 집을 부탁할 수 있겠지"
+  - "돈은 모았으니 이제 말만 꺼내면 된다"
+  - "어디 있으려나, 그 목수"
+  BaseCost: 1
+  DurationSec: 4
+  Preconditions: []
+  Effects: []
+  TargetJob: {fileID: 11400000, guid: fda218a4d94842849b31a189131a4926, type: 2}
+  ArriveRadiusTiles: 3
+  SearchRadiusTiles: 40

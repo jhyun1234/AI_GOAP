@@ -144,11 +144,17 @@ namespace AIVillage.Tests.EditMode
         [Test]
         public void M16_T8_ComposeMoney_TieredDisplay()
         {
+            // M17-W5 진법 개편: 1은 = 100동, 1금 = 100은 = 10,000동 (舊 1은 = 10동).
+            // 이 게이트는 ComposeMoney의 짝이다 — 한쪽만 고치면 화면과 기대가 갈린다 (방법론 M17).
             Assert.AreEqual("0동", SeasonHud.ComposeMoney(0));
             Assert.AreEqual("7동", SeasonHud.ComposeMoney(7));
-            Assert.AreEqual("1은 3동", SeasonHud.ComposeMoney(13));
-            Assert.AreEqual("1금", SeasonHud.ComposeMoney(100), "0 단위 생략");
-            Assert.AreEqual("2금 4은 7동", SeasonHud.ComposeMoney(247));
+            Assert.AreEqual("13동", SeasonHud.ComposeMoney(13), "100 미만은 전부 동");
+            Assert.AreEqual("50동", SeasonHud.ComposeMoney(50), "집값 50동 = 아직 은에 못 미친다");
+            Assert.AreEqual("1은", SeasonHud.ComposeMoney(100), "0 단위 생략");
+            Assert.AreEqual("2은 47동", SeasonHud.ComposeMoney(247));
+            Assert.AreEqual("1금", SeasonHud.ComposeMoney(10000));
+            Assert.AreEqual("1금 2은 47동", SeasonHud.ComposeMoney(10247));
+            Assert.AreEqual("1금 47동", SeasonHud.ComposeMoney(10047), "가운데 단위만 0이면 건너뛴다");
             Assert.AreEqual("0동", SeasonHud.ComposeMoney(-5), "음수 방어");
         }
     }

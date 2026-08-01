@@ -503,13 +503,18 @@ namespace AIVillage.M0
             return $"Day {day} · {yearSeason}{price}";
         }
 
-        /// <summary>화폐 표시 (M16-W4, 순수 — 게이트 M16-T8. ADR-M16-6: 표시 변환은 이 함수뿐).
-        /// 동 정수 → "N금 N은 N동" (1은 = 10동, 1금 = 100동 — 표시 계층일 뿐 실물 아님).
+        /// <summary>화폐 표시 (M16-W4, M17-W5 진법 개편, 순수 — 게이트 M16-T8.
+        /// ADR-M16-6: 표시 변환은 이 함수뿐).
+        /// 동 정수 → "N금 N은 N동" (**1은 = 100동, 1금 = 100은 = 10,000동** — 표시 계층일 뿐
+        /// 실물 아님). 舊 진법은 1은 = 10동이었다; 현실 화폐감에 맞춰 100진법으로 바꿨다.
+        /// 지금 규모(임금 5~6동·집 50동)에서는 은이 거의 안 나오는데 그게 의도다 —
+        /// **은이 보이기 시작하는 것 자체가 "마을이 커졌다"의 신호**다.
+        /// ⚠️ 이 함수와 게이트 M16-T8은 짝이다 (방법론 M17). 한쪽만 고치지 않는다.
         /// 0인 단위는 생략, 전부 0이면 "0동". 지갑·대사·결산·경보가 전부 여기를 지난다.</summary>
         public static string ComposeMoney(int coins)
         {
             if (coins <= 0) return "0동";
-            int gold = coins / 100, silver = coins % 100 / 10, copper = coins % 10;
+            int gold = coins / 10000, silver = coins % 10000 / 100, copper = coins % 100;
             var sb = new System.Text.StringBuilder(12);
             if (gold > 0) sb.Append(gold).Append('금');
             if (silver > 0) { if (sb.Length > 0) sb.Append(' '); sb.Append(silver).Append('은'); }

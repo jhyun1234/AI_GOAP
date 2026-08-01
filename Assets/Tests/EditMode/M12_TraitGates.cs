@@ -759,7 +759,10 @@ namespace AIVillage.Tests.EditMode
             // ADR-M2-5 (쿨다운 면제 = 물러설 수 없는 goal의 자격)
             ["SkipFailureCooldown"] = new[] { "Goal_P0_Hunger", "Goal_P0_Fatigue", "Goal_Flee" },
             // GoalSO.DirectActionPool 툴팁의 자격 3조건
-            ["DirectActionPool"] = new[] { "Goal_Leisure", "Goal_ReportDone", "Goal_Routine_Explorer", "Goal_Routine_Farmer" },
+            // (M17-R3 추가: Goal_SeekCarpenter — ⓐ의 두 번째 종류 "끝이 슬롯 밖에 있는 것".
+            //  '목수 곁에 도착'은 위치라 GoalConditions로 쓸 수 없다. ⓑ 풀 1개 ⓒ 이동만·효과 없음)
+            ["DirectActionPool"] = new[] { "Goal_Leisure", "Goal_ReportDone", "Goal_Routine_Explorer",
+                                           "Goal_Routine_Farmer", "Goal_SeekCarpenter" },
             // ADR-M5-4 (폴백 불변식) — "세 번째 용도 = 규칙 재검토 신호"라는 자폭 트리거 내장
             ["RequiredJob"] = new[] { "Goal_TreatInjured", "Goal_BuildMyHouse" },
             // ADR-M6-2 (게임건강 예외) — 식량 goal 3 + 명령 goal 3

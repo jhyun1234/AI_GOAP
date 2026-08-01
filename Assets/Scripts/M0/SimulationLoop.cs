@@ -281,6 +281,59 @@ namespace AIVillage.M0
         public int PricePct { get; private set; } = 100;
         private int _peakPricePct = 100; // 판 중 최고 물가 (M16-W6 — 연대기 RunEntry 기록용)
 
+        // ── 재정 정책 (M17-W2) ────────────────────────────────────────────────
+        /// <summary>임금 원천징수 세율 단계 인덱스 (WorldConfig.TaxRatePcts의 자리). 세이브 대상.</summary>
+        public int TaxStage { get; private set; }
+
+        /// <summary>현재 세율 % — 판정·표시·플래너가 전부 이 값 하나를 읽는다 (규칙 이원화 금지).
+        /// 배열이 비거나 인덱스가 벗어나면 0(무세) = 중립.</summary>
+        public int TaxRatePct
+        {
+            get
+            {
+                int[] steps = _worldConfig != null ? _worldConfig.TaxRatePcts : null;
+                return steps != null && steps.Length > 0
+                    ? Mathf.Clamp(steps[Mathf.Clamp(TaxStage, 0, steps.Length - 1)], 0,
+                                  WorldConfigSO.MaxTaxRatePct)
+                    : 0;
+            }
+        }
+
+        /// <summary>오늘 걷힌 세수(동) — 하루 결산 줄(W5)용. **하루 경계에서 0으로 리셋**한다
+        /// (안 하면 누적값이 되어 판 전체 세수 TaxTotal과 구분이 사라진다).</summary>
+        public int TaxToday { get; private set; }
+
+        /// <summary>판 전체 세수 누적(동) — 연대기 RunEntry(W6)용. 리셋 없음.</summary>
+        public int TaxTotal { get; private set; }
+
+        /// <summary>세수 집계 (M17-W2) — 원천징수 지점(VillagerAgent 임금 지급)이 유일한 호출처.
+        /// 실제 금고 적립은 WorldModel.MintToTreasury가 한다 — 여기는 관측용 집계뿐이다
+        /// (상태 쓰기 단일 지점 원칙: 돈은 WorldModel, 통계는 여기).</summary>
+        public void RecordTaxCollected(int tax)
+        {
+            if (tax <= 0) return;
+            TaxToday += tax;
+            TaxTotal += tax;
+        }
+
+        /// <summary>세율 단계 순환 (M17-W2) — PlayerInputController의 T 키가 유일한 호출처.
+        /// 단계가 **실제로 바뀔 때만** 플래너를 다시 컴파일한다 (매 프레임 재컴파일 금지, 명세 W2 ⚠️).</summary>
+        public void CycleTaxStage()
+        {
+            int[] steps = _worldConfig != null ? _worldConfig.TaxRatePcts : null;
+            if (steps == null || steps.Length <= 1) return;
+            int next = (TaxStage + 1) % steps.Length;
+            if (next == TaxStage) return;
+            TaxStage = next;
+            Planner?.Recompile(TaxRatePct); // 플래너가 보는 임금을 세후로 갱신
+            Debug.Log($"[Money] 세율 변경 → {TaxRatePct}% (단계 {TaxStage}) — 플래너 재컴파일");
+            Hud?.Notify($"세율 {TaxStageName(TaxRatePct)} {TaxRatePct}%");
+        }
+
+        /// <summary>세율 단계 이름 (순수 — 게이트 M17-T2). 수치가 아니라 감각을 보여준다.</summary>
+        public static string TaxStageName(int ratePct)
+            => ratePct <= 0 ? "면세" : ratePct < 25 ? "보통" : "중과";
+
         // 겨울 미대비 열거 버퍼 (M14-W4) — _starvingBuf와 동일 패턴 (재사용·정렬·급한 순)
         private readonly List<(string name, int days)> _unpreparedBuf = new List<(string, int)>(8);
 
@@ -699,6 +752,9 @@ namespace AIVillage.M0
             Construction = new ConstructionService(World);
             Zones        = new ZoneService(); // M9-A — 배치 결정자 (군집 휴리스틱 대체, ADR-M9-1)
             Planner      = new PlannerGateway(_catalog, _agentConfig); // M11-A — 개인 상한 전제 주입 (ADR-M11-3)
+            // 시작 세율 반영 (M17-W2) — 게이트웨이는 무세로 컴파일하고 나온다. 0단계가 0%가
+            // 아닌 판(에셋에서 바꾼 경우)에서 첫 계획부터 세후 임금을 보게 하는 한 줄이다.
+            if (TaxRatePct > 0) Planner.Recompile(TaxRatePct);
             Goals        = new GoalSelector(_goals);
             Chatter      = new ChatterService(_worldConfig, _agentConfig); // M7-C — 표현 전용 (ADR-M7-1)
             Relationship = new RelationshipService();
@@ -1027,6 +1083,11 @@ namespace AIVillage.M0
                         Debug.LogWarning($"[Money] 폐곡선 불일치 — 발행누적 {World.MintedTotal} ≠ " +
                                          $"통화량 {World.MoneySupply} + 금고 {World.Treasury} + " +
                                          $"소멸누적 {World.BurnedTotal} (ADR-M17-2 밖의 쓰기 경로 의심)");
+                    // 오늘 세수 리셋 (M17-W2) — ⚠️ W5의 하루 결산 줄은 **이 줄보다 먼저** 읽어야 한다.
+                    // 리셋을 빼면 TaxToday가 누적이 되어 판 전체 TaxTotal과 구분이 사라진다.
+                    if (TaxToday > 0)
+                        Debug.Log($"[Money] 어제 세수 {TaxToday}동 (판 누적 {TaxTotal}동 · 금고 {World.Treasury}동)");
+                    TaxToday = 0;
                     string seasonStr = Season?.Current != null
                         ? $"{Season.Current.DisplayName}(위기까지 {Mathf.CeilToInt(Season.DaysToCrisis)}일)" : "-";
                     // 위협 경주 게이지 (M10R 관측용) — 마을 크기(정보)와 게임일 래칫 활성밴드를 매일 노출.

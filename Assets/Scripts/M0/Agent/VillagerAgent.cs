@@ -1072,14 +1072,28 @@ namespace AIVillage.M0
             }
 
             // 임금 (M16-W2) — 유일한 지급 지점 (명세 실사 ①: BuildRunner도 이 경로를 지난다).
-            // 명령·자율 무관 — 지불은 액션이 결정 (ADR-M16-2). 발행은 Mint뿐 (ADR-M16-1).
-            if (_plan[_planIndex].WagePay > 0
-                && World.Mint(this, _plan[_planIndex].WagePay, $"임금: {_plan[_planIndex].DisplayName}")
-                && !_everPaid)
+            // 명령·자율 무관 — 지불은 액션이 결정 (ADR-M16-2).
+            //
+            // M17-W2 원천징수: 총액을 지갑에 넣었다 빼지 않는다. **처음부터 순액만 발행**하고
+            // 세액은 무에서 금고로 간다 — Mint(총액) 후 Burn(세액)을 하면 발행 누적이 부풀어
+            // 폐곡선(§8 D2)이 깨진다 (명세 W2 ⚠️). 세액은 잔여로 구해 합이 총액과 어긋나지 않는다.
+            int wage = _plan[_planIndex].WagePay;
+            if (wage > 0)
             {
-                // 생애 첫 임금만 말풍선 1회 (명세 확정 보완 8-③ — 이후는 로그·지갑 표기가 맡는다)
-                _everPaid = true;
-                ShowTransient(Pick(_cfg.FirstWageLines));
+                string label = _plan[_planIndex].DisplayName;
+                int net = ActionSO.NetWage(wage, _sim != null ? _sim.TaxRatePct : 0);
+                int tax = wage - net;
+
+                bool paid = net <= 0 || World.Mint(this, net, $"임금: {label}");
+                if (tax > 0) World.MintToTreasury(tax, $"원천징수: {label}");
+                _sim?.RecordTaxCollected(tax); // 하루 결산 줄(W5)·연대기(W6)의 집계원
+
+                if (paid && !_everPaid)
+                {
+                    // 생애 첫 임금만 말풍선 1회 (명세 확정 보완 8-③ — 이후는 로그·지갑 표기가 맡는다)
+                    _everPaid = true;
+                    ShowTransient(Pick(_cfg.FirstWageLines));
+                }
             }
 
             _runner.Cleanup(this);

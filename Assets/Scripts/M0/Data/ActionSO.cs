@@ -62,12 +62,29 @@ namespace AIVillage.M0
         /// "실행 계층에서 효과를 만들면 수치 이원화의 시작"). 컴파일러가 만들면 액션의 계획
         /// 데이터가 에셋 밖에 생겨 ADR-M0-1(단일 응집)도 흔들린다. 수치의 출처는 WagePay 필드
         /// 하나 그대로다 — 이 메서드는 그것을 플래너 언어로 옮길 뿐이다.
+        ///
+        /// M17-W2: 세율이 붙으면 플래너가 보는 임금이 **세후 실수령**으로 줄어든다. 별도
+        /// 페널티 로직 없이 임금노동의 매력이 자급 대비 떨어진다 — 대가는 산식에서 나온다.
+        /// 기본값 0(무세)이라 기존 1인자 호출·게이트는 그대로 컴파일된다.
         /// </summary>
-        public void CollectPlannerEffects(List<SlotEffect> into)
+        public void CollectPlannerEffects(List<SlotEffect> into, int taxRatePct = 0)
         {
             CollectEffects(into);
-            if (WagePay > 0)
-                into.Add(new SlotEffect { Slot = SlotId.MyMoney, Op = EffectOp.Add, Value = WagePay });
+            if (WagePay <= 0) return;
+            int net = NetWage(WagePay, taxRatePct);
+            if (net > 0)
+                into.Add(new SlotEffect { Slot = SlotId.MyMoney, Op = EffectOp.Add, Value = net });
+        }
+
+        /// <summary>세후 임금 (M17-W2, 순수 — 게이트 M17-T2): 순액 = floor(W × (100−r) ÷ 100).
+        /// ⚠️ **세액은 반드시 잔여(W − 순액)로 구한다.** 세액을 따로 반올림하면
+        /// 순액 + 세액 ≠ W가 되어 회계 폐곡선(§8 D2)이 깨진다 (명세 확정 보완 3).
+        /// 실수령이 0이 되는 세율(100%)은 임금을 플래너 시야에서 지워 저축 goal을
+        /// NoSolution으로 만든다 — WorldConfigSO.OnValidate가 상한 90으로 막는다.</summary>
+        public static int NetWage(int wage, int taxRatePct)
+        {
+            if (wage <= 0) return 0;
+            return Mathf.FloorToInt(wage * (100 - Mathf.Clamp(taxRatePct, 0, 100)) / 100f);
         }
 
         /// <summary>

@@ -27,10 +27,15 @@ namespace AIVillage.M0
     public sealed class PlannerGateway
     {
         private readonly ActionCatalog _catalog;
-        private readonly GOAPActionDef[] _defs;     // 시작 시 1회 컴파일 — 공유 원본 (배율은 사본에만, ADR-M4-1)
-        private readonly float[] _maxGain;
-        private readonly float[] _maxDrop;
-        private readonly float _minBaseCost;        // 배율 적용 후 실효 비용의 하한 (휴리스틱 바닥 보호)
+        // ⚠️ readonly 아님 (M17-W2): 세율이 바뀌면 Recompile이 넷을 통째로 갈아 끼운다.
+        // 안전한 이유는 디스패치가 _defs를 NativeArray로 **복사**하기 때문이다 (BeginPlan) —
+        // 진행 중인 플랜은 자기 사본으로 끝까지 돈다 (배율은 사본에만, ADR-M4-1).
+        private GOAPActionDef[] _defs;              // 컴파일 원본 — 공유 (플랜은 사본을 받는다)
+        private float[] _maxGain;
+        private float[] _maxDrop;
+        private float _minBaseCost;                 // 배율 적용 후 실효 비용의 하한 (휴리스틱 바닥 보호)
+        private readonly int _bodyCap;              // 재컴파일 입력 보관 (M17-W2 — 舊: 생성자 지역값)
+        private readonly int _homeCap;
 
         public sealed class PendingPlan
         {
@@ -54,9 +59,21 @@ namespace AIVillage.M0
         public PlannerGateway(ActionCatalog catalog, AgentConfigSO agentCfg = null)
         {
             _catalog = catalog != null ? catalog : throw new ArgumentNullException(nameof(catalog));
-            _defs = ActionCompiler.CompileManaged(catalog,
-                agentCfg != null ? agentCfg.BodyCarryCap : 0,
-                agentCfg != null ? agentCfg.HomeStorageCap : 0);
+            _bodyCap = agentCfg != null ? agentCfg.BodyCarryCap : 0;
+            _homeCap = agentCfg != null ? agentCfg.HomeStorageCap : 0;
+            Recompile(0); // 무세로 출발 — 세율은 SimulationLoop이 정해 다시 부른다 (M17-W2)
+        }
+
+        /// <summary>임금 세율 반영 재컴파일 (M17-W2). 세율이 바뀌면 플래너가 보는 임금이
+        /// 낡으므로 액션 정의를 다시 만든다. **세율 단계가 실제로 바뀐 순간에만** 부른다 —
+        /// 매 프레임 호출은 명세 W2 ⚠️ 금지 항목이다.
+        ///
+        /// 안전성: ①카탈로그 순서는 안 바뀌므로 ADR-M0-6(인덱스 = 신원) 유지 ②진행 중인
+        /// 플랜은 디스패치 때 뜬 NativeArray 사본으로 돌아 영향이 없다 (기대보다 덜 받을 뿐 —
+        /// 의도한 이야기다) ③_defs는 관리 배열이라 NativeArray 누수 경로가 없다.</summary>
+        public void Recompile(int taxRatePct)
+        {
+            _defs = ActionCompiler.CompileManaged(_catalog, _bodyCap, _homeCap, taxRatePct);
             ActionCompiler.ComputeMaxGainDrop(_defs, PlanningConfig.TotalSlots, out _maxGain, out _maxDrop);
             _minBaseCost = MinBaseCost(_defs);
         }

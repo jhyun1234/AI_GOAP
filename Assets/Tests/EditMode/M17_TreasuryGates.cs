@@ -62,6 +62,66 @@ namespace AIVillage.Tests.EditMode
             Assert.IsFalse(WorldModel.CanPayFromTreasury(50, -5), "음수 방어 (역방향 지급 금지)");
         }
 
+        // ── T2: 세후 임금 (순수 — 확정 보완 3) ───────────────────────────────
+
+        [Test]
+        public void M17_T2_NetWage_KnownRates()
+        {
+            // 명세 §W2 DoD의 검산치 — 현행 임금(벌목 5·채광 6·관개수로 12)에 대한 실수령
+            Assert.AreEqual(5, ActionSO.NetWage(5, 0),   "면세");
+            Assert.AreEqual(4, ActionSO.NetWage(5, 15),  "보통 — 4.25 내림");
+            Assert.AreEqual(3, ActionSO.NetWage(5, 30),  "중과 — 3.5 내림");
+            Assert.AreEqual(5, ActionSO.NetWage(6, 15),  "채광 6동 → 5.1 내림");
+            Assert.AreEqual(4, ActionSO.NetWage(6, 30),  "채광 6동 → 4.2 내림");
+            Assert.AreEqual(10, ActionSO.NetWage(12, 15), "관개수로 12동 → 10.2 내림");
+            Assert.AreEqual(0, ActionSO.NetWage(0, 30),  "임금 없는 액션은 0");
+            Assert.AreEqual(0, ActionSO.NetWage(-3, 15), "음수 방어");
+        }
+
+        [Test]
+        public void M17_T2_NetWage_StaysInsideGross_AndFallsWithRate()
+        {
+            // 확정 보완 3의 실질 조건 — 세액은 잔여(W − 순액)로 구하므로, 순액이 [0, W] 밖으로
+            // 나가는 순간 세액이 음수가 되거나 총액을 넘어 회계 폐곡선(D2)이 깨진다.
+            // ⚠️ "순액 + (총액 − 순액) == 총액"은 항등식이라 무엇을 구현해도 통과한다 —
+            // 실패할 수 있는 명제만 여기 둔다.
+            int prev = int.MaxValue; // 오름차순 세율을 훑으며 단조 감소를 확인 (루프 밖에 둔다)
+            foreach (int rate in new[] { 0, 15, 30, 50, 90, 100 })
+            {
+                for (int wage = 1; wage <= 50; wage++)
+                {
+                    int net = ActionSO.NetWage(wage, rate);
+                    Assert.IsTrue(net >= 0 && net <= wage, $"실수령 범위 — 임금 {wage} · 세율 {rate}%");
+                }
+                // 같은 임금에서 세율이 오르면 실수령은 절대 늘지 않는다 (손잡이의 방향성)
+                int atThisRate = ActionSO.NetWage(20, rate);
+                Assert.IsTrue(atThisRate <= prev, $"세율 {rate}% 실수령 {atThisRate} > 직전 {prev}");
+                prev = atThisRate;
+            }
+
+            Assert.AreEqual(20, ActionSO.NetWage(20, 0),   "무세 = 전액");
+            Assert.AreEqual(0,  ActionSO.NetWage(20, 100), "전액 과세 = 0 (OnValidate가 90으로 막는 지점)");
+            Assert.IsTrue(ActionSO.NetWage(20, 15) > ActionSO.NetWage(20, 30), "세율이 높을수록 덜 받는다");
+        }
+
+        [Test]
+        public void M17_T2_SmallWage_EffectiveRateSpikes_GuardIsMinimumWage()
+        {
+            // 확정 보완 3 ⚠️ — 작은 임금에서 실효세율이 튄다. 현재 최소 임금이 5동이라
+            // 발현하지 않지만, 임금 에셋을 5동 미만으로 내리면 여기가 근거가 된다 (§8 D8).
+            Assert.AreEqual(1, ActionSO.NetWage(2, 15), "임금 2동 · 세율 15% → 실수령 1 = 실효 50%");
+            Assert.AreEqual(0, ActionSO.NetWage(1, 15), "임금 1동은 통째로 세금 = 실효 100%");
+        }
+
+        [Test]
+        public void M17_T2_TaxStageName_ShowsFeelingNotNumber()
+        {
+            Assert.AreEqual("면세", M0SimulationLoop.TaxStageName(0));
+            Assert.AreEqual("보통", M0SimulationLoop.TaxStageName(15));
+            Assert.AreEqual("중과", M0SimulationLoop.TaxStageName(30));
+            Assert.AreEqual("중과", M0SimulationLoop.TaxStageName(90), "상한 근처도 중과");
+        }
+
         // ── T5-c: 금고 흐름의 실제 회계 (인스턴스 — 지갑을 안 건드리는 경로만) ──
 
         [Test]

@@ -21,7 +21,11 @@ namespace AIVillage.M0
         /// <summary>카탈로그 전체를 def 배열로 컴파일한다. 항목 초과·빈 슬롯은 fail-fast (시작 시 1회이므로 예외 정당).
         /// bodyCap/homeCap > 0이면 개인/집 스톡 Add 효과에 상한 전제를 자동 주입한다 (ADR-M11-3 —
         /// 상한의 단일 출처는 AgentConfig, 액션 에셋에 상한 리터럴 기입 금지. 0 = 주입 없음 = 기존 동작).</summary>
-        public static GOAPActionDef[] CompileManaged(ActionCatalog catalog, int bodyCap = 0, int homeCap = 0)
+        /// <summary>taxRatePct (M17-W2) = 임금 원천징수율. 플래너가 보는 임금을 세후로 줄인다.
+        /// 기본 0 = 무세 (기존 호출·게이트 무수정). 세율이 바뀌면 PlannerGateway.Recompile이
+        /// 이 함수를 다시 부른다 — 카탈로그 순서는 안 바뀌므로 ADR-M0-6(인덱스 = 신원) 유지.</summary>
+        public static GOAPActionDef[] CompileManaged(ActionCatalog catalog, int bodyCap = 0, int homeCap = 0,
+                                                     int taxRatePct = 0)
         {
             if (catalog == null || catalog.Actions == null || catalog.Actions.Length == 0)
                 throw new InvalidOperationException("[ActionCompiler] 카탈로그가 비어 있습니다.");
@@ -39,7 +43,8 @@ namespace AIVillage.M0
                 precs.Clear();
                 effs.Clear();
                 so.CollectPreconditions(precs);
-                so.CollectPlannerEffects(effs); // M16-B — 에셋 효과 + 임금 (생성은 Data 계층, M0-T3)
+                so.CollectPlannerEffects(effs, taxRatePct); // M16-B/M17-W2 — 에셋 효과 + 세후 임금
+                                                           // (생성은 Data 계층, M0-T3)
                 InjectCapPreconditions(precs, effs, bodyCap, homeCap); // M11-A — 상한 전제 자동 주입
 
                 if (precs.Count > MAX_CONDITIONS || effs.Count > MAX_CONDITIONS)

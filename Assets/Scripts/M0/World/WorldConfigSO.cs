@@ -104,6 +104,25 @@ namespace AIVillage.M0
                  "— 안 그러면 폐곡선 검산(§8 D2)이 첫 프레임부터 어긋난다.")]
         public int StartingTreasury = 0;
 
+        [Tooltip("임금 원천징수 세율 단계 % (M17-W2 — 과세 대상은 임금뿐, ADR-M17-5).\n" +
+                 "0번이 판 시작 단계. 촌장이 T 키로 순환시킨다.\n" +
+                 "제안치 0/15/30 — 실측 근거 없음, Play 재조정 대상 (명세 §9).\n" +
+                 "⚠️ 세율은 즉효 버튼이 아니다 (ADR-M17-7): 이미 도는 돈을 회수하지 못하고 " +
+                 "통화량 증가를 늦출 뿐이다. 물가는 며칠에 걸쳐 움직인다.")]
+        public int[] TaxRatePcts = { 0, 15, 30 };
+
+        /// <summary>세율 상한 90 % (M17-W2) — 100%면 실수령이 0이 되어 임금이 플래너 시야에서
+        /// 통째로 사라지고 Goal_SaveForHome이 NoSolution이 된다. 손잡이의 사각지대를 에디터에서 막는다.</summary>
+        public const int MaxTaxRatePct = 90;
+
+        private void OnValidate()
+        {
+            if (StartingTreasury < 0) StartingTreasury = 0;
+            if (TaxRatePcts == null) return;
+            for (int i = 0; i < TaxRatePcts.Length; i++)
+                TaxRatePcts[i] = Mathf.Clamp(TaxRatePcts[i], 0, MaxTaxRatePct);
+        }
+
         [Header("HUD (M13-B — 상태 알림 줄)")]
         [Tooltip("상태 알림 줄 폰트 크기. 초기값 24가 작다는 Play 피드백(2026-07-30)으로 30 제안. " +
                  "0 이하 = 기본 24. 다른 HUD 줄(달력 30·정보줄 24)은 코드 상수 유지 — 조절 요구가 생기면 그때 승격.")]

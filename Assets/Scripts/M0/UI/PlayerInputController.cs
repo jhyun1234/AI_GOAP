@@ -76,6 +76,11 @@ namespace AIVillage.M0
             }
 #endif
 
+            // 세율 순환 (M17-W2) — T 키. 촌장의 유일한 재정 손잡이이며, 누르는 순간
+            // 플래너가 다시 컴파일돼 주민들이 보는 임금이 세후로 바뀐다 (SimulationLoop이 판정).
+            // 되돌릴 수 있는 조작이라 확인 창을 두지 않는다 (C·Y/N 전례).
+            if (Input.GetKeyDown(KeyCode.T)) M0SimulationLoop.Instance.CycleTaxStage();
+
             // 연대기 토글 (M15-W3) — C 키 하나가 유일한 열람 통로 (게임 중·전멸 화면 공용).
             // 파일 IO는 여는 순간 1회뿐 (⚠️ 매 프레임 Load 금지). 행 목록은 클릭 매핑용 캐시 —
             // BuildChronicleRows가 목록 문구와 같은 순서를 보장한다 (단일 출처).

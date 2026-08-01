@@ -131,10 +131,12 @@ namespace AIVillage.M0
         /// 식량 표기는 상태 알림 줄(M13-B)의 개인 열거가 전담한다.</summary>
         public void Tick(float gameTime, SeasonService season, float forecastDays, int pricePct = 100,
                          int forecastPct = -1, int moneyPct = 0, int mintPct = 0,
-                         int treasury = -1, int taxRatePct = 0)
+                         int treasury = -1, int taxRatePct = 0,
+                         int mintDebt = 0, int capPct = 0)
         {
             string line = Compose(gameTime, season, forecastDays, pricePct,
-                                  forecastPct, moneyPct, mintPct, treasury, taxRatePct);
+                                  forecastPct, moneyPct, mintPct, treasury, taxRatePct,
+                                  mintDebt, capPct);
             if (line != _lastCalendar)
             {
                 _lastCalendar = line;
@@ -486,11 +488,12 @@ namespace AIVillage.M0
         public static string Compose(float gameTime, SeasonService season, float forecastDays,
                                      int pricePct = 100, int forecastPct = -1,
                                      int moneyPct = 0, int mintPct = 0,
-                                     int treasury = -1, int taxRatePct = 0)
+                                     int treasury = -1, int taxRatePct = 0,
+                                     int mintDebt = 0, int capPct = 0)
         {
             // 재정 접미사 (M17-W5) — 촌장의 장부. 금고가 음수면 미표기 = 기존 호출·게이트 불변.
             string price = ComposeTreasury(treasury, taxRatePct)
-                         + ComposePriceSuffix(pricePct, forecastPct, moneyPct, mintPct);
+                         + ComposePriceSuffix(pricePct, forecastPct, moneyPct, mintPct, mintDebt, capPct);
 
             int day = (int)gameTime;
             if (season == null || season.Current == null) return $"Day {day}{price}";
@@ -535,14 +538,22 @@ namespace AIVillage.M0
         ///    억제하고 Q를 늘려 작용하는데(ADR-M17-7), 그 유일한 관측 창이 내려가는 예보다.
         ///    좋은 소식을 안 보여 주면 손잡이가 장식이 된다 = 관측 ②를 세금 쪽에서 재현하는 것.
         /// ③ 발행 여파가 있을 때만 원인을 괄호로 분해한다 (평시 줄 길이 보호).
-        /// forecastPct &lt; 0 = 예보 없음 (기존 호출 호환).</summary>
-        public static string ComposePriceSuffix(int pricePct, int forecastPct, int moneyPct, int mintPct)
+        /// ④ **상한에 닿으면 분해 대신 발행 부채 원액을 낸다** (M17-R5, §8.5 발견 A·B).
+        ///    물가가 클램프되는 순간 예보도 같은 값이 되어 화살표가 사라지고, 더 찍어도 화면이
+        ///    안 변한다 — 관측 ②를 고치려 만든 예보가 가장 심각한 구간에서 침묵하는 것이다.
+        ///    게다가 그 구간의 분해는 두 몫이 모두 클램프에 걸려 실제 기여도와 다르다.
+        ///    부채는 클램프 밖의 값이라 계속 움직인다: **포화돼도 "얼마나 깊이 들어갔는지"가 보인다.**
+        /// forecastPct &lt; 0 = 예보 없음 · capPct ≤ 0 = 상한 판정 없음 (기존 호출 호환).</summary>
+        public static string ComposePriceSuffix(int pricePct, int forecastPct, int moneyPct, int mintPct,
+                                                int mintDebt = 0, int capPct = 0)
         {
             bool moves = forecastPct >= 0 && forecastPct != pricePct;
             if (pricePct <= 100 && !moves) return string.Empty;
 
-            var sb = new System.Text.StringBuilder(96);
+            bool capped = capPct > 100 && pricePct >= capPct;
+            var sb = new System.Text.StringBuilder(112);
             sb.Append($" · <color=#FF8A65>물가 ×{pricePct / 100f:0.0#}</color>");
+            if (capped) sb.Append(" <color=#FF6B6B>(상한)</color>");
             if (moves)
             {
                 bool up = forecastPct > pricePct;
@@ -550,7 +561,9 @@ namespace AIVillage.M0
                 sb.Append($" <color={(up ? "#FF6B6B" : "#7ED694")}>→ 내일 ×{forecastPct / 100f:0.0#} " +
                           $"{(up ? "▲" : "▼")}</color>");
             }
-            if (mintPct > 0)
+            if (capped && mintDebt > 0)
+                sb.Append($" <color=#FF6B6B>· 발행 부채 {ComposeMoney(mintDebt)}</color>");
+            else if (mintPct > 0)
                 sb.Append($" <size=80%>(도는 돈 ×{moneyPct / 100f:0.0#} · 발행 여파 ×{mintPct / 100f:0.0#})</size>");
             return sb.ToString();
         }

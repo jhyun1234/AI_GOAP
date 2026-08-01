@@ -1051,7 +1051,8 @@ namespace AIVillage.M0
                 // 적힌 물가와 괄호 안 두 몫의 합이 어긋난다. 예보만 실시간이다 (ADR-M17-3).
                 Hud?.Tick(GameTime, Season, _worldConfig.ForecastDays, PricePct,
                           PriceForecastPct, _pricePartMoney, _pricePartMint,
-                          World.Treasury, TaxRatePct);
+                          World.Treasury, TaxRatePct,
+                          World.MintDebt, _worldConfig.PriceCapPct);
 
                 // 상태 알림 줄 (M13-B, 2026-07-30 개정 — 舊 M11-D 마을 최솟값 요약을 개인 열거로).
                 // 관측 대상은 마을 평균이 아니라 낙오자 — 그 정신의 완성형은 "낙오자의 이름"이다.

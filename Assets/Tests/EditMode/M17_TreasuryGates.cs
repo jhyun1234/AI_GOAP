@@ -212,6 +212,27 @@ namespace AIVillage.Tests.EditMode
         }
 
         [Test]
+        public void M17_T6_PriceSuffix_AtCap_ShowsDebtInsteadOfDistortedSplit()
+        {
+            // §8.5 발견 A·B: 물가가 상한에 닿으면 예보도 같은 값이 되어 화살표가 사라지고,
+            // 더 찍어도 화면이 안 변한다. 게다가 그 구간의 분해는 두 몫이 모두 클램프에 걸려
+            // 실제 기여도와 다르다. 부채는 클램프 밖이라 계속 움직인다 — 그게 남은 신호다.
+            string capped = SeasonHud.ComposePriceSuffix(400, 400, 100, 300, mintDebt: 1200, capPct: 400);
+            StringAssert.Contains("(상한)", capped, "포화 사실 자체가 보여야 한다");
+            StringAssert.Contains("발행 부채 12은", capped, "클램프 밖의 값 = 유일하게 움직이는 신호");
+            StringAssert.DoesNotContain("도는 돈", capped, "상한에서는 분해가 왜곡이라 내지 않는다");
+
+            // 상한 아래에서는 기존대로 분해를 낸다 (부채가 있어도)
+            string below = SeasonHud.ComposePriceSuffix(145, -1, 125, 20, mintDebt: 300, capPct: 400);
+            StringAssert.DoesNotContain("(상한)", below);
+            StringAssert.Contains("도는 돈 ×1.25", below);
+            StringAssert.DoesNotContain("발행 부채", below);
+
+            // capPct 미지정(기존 호출) = 상한 판정 없음 — 회귀 방지
+            StringAssert.DoesNotContain("(상한)", SeasonHud.ComposePriceSuffix(400, -1, 100, 300));
+        }
+
+        [Test]
         public void M17_T6_Treasury_HiddenWhenUnset_ShownWithTaxStage()
         {
             Assert.AreEqual(string.Empty, SeasonHud.ComposeTreasury(-1, 0),

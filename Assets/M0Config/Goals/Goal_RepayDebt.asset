@@ -30,4 +30,10 @@ MonoBehaviour:
   SkipFailureCooldown: 0
   MaxWorkers: 0
   AllowedWhenInjured: 0
-  TraitWeights: []
+  TraitWeights:
+  - Trait: 2
+    Weight: 0.5
+  - Trait: 4
+    Weight: -0.3
+  - Trait: 0
+    Weight: 0.2

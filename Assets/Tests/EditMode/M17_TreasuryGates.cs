@@ -42,8 +42,11 @@ namespace AIVillage.Tests.EditMode
             Assert.IsFalse(WorldModel.IsLedgerBalanced(0, 0, 100, 0), "금고가 무에서 솟았다");
             // 소멸시키며 누적을 안 센 경우
             Assert.IsFalse(WorldModel.IsLedgerBalanced(10, 0, 0, 0), "돈이 흔적 없이 사라졌다");
-            // 이중 계상 (금고에서 나간 돈을 발행으로도 센 경우)
-            Assert.IsFalse(WorldModel.IsLedgerBalanced(200, 100, 100, 0), "웃돈을 발행으로도 셌다");
+            // 이중 계상 — PayFromTreasury가 발행 누적까지 올리는 버그를 가정한 상태.
+            // 정상: 발행 100(→금고) 뒤 웃돈 100(금고→주민) = 누적 100 · M 100 · 금고 0.
+            // 버그: 옮기기만 한 돈을 "무에서 나온 돈"으로도 세어 누적이 200이 된다.
+            Assert.IsFalse(WorldModel.IsLedgerBalanced(200, 100, 0, 0), "웃돈을 발행으로도 셌다");
+            Assert.IsTrue(WorldModel.IsLedgerBalanced(100, 100, 0, 0), "↑의 정상 대조군");
         }
 
         // ── T5-b: 금고 지급 판정 (순수) ──────────────────────────────────────

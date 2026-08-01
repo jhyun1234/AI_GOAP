@@ -1019,6 +1019,14 @@ namespace AIVillage.M0
                     if (walletSum != World.MoneySupply)
                         Debug.LogWarning($"[Money] 회계 불일치 — Σ지갑 {walletSum} ≠ 통화량 {World.MoneySupply} " +
                                          "(Mint/Burn 밖의 화폐 쓰기 경로 의심, ADR-M16-1)");
+                    // 폐곡선 검산 (M17-W1, 명세 §8 D2): 무에서 나온 총량 == 도는 돈 + 금고 + 소멸.
+                    // 흐름이 넷으로 늘었으므로 Σ지갑 검사(위)만으로는 금고 쪽 누수를 못 잡는다 —
+                    // 다섯 번째 쓰기 경로가 생기면 여기서 하루 안에 발각된다 (ADR-M17-2 감시).
+                    if (!WorldModel.IsLedgerBalanced(World.MintedTotal, World.MoneySupply,
+                                                     World.Treasury, World.BurnedTotal))
+                        Debug.LogWarning($"[Money] 폐곡선 불일치 — 발행누적 {World.MintedTotal} ≠ " +
+                                         $"통화량 {World.MoneySupply} + 금고 {World.Treasury} + " +
+                                         $"소멸누적 {World.BurnedTotal} (ADR-M17-2 밖의 쓰기 경로 의심)");
                     string seasonStr = Season?.Current != null
                         ? $"{Season.Current.DisplayName}(위기까지 {Mathf.CeilToInt(Season.DaysToCrisis)}일)" : "-";
                     // 위협 경주 게이지 (M10R 관측용) — 마을 크기(정보)와 게임일 래칫 활성밴드를 매일 노출.

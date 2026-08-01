@@ -46,6 +46,10 @@ namespace AIVillage.M0
                 _slots[(int)SlotId.StoneStock]   = config.InitialStoneStock;
                 _foodValues = DeriveFoodValues(config.FoodSources); // ADR-M9-10 — 액션 에셋에서 파생
                 _farmGrowthDays = config.FarmGrowthDays;            // 심기 창 판정 입력 (M14-W1)
+                // 시작 금고 (M17-W1) — 무에서 온 돈이므로 발행 누적에도 같이 싣는다.
+                // 안 그러면 폐곡선(§8 D2)이 첫 프레임부터 어긋난다.
+                Treasury    = Mathf.Max(0, config.StartingTreasury);
+                MintedTotal = Treasury;
             }
         }
 
@@ -89,18 +93,41 @@ namespace AIVillage.M0
 
         public bool GetFlag(SlotId slot) => _slots[(int)slot] != 0;
 
-        // ── 통화량 회계 (M16-W1 — ADR-M16-1: 증감 창구는 Mint·Burn 둘뿐) ──────────
+        // ── 화폐 회계 (M17-W1 — ADR-M17-2: 쓰기 창구는 아래 네 메서드뿐) ──────────
+        // 舊 ADR-M16-1(Mint·Burn 둘)의 개정판이다. 금고가 생기며 "무에서 온 돈"과
+        // "금고에서 옮겨온 돈"을 구분해야 폐곡선 검산이 성립한다 (명세 M17 보완 1).
 
-        /// <summary>통화량 M = 발행 총량 − 소멸. 물가(P = M÷Q)의 분자. 세이브 대상 (ADR-M0-10).
-        /// 주민 간 이동(TransferTo)은 M 불변 — 이 값은 "마을에 도는 돈의 총량"이다.</summary>
+        /// <summary>통화량 M = 주민 지갑의 총합. 물가(P = M÷Q)의 분자. 세이브 대상 (ADR-M0-10).
+        /// 주민 간 이동(TransferTo)은 M 불변 — 이 값은 "마을에 도는 돈의 총량"이다.
+        /// ⚠️ 금고(Treasury)는 여기 안 들어간다 — 잠긴 돈은 시중에 없는 돈이다 (ADR-M17-1).</summary>
         public int MoneySupply { get; private set; }
+
+        /// <summary>촌장 금고 (M17-W1, ADR-M17-1) — 통화량 밖의 자리. 웃돈은 여기서 나가고
+        /// 원천징수·발행이 여기를 채운다. 금고가 비면 촌장은 웃돈을 걸 수 없다 = 압박.
+        /// 세이브 대상 (ADR-M0-10).</summary>
+        public int Treasury { get; private set; }
+
+        /// <summary>발행·소멸 누적 (M17-W1) — 폐곡선 검산 전용 (명세 §8 D2). 게임 규칙에
+        /// 쓰지 않는다: 물가는 M과 MintDebt만 본다. 세이브 대상 (ADR-M0-10).</summary>
+        public int MintedTotal { get; private set; }
+        public int BurnedTotal { get; private set; }
+
+        /// <summary>회계 폐곡선 (순수 — 게이트 M17-T5). 무에서 나온 총량은 언제나
+        /// "도는 돈 + 금고 + 소멸한 돈"과 같다. 다섯 번째 쓰기 경로가 생기면 여기서 깨진다.</summary>
+        public static bool IsLedgerBalanced(int minted, int supply, int treasury, int burned)
+            => minted == supply + treasury + burned;
+
+        /// <summary>금고 지급 가능 판정 (순수 — 게이트 M17-T5). 촌장은 없는 돈을 약속하지 못한다.</summary>
+        public static bool CanPayFromTreasury(int treasury, int amount)
+            => amount > 0 && treasury >= amount;
 
         /// <summary>통화량 계단 (순수 — 게이트 M16-T2). 음수 클램프 — 소멸이 발행을 넘으면 0.</summary>
         public static int NextSupply(int current, int delta)
             => current + delta < 0 ? 0 : current + delta;
 
-        /// <summary>발행 — 지갑 적립과 M 누적이 한 몸 (ADR-M16-1). 호출처는 임금(TickActing)·
-        /// 웃돈(PayReward) 지급 2곳뿐. 적립 실패(이론상 불가 — 돈은 상한 없음)면 M도 안 늘린다.</summary>
+        /// <summary>발행: 무 → 주민 (ADR-M17-2 ①). 지갑 적립과 M 누적이 한 몸.
+        /// 호출처는 임금(TickActing) 1곳뿐 — M17-W1에서 웃돈이 금고 경로로 옮겨 갔다.
+        /// 적립 실패(이론상 불가 — 돈은 상한 없음)면 M도 발행 누적도 안 늘린다.</summary>
         public bool Mint(VillagerAgent to, int amount, string why)
         {
             if (to == null || amount <= 0) return false;
@@ -109,17 +136,52 @@ namespace AIVillage.M0
                 Debug.LogWarning($"[Money] 발행 실패 — {why}: 지갑 적립 불가 (상한 예외 누락 의심)");
                 return false;
             }
-            MoneySupply = NextSupply(MoneySupply, amount);
+            MoneySupply  = NextSupply(MoneySupply, amount);
+            MintedTotal += amount;
             Debug.Log($"[Money] +{amount}동 {to.AgentId} — {why} (통화량 {MoneySupply})");
             return true;
         }
 
-        /// <summary>소멸 — 호출처는 사망(BurnWalletOnDeath) 1곳뿐 (ADR-M16-1). 지갑 차감은
-        /// 호출자가 한다 (죽는 자의 지갑 정리 — 여기는 M 회계만).</summary>
+        /// <summary>발행: 무 → 금고 (M17-W1, ADR-M17-2 ②). 임금의 원천징수분과 촌장의 발행이
+        /// 이 통로를 지난다. M은 움직이지 않는다 — 시중에 나가지 않았기 때문이다 (ADR-M17-1).</summary>
+        public void MintToTreasury(int amount, string why)
+        {
+            if (amount <= 0) return;
+            Treasury    += amount;
+            MintedTotal += amount;
+            Debug.Log($"[Money] 금고 +{amount}동 — {why} (금고 {Treasury} · 통화량 {MoneySupply})");
+        }
+
+        /// <summary>지급: 금고 → 주민 (M17-W1, ADR-M17-2 ③). 웃돈의 유일한 통로.
+        /// 무에서 나온 돈이 아니므로 발행 누적은 늘지 않고, 시중에 나가므로 M은 는다.
+        /// 잔고 부족이면 false — 조용히 넘기지 않는다(호출자가 알린다, 명세 W1 ⚠️).
+        /// ⚠️ 적립 성공 뒤에 차감한다 — 순서를 뒤집으면 적립 실패 시 돈이 증발한다 (ADR-M0-8).</summary>
+        public bool PayFromTreasury(VillagerAgent to, int amount, string why)
+        {
+            if (to == null || amount <= 0) return false;
+            if (!CanPayFromTreasury(Treasury, amount))
+            {
+                Debug.Log($"[Money] 금고 부족 — {why} (필요 {amount}동 · 금고 {Treasury}동)");
+                return false;
+            }
+            if (!to.ApplyPersonalStock(SlotId.MyMoney, EffectOp.Add, amount))
+            {
+                Debug.LogWarning($"[Money] 금고 지급 실패 — {why}: 지갑 적립 불가");
+                return false;
+            }
+            Treasury   -= amount;
+            MoneySupply = NextSupply(MoneySupply, amount);
+            Debug.Log($"[Money] 금고 →{to.AgentId} {amount}동 — {why} (금고 {Treasury} · 통화량 {MoneySupply})");
+            return true;
+        }
+
+        /// <summary>소멸: 주민 → 무 (ADR-M17-2 ④). 호출처는 사망(BurnWalletOnDeath) 1곳뿐.
+        /// 지갑 차감은 호출자가 한다 (죽는 자의 지갑 정리 — 여기는 회계만).</summary>
         public void Burn(int walletAmount, string why)
         {
             if (walletAmount <= 0) return;
-            MoneySupply = NextSupply(MoneySupply, -walletAmount);
+            MoneySupply  = NextSupply(MoneySupply, -walletAmount);
+            BurnedTotal += walletAmount;
             Debug.Log($"[Money] -{walletAmount}동 — {why} (통화량 {MoneySupply})");
         }
 

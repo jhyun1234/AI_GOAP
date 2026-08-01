@@ -244,12 +244,23 @@ namespace AIVillage.M0
         }
 
         /// <summary>보상 지급 — 명령 완수 지점 전용 (ADR-M6-5). 지급 후 null 처리로 반환 경로 차단.
-        /// 화폐 모드(M16-W3) = 완수 시점 발행 (Mint — ADR-M16-1의 지급 지점 ②).</summary>
+        /// 화폐 모드(M17-W1 개정) = **금고에서 나간다** (PayFromTreasury — ADR-M17-2 ③).
+        /// 舊 M16-W3은 여기서 무에서 찍었다(Mint). 촌장의 돈이 유한해지며 웃돈은 지출이 됐다 —
+        /// 금고가 비면 못 준다. 그 실패는 반드시 화면에 알린다 (조용한 소실 금지).</summary>
         private void PayReward()
         {
             if (_promisedReward == null) return;
             if (_promisedReward.MoneyGain > 0)
-                World.Mint(this, _promisedReward.MoneyGain, $"웃돈: {_promisedReward.DisplayName}");
+            {
+                if (!World.PayFromTreasury(this, _promisedReward.MoneyGain,
+                                           $"웃돈: {_promisedReward.DisplayName}"))
+                {
+                    // 말풍선 없음 — 주민의 잘못이 아니라 촌장의 빈 금고다 (FailedNoStock 전례).
+                    _sim?.Hud?.Notify("금고가 비어 웃돈을 지급하지 못했습니다");
+                    _promisedReward = null;
+                    return;
+                }
+            }
             else
             {
                 ApplyNeedEffect(SlotId.MySatiety, EffectOp.Add, _promisedReward.SatietyGain);

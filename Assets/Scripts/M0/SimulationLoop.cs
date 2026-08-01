@@ -281,6 +281,48 @@ namespace AIVillage.M0
         public int PricePct { get; private set; } = 100;
         private int _peakPricePct = 100; // 판 중 최고 물가 (M16-W6 — 연대기 RunEntry 기록용)
 
+        // ── 물가 예보 (M17-W4 — ADR-M17-3) ───────────────────────────────────
+        private const float FORECAST_CACHE_SEC = 0.25f; // 주민 순회를 매 프레임 돌 이유가 없다
+        private float _forecastCachedAt = -1f;
+        private int _forecastCache = 100;
+
+        /// <summary>물가 예보 % (M17-W4) — 🚫 **판정 금지. 화면 전용** (ADR-M17-3, 게이트 M17-T4).
+        /// 지금 이 순간의 M·발행부채·Q를 확정 물가와 **같은 함수**에 넣은 값이다.
+        /// 웃돈을 걸거나 돈을 찍으면 이 숫자가 그 자리에서 튄다 — 그것이 M16 관측 ②
+        /// ("웃돈이 물가를 올린다는 걸 알아차릴 방법이 없다")의 해답이다.
+        ///
+        /// 물가 자체를 실시간으로 만들지 않은 이유: Q(마을 식량 개수)는 주민이 하나 먹을 때마다
+        /// 움직여서, 실시간 물가는 거래 실가격과 웃돈 설득력을 초 단위로 떨게 만든다.
+        /// 그래서 **결과를 앞당기는 대신 원인을 실시간으로 보여준다.**</summary>
+        public int PriceForecastPct
+        {
+            get
+            {
+                // Time.time이 아니라 unscaledTime — 배속에서 갱신 주기가 흔들리면 안 된다
+                if (_forecastCachedAt >= 0f && Time.unscaledTime < _forecastCachedAt + FORECAST_CACHE_SEC)
+                    return _forecastCache;
+                _forecastCachedAt = Time.unscaledTime;
+                _forecastCache = WorldModel.ComputePricePct(
+                    World.MoneySupply, CountVillageFood(), _worldConfig.MoneyBasePrice,
+                    _worldConfig.PriceCapPct, World.MintDebt, _worldConfig.MintSurchargeK);
+                return _forecastCache;
+            }
+        }
+
+        /// <summary>물가 분모의 Q — 살아있는 주민의 식량 합 (M17-W4 추출).
+        /// 하루 경계의 확정 계산과 예보가 **같은 정의**를 쓰게 하는 단일 출처다
+        /// (두 곳에서 따로 세면 확정과 예보가 이유 없이 어긋난다).</summary>
+        private int CountVillageFood()
+        {
+            int q = 0;
+            for (int i = 0; i < _agents.Count; i++)
+            {
+                VillagerAgent a = _agents[i];
+                if (a != null && a.State != AgentState.Dead) q += a.TotalFoodCount();
+            }
+            return q;
+        }
+
         // ── 재정 정책 (M17-W2) ────────────────────────────────────────────────
         /// <summary>임금 원천징수 세율 단계 인덱스 (WorldConfig.TaxRatePcts의 자리). 세이브 대상.</summary>
         public int TaxStage { get; private set; }
@@ -1066,21 +1108,27 @@ namespace AIVillage.M0
                 if (day > _lastLoggedDay)
                 {
                     _lastLoggedDay = day;
-                    // 물가 갱신 (M16-W4) — 하루 1회 "아침 시세" (ADR-M16-3 — 실시간 재계산 금지.
-                    // 공유 시세 모델: 이 캐시 하나가 마을 전체의 시세 감각이다, 확정 보완 9).
-                    int q = 0, walletSum = 0;
+                    // 물가 확정 (M16-W4 · M17-W4) — 하루 1회 "아침 시세". **모든 판정이 읽는
+                    // 유일한 값**이다 (ADR-M17-3 — 실시간 재계산 금지. 공유 시세 모델: 이 캐시
+                    // 하나가 마을 전체의 시세 감각이다, M16 확정 보완 9). 실시간으로 움직이는
+                    // 것은 예보(PriceForecastPct)뿐이고 그쪽은 화면 전용이다.
+                    int q = CountVillageFood(); // 예보와 같은 정의 (단일 출처)
+                    int walletSum = 0;
                     foreach (VillagerAgent a in _agents)
-                        if (a != null && a.State != AgentState.Dead)
-                        {
-                            q += a.TotalFoodCount();
-                            walletSum += a.MyMoney;
-                        }
+                        if (a != null && a.State != AgentState.Dead) walletSum += a.MyMoney;
                     int prevPct = PricePct;
                     PricePct = WorldModel.ComputePricePct(World.MoneySupply, q,
-                                                          _worldConfig.MoneyBasePrice, _worldConfig.PriceCapPct);
+                                                          _worldConfig.MoneyBasePrice, _worldConfig.PriceCapPct,
+                                                          World.MintDebt, _worldConfig.MintSurchargeK);
                     _peakPricePct = Mathf.Max(_peakPricePct, PricePct); // 연대기 기록용 (M16-W6)
                     if (PricePct != prevPct)
-                        Debug.Log($"[Money] 물가 {prevPct}% → {PricePct}% (통화량 {World.MoneySupply} · 식량 {q}개)");
+                    {
+                        (int moneyPct, int mintPct) = WorldModel.SplitPrice(
+                            World.MoneySupply, World.MintDebt, _worldConfig.MintSurchargeK,
+                            q, _worldConfig.MoneyBasePrice, _worldConfig.PriceCapPct);
+                        Debug.Log($"[Money] 물가 {prevPct}% → {PricePct}% " +
+                                  $"(도는 돈 {moneyPct}% · 발행 여파 {mintPct}% · 통화량 {World.MoneySupply} · 식량 {q}개)");
+                    }
                     // 회계 정합 상시 탐지기 (M16-W6, 명세 탐지기 표 — Σ지갑 == M): 발행·소멸·이전
                     // 어딘가에 두 번째 경로가 생기면 여기서 하루 안에 발각된다 (ADR-M16-1 감시).
                     if (walletSum != World.MoneySupply)

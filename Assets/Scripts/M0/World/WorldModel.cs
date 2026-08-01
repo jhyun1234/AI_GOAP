@@ -233,13 +233,34 @@ namespace AIVillage.M0
             Debug.Log($"[Money] -{walletAmount}동 — {why} (통화량 {MoneySupply})");
         }
 
-        /// <summary>물가 산식 (M16-W4, 순수 — 게이트 M16-T5. ADR-M16-3: 하루 1회 캐시의 원천).
-        /// P% = clamp(100 × M ÷ (Q × 기준가), 100 ~ 상한). M이 작으면 100(기준가 그대로 —
-        /// 화폐가 없던 판과 연속). Q = 마을 식량 합 (거래 대상 재화만 — 자재 제외, 단위 정합).</summary>
-        public static int ComputePricePct(int moneySupply, int foodCount, int basePrice, int capPct)
+        /// <summary>물가 산식 (M16-W4 · M17-W4 확장, 순수 — 게이트 M16-T5·M17-T1).
+        /// P% = clamp(100 × (M + k×발행부채) ÷ (Q × 기준가), 100 ~ 상한).
+        /// M이 작으면 100(기준가 그대로 — 화폐가 없던 판과 연속).
+        /// Q = 마을 식량 합 (거래 대상 재화만 — 자재 제외, 단위 정합).
+        ///
+        /// **확정 물가도 예보도 이 함수 하나를 지난다** (ADR-M17-3) — 다른 것은 입력 시점뿐이다.
+        /// 예보용으로 복사본을 만들면 화면과 판정이 갈린다 (산식 이원화 금지).
+        /// mintDebt·surchargeK 기본값 0 = M16 시절과 완전히 동일 (기존 호출·게이트 무수정).</summary>
+        public static int ComputePricePct(int moneySupply, int foodCount, int basePrice, int capPct,
+                                          int mintDebt = 0, float surchargeK = 0f)
         {
             int denom = Mathf.Max(1, foodCount * Mathf.Max(1, basePrice)); // Q=0 방어 (전멸 직전)
-            return Mathf.Clamp(100 * moneySupply / denom, 100, Mathf.Max(100, capPct));
+            int numer = moneySupply + Mathf.RoundToInt(Mathf.Max(0, mintDebt) * Mathf.Max(0f, surchargeK));
+            return Mathf.Clamp(100 * numer / denom, 100, Mathf.Max(100, capPct));
+        }
+
+        /// <summary>물가의 두 몫 (M17-W4, 순수 — 게이트 M17-T1). 화면의 "원인 분해"가 읽는
+        /// 단일 출처: 도는 돈 몫과 발행 여파 몫으로 나눈다.
+        /// ⚠️ 발행 몫은 반드시 **잔여**로 구한다 — 따로 계산하면 clamp 때문에 두 숫자의 합이
+        /// 화면의 총합과 어긋난다. clamp가 단조라 잔여는 절대 음수가 되지 않는다.
+        /// ⚠️ clamp 구간(하한 100·상한)에서는 분해가 실제 기여도와 다르다. 화면은 거짓말을
+        /// 하지 않지만(합은 항상 맞다) **이 값을 밸런스 근거로 읽지 않는다.**</summary>
+        public static (int moneyPct, int mintPct) SplitPrice(int moneySupply, int mintDebt, float surchargeK,
+                                                             int foodCount, int basePrice, int capPct)
+        {
+            int total = ComputePricePct(moneySupply, foodCount, basePrice, capPct, mintDebt, surchargeK);
+            int money = ComputePricePct(moneySupply, foodCount, basePrice, capPct);
+            return (money, total - money);
         }
 
         /// <summary>완공 플래그 세팅 — ConstructionService.Complete() 전용 (단일 완료 지점).</summary>

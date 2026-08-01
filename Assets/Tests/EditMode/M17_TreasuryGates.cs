@@ -1,5 +1,8 @@
+using System.Collections.Generic;
+using System.IO;
 using AIVillage.M0;
 using NUnit.Framework;
+using UnityEngine;
 
 namespace AIVillage.Tests.EditMode
 {
@@ -120,6 +123,93 @@ namespace AIVillage.Tests.EditMode
             Assert.AreEqual("보통", M0SimulationLoop.TaxStageName(15));
             Assert.AreEqual("중과", M0SimulationLoop.TaxStageName(30));
             Assert.AreEqual("중과", M0SimulationLoop.TaxStageName(90), "상한 근처도 중과");
+        }
+
+        // ── T1: 물가 산식의 발행 항 + 원인 분해 (순수 — ADR-M17-3) ───────────
+
+        [Test]
+        public void M17_T1_ComputePricePct_MintDebtRaisesPrice()
+        {
+            // 분모 = Q 20개 × 기준가 10 = 200
+            Assert.AreEqual(100, WorldModel.ComputePricePct(150, 20, 10, 400),
+                            "M만으로는 75 → 하한 100 (M16 시절과 동일)");
+            Assert.AreEqual(125, WorldModel.ComputePricePct(150, 20, 10, 400, 100, 1f),
+                            "발행 100동이 붙으면 (150+100)/200 = 125% — 명세 §W3 검산치");
+            Assert.AreEqual(400, WorldModel.ComputePricePct(900, 20, 10, 400, 200, 1f), "상한 클램프");
+        }
+
+        [Test]
+        public void M17_T1_ComputePricePct_NeutralWhenNoMintDebt()
+        {
+            // 발행 축이 꺼진 판(부채 0 또는 k=0)은 M16과 **완전히** 같아야 한다.
+            // 기존 게이트 M16-T5가 4인자 호출로 남아 있는 이유이기도 하다.
+            foreach (int m in new[] { 0, 50, 150, 400, 5000 })
+            {
+                int baseline = WorldModel.ComputePricePct(m, 20, 10, 400);
+                Assert.AreEqual(baseline, WorldModel.ComputePricePct(m, 20, 10, 400, 0, 1f), "부채 0");
+                Assert.AreEqual(baseline, WorldModel.ComputePricePct(m, 20, 10, 400, 999, 0f), "k = 0 (마찰 없음)");
+            }
+        }
+
+        [Test]
+        public void M17_T1_SplitPrice_MintShareNeverNegative_AndMatchesDefinition()
+        {
+            // ⚠️ "money + mint == total"은 잔여로 구하는 구현에서 **항등식**이라 무엇을 짜도
+            // 통과한다. 실패할 수 있는 명제만 여기 둔다:
+            //   ① 발행 몫이 음수가 아니다 = 부채가 늘어 물가가 내려가는 일은 없다 (clamp 단조성)
+            //   ② 도는 돈 몫의 정의 = 부채를 뺀 물가와 정확히 같다
+            //   ③ 총합의 정의 = 부채를 넣은 물가와 정확히 같다
+            foreach (int m in new[] { 0, 150, 300, 900, 5000 })
+                foreach (int debt in new[] { 0, 50, 200, 1000 })
+                    foreach (int q in new[] { 1, 20, 60 })
+                    {
+                        (int money, int mint) = WorldModel.SplitPrice(m, debt, 1f, q, 10, 400);
+                        string at = $"M {m} · 부채 {debt} · Q {q}";
+                        Assert.IsTrue(mint >= 0, $"발행 몫 음수 — {at}");
+                        Assert.AreEqual(WorldModel.ComputePricePct(m, q, 10, 400), money, $"도는 돈 몫 정의 — {at}");
+                        Assert.AreEqual(WorldModel.ComputePricePct(m, q, 10, 400, debt, 1f), money + mint,
+                                        $"총합 정의 — {at}");
+                    }
+
+            // 부채가 늘면 물가는 절대 내려가지 않는다 (같은 M·Q에서 단조 증가)
+            int prev = 0;
+            foreach (int debt in new[] { 0, 50, 100, 200, 400 })
+            {
+                int p = WorldModel.ComputePricePct(300, 20, 10, 400, debt, 1f);
+                Assert.IsTrue(p >= prev, $"부채 {debt}에서 물가가 내려갔다 ({p} < {prev})");
+                prev = p;
+            }
+
+            // clamp 밖의 대표 케이스 — 두 몫이 실제로 갈리는 것을 눈으로 박제
+            (int mo, int mi) = WorldModel.SplitPrice(300, 100, 1f, 20, 10, 400);
+            Assert.AreEqual(150, mo, "도는 돈 몫");
+            Assert.AreEqual(50, mi, "발행 여파 몫");
+        }
+
+        // ── T4: 예보가 판정에 새지 않는다 (소스 스캔 — ADR-M17-3) ─────────────
+
+        [Test]
+        public void M17_T4_Forecast_NeverReadByGameLogic()
+        {
+            // 화면에 숫자가 둘이 되면 "판단 규칙 이원화"가 고전적으로 새는 지점이다 —
+            // 누군가 편의상 예보로 판정하면 화면과 실제가 어긋난다. 사람이 아니라 게이트가 막는다.
+            // 허용 = 선언·캐시가 있는 SimulationLoop, 그리고 표시 계층(UI/).
+            string root = Path.Combine(Application.dataPath, "Scripts/M0");
+            var hits = new List<string>();
+            foreach (string file in Directory.GetFiles(root, "*.cs", SearchOption.AllDirectories))
+            {
+                string norm = file.Replace('\\', '/');
+                bool allowed = norm.EndsWith("/SimulationLoop.cs") || norm.Contains("/M0/UI/");
+                if (allowed) continue;
+
+                string[] lines = File.ReadAllLines(file);
+                for (int i = 0; i < lines.Length; i++)
+                    if (lines[i].Contains("PriceForecastPct"))
+                        hits.Add($"{norm}:{i + 1}: {lines[i].Trim()}");
+            }
+            Assert.IsEmpty(hits,
+                "예보값이 판정 계층에 새어 들어갔다 (ADR-M17-3 위반 — 판정은 PricePct 하나만 읽는다):\n"
+                + string.Join("\n", hits));
         }
 
         // ── T3: 발행 부채의 감쇠 곡선 (순수 — ADR-M17-4) ──────────────────────

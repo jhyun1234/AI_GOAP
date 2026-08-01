@@ -122,6 +122,11 @@ InitTestScene*.unity*
 # Blog automation pipeline staging (ephemeral working artifacts between steps)
 /tools/blog-automation/.staging/
 
+# X(트위터) 개인 브랜딩 트랙 — 로컬 전용 (사용자 지시 2026-07-30)
+# 게시 전 원고·브랜딩 전략·게시 이력은 공개 저장소에 올리지 않는다.
+# ⚠️ 이 리포는 PUBLIC이다. `git add -A` 금지 (2026-07-30 이미 한 번 딸려 들어간 이력 있음).
+/tools/content-repurpose/
+
 # 서드파티 아트 에셋 (재배포 라이선스 불명 — 공개 저장소에 올리지 않는다)
 # 조달 방법은 README.md "에셋 조달" 절 참조. 없으면 주민·집·작물 스프라이트가 깨진다.
 /[Aa]ssets/Kenmi/

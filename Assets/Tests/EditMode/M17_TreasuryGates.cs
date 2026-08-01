@@ -116,15 +116,6 @@ namespace AIVillage.Tests.EditMode
             Assert.AreEqual(0, ActionSO.NetWage(1, 15), "임금 1동은 통째로 세금 = 실효 100%");
         }
 
-        [Test]
-        public void M17_T2_TaxStageName_ShowsFeelingNotNumber()
-        {
-            Assert.AreEqual("면세", M0SimulationLoop.TaxStageName(0));
-            Assert.AreEqual("보통", M0SimulationLoop.TaxStageName(15));
-            Assert.AreEqual("중과", M0SimulationLoop.TaxStageName(30));
-            Assert.AreEqual("중과", M0SimulationLoop.TaxStageName(90), "상한 근처도 중과");
-        }
-
         // ── T1: 물가 산식의 발행 항 + 원인 분해 (순수 — ADR-M17-3) ───────────
 
         [Test]
@@ -184,6 +175,72 @@ namespace AIVillage.Tests.EditMode
             (int mo, int mi) = WorldModel.SplitPrice(300, 100, 1f, 20, 10, 400);
             Assert.AreEqual(150, mo, "도는 돈 몫");
             Assert.AreEqual(50, mi, "발행 여파 몫");
+        }
+
+        // ── T6: 화면 (순수 — M17-W5) ─────────────────────────────────────────
+
+        [Test]
+        public void M17_T6_PriceSuffix_SilentInPeacetime()
+        {
+            Assert.AreEqual(string.Empty, SeasonHud.ComposePriceSuffix(100, -1, 0, 0), "예보 없음·기준가");
+            Assert.AreEqual(string.Empty, SeasonHud.ComposePriceSuffix(100, 100, 100, 0), "예보 == 확정");
+        }
+
+        [Test]
+        public void M17_T6_PriceSuffix_ShowsBothDirections()
+        {
+            // ⚠️ 내려가는 예보(▼)를 빼면 세율의 효과가 화면에 영영 안 나온다 (ADR-M17-7).
+            string up = SeasonHud.ComposePriceSuffix(120, 135, 120, 0);
+            StringAssert.Contains("▲", up);
+            StringAssert.Contains("내일 ×1.35", up);
+
+            string down = SeasonHud.ComposePriceSuffix(120, 110, 120, 0);
+            StringAssert.Contains("▼", down, "좋은 소식을 숨기면 손잡이가 장식이 된다");
+            StringAssert.Contains("내일 ×1.1", down);
+            StringAssert.DoesNotContain("▲", down);
+        }
+
+        [Test]
+        public void M17_T6_PriceSuffix_SplitOnlyWhenMintDebtBites()
+        {
+            StringAssert.DoesNotContain("발행 여파", SeasonHud.ComposePriceSuffix(120, -1, 120, 0),
+                                        "부채 0이면 괄호 없음 (평시 줄 길이 보호)");
+            string split = SeasonHud.ComposePriceSuffix(145, -1, 125, 20);
+            StringAssert.Contains("도는 돈 ×1.25", split);
+            StringAssert.Contains("발행 여파 ×0.2", split);
+        }
+
+        [Test]
+        public void M17_T6_Treasury_HiddenWhenUnset_ShownWithTaxStage()
+        {
+            Assert.AreEqual(string.Empty, SeasonHud.ComposeTreasury(-1, 0),
+                            "미표기 = 기존 3인자 Compose 호출·게이트 불변");
+            StringAssert.Contains("금고 3은 42동", SeasonHud.ComposeTreasury(342, 15));
+            StringAssert.Contains("세율 보통 15%", SeasonHud.ComposeTreasury(342, 15));
+            StringAssert.Contains("금고 0동", SeasonHud.ComposeTreasury(0, 0), "빈 금고도 정보다");
+            StringAssert.Contains("세율 면세 0%", SeasonHud.ComposeTreasury(0, 0));
+        }
+
+        [Test]
+        public void M17_T6_Compose_DefaultsUnchangedFromM16()
+        {
+            // 기존 게이트(M6-T·M13·M14)가 3인자 Compose에 문자열 동등을 걸고 있다 —
+            // 새 인자의 기본값이 옛 출력을 그대로 내야 한다.
+            Assert.AreEqual("Day 4", SeasonHud.Compose(4.2f, null, 3f));
+            Assert.AreEqual("Day 4", SeasonHud.Compose(4.2f, null, 3f, 100),
+                            "물가 기준가 = 접미사 없음 (M16 동작)");
+        }
+
+        [Test]
+        public void M17_T6_TaxStageName_MatchesGrumbleThreshold()
+        {
+            // 이름과 불평 조건이 같은 상수를 봐야 화면과 말풍선이 어긋나지 않는다.
+            Assert.AreEqual("면세", SeasonHud.TaxStageName(0));
+            Assert.AreEqual("보통", SeasonHud.TaxStageName(15));
+            Assert.AreEqual("중과", SeasonHud.TaxStageName(SeasonHud.HeavyTaxPct));
+            Assert.AreEqual("중과", SeasonHud.TaxStageName(30));
+            Assert.AreEqual("보통", SeasonHud.TaxStageName(SeasonHud.HeavyTaxPct - 1),
+                            "문턱 직전은 아직 보통 — 불평도 안 나온다");
         }
 
         // ── T4: 예보가 판정에 새지 않는다 (소스 스캔 — ADR-M17-3) ─────────────

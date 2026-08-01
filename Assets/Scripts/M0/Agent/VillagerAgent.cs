@@ -1094,6 +1094,16 @@ namespace AIVillage.M0
                     _everPaid = true;
                     ShowTransient(Pick(_cfg.FirstWageLines));
                 }
+                else if (tax > 0 && _sim != null && _sim.TaxRatePct >= SeasonHud.HeavyTaxPct
+                         && _lastTaxGrumbleGen != _sim.TaxStageGeneration)
+                {
+                    // 중과세 불평 (M17-W5 ⑥) — **실제로 떼인 자리**에서만 말한다.
+                    // ⚠️ 명령 거부에 붙이지 않는다: 세율은 거부 판정에 들어가지 않으므로
+                    // (웃돈은 비과세, ADR-M17-5) 거부에 세금 탓을 붙이면 거짓말이다.
+                    // 세율 단계가 바뀔 때마다 주민당 1회 — 촌장의 조작에 마을이 순차로 반응한다.
+                    _lastTaxGrumbleGen = _sim.TaxStageGeneration;
+                    ShowTransient(Pick(_cfg.TaxGrumbleLines));
+                }
             }
 
             _runner.Cleanup(this);
@@ -1659,6 +1669,10 @@ namespace AIVillage.M0
 
         // 생애 첫 임금 표식 (M16-W2) — 첫 지급만 말풍선 (스팸 방지). 세이브 대상 (ADR-M0-10)
         private bool _everPaid;
+
+        // 중과세 불평을 마지막으로 한 세율 세대 (M17-W5) — 세율이 바뀔 때마다 1회분이 다시
+        // 열린다. 0은 "아직 안 함"이 아니라 "0세대에 함"이므로 -1로 출발한다. 세이브 대상.
+        private int _lastTaxGrumbleGen = -1;
 
         /// <summary>슬롯별 잔량 — EffectApplier 선검사·스냅샷 주입 공용 (판정 단일).</summary>
         public int GetPersonalStock(SlotId slot)

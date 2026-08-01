@@ -280,6 +280,9 @@ namespace AIVillage.M0
         /// 로그와 같은 리듬). 100 = 기준가 그대로. 세이브 대상 아님 — 파생 (로드 후 재계산).</summary>
         public int PricePct { get; private set; } = 100;
         private int _peakPricePct = 100; // 판 중 최고 물가 (M16-W6 — 연대기 RunEntry 기록용)
+        // 확정 물가의 원인 분해 (M17-W5) — PricePct와 **같은 입력**으로 하루 1회 갱신.
+        // 실시간 재계산 금지: 화면의 물가와 괄호 안 두 몫의 합이 어긋난다.
+        private int _pricePartMoney = 100, _pricePartMint;
 
         // ── 물가 예보 (M17-W4 — ADR-M17-3) ───────────────────────────────────
         private const float FORECAST_CACHE_SEC = 0.25f; // 주민 순회를 매 프레임 돌 이유가 없다
@@ -327,6 +330,11 @@ namespace AIVillage.M0
         /// <summary>임금 원천징수 세율 단계 인덱스 (WorldConfig.TaxRatePcts의 자리). 세이브 대상.</summary>
         public int TaxStage { get; private set; }
 
+        /// <summary>세율 변경 세대 (M17-W5) — 바뀔 때마다 1 증가. 주민은 자기가 마지막으로
+        /// 불평한 세대를 기억해, **세율이 바뀐 뒤 첫 임금에 한 번만** 투덜댄다.
+        /// 촌장이 세율을 올리면 주민들이 순차로 반응하는 장면이 되고, 도배는 안 된다.</summary>
+        public int TaxStageGeneration { get; private set; }
+
         /// <summary>현재 세율 % — 판정·표시·플래너가 전부 이 값 하나를 읽는다 (규칙 이원화 금지).
         /// 배열이 비거나 인덱스가 벗어나면 0(무세) = 중립.</summary>
         public int TaxRatePct
@@ -367,14 +375,11 @@ namespace AIVillage.M0
             int next = (TaxStage + 1) % steps.Length;
             if (next == TaxStage) return;
             TaxStage = next;
+            TaxStageGeneration++;           // 주민들의 불평 1회분을 다시 연다 (M17-W5)
             Planner?.Recompile(TaxRatePct); // 플래너가 보는 임금을 세후로 갱신
             Debug.Log($"[Money] 세율 변경 → {TaxRatePct}% (단계 {TaxStage}) — 플래너 재컴파일");
-            Hud?.Notify($"세율 {TaxStageName(TaxRatePct)} {TaxRatePct}%");
+            Hud?.Notify($"세율 {SeasonHud.TaxStageName(TaxRatePct)} {TaxRatePct}%");
         }
-
-        /// <summary>세율 단계 이름 (순수 — 게이트 M17-T2). 수치가 아니라 감각을 보여준다.</summary>
-        public static string TaxStageName(int ratePct)
-            => ratePct <= 0 ? "면세" : ratePct < 25 ? "보통" : "중과";
 
         /// <summary>발행 (M17-W3) — PlayerInputController의 M 키가 유일한 호출처.
         /// 금고가 차는 대신 발행 부채가 붙어 물가가 오른다. 되돌릴 수 없는 조작이지만
@@ -1039,7 +1044,12 @@ namespace AIVillage.M0
                               $"겨울 {WintersSurvived}번 · 최대 {PeakPopulation}명{(newRecord ? " · 역대 최고 갱신" : "")})");
                 }
 
-                Hud?.Tick(GameTime, Season, _worldConfig.ForecastDays, PricePct);
+                // 재정 표시 (M17-W5). 원인 분해는 **확정 물가와 같은 입력**으로 하루 1회 계산해
+                // 둔 값을 쓴다 (_pricePartMoney/_pricePartMint) — 실시간으로 다시 나누면 화면에
+                // 적힌 물가와 괄호 안 두 몫의 합이 어긋난다. 예보만 실시간이다 (ADR-M17-3).
+                Hud?.Tick(GameTime, Season, _worldConfig.ForecastDays, PricePct,
+                          PriceForecastPct, _pricePartMoney, _pricePartMint,
+                          World.Treasury, TaxRatePct);
 
                 // 상태 알림 줄 (M13-B, 2026-07-30 개정 — 舊 M11-D 마을 최솟값 요약을 개인 열거로).
                 // 관측 대상은 마을 평균이 아니라 낙오자 — 그 정신의 완성형은 "낙오자의 이름"이다.
@@ -1121,14 +1131,13 @@ namespace AIVillage.M0
                                                           _worldConfig.MoneyBasePrice, _worldConfig.PriceCapPct,
                                                           World.MintDebt, _worldConfig.MintSurchargeK);
                     _peakPricePct = Mathf.Max(_peakPricePct, PricePct); // 연대기 기록용 (M16-W6)
+                    // 원인 분해 — 확정 물가와 같은 입력(q·M·부채)으로 여기서만 갱신 (M17-W5)
+                    (_pricePartMoney, _pricePartMint) = WorldModel.SplitPrice(
+                        World.MoneySupply, World.MintDebt, _worldConfig.MintSurchargeK,
+                        q, _worldConfig.MoneyBasePrice, _worldConfig.PriceCapPct);
                     if (PricePct != prevPct)
-                    {
-                        (int moneyPct, int mintPct) = WorldModel.SplitPrice(
-                            World.MoneySupply, World.MintDebt, _worldConfig.MintSurchargeK,
-                            q, _worldConfig.MoneyBasePrice, _worldConfig.PriceCapPct);
-                        Debug.Log($"[Money] 물가 {prevPct}% → {PricePct}% " +
-                                  $"(도는 돈 {moneyPct}% · 발행 여파 {mintPct}% · 통화량 {World.MoneySupply} · 식량 {q}개)");
-                    }
+                        Debug.Log($"[Money] 물가 {prevPct}% → {PricePct}% (도는 돈 {_pricePartMoney}% · " +
+                                  $"발행 여파 {_pricePartMint}% · 통화량 {World.MoneySupply} · 식량 {q}개)");
                     // 회계 정합 상시 탐지기 (M16-W6, 명세 탐지기 표 — Σ지갑 == M): 발행·소멸·이전
                     // 어딘가에 두 번째 경로가 생기면 여기서 하루 안에 발각된다 (ADR-M16-1 감시).
                     if (walletSum != World.MoneySupply)
@@ -1145,7 +1154,15 @@ namespace AIVillage.M0
                     // 오늘 세수 리셋 (M17-W2) — ⚠️ W5의 하루 결산 줄은 **이 줄보다 먼저** 읽어야 한다.
                     // 리셋을 빼면 TaxToday가 누적이 되어 판 전체 TaxTotal과 구분이 사라진다.
                     if (TaxToday > 0)
+                    {
                         Debug.Log($"[Money] 어제 세수 {TaxToday}동 (판 누적 {TaxTotal}동 · 금고 {World.Treasury}동)");
+                        // 하루 결산 한 줄 (M17-W5 ⑤) — 원천징수는 조용한 흐름이라 순간 표시가
+                        // 없으면 "돌아간다"가 도착하지 않는다. 하루 한 줄이면 잡음 없이 전달된다.
+                        // ⚠️ 반드시 리셋보다 **먼저** 읽는다. "어제"인 이유: 이 블록은 날이
+                        // 바뀐 순간에 돌고, 쌓인 세수는 방금 끝난 날의 것이다.
+                        Hud?.Notify($"어제 세수 {SeasonHud.ComposeMoney(TaxToday)} · " +
+                                    $"금고 {SeasonHud.ComposeMoney(World.Treasury)}");
+                    }
                     TaxToday = 0;
                     // 발행 부채 감쇠 (M17-W3) — 찍고 가만두면 여파가 잦아든다.
                     // ⚠️ 웃돈으로 나갈 때 차감하는 것이 아니다 (ADR-M17-4): 감쇠는 여기 한 곳뿐.

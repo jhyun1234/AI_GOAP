@@ -131,3 +131,6 @@ InitTestScene*.unity*
 # 조달 방법은 README.md "에셋 조달" 절 참조. 없으면 주민·집·작물 스프라이트가 깨진다.
 /[Aa]ssets/Kenmi/
 /[Aa]ssets/Kenmi.meta
+
+# macOS zip 잔해 (Windows 에서 압축 해제할 때 딸려 나온다)
+/__MACOSX/

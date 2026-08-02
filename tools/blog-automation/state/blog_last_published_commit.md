@@ -15,6 +15,40 @@ metadata:
 
 ## 최신 사용 커밋
 
+- `latest_commit`: `c1d87e2` (docs(devlog) M12 종료 — S4 15/15 분화, 회상 테스트 실패,
+  M13 = 표현층 — 기획팀 브리프(`incidents/2026-08-02/01_planner_brief.md`)의 `verify_at`
+  이자 commit_refs 중 가장 최신 커밋)
+- `selected_commits_range`: `2e2ce34`(spec(m12) 성격 축 — 성향(Trait) 벡터 4작용형식
+  실행명세서) ~ `c1d87e2`(docs(devlog) M12 종료) — M12-A~J 구현 18커밋 전체:
+  `2e2ce34`(spec) · `d54b000`(M12-A 성향 스키마 + 유도기) · `c8a023c`(M12-B 성향 ①우선순위
+  — goal 30개 중 24개에 기질 가중치) · `976fae8`(fix 굶주린 주민이 늑대 앞에 굳어 서서
+  물리던 결함) · `4e3090a`(ADR-M12-4 전면 개정 — 굶주림 앞에 성격 없음 3조항) ·
+  `2183311`(ADR 전수 감사 재조치 — 번호 단일화 + 자격조건화) · `14ba4b8`(M12-C ②비용) ·
+  `1312806`(M12-D ③문턱) · `4b83d78`(M12-E ④대상) · `48f8a95`(M12-F 6성격 벡터 이식 —
+  여기서부터 행동이 갈린다) · `3129670`(fix 겨울 조리 goal 탐색 폭발) · `c4d1566`(fix
+  서비스 직업 외딴 거주로 부탁 영구 단절) · `fbe6dc1`(M12-J 성격별 행동 계측) ·
+  `2c940b1`(fix 모닥불 소유 누락 무한 건축) · `789e577`(fix 프로파일러 생존 0/0 + 자존
+  미노출) · `30ea98c`(M12-G 집 동기) · `80cfe22`(M12-H 성향→직업 배정 편향) ·
+  `eed392b`(scene 관측 표본 확대 — 주민 8명)
+- `cycle_date`: 2026-08-02 (⚠️ **정상 승인 경로 아님** — 원격 auto-run이 반려 3회에
+  도달해 DRAFTED로 종료했고, 같은 날 로컬 세션이 마스터 2차 판정서의 교정 지시를
+  이행한 뒤 수동 발행했다. 상세 경위는 `blog_pipeline_alerts.md` 2026-08-02 항목)
+- `publish_status`: PUBLISHED (Blogger published: 2026-08-02 05:29 UTC, status: LIVE)
+- `blogger_post_id`: 4080593902932668278 (auto-run이 만든 DRAFT를 새 글로 다시 올리지
+  않고 `blogger-client.js publish`로 공개 전환 — 고아 초안 없음)
+- `blog_url`: https://gamedevclaude.blogspot.com/2026/08/unity-goap-claude-code-ai.html
+- `title`: 성격 여섯이 전부 다르게 살기 시작했는데, 정작 볼 게 없었다 — Unity GOAP 성향
+  벡터 인디게임 개발일지 (Claude Code 게임 개발 AI 페어 프로그래밍 후기)
+- `labels`: Unity GOAP, 인디게임 개발일지, Claude Code 게임 개발, AI 페어 프로그래밍 후기
+- `local_archive`: tools/blog-automation/published/2026-08-02-unity-goap-m12-trait-vector.html
+  (게시 후 Blogger GET으로 되받은 `content` 필드와 md5 대조해 완전 일치
+  (byte-identical, 45,988 bytes, U+FFFD 0건)함을 직접 확인.)
+- `content_note`: 이 회차는 blog-editor(Step 5)를 거치지 않았다. 대신 로컬 세션이
+  마크다운 표 2개를 실제 `<table>`로 변환했다 — auto-run의 최소 변환기는 표를 파이프
+  문자 그대로 `<p>`에 흘려보냈다(`| 성격 | 근면 | …`). 이 블로그의 첫 HTML 표 사용 회차다.
+
+## 이전 사용 커밋 (2026-07-30 M11 회차)
+
 - `latest_commit`: `7cd9e46` (docs(spec) M11-K 명세 마무리 — 앵커 전수 교체 노트 + DoD
   체크 — 기획팀 브리프(`01_planner_brief.md`) commit_refs 중 타임스탬프 기준 가장 최신 커밋)
 - `selected_commits_range`: `6a0486e`(spec(goap) M11 개인화 경제 실행명세서) ~ `7cd9e46`

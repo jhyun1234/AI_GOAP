@@ -209,6 +209,22 @@ async function cmdUpdate(args) {
   console.log(JSON.stringify(result, null, 2));
 }
 
+// DRAFT 상태의 글을 공개 전환한다. update는 발행 상태를 보존하므로,
+// 반려 3회로 draft 강등된 회차를 나중에 정식 발행하려면 이 경로가 필요하다
+// (2026-08-02 M12 회차에서 이 명령이 없어 초안이 갇혀 있었다).
+async function cmdPublish(args) {
+  if (!args['post-id']) throw new Error('사용법: publish --post-id <id>');
+
+  const token = await ensureAccessToken();
+  const blogId = loadBlogId();
+
+  const result = await httpsJson(
+    `https://www.googleapis.com/blogger/v3/blogs/${blogId}/posts/${args['post-id']}/publish`,
+    { method: 'POST', headers: { Authorization: `Bearer ${token}` } }
+  );
+  console.log(JSON.stringify(result, null, 2));
+}
+
 async function main() {
   const [cmd, ...rest] = process.argv.slice(2);
   const args = parseArgs(rest);
@@ -216,7 +232,8 @@ async function main() {
   if (cmd === 'update') return cmdUpdate(args);
   if (cmd === 'get-blog') return cmdGetBlog();
   if (cmd === 'post') return cmdPost(args);
-  console.error('알 수 없는 명령. token | get-blog | post | update 중 하나를 사용하세요.');
+  if (cmd === 'publish') return cmdPublish(args);
+  console.error('알 수 없는 명령. token | get-blog | post | update | publish 중 하나를 사용하세요.');
   process.exit(1);
 }
 

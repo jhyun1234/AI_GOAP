@@ -14,6 +14,72 @@ metadata:
 **How to apply:** 원격 routine과 로컬 점검 세션은 실행 시작 시 이 파일을 확인한다.
 OPEN 상태의 경보가 있으면 해당 우회 절차(MANUAL_STATE_UPDATE 등)를 미리 준비한다.
 
+## 🔴 OPEN — 2026-08-02 반려 3회 도달 (M12 "성격 축 — 성향 벡터") → draft 강등
+
+- **run**: 2026-08-02 원격 routine auto-run (기록 시각 2026-08-02 05:10 UTC).
+  소재 = M12 성격 축/성향 벡터, 커밋 범위 `2e2ce34`~`c1d87e2`, `verify_at: c1d87e2`.
+- **반려 3건 (이번 사이클 합산 카운트)**:
+  1. **미상** — 오케스트레이터가 보고한 반려 카운터 2/3 중 마스터 Step 4 1차를 뺀 나머지
+     1건. `.staging/03_review.md`가 "재검수 #2"로 덮어써져 원문을 확인할 수 없었다.
+     마스터가 근거 없이 내용을 추정해 적지 않는다. (재발 방지 메모: 검수 리포트는
+     회차별로 보존하거나 append해야 3회 도달 시 사유를 재구성할 수 있다.)
+  2. **Step 4 (마스터, 1차): REJECTED 2건** — 검수팀 PASS를 마스터가 에셋 정본으로
+     재검증하다 발견.
+     - R1: 초안 54행 "먹는 행동 계열 셋"이 실제 면제 3종(`Goal_P0_Hunger` "배고픔 해결",
+       `Goal_P0_Fatigue` "**휴식**", `Goal_Snack` "허기 달래기") 중 **휴식을 누락**.
+     - R2: 초안 171행 "계절 길이 8일"이 정본과 불일치. 정본은
+       `Assets/M0Config/Seasons/Season_{Mild,Summer,Autumn,Winter}.asset:16 DurationDays`
+       = 3/3/2/4 (한 바퀴 12일), `WorldConfigSO.cs:93 ProfilerIntervalDays = 7f`.
+     → 작성팀이 두 곳 수정, 검수팀 재검증 PASS. **R1·R2는 마스터 2차 판정에서 해소 확인됨.**
+  3. **Step 4 (마스터, 2차): REJECTED 1건 (R3)** — 초안 74행 피신 우선순위 수치
+     "겁 최고 **125** / 겁 최저 **85**"가 에셋 정본 계산값과 불일치.
+     - 정본(`git show c1d87e2:...`): `Goal_Flee.asset:16 Priority: 105`,
+       `:28-29 Trait: 5 / Weight: 0.8`, `:30 PriorityScale: 20`;
+       `TraitVector.cs Bias() = Clamp(Σ(v/100×w), -1, 1)`;
+       `GoalSO.cs TraitBoost() = RoundToInt(Bias × PriorityScale)`.
+     - ⇒ 겁 +100 → 105 + round(0.8×20) = **121**, 겁 -100 → **89**. 중립 105는 옳음.
+     - 125/85의 출처는 커밋 `976fae8` **본문**이며, 그 커밋이 `PriorityScale 6→20`만 바꾸고
+       `Weight: 0.8`은 그대로 둔 채 0.8을 곱하지 않은 **산술 오류**다. 같은 오류가
+       `Assets/Scripts/M0/Data/GoalSO.cs`의 `PriorityScale` 툴팁 주석에 복제돼 있다.
+     - 게이트 `M12_T3_Flee_OutranksHungerExceptForTheReckless`는 **부등식만** 검사하므로
+       121/89에서도 green — 그린 상태가 125/85의 근거가 되지 못한다.
+     - 부수(R3-b): ±100은 축의 이론적 극단이고 실제 6성격 중 해당 값이 없다. 실제 최댓값은
+       새침이 겁 +30(→110), 최솟값은 고집쟁이 겁 -60(→95).
+
+### 🔴 리포로 되돌려야 할 실제 결함 (블로그와 무관 — 게임 코드 쪽)
+
+이번 반려는 블로그 초안의 오기이지만, **뿌리는 리포지토리 자체에 있다.**
+`Assets/Scripts/M0/Data/GoalSO.cs`의 `PriorityScale` 툴팁이
+"피신(105, 진폭 20)은 겁이 최저인 주민을 **85**로 내려"라고 적고 있으나 실제 계산값은
+**89**다(`Goal_Flee.asset`의 `Weight: 0.8` 미반영). 주석과 커밋 본문이 서로를 인용하며
+틀린 값을 재생산하고 있고, 게이트가 부등식만 보므로 앞으로도 자동으로는 안 잡힌다.
+**다음 개발 세션에서 주석을 89로 정정하거나, 의도가 85였다면 `Weight`를 1.0으로 올릴 것.**
+(이 항목이 정리되기 전까지 같은 지점이 블로그 회차마다 반복 반려될 수 있다.)
+
+- **조치**: 재작성 루프 중단. 게시팀(blog-publisher)에 **draft 모드** Step 7 위임 —
+  마지막 초안(`.staging/02_draft.md`, R1·R2 수정 반영본)을 Blogger **초안** 상태로 올린다.
+  사람의 승인을 기다리지 않는다. draft 게시도 실패하면 조용히 종료.
+- **해소 조건**: (a) 위 `GoalSO.cs` 주석 정합성 정리, (b) M12 소재가 다음 사이클에서
+  정식 발행되면 이 항목을 CLOSED로 내린다.
+- **판정서 원본**: `tools/blog-automation/.staging/04_verdict.md` (사이클 중 덮어써짐 주의).
+
+- **상태 (경과, 2026-08-02 게시팀 Step 7)**: DRAFTED로 파이프라인 자체는 정상 종료.
+  게시팀 Step 7이 실제로 Blogger 초안을 생성 완료함 — blogger_post_id
+  `4080593902932668278` (blog `6014451945015572125`, gamedevclaude.blogspot.com),
+  status: DRAFT. 초안 상태라 퍼머링크는 없음(`url` 필드가 블로그 홈으로 나옴), 관리자
+  화면: https://www.blogger.com/blog/posts/6014451945015572125?hl=ko. 게시된 본문은
+  blog-editor(Step 5)를 거치지 않은 `.staging/02_draft.md`(R1·R2 반영본)를 최소 HTML
+  변환(문단 `<p>` · 소제목 `<h2>`/`<h3>` · 인용 `<blockquote>` · 강조 `<b>` 네 가지만)만
+  적용한 것이며, **blog-editor 미경유(SEO 메타·라벨·이미지·광고 위치 없음)**. 위 R3(피신
+  우선순위 겁 최고/최저 125/85 수치) 반려 사유도 아직 반영되지 않았다 — 초안 그대로 올린
+  것이므로 사람이 검토할 재료이지 발행물이 아니다. 게시 직후 `view=ADMIN` GET으로 재조회해
+  title·content가 로컬 제출본과 바이트 단위(문자열 완전 일치, 18,635자, U+FFFD 없음)로
+  동일함을 확인함. 로컬 사본:
+  `tools/blog-automation/published/2026-08-02-unity-goap-m12-trait-vector-DRAFT-NOT-PUBLISHED.html`
+  (파일명·내용 모두에 DRAFT 표시). **지시서 원칙에 따라 `blog_last_published_commit.md`·
+  `blog_next_material_priority.md`는 갱신하지 않았다** — 소재를 소비한 것이 아니므로
+  M12는 다음 회차에도 ACTIVE 소재로 그대로 남아 있다(재집필 대상).
+
 ## 🟢 CLOSED — 2026-07-28 반려 3회 도달 (M10 "야생 위협과 방랑자") → draft 강등 → 정식 발행으로 해소
 
 - **run**: 2026-07-28 원격 routine auto-run. 소재 = M10 "야생 위협과 방랑자"

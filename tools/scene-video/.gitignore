@@ -13,6 +13,9 @@ episodes/*/build/youtube.json
 # 루틴 실행 로그 (기기별 상이)
 state/routine.log
 
+# 겹침 방지 락 (routine.cmd 가 만들고 지운다). 실행 중에만 존재하는 것이라 리포에 안 담는다.
+state/routine.lock/
+
 # 파이프라인 단계별 중간 산출물 — 지금은 episodes/<ep>/notes/ 에 남긴다
 .staging/
 

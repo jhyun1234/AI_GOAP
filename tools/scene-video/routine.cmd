@@ -27,8 +27,11 @@ REM The logon task already existed (registered 2026-07-29, fires 3 minutes after
 REM logon). Only the daily one moves. /f overwrites in place, so re-running both
 REM lines is safe whether or not the task is already there.
 REM
-REM register:  schtasks /create /tn "AI_GOAP scene-video"       /tr "%~f0" /sc DAILY /st 15:00 /f
-REM            schtasks /create /tn "AI_GOAP scene-video logon" /tr "%~f0" /sc ONLOGON /delay 0003:00 /f
+REM register:  run register-task.cmd next to this file - it fills in its own
+REM            absolute path, so there is nothing to hand-edit. The two lines it
+REM            runs are, for reference:
+REM              schtasks /create /tn "AI_GOAP scene-video"       /tr "%~f0" /sc DAILY /st 15:00 /f
+REM              schtasks /create /tn "AI_GOAP scene-video logon" /tr "%~f0" /sc ONLOGON /delay 0003:00 /f
 REM remove:    schtasks /delete /tn "AI_GOAP scene-video" /f
 REM            schtasks /delete /tn "AI_GOAP scene-video logon" /f
 REM inspect:   schtasks /query  /tn "AI_GOAP scene-video" /v /fo LIST

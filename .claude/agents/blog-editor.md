@@ -28,9 +28,43 @@ memory: project
    - `> 인용구` → `<blockquote>인용구</blockquote>`
    - 번호 목록 `1. ...` → `<ol><li>...</li></ol>`, 구분선 `---` → `<hr>`
    - 문단은 `<p>`로 감싼다
-4. **이미지**: 이번 자동화 파이프라인은 스크린샷/이미지 자동 생성을 하지 않는다(5장
-   참고 — SNS 카드뉴스와 마찬가지로 디자인 리소스는 스코프 밖). 이미지 없이 텍스트만으로
-   완결되는 포맷을 기본으로 한다.
+4. **이미지**: 스크린샷·그림 파일은 여전히 만들지 않는다. 대신 **표·화살표·콜아웃·막대**
+   네 가지를 HTML 로 그린다 (2026-08-02 신설, 아래 4-1~4-4). 전부 텍스트라 검수·색인·
+   접근성이 유지되고 쇼츠 파이프라인을 오염시키지 않는다.
+
+   **4-1. 표** — 마크다운 표 → `<table>`. 🔴 **인라인 style 없이 넣으면 안 된다.**
+   블로거 테마에는 `table{border-collapse}` 와 `td,th{padding:0}` 밖에 없어서 글자가
+   뭉쳐 나온다(실측). 본문 맨 위에 `<style>` 블록을 한 번 두고 클래스로 쓴다 —
+   블로거가 `<style>` 블록과 `class` 속성을 그대로 보존함을 실측 확인했다(824바이트 무손실).
+
+   ```html
+   <style>
+   .figtbl{border-collapse:collapse;width:100%;margin:1.2em 0;font-size:0.95em}
+   .figtbl th,.figtbl td{border:1px solid #d9d4cc;padding:8px 10px;text-align:left}
+   .figtbl th{background:#f2f0ed}
+   .figwrap{overflow-x:auto;margin:1em 0}
+   .callout{border-left:4px solid #c96442;background:#faf9f7;padding:12px 16px;margin:1.2em 0}
+   .bar{display:inline-block;height:12px;background:#c96442;border-radius:6px;vertical-align:middle}
+   </style>
+   ```
+
+   🔴 **열이 4개를 넘으면 `<div class="figwrap">` 로 감싼다.** 안 감싸면 좁은 화면에서
+   **페이지 전체가 가로로 밀린다**(실측). 감싸면 표만 스크롤된다.
+
+   **4-2. 화살표 사슬** — 초안의 `A → B → C` 한 줄은 `<p style="font-size:1.05em;
+   line-height:2">` 로 감싸 숨통을 준다. 화살표는 `→` 문자 그대로 둔다.
+
+   **4-3. 콜아웃** — 초안의 `> ` 인용구 중 **교훈·경고 한 토막**은 `<blockquote>` 대신
+   `<div class="callout">` 로 낸다. 여러 문단짜리 인용은 기존대로 `<blockquote>`.
+
+   **4-4. 비율 막대** — 초안 표의 열 제목이 `…(막대)` 로 끝나면, 그 열의 셀 값(0~1)을
+   `<span class="bar" style="width:NN%"></span>` 으로 바꾸고 열 제목에서 `(막대)` 를 지운다.
+   🔴 **막대는 반드시 `<table>` 안에 있어야 한다** — 쇼츠 추출기가 표를 통째로 지우는
+   방식이라, 표 밖에 있으면 `순둥이0.10` 같은 조각이 영상 대본에 샌다(실측).
+
+   ⚠️ **색만으로 정보를 싣지 마라.** 막대 옆에는 반드시 숫자 열이 있어야 하고, 판정은
+   색이 아니라 글자로 적는다. 이모지·`<pre>` ASCII 도식·2단 카드·타임라인은 쓰지 않는다
+   (blog-writer.md "시각 표현" 절의 금지 목록과 같다).
 5. **광고 배치**: **애드센스 계정이 아직 없거나 Phase 5 이전이면 이 항목은 건너뛴다** —
    승인되지 않은 광고 코드를 미리 심지 않는다. 애드센스 승인 이후에는 Blogger 자체
    "자동 광고" 기능이 템플릿 레벨에서 배치를 처리하는 경우가 많으므로, 우선 그 방식을

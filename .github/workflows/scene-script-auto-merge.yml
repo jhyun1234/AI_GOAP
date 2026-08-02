@@ -62,7 +62,10 @@ jobs:
           echo "$CHANGED"
 
           # 대본 산출물만 받는다. scene.json · kinds/*.js · notes/*.md
-          ALLOW='^tools/scene-video/episodes/[^/]+/(scene\.json|kinds/.+\.js|notes/.+)$'
+          # + state/schedule.json — 순서표가 바닥나면 클라우드 루틴이 backlog.mjs --extend 로
+          #   새 블로그 글을 회차로 편입한다(2026-08-02, 격일→매일 전환과 함께). 그 줄이
+          #   여기로 안 들어오면 다음 실행이 같은 판정을 되풀이하고 회차가 영영 안 늘어난다.
+          ALLOW='^tools/scene-video/(episodes/[^/]+/(scene\.json|kinds/.+\.js|notes/.+)|state/schedule\.json)$'
           if echo "$CHANGED" | grep -qEv "$ALLOW" ; then
             if [[ "$BRANCH" == claude/scene-* ]]; then
               echo "::error::$BRANCH is a script branch but modifies files outside episodes/**/{scene.json,kinds,notes} — refusing to merge."

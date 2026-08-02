@@ -4,7 +4,10 @@
      --prepare        ⭐ 기본 운영 경로. mp4 와 붙여넣을 메타데이터까지 만들고 폴더를 연다.
                       업로드는 사람이 스튜디오에서 한다 — API 업로드는 감사 전까지
                       영상이 비공개로 '잠겨' 스튜디오에서도 못 푸는 탓에 쓰지 않는다.
-     --routine        스케줄러가 부르는 진입점. 2일 간격 게이트를 확인하고 --prepare 를 한다.
+     --routine        스케줄러가 부르는 진입점. 간격 게이트(하루 한 편)를 확인하고 --prepare 를 한다.
+                      순서표가 바닥나면 backlog.mjs 가 아직 영상이 안 된 발행 글을 한 칸 편입한다
+                      (scriptBy=cloud 면 그건 클라우드 루틴 몫이라 여기서 안 한다).
+                      재료가 없으면 아무것도 안 하고 exit 0 — 사고가 아니다.
      --dry            올리지 않는다. 만들 메타데이터만 보여준다
      --force          이미 처리한 회차도 다시 한다
      --skip-render    mp4 가 이미 있으면 다시 뽑지 않는다(기본은 낡았으면 다시 뽑음)
@@ -26,6 +29,7 @@ import { fileURLToPath } from 'url';
 import { epDir, epScene, epBuild } from './lib-node.mjs';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
+const REPO = path.resolve(ROOT, '..', '..');
 const argv = process.argv.slice(2);
 const has = f => argv.includes('--' + f);
 const DRY = has('dry'), FORCE = has('force');
@@ -38,27 +42,23 @@ const STATE = path.join(ROOT, 'state', 'uploads.json');
 fs.mkdirSync(path.dirname(STATE), { recursive: true });
 const state = fs.existsSync(STATE) ? JSON.parse(fs.readFileSync(STATE, 'utf8')) : {};
 
-/* ── 회차 고르기 ─────────────────────────────────
+/* ── 순서표 ─────────────────────────────────────
    루틴은 회차 이름을 모른다. state/schedule.json 의 순서에서 아직 안 만든 첫 회차를 집는다.
-   그 파일이 없으면 만들어 둔다 — 회차가 늘 때 사람이 한 줄 추가하는 자리다. */
+   순서표가 바닥나면 backlog.mjs 가 아직 영상이 안 된 발행 글을 편입한다(아래 참조) —
+   전에는 여기가 사람이 손으로 한 줄 추가해야 하는 자리였다. */
 const SCHED = path.join(ROOT, 'state', 'schedule.json');
 if (!fs.existsSync(SCHED)) fs.writeFileSync(SCHED, JSON.stringify({
   _: '영상 순서. Docs/영상_시리즈_구성안.md 의 재생 순서를 따른다. 씬 JSON 이 있는 것만 만들 수 있다.',
-  everyDays: 2,
+  everyDays: 1,
   order: ['ep01s']
 }, null, 2));
-const sched = JSON.parse(fs.readFileSync(SCHED, 'utf8'));
+let sched = JSON.parse(fs.readFileSync(SCHED, 'utf8'));
 
-let EP = argv.find(a => !a.startsWith('--'));
-if (!EP) {
-  EP = sched.order.find(id => !state[id]) || sched.order.at(-1);
-  if (ROUTINE) console.log(`회차     ${EP} (schedule.json 에서 자동 선택)`);
-}
-
-/* ── 2일 간격 게이트 ─────────────────────────────
-   크론은 홀수일에 돌지만 달이 바뀌면 31일 다음이 1일이라 이틀이 아니라 하루 만에 돈다.
+/* ── 간격 게이트 ─────────────────────────────────
+   크론 숫자로 주기를 표현하지 않는다 — 달이 바뀌면 31일 다음이 1일이라 격일이 이틀 연속이 된다.
    달력에 기대지 말고 "마지막으로 만든 날로부터 며칠 지났나"를 직접 본다.
-   실행이 한 번 밀려도 다음 날 알아서 따라잡는다. */
+   실행이 한 번 밀려도 다음 날 알아서 따라잡는다.
+   🔴 2026-08-02 사용자 지시로 격일 → **하루 한 편**. 값은 schedule.json 의 everyDays 다. */
 /* 🔀 대본을 누가 만드는가 — schedule.json 의 `scriptBy`
      "local" (기본) : 이 스크립트가 claude -p 로 에이전트를 돌린다
      "cloud"        : 클라우드 루틴이 만들어 push 하고, 여기서는 **렌더만** 한다
@@ -86,16 +86,60 @@ if (ROUTINE && !FORCE) {
      "아직 안 렌더한 대본이 있으면 지금 렌더한다"가 로컬의 규칙이다.
      안 그러면 클라우드가 어제 만든 대본을 로컬이 "아직 이르다"로 하루 더 묵힌다. */
   if (!CLOUD) {
+    const every = sched.everyDays ?? 1;
     const last = Object.values(state).map(v => v.preparedAt || v.uploadedAt).filter(Boolean).sort().at(-1);
     if (last) {
       const days = (Date.now() - new Date(last).getTime()) / 86400000;
-      if (days < (sched.everyDays ?? 2) - 0.5) {
-        console.log(`아직 이르다 — 마지막 제작 ${days.toFixed(1)}일 전 (간격 ${sched.everyDays ?? 2}일). 종료.`);
+      if (days < every - 0.5) {
+        console.log(`아직 이르다 — 마지막 제작 ${days.toFixed(1)}일 전 (간격 ${every}일). 종료.`);
         process.exit(0);
       }
     }
   }
-  if (state[EP]) { console.log(`만들 회차가 없다 — ${EP} 까지 전부 처리됨. 씬을 추가해라.`); process.exit(0); }
+}
+
+/* ── 순서표가 바닥나면 늘린다 ─────────────────────
+   `order` 는 원래 손으로 적어 둔 고정 목록이라 다 만들면 파이프라인이 영원히 멈췄다.
+   격일일 때는 한 달치라 안 보였는데, 하루 한 편이면 열흘 남짓 뒤에 바닥난다.
+   backlog.mjs 가 아직 영상이 안 된 발행 글을 발행 순서로 **하루 한 칸씩** 편입한다.
+   재료가 없으면 아무것도 안 한다 — 그건 사고가 아니라 "블로그가 다음 글을 낼 때까지 쉼"이다.
+
+   🔴 클라우드 모드에서는 여기서 늘리지 않는다. 대본을 만드는 쪽이 늘려야 한다 —
+   로컬이 늘리면 커밋되지 않은 schedule.json 변경이 남아 다음 `git pull --ff-only` 를 막는다.
+   클라우드는 0절에서 같은 스크립트를 부르고 그 줄을 함께 커밋한다. */
+let backlog = null;
+if (ROUTINE && !CLOUD && !argv.find(a => !a.startsWith('--'))) {
+  /* --dry 면 판정만 받고 순서표는 안 고친다. 🔑 그래도 **부르기는 한다** —
+     안 부르면 이 갈래가 dry 로는 한 번도 안 돌아 보고, 처음 도는 날은 아무도 안 보고 있다. */
+  const b = spawnSync(process.execPath,
+    [path.join(ROOT, 'backlog.mjs'), '--json', ...(DRY ? [] : ['--extend'])],
+    { encoding: 'utf8', cwd: REPO });
+  process.stderr.write(b.stderr || '');          // 사람이 읽는 줄은 그대로 흘려보낸다
+  if (b.status !== 0) { console.error('🔴 순서표 갱신 실패 — 멈춘다.'); process.exit(1); }
+  try { backlog = JSON.parse((b.stdout || '').trim()); } catch { }
+  sched = JSON.parse(fs.readFileSync(SCHED, 'utf8'));
+}
+
+/* ── 회차 고르기 ─────────────────────────────────
+   아직 렌더하지 않은 첫 회차. 위에서 순서표가 늘어났으면 그 새 회차가 여기 걸린다. */
+let EP = argv.find(a => !a.startsWith('--'));
+if (!EP) {
+  EP = sched.order.find(id => !state[id]);
+  if (!EP) {
+    /* 순서표를 통째로 렌더했다. 왜 더 없는지는 경우가 갈리므로 정확히 말한다 —
+       "재료가 없다"와 "여기서 늘리지 않는다"는 사람이 할 일이 다르다. */
+    console.log(`만들 회차가 없다 — ${sched.order.at(-1)} 까지 전부 처리됨.`);
+    if (backlog?.state === 'AVAILABLE') {
+      console.log(`         --dry 라 순서표를 안 늘렸다. 실제 실행이면 ${backlog.ep} 가 생긴다.`);
+    } else if (CLOUD) {
+      console.log(`         재료를 늘리는 것은 클라우드 루틴이다(대본을 만드는 쪽이 박자를 쥔다).`);
+      console.log(`         블로그가 새 글을 내면 거기서 회차가 생기고 여기가 다시 산다.`);
+    } else {
+      console.log(`         재료(아직 영상이 안 된 발행 글)가 없다. 블로그가 새 글을 내면 저절로 재개된다.`);
+    }
+    process.exit(0);
+  }
+  if (ROUTINE) console.log(`회차     ${EP} (schedule.json 에서 자동 선택)`);
 }
 
 const scenePath = epScene(EP);
@@ -110,7 +154,6 @@ const scenePath = epScene(EP);
 
    블로그 파이프라인은 원격 routine 이라 이런 게 필요 없지만 영상은 로컬이어야 한다 —
    TTS 모델 645MB · 크롬 · ffmpeg · 폰트가 전부 이 PC 에 있다. 그래서 로컬 헤드리스로 부른다. */
-const REPO = path.resolve(ROOT, '..', '..');
 
 /* CLI 실행 파일 찾기.
    🔴 윈도에서 `claude.cmd` 를 spawnSync 로 부르면 **EINVAL** 이 난다. Node 18.20+ 가
@@ -182,7 +225,7 @@ function pruneOrphanKinds(ep) {
 
 /* stream-json 한 줄 → 사람이 읽을 한 줄(또는 null 이면 안 찍는다).
    목적은 "살아 있나 · 지금 어느 부서인가 · 무엇을 건드렸나" 셋뿐이다.
-   로그는 격일로 쌓이므로 짧게 남긴다 — 원시 이벤트를 다 남기면 아무도 안 읽는다. */
+   로그는 날마다 쌓이므로 짧게 남긴다 — 원시 이벤트를 다 남기면 아무도 안 읽는다. */
 function renderEvent(line) {
   let e; try { e = JSON.parse(line); } catch { return null; }
   const at = new Date().toTimeString().slice(0, 8);
@@ -291,7 +334,7 @@ ${src.note ? `참고: ${src.note}` : ''}
 /* 에이전트 세션 한 번. 대본을 처음 쓸 때와 점검 실패를 고칠 때가 이 함수를 공유한다. */
 /* 서버측 일시 오류는 스스로 다시 시도한다.
    🔴 실측(2026-07-30): ep02s 재작업이 **연속 두 번** 서버 오류로 죽었다(500 → 529 Overloaded).
-   무인이면 그때마다 그 회차가 그냥 없어진다 — 격일 스케줄이니 다음 기회는 이틀 뒤다.
+   무인이면 그때마다 그 회차가 그냥 없어진다 — 다음 기회는 빨라야 내일이다.
    프롬프트가 "notes/ 에 있으면 읽고 이어서 해라"고 지시하므로 재시도가 처음부터 다시 하는 건 아니다.
    ⚠️ 인증 실패·한도 초과는 재시도해도 같으므로 여기서 걸러 낸다. 기다려서 풀릴 것만 다시 한다. */
 const TRANSIENT = /\b5\d\d\b|internal server|overloaded|timeout|ECONNRESET|socket hang up/i;
@@ -299,8 +342,8 @@ const TRANSIENT = /\b5\d\d\b|internal server|overloaded|timeout|ECONNRESET|socke
 /* 기다리는 간격.
    🔴 처음엔 60초·120초로 잡았다가 실측에서 부족했다 — 2026-07-30 에 529 Overloaded 가
    **10분 넘게 이어져** 세 번 다 1턴 만에 죽었다(각 $0.00 이라 시도 자체는 싸다).
-   장애는 분 단위가 아니라 십분 단위로 이어진다. 무인 실행이 여기서 포기하면 격일 스케줄상
-   그 회차를 **이틀 놓친다** — 기다리는 편이 압도적으로 싸다. 총 인내 약 38분.
+   장애는 분 단위가 아니라 십분 단위로 이어진다. 무인 실행이 여기서 포기하면
+   그 회차를 **하루 놓친다** — 기다리는 편이 압도적으로 싸다. 총 인내 약 38분.
    손으로 부를 때 오래 기다리는 게 싫으면 Ctrl-C 로 끊고 나중에 다시 부르면 된다. */
 const RETRY_WAIT_MIN = [3, 10, 25];
 

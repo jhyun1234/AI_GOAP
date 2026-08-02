@@ -6,12 +6,17 @@ REM so Korean comments come out as garbage and the parser then tries to execute 
 REM The Korean explanation lives in publish.mjs, which node reads as UTF-8.
 REM
 REM ---------------------------------------------------------------------------
-REM CADENCE: daily + on logon. The two-day beat is NOT here any more.
+REM CADENCE: daily + on logon. The beat itself is NOT set here.
 REM
 REM Why: schedule.json says scriptBy=cloud, so the cloud routine owns the beat
-REM (it gates on "1.5 days since the last scene.json in git"). This machine has
-REM exactly one rule left - "if there is a script nobody rendered yet, render it".
-REM publish.mjs skips the interval gate entirely when scriptBy=cloud.
+REM (it gates on "0.5 days since the last scene.json in git" - one episode per
+REM day since 2026-08-02, user's call; it used to be every other day / 1.5 days).
+REM This machine has exactly one rule left - "if there is a script nobody
+REM rendered yet, render it". publish.mjs skips the interval gate when cloud.
+REM
+REM When the hand-written order list runs out, backlog.mjs pulls the next
+REM not-yet-filmed published blog post in. If there is none, everything stops
+REM quietly and resumes by itself once the blog publishes again.
 REM
 REM The old registration was DAILY /mo 2 /st 09:00, which fired NINE MINUTES
 REM before the cloud routine even started and ~2 hours before it pushed. So the

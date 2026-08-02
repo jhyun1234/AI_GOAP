@@ -31,12 +31,18 @@ fs.mkdirSync(outDir, { recursive: true });
 const tts = await loadTextToSpeech(path.join(A, 'onnx'), false);
 
 /* 목소리는 우리 것(voice_styles/)을 먼저 찾고, 없으면 벤더 프리셋(M1~M5, F1~F5)으로 간다.
-   🔴 우리가 만든 목소리를 vendor/ 안에 두면 안 된다 — 통째로 gitignore 대상이라 리포에 안 남고,
-   녹음 원본은 공개 리포에 못 올리니 날리면 GPU 30분을 다시 태워야 한다. */
+   🔴 voice_styles/ 는 **리포에 없다** — 본인 음색 임베딩이고 리포가 PUBLIC 이라 2026-08-02 에
+   추적을 해제했다(사유는 VOICE_CLONE.md 5절). 즉 clone 만 해서는 이 파일이 안 생긴다.
+   그래도 여기서 벤더 프리셋으로 조용히 넘어가지 않는다 — **다른 목소리로 회차가 나가는 것이
+   멈추는 것보다 나쁘다.** 없으면 무엇을 해야 하는지까지 말하고 멈춘다. */
 const stylePath = ['voice_styles', path.join(assets, 'voice_styles')]
   .map(d => path.join(ROOT, d, `${voiceName}.json`))
   .find(p => fs.existsSync(p));
-if (!stylePath) throw new Error(`목소리 스타일을 찾을 수 없다: ${voiceName}.json`);
+if (!stylePath) throw new Error(
+  `목소리 스타일을 찾을 수 없다: ${voiceName}.json\n` +
+  `  찾은 곳: tools/scene-video/voice_styles/ · ${assets}/voice_styles/\n` +
+  `  이 파일은 git 이 추적하지 않는다(공개 리포). 백업에서 되돌리거나,\n` +
+  `  tools/scene-video/VOICE_CLONE.md 의 절차로 다시 만들어라.`);
 const style = loadVoiceStyle([stylePath], false);
 const SR = tts.sampleRate;
 

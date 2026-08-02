@@ -29,7 +29,15 @@ const outDir = path.join(ROOT, 'episodes', EP, 'build', 'audio');
 fs.mkdirSync(outDir, { recursive: true });
 
 const tts = await loadTextToSpeech(path.join(A, 'onnx'), false);
-const style = loadVoiceStyle([path.join(A, 'voice_styles', `${voiceName}.json`)], false);
+
+/* 목소리는 우리 것(voice_styles/)을 먼저 찾고, 없으면 벤더 프리셋(M1~M5, F1~F5)으로 간다.
+   🔴 우리가 만든 목소리를 vendor/ 안에 두면 안 된다 — 통째로 gitignore 대상이라 리포에 안 남고,
+   녹음 원본은 공개 리포에 못 올리니 날리면 GPU 30분을 다시 태워야 한다. */
+const stylePath = ['voice_styles', path.join(assets, 'voice_styles')]
+  .map(d => path.join(ROOT, d, `${voiceName}.json`))
+  .find(p => fs.existsSync(p));
+if (!stylePath) throw new Error(`목소리 스타일을 찾을 수 없다: ${voiceName}.json`);
+const style = loadVoiceStyle([stylePath], false);
 const SR = tts.sampleRate;
 
 const flat = [];

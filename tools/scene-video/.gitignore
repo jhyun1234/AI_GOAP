@@ -10,6 +10,9 @@ episodes/*/build/track.wav
 episodes/*/build/upload.txt
 episodes/*/build/youtube.json
 
+# 목소리 클로닝용 생녹음 — 리포가 PUBLIC 이다. 원본이 올라가면 누구나 같은 방법으로 복제한다.
+voices/
+
 # 루틴 실행 로그 (기기별 상이)
 state/routine.log
 

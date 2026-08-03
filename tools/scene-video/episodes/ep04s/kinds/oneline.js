@@ -21,7 +21,7 @@ const ORDER = 2.2;
 export default {
   build(root) { root.innerHTML = ''; mkCanvas(root); },
 
-  draw(root, { spec, t, cue }) {
+  draw(root, { spec, scene, t, cue }) {
     const { ctx, w, h } = fitCanvas(root.querySelector('canvas'));
 
     const rk = ease(cue(spec.rtsCue ?? 0, 0.15, 0.6));
@@ -132,8 +132,27 @@ export default {
       stats.slice(0, 2).forEach((s, i) => {
         const fs = fit(s, 700, 10.5, w - 24, 7.5);
         ctx.font = disp(700, fs); ctx.fillStyle = tone('sub');
-        ctx.fillText('· ' + s, 8, 268 + i * 18);
+        ctx.fillText('· ' + s, 8, 258 + i * 16);
       });
+      ctx.globalAlpha = 1;
+    }
+
+    /* ── 남는 한 줄 ───────────────────────────────── */
+    /* 🔴 이 블록은 원래 nextup(예고 샷)에 있었다. 2026-08-03 길이 재구성에서 예고 샷을
+       통째로 뺐는데, 훅을 화면에 남기는 kind 가 이 리포에서 nextup 하나뿐이라 그대로
+       두면 ep01s erasure 가 만들고 ep02s·ep03s 가 이어 온 마지막 한 줄이 이 편에서만
+       사라진다. 그래서 새 마지막 샷인 여기로 옮겼다. 그리기는 nextup 의 것을 그대로
+       쓰고 좌표만 이 샷의 바닥에 맞췄다 — 지표 두 줄을 268·286 에서 258·274 로 올려
+       자리를 냈다. */
+    const hook = spec.hook || scene?.hook;
+    if (hook && qk > 0.55) {
+      const k = clamp((qk - 0.55) / 0.45);
+      const s = Math.min(1, spring(k));
+      ctx.globalAlpha = k;
+      ctx.textAlign = 'center';
+      const fs = fit(String(hook), 900, 15, w - 30, 10);
+      ctx.font = disp(900, fs * s); ctx.fillStyle = tone('ink');
+      ctx.fillText(String(hook), w / 2, 298);
       ctx.globalAlpha = 1;
     }
 

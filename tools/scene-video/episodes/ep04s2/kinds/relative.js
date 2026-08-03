@@ -21,7 +21,7 @@ const HATCH = 3.0;
 export default {
   build(root) { root.innerHTML = ''; mkCanvas(root); },
 
-  draw(root, { spec, t, cue }) {
+  draw(root, { spec, scene, t, cue }) {
     const { ctx, w, h } = fitCanvas(root.querySelector('canvas'));
 
     const ak = ease(cue(spec.askCue ?? 0, 0.15, 0.6));
@@ -146,9 +146,9 @@ export default {
       ctx.setLineDash([]);
       ctx.textAlign = 'center';
       ctx.font = disp(700, 10.5); ctx.fillStyle = tone('sub');
-      ctx.fillText(spec.stockLabel || '현재 재고', sx, 250);
+      ctx.fillText(spec.stockLabel || '현재 재고', sx, 242);
       ctx.font = mono(700, 15); ctx.fillStyle = tone('sub');
-      ctx.fillText(String(stock), sx, 268);
+      ctx.fillText(String(stock), sx, 258);
       ctx.globalAlpha = 1;
     }
 
@@ -158,7 +158,24 @@ export default {
       ctx.textAlign = 'left';
       const fs = fit(spec.intent, 800, 12, w - 16, 8.5);
       ctx.font = disp(800, fs); ctx.fillStyle = tone('ink');
-      ctx.fillText(spec.intent, 8, 292);
+      ctx.fillText(spec.intent, 8, 278);
+      ctx.globalAlpha = 1;
+    }
+
+    /* ── 남는 한 줄 ───────────────────────────────── */
+    /* 🔴 훅을 그리는 코드는 원래 nextup(예고 샷)에만 있었다. 2026-08-03 분할에서 이 편이
+       예고 샷 없이 relative 로 끝나게 되어, 1편 oneline 에 옮겨 둔 것과 같은 블록을 여기에도
+       뒀다. 안 두면 ep01s erasure 가 만들고 ep02s·ep03s 가 이어 온 마지막 한 줄이 이 편에서만
+       사라진다. 자리를 내려고 재고 라벨 250→242 · 재고 값 268→258 · intent 292→278 로 올렸다. */
+    const hook = spec.hook || scene?.hook;
+    if (hook && rk > 0.6) {
+      const k = clamp((rk - 0.6) / 0.4);
+      const s2 = Math.min(1, spring(k));
+      ctx.globalAlpha = k;
+      ctx.textAlign = 'center';
+      const fs = fit(String(hook), 900, 15, w - 30, 10);
+      ctx.font = disp(900, fs * s2); ctx.fillStyle = tone('ink');
+      ctx.fillText(String(hook), w / 2, 299);
       ctx.globalAlpha = 1;
     }
 

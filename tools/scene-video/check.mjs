@@ -47,6 +47,47 @@ add(bigPauses.length <= 2, '큰 쉼 회차당 2회 이하',
   `${bigPauses.length}회` + (bigPauses.length ? ` (${bigPauses.map(l => l.shot).join(', ')})` : ''),
   'warn');
 
+/* ── 이탈 방지 게이트 (2026-08-03 추가) ──────────────
+   왜 넣었나: 회차 길이가 ep00i 81.5 → ep01s 109.8 → ep03s 126.4 → ep04s 158.8 초로 계속
+   자라고 있었는데, 이 스크립트가 자막 줄 수·말 속도·큰 쉼은 보면서 **총 길이는 안 봤다.**
+   아무도 안 보는 값은 자란다. 쇼츠 배분은 절대 시청시간이 아니라 지속률(%)로 가고,
+   158초에서 70%는 111초를 붙들어야 하지만 70초에서 70%는 49초면 된다 — 같은 %를 얻는
+   난이도가 2.2배다. 길면 안 되는 게 아니라, 길수록 같은 성적을 내기가 어렵다.
+
+   🔴 상한을 넘으면 대본을 **자르지 말고 나눠라.** ep04s 가 그 첫 사례다(1편·2편).
+   내용을 버리는 것과 회차를 쪼개는 것은 다르다. */
+const LIMIT = 75;
+const TAIL = 0.35;   // engine/engine.js 의 SHOT_TAIL 과 같은 값
+
+/* 실측(timed.json)이 있으면 그것을 쓰고, 없으면 산정치로라도 본다.
+   산정치라도 보는 이유 = 클라우드에는 TTS 모델이 없어 timed.json 이 영영 안 생기는데,
+   대본이 만들어지는 곳이 바로 거기다. 상한을 넘긴 대본을 로컬 렌더까지 끌고 가지 않는다. */
+const CPS_REF = 6.7;   // ep02s 실측: 발화 84.18초에 564자
+const estFlat = allLines.reduce((a, l) =>
+  a + (l.say ?? l.text.replace(/\n/g, ' ')).length / CPS_REF + (l.pauseAfter ?? 0) / 1000, 0);
+const estTotal = estFlat + TAIL * scene.shots.length;
+const realTotal = timed ? timed.summary.totalMs / 1000 + TAIL * scene.shots.length : null;
+const total = realTotal ?? estTotal;
+add(total <= LIMIT, `총 길이 ${LIMIT}초 이하`,
+  `${total.toFixed(1)}초 (${realTotal ? '실측' : '산정치'}, ${scene.shots.length}샷)`
+  + (total > LIMIT ? ` — ${(total - LIMIT).toFixed(1)}초 초과. 잘라내지 말고 회차를 나눠라` : ''));
+
+/* 콜드 오픈 — 쇼츠 이탈이 가장 큰 구간은 0~3초다. 첫 자막이 길면 훅이 그 뒤로 밀린다.
+   ep04s 1차본의 첫 자막은 4.5초짜리 시리즈 맥락 설명이었다. */
+const first = allLines[0];
+const firstDur = (first.say ?? first.text.replace(/\n/g, ' ')).length / CPS_REF + (first.pauseAfter ?? 0) / 1000;
+add(firstDur <= 3.5, '첫 자막 3.5초 이하',
+  `${firstDur.toFixed(1)}초 — "${(first.say ?? first.text).replace(/\n/g, ' ')}"`, 'warn');
+
+/* 꼬리 예고 — 페이오프 뒤에 붙는 안내는 지속률 곡선 마지막을 꺾고, 쇼츠 자동 루프의
+   고리를 끊는다. 다음 편 안내는 설명란과 고정 댓글로 옮긴다. */
+const lastShot = scene.shots.at(-1);
+const tailText = lastShot.lines.map(l => l.say ?? l.text).join(' ');
+const isTeaser = /다음\s*편|다음\s*회차|이어서\s*보/.test(tailText);
+add(!isTeaser, '꼬리 예고 없음',
+  isTeaser ? `마지막 샷(${lastShot.id})이 다음 편을 예고한다 — 설명란·고정 댓글로 옮겨라` : '없음',
+  'warn');
+
 if (timed) {
   const flat = timed.shots.flatMap((s, si) => s.lines.map((l, li) => ({ ...l, shot: scene.shots[si].id })));
   const tooShort = flat.filter(l => (l.dur + (l.pause || 0)) < 2000);

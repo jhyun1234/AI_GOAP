@@ -13,7 +13,8 @@ import {
    여기는 반대로 **간격이 손톱만 한데 그 위에 얹힌 것이 화면에서 제일 크다** — 그래서
    판을 화면 폭 가득 그리고 기둥은 12px 로 뒀다. 눈이 그 불균형을 먼저 읽어야 한다.
 
-   계속 도는 것 = 차이 한 칸의 테두리를 도는 표식, 그리고 판이 앉은 뒤의 미세한 눌림. */
+   계속 도는 것 = 쌓인 칸 안을 위로 흐르는 빗금(자막 0부터), 차이 한 칸의 테두리를 도는
+   표식(자막 1부터), 판이 앉은 뒤의 미세한 눌림(자막 2부터). */
 
 const ORBIT = 3.2;
 const PRESS = 2.4;
@@ -65,7 +66,29 @@ export default {
         ctx.stroke();
         ctx.globalAlpha = 1;
       }
+      /* 🔴 계속 도는 것 — 쌓인 칸 안을 위로 흐르는 빗금 (2026-08-04 검수 2차 반려 R-2).
+         전에는 이 kind 의 도는 것이 둘 다 뒤쪽 자막에 있었다 — 테두리 표식은 ck(자막 1),
+         판 눌림은 sk(자막 2). 그래서 자막 0 구간이 통째로 멈췄고, 16행 머리말은 그 둘을
+         "계속 도는 것"이라 선언해 화면과 어긋나 있었다(ep04s2 bar() 와 같은 결함).
+         소비되는 양을 그리는 탑이라 위로 흐르는 빗금이 뜻과도 맞는다. */
       const top = BASE - n * BH;
+      if (prog > 0.06) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(x + 2, top + 2, BW - 4, BASE - top - 4);
+        ctx.clip();
+        ctx.strokeStyle = strong ? tone('accent') : tone('sub');
+        ctx.lineWidth = 3;
+        ctx.globalAlpha = clamp(prog * 1.8) * 0.3;
+        const hoff = frac(t / 2.1) * 20;
+        for (let hy = BASE + 20 - hoff; hy > top - 20; hy -= 20) {
+          ctx.beginPath();
+          ctx.moveTo(x - 4, hy); ctx.lineTo(x + BW + 4, hy - 12);
+          ctx.stroke();
+        }
+        ctx.restore();
+        ctx.globalAlpha = 1;
+      }
       if (prog > 0.55) {
         const k = clamp((prog - 0.55) / 0.45);
         ctx.globalAlpha = k;

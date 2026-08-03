@@ -627,8 +627,33 @@ if (!SKIP_CHECK) {
 const y = scene.youtube || {};
 const privacy = ALLOW_PUBLIC ? (y.privacy || 'private') : 'private';
 
+/* ── 형제 편 — 같은 글에서 나온 다른 편 ─────────────
+   한 글이 2~3편으로 나뉘는데(§W1) 발행은 하루 2편 고정이라 글 경계를 넘는다(ADR-V-8).
+   즉 "3편 중 2편"이라고 적는 시점에 3편이 아직 안 올라와 있을 수 있다.
+   🔴 그때 링크를 만들면 죽은 안내가 된다. `uploads.json` 에 **url 이 있는 것만** 링크하고
+   나머지는 "곧 올라옵니다"로 적는다. 업로드가 사람 손이라 preparedAt 만 있고
+   url 이 없는 상태가 정상적으로 존재한다(2026-08-03 현재 6건 전부 그렇다). */
+const epBase = EP.replace(/-\d+$/, '');
+const epPart = Number((EP.match(/-(\d+)$/) || [])[1] || 0);
+const epSplit = sched.sources?.[epBase]?.split ?? 1;
+const sibLines = epSplit > 1
+  ? Array.from({ length: epSplit }, (_, i) => `${epBase}-${i + 1}`)
+    .filter(id => id !== EP)
+    .map(id => {
+      const label = id.replace(/^ep0*(\d+)s-(\d+)$/, '$1-$2편');
+      const s = state[id];
+      return s?.url ? `${label} ${s.title ?? ''} ${s.url}`.replace(/\s+/g, ' ').trim()
+        : `${label} (곧 올라옵니다)`;
+    })
+  : [];
+
 const desc = [
   y.blurb || '',
+  '',
+  epSplit > 1 && epPart
+    ? `이 편은 「${scene.source?.title ?? '원문'}」 에서 나온 ${epSplit}편 중 ${epPart}편입니다.`
+    : '',
+  ...sibLines,
   '',
   scene.source?.title ? `원문: ${scene.source.title}` : '',
   scene.source?.url || '',

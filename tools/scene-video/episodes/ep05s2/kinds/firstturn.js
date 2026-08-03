@@ -22,7 +22,7 @@ const RING = 6.2;
 export default {
   build(root) { root.innerHTML = ''; mkCanvas(root); },
 
-  draw(root, { spec, t, cue }) {
+  draw(root, { spec, scene, t, cue }) {
     const { ctx, w, h } = fitCanvas(root.querySelector('canvas'));
 
     const tk = ease(cue(spec.turnCue ?? 0, 0.15, 0.68));
@@ -175,6 +175,22 @@ export default {
         ctx.fillText(spec.criteriaNote, sx + total, cy - 10);
         ctx.globalAlpha = 1;
       }
+    }
+
+    /* ── 남는 한 줄 ───────────────────────────────── */
+    /* 🔴 훅을 그리는 코드는 1차본에서 outofstep(예고 샷)에만 있었다. 2026-08-03 분할로 이 편이
+       예고 샷 없이 firstturn 로 끝나게 되어 같은 블록을 여기로 옮겼다. 안 옮기면 ep01s 부터 이어 온
+       마지막 한 줄이 이 편에서만 사라진다. 이 kind 는 바닥이 비어 있어 좌표를 건드릴 필요가 없었다. */
+    const hook = spec.hook || scene?.hook;
+    if (hook && dk > 0.6) {
+      const k2 = clamp((dk - 0.6) / 0.4);
+      const s2 = Math.min(1, spring(k2));
+      ctx.globalAlpha = k2;
+      ctx.textAlign = 'center';
+      const fsH = fit(String(hook), 900, 15, w - 30, 10);
+      ctx.font = disp(900, fsH * s2); ctx.fillStyle = tone('ink');
+      ctx.fillText(String(hook), w / 2, 299);
+      ctx.globalAlpha = 1;
     }
 
     ctx.textAlign = 'left';

@@ -11,6 +11,7 @@
     "ep04s",
     "ep04s2",
     "ep05s",
+    "ep05s2",
     "ep06s",
     "ep07s",
     "ep08s",
@@ -54,6 +55,11 @@
     "ep05s": {
       "local": "2026-07-16-unity-goap-m2-m3-production-housing.html",
       "url": "https://gamedevclaude.blogspot.com/2026/07/unity-goap.html"
+    },
+    "ep05s2": {
+      "local": "2026-07-16-unity-goap-m2-m3-production-housing.html",
+      "url": "https://gamedevclaude.blogspot.com/2026/07/unity-goap.html",
+      "note": "🔴 ep05s 와 같은 원문이다. 한 편이 127.5초가 되어 2026-08-03 에 축으로 갈랐다 — 1편은 \"에셋만 더했는데 기능이 늘었다\", 2편은 집을 지으며 터진 구현 문제들. 자른 게 아니라 나눈 것이라 원문은 양쪽에 온전히 들어간다. ep04s2 와 같은 규약이다."
     },
     "ep06s": {
       "local": "2026-07-17-unity-goap-m4-personality.md",

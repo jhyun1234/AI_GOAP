@@ -45,6 +45,18 @@ export default {
       const fs = fit(spec.dupNote, 800, 10.5, 176, 8);
       ctx.font = disp(800, fs); ctx.fillStyle = tone('sub');
       ctx.fillText(spec.dupNote, RX + 2, 48);
+    }
+
+    /* 🔴 원문 4절이 괄호로 정의한 낱말을 화면에 세운다 — 2026-08-04 검수 반려 2.
+       이 편은 '앵커'를 자막 3회·화면 2회 쓰면서 정의를 어디에도 안 뒀고, 분할이
+       악화시켰다(구체 사례 "모닥불 옆에서 쉬기, 그 앵커를 집으로"가 1편 S8 로 갔다).
+       cue 를 안 걸어 0초부터 떠 있게 둔다 — 정의는 사건이 아니라 전제다. */
+    if (spec.anchorDef) {
+      ctx.globalAlpha = 0.9;
+      ctx.textAlign = 'left';
+      ctx.font = disp(700, 10); ctx.fillStyle = tone('sub');
+      ctx.fillText(spec.anchorDef, 8, 14);
+      ctx.globalAlpha = 1;
       ctx.globalAlpha = 1;
     }
 

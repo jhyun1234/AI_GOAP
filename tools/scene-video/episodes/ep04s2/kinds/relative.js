@@ -61,7 +61,14 @@ export default {
     /* 재고 막대 하나를 그린다 */
     const bar = (y, targetV, on, accent, gapLabel, headLabel) => {
       const bh = 28;
-      ctx.globalAlpha = clamp(on * 1.6);
+      /* 🔴 트랙·재고·빗금은 ak(자막 0)부터 보인다 — 2026-08-04 검수 정정 ②.
+         전에는 셋 다 on(=bk/rk)에 걸려 있어서 자막 0 구간 3.46초가 칩 하나 빼고 전부
+         검정이었다. 14행 주석이 "계속 도는 것 = 재고 막대 안을 흐르는 빗금"이라고
+         선언해 놓고 정작 샷의 첫 1/3 에 그 빗금이 존재하지 않았다.
+         창고는 질문을 던지기 전에도 돌고 있다 — 그게 이 샷이 말하는 바다.
+         목표선·라벨은 그대로 on 에 걸어 둔다(그건 각 안이 도착해야 뜨는 것이다). */
+      const vis = Math.max(on, ak * 0.55);
+      ctx.globalAlpha = clamp(vis * 1.6);
 
       // 트랙
       ctx.strokeStyle = tone('track'); ctx.lineWidth = 3;
@@ -70,7 +77,7 @@ export default {
       // 현재 재고
       const sx = xOf(stock);
       ctx.fillStyle = tone('ink');
-      ctx.globalAlpha = clamp(on * 1.6) * 0.3;
+      ctx.globalAlpha = clamp(vis * 1.6) * 0.3;
       ctx.fillRect(bx0 + 2, y + 2, sx - bx0 - 2, bh - 4);
       ctx.globalAlpha = clamp(on * 1.6);
 
@@ -80,7 +87,7 @@ export default {
       ctx.rect(bx0 + 2, y + 2, sx - bx0 - 2, bh - 4);
       ctx.clip();
       ctx.strokeStyle = tone('sub'); ctx.lineWidth = 3;
-      ctx.globalAlpha = clamp(on * 1.6) * 0.4;
+      ctx.globalAlpha = clamp(vis * 1.6) * 0.4;
       const off = frac(t / HATCH) * 22;
       for (let x = bx0 - 30 + off; x < sx + 30; x += 22) {
         ctx.beginPath();
@@ -167,9 +174,15 @@ export default {
        예고 샷 없이 relative 로 끝나게 되어, 1편 oneline 에 옮겨 둔 것과 같은 블록을 여기에도
        뒀다. 안 두면 ep01s erasure 가 만들고 ep02s·ep03s 가 이어 온 마지막 한 줄이 이 편에서만
        사라진다. 자리를 내려고 재고 라벨 250→242 · 재고 값 268→258 · intent 292→278 로 올렸다. */
+    /* 🔴 훅을 relCue(자막 2)가 아니라 hookCue(예고 자막)에 물린다 — 2026-08-04 검수 정정 ①.
+       rk>0.6 이면 자막2 +1.458초, 즉 상대값 나레이션이 도는 중에 이 편의 결론이 옆에 붙어
+       한 문단처럼 읽혔다. 예고 자막에 물리면 훅이 혼자 서고, 그동안 화면도 산다
+       (예고 자막엔 cue 가 없어 그냥 두면 그 구간이 통째로 멈춘다 — ep05s 가 그렇게
+       정적 구간 6.6초를 만들었다). */
     const hook = spec.hook || scene?.hook;
-    if (hook && rk > 0.6) {
-      const k = clamp((rk - 0.6) / 0.4);
+    const hkk = ease(cue(spec.hookCue ?? spec.relCue ?? 2, 0.15, 0.5));
+    if (hook && hkk > 0.02) {
+      const k = clamp(hkk * 1.6);
       const s2 = Math.min(1, spring(k));
       ctx.globalAlpha = k;
       ctx.textAlign = 'center';

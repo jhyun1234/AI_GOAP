@@ -295,7 +295,11 @@ function renderEvent(line) {
 }
 
 async function writeScript(ep) {
-  const src = sched.sources?.[ep] || {};
+  /* 🔴 분할 회차(`ep05s-1`)의 원본은 **글 단위 키**(`ep05s`)에 있다.
+     `sources` 를 편 단위로 늘리지 않는 이유는 원문 URL 이 여러 벌로 갈리면
+     어느 것이 정본인지 모호해지기 때문이다 — 한 글에서 나온 편들은 같은 원문을 본다.
+     끝자리 숫자만 뗀다. `split('-')[0]` 로 쓰면 나중에 하이픈 든 특별편에서 갈린다. */
+  const src = sched.sources?.[ep] || sched.sources?.[ep.replace(/-\d+$/, '')] || {};
   const prompt = `tools/scene-video/routine-prompt.md 의 절차대로 **${ep}** 회차의 대본을 만들어라.
 
 이건 스케줄러가 부른 무인 실행이다. 사람이 안 보고 있다.

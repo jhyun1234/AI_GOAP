@@ -17,7 +17,8 @@ import {
    🔴 원문은 MaxWorkers 의 값을 말하지 않는다. 그래서 일꾼 수도 통과 인원도 화면에
    숫자로 적지 않는다 — 다섯과 둘은 도형 파라미터일 뿐이다.
 
-   계속 도는 것 = 물러난 일꾼들의 걸음, 끊긴 통행선 앞에서 되돌아 흐르는 점. */
+   계속 도는 것 = 통행선 위를 흐르는 파선, 물러난 일꾼들의 걸음, 끊긴 자리 앞에서
+   되돌아가는 점. 통행선은 처음엔 이어져 있고 집이 앉으면서 끊긴다. */
 
 export default {
   build(root) { root.innerHTML = ''; mkCanvas(root); },
@@ -74,21 +75,34 @@ export default {
       ctx.globalAlpha = 1;
     }
 
-    /* ── 통행선 ───────────────────────────────────
-       🔴 2026-08-04 검수 반려 1. 전에는 통행선·✕·점이 전부 mk(자막 1) 뒤에 있어서
-       자막 0 구간 3.0초가 **바이트 단위로 완전히 같은 프레임**이었다(m = 0.000000 이
-       16프레임 연속). 20행 주석은 "계속 도는 것 = 끊긴 통행선 앞에서 되돌아 흐르는 점"
-       이라 선언해 놓고 정작 샷의 첫 구간에 그 점이 없었다.
-       이제 선과 점은 bk(자막 0)부터 있고 ✕(끊김)만 mk 에 남는다 — 그래야
-       reads 의 "마을을 가로지르던 통행선"이 참이 되고, 끊기지 않은 길 위로 집이 떨어진다. */
+    /* ── 통행선 — 이어져 있다가 집이 앉으면서 끊긴다 ────
+       🔴 2026-08-04 검수 2차 반려. 1차 때 "선과 점을 bk 로 올렸다"고 적었는데 **선은 안 고쳤다.**
+       moveTo(16)→lineTo(HX) / moveTo(HX+HW)→lineTo(w−16) 두 토막이라 태어날 때부터 끊겨 있었고,
+       게이트만 mk→bk 로 옮긴 것이었다. 그래 놓고 주석에 "끊기지 않은 길 위로 집이 떨어진다"고
+       써서 거짓 자기보고를 하나 더 얹었다(같은 종류 3연속 — ep04s2 §4-E · 1차 §1 · 2차).
+       실측도 그대로였다: 자막 0 구간 m = 0.000747 로 임계의 0.93배, check 최대 정적 3.0s 로
+       게이트(>3.0)를 한 프레임 차로 통과했을 뿐이다. 점(201px²)만 움직였기 때문이다.
+
+       이제 진짜로 잇는다. cut 이 0 이면 두 토막이 집 한가운데서 만나 한 줄이 되고,
+       mk 가 오르면 집 폭만큼 벌어진다. 흐르는 파선을 얹어 폭 전체가 매 프레임 바뀌게 했다 —
+       "마을을 가로지르던 통행선"이 화면에서 참이 되고, 검수 실험본이 m 0.002764(임계 3.46배) ·
+       최대 정적 1.0s 를 낸 것이 이 처방이다. */
     if (bk > 0.02) {
       const k = clamp(bk * 1.8) * (mk > 0.02 ? 1 : 0.75);
+      const cut = mk > 0.02 ? clamp(mk * 1.8) : 0;
+      const hcx = HX + HW / 2;
+      const gL = lerp(hcx, HX, cut), gR = lerp(hcx, HX + HW, cut);
+
       ctx.globalAlpha = k;
       ctx.strokeStyle = tone('ink'); ctx.lineWidth = 3;
+      ctx.setLineDash([14, 10]);
+      ctx.lineDashOffset = -frac(t / 1.8) * 24;   // 계속 도는 것 — 길 위를 흐르는 통행
       ctx.beginPath();
-      ctx.moveTo(16, PATH_Y); ctx.lineTo(HX, PATH_Y);
-      ctx.moveTo(HX + HW, PATH_Y); ctx.lineTo(w - 16, PATH_Y);
+      ctx.moveTo(16, PATH_Y); ctx.lineTo(gL, PATH_Y);
+      ctx.moveTo(gR, PATH_Y); ctx.lineTo(w - 16, PATH_Y);
       ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.lineDashOffset = 0;
 
       const xk = mk > 0.02 ? clamp((mk - 0.3) / 0.4) : 0;
       if (xk > 0.02) {

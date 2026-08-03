@@ -62,8 +62,31 @@ if errorlevel 1 (
   exit /b 0
 )
 
+REM ---------------------------------------------------------------------------
+REM DRAIN THE QUEUE, not "one per day"  (user's call, 2026-08-04)
+REM
+REM publish.mjs makes exactly ONE episode per call and exits 0 when there is
+REM nothing left. This used to be called once, so one video a day was the hard
+REM ceiling. That broke the moment long posts started being split: the cloud
+REM writes one script a day, and a split turns one source post into two
+REM episodes, so the video queue gains 1 net per split and never catches up.
+REM ep04s and ep05s each became two parts - four episodes were already backed up.
+REM
+REM So we call it PERRUN times. Extra calls are cheap when the queue is empty:
+REM one git pull, a "nothing to make" line, exit 0. A render is ~10 minutes, so
+REM PERRUN=3 is worst-case ~30 minutes; routine.lock still guards overlap.
+REM
+REM PERRUN mirrors state/schedule.json "perRun". cmd.exe cannot read JSON without
+REM help, so it is duplicated here on purpose - if you change one, change both.
+REM The JSON copy is the one humans and the cloud routine read.
+REM ---------------------------------------------------------------------------
+set PERRUN=3
+
 echo.>> "%LOG%"
-echo ===== %DATE% %TIME% =====>> "%LOG%"
-node "tools\scene-video\publish.mjs" --routine >> "%LOG%" 2>&1
-echo (exit %ERRORLEVEL%)>> "%LOG%"
+echo ===== %DATE% %TIME% (up to %PERRUN% episodes) =====>> "%LOG%"
+for /L %%i in (1,1,%PERRUN%) do (
+  echo --- pass %%i of %PERRUN% --->> "%LOG%"
+  node "tools\scene-video\publish.mjs" --routine >> "%LOG%" 2>&1
+  echo (exit %ERRORLEVEL%)>> "%LOG%"
+)
 rmdir /s /q "%LOCK%" 2>nul

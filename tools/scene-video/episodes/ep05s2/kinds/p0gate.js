@@ -132,7 +132,12 @@ export default {
       // 막힘 표시 — 통과하지 못한 카드에만 남는다
       if (born > 0.75 && !(p0 && walk > 0.15)) {
         const k = clamp((born - 0.75) / 0.25);
-        const mx = x + CW / 2, my = BAND_Y - 22;
+        /* 🔴 my 를 BAND_Y-22(=130) 에서 띠 한가운데로 내린다 — 2026-08-04 검수 반려 5.
+           130 이면 ✕ 가 y 124~136 을 차지하는데 '실패 쿨다운' 라벨이 y 133~145 라
+           4.28초 동안 글자 높이의 41%를 가로질렀다(가림 판정 0.5초의 8.6배).
+           띠 한가운데면 y 160~172 로 라벨과 완전히 갈리고 뜻도 더 맞는다 —
+           카드가 막히는 자리가 바로 이 쿨다운 띠다. */
+        const mx = x + CW / 2, my = BAND_Y + BAND_H / 2;
         ctx.globalAlpha = alpha * k;
         ctx.strokeStyle = tone('ink'); ctx.lineWidth = 3;
         ctx.beginPath();

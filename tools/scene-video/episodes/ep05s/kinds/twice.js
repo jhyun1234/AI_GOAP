@@ -22,7 +22,7 @@ const ORBIT = 5.2;
 export default {
   build(root) { root.innerHTML = ''; mkCanvas(root); },
 
-  draw(root, { spec, t, cue }) {
+  draw(root, { spec, scene, t, cue }) {
     const { ctx, w, h } = fitCanvas(root.querySelector('canvas'));
 
     const fk = ease(cue(spec.firstCue ?? 0, 0.15, 0.6));
@@ -160,6 +160,27 @@ export default {
       const fs = fit(spec.durability, 700, 11, w - 40, 8);
       ctx.font = disp(700, fs); ctx.fillStyle = tone('sub');
       ctx.fillText(spec.durability, w / 2, 278);
+      ctx.globalAlpha = 1;
+    }
+
+    /* ── 남는 한 줄 ───────────────────────────────── */
+    /* 🔴 훅을 그리는 코드는 1차본에서 outofstep(예고 샷)에만 있었다. 2026-08-03 분할로 이 편이
+       예고 샷 없이 twice 로 끝나게 되어 같은 블록을 여기로 옮겼다. 안 옮기면 ep01s 부터 이어 온
+       마지막 한 줄이 이 편에서만 사라진다. durability 줄(278)과 겹치지 않게 300 에 뒀다. */
+    /* 🔴 훅을 meanCue(자막 2)가 아니라 hookCue(예고 자막)에 물린다. 예고 자막에는 cue 가 없어서
+       그동안 화면이 통째로 멈추고, 정적 구간이 3.6 → 6.6초로 뛰었다(2026-08-03). 궤도 표식은
+       반지름 4.5px 라 정적 판정 문턱(평균 차이 0.0008) 아래여서 움직임으로 안 잡힌다.
+       훅 카드가 그 자리에서 스프링으로 올라오면 예고를 읽는 동안 화면이 산다. */
+    const hook = spec.hook || scene?.hook;
+    const hk = ease(cue(spec.hookCue ?? spec.meanCue ?? 2, 0.15, 0.5));
+    if (hook && hk > 0.02) {
+      const k2 = clamp(hk * 1.6);
+      const s2 = Math.min(1, spring(k2));
+      ctx.globalAlpha = k2;
+      ctx.textAlign = 'center';
+      const fsH = fit(String(hook), 900, 15, w - 30, 10);
+      ctx.font = disp(900, fsH * s2); ctx.fillStyle = tone('ink');
+      ctx.fillText(String(hook), w / 2, 300);
       ctx.globalAlpha = 1;
     }
 

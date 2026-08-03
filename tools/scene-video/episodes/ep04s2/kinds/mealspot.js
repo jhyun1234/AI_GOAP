@@ -125,7 +125,13 @@ export default {
     const p1 = ease(clamp(mk / 0.55));
     const p2 = ease(clamp((mk - 0.55) / 0.45));
     for (let i = 0; i < nV; i++) {
-      const a = -Math.PI / 2 + (i / nV) * Math.PI * 2 + 0.4;
+      /* 🔴 산개 각 오프셋 0.4 → π/4 (2026-08-04 검수 반려 2).
+         0.4 면 i=2 가 모닥불 바로 아래(x −16.4, 링 −26.9~−5.9)로 와서 '모닥불' 라벨
+         (x −13~+13, hy+30)의 첫 글자를 27% 덮었고, 산개가 끝난 뒤 샷이 끝날 때까지
+         약 1.5초 계속 덮여 있었다. eptest-m11 S4 와 같은 결함 유형이다.
+         π/4 면 넷이 대각선으로 갈라져 가장 가까운 링 가장자리가 ±19.2 라 라벨 양옆에
+         6.2px 가 남는다. check.mjs 는 이 겹침을 못 본다(팔레트·잘림·정적만 본다). */
+      const a = -Math.PI / 2 + (i / nV) * Math.PI * 2 + Math.PI / 4;
       const sx = midX + 16 + (i % 2) * 18, sy = 210 + Math.floor(i / 2) * 26;
       const tx = hx + 2, ty = hy + 34;                                  // 같은 타일
       const rx = hx + Math.cos(a) * 42, ry = hy + Math.sin(a) * 42 * 0.86;

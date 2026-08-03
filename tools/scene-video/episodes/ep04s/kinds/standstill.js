@@ -69,7 +69,12 @@ export default {
 
     /* ── 왼쪽: 우선순위 사다리 ─────────────────────── */
     const rows = spec.rows || 5;
-    const lx = 8, lw = 138, rowH = 20, pitch = 25, top = 50;
+    /* 🔴 rowH 20→18 · pitch 25→22 (2026-08-03). 원래 값이면 사다리 바닥이 170 인데
+       주민의 말 카드가 152~206 에 서고 noneLabel 이 202 에 앉아, 셋이 한 자리에 포개져
+       읽을 수 없었다. 1차본부터 있던 결함이고 렌더까지 갔다 — check.mjs 는 가장자리 잘림·
+       팔레트·정적 구간만 보고 '겹침'은 보지 않아서 통과했다. 사다리를 22px 줄여 카드와
+       라벨이 설 자리를 냈다. 이 편에서 이 샷이 오프닝이라 그대로 둘 수 없었다. */
+    const lx = 8, lw = 138, rowH = 18, pitch = 22, top = 50;
     const bot = top + (rows - 1) * pitch + rowH;
 
     for (let i = 0; i < rows; i++) {
@@ -79,7 +84,7 @@ export default {
       ctx.textAlign = 'left';
       ctx.font = mono(700, 11); ctx.fillStyle = tone('sub');
       ctx.globalAlpha = 0.65;
-      ctx.fillText(spec.rowMark || '···', lx + 9, y + 14);
+      ctx.fillText(spec.rowMark || '···', lx + 9, y + 13);
       ctx.globalAlpha = 1;
 
       // 어느 칸도 켜지지 않는다 — 검사가 지나간 자리에 ✕ 만 남는다
@@ -115,7 +120,7 @@ export default {
       const s = spec.noneLabel || '충족 조건 없음';
       const fs = fit(s, 800, 11, lw + 6);
       ctx.font = disp(800, fs); ctx.fillStyle = tone('sub');
-      ctx.fillText(s, lx, bot + 32);
+      ctx.fillText(s, lx, bot + 12);
       ctx.globalAlpha = 1;
     }
 
@@ -150,7 +155,7 @@ export default {
     const q = spec.quote || [];
     if (zk > 0.1 && q.length) {
       const k = clamp((zk - 0.1) / 0.5);
-      const cx = 8, cy = 152, cw = w - 16, chh = 54;
+      const cx = 8, cy = 182, cw = w - 16, chh = 54;
       ctx.globalAlpha = k;
       setShadow(ctx, GLOW, 12, 0);
       ctx.lineWidth = 3; ctx.strokeStyle = tone('accent');

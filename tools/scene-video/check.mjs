@@ -47,6 +47,65 @@ add(bigPauses.length <= 2, '큰 쉼 회차당 2회 이하',
   `${bigPauses.length}회` + (bigPauses.length ? ` (${bigPauses.map(l => l.shot).join(', ')})` : ''),
   'warn');
 
+/* ── 편당 길이 (2026-08-03 사용자 확정) ──────────────
+   🔑 **글 분량이 정하는 것은 "한 편의 길이"가 아니라 "편 수"다.**
+
+   옛 방침은 "길이 상한 없음 · 글 분량이 정한다"였고, 그 아래에 ep02s 사고가 적혀 있었다 —
+   83.6초짜리가 "쇼츠 60초 상한"으로 반려돼 36초가 잘렸고, 그 숫자는 리포 어디에도 없는
+   바깥 상식이었다. 그래서 "길이를 반려 사유로 쓰지 마라"가 됐다.
+
+   그 교훈은 그대로 살아 있다. 다만 결론이 바뀌었다 — 긴 글이 오면 **자르지 말고 나눈다.**
+   원문 하나가 1편·2편·3편이 될 수 있고, 편 수는 기획팀이 원문 분량을 보고 미리 정한다.
+   그러면 길이가 내용을 깎지 않으면서도 편당 길이는 지켜진다. ep04s(158.8초 → 1편·2편)와
+   ep05s(127.5초 → 1편·2편)가 그 첫 두 사례다.
+
+   ⚠️ 그래서 이 항목이 걸렸을 때 할 일은 **자막을 지우는 것이 아니라 편을 늘리는 것**이다.
+   내용을 버리는 것과 회차를 쪼개는 것은 다르다. */
+const TARGET = 75;   // 편당 목표. 넘으면 경고 — 작성·검수가 나눌지 판단한다
+const LIMIT = 90;    // 편당 상한. 넘으면 나눠야 한다
+const TAIL = 0.35;   // engine/engine.js 의 SHOT_TAIL 과 같은 값
+
+/* 실측(timed.json)이 있으면 그것을 쓰고, 없으면 산정치로라도 본다.
+   산정치라도 보는 이유 = 클라우드에는 TTS 모델이 없어 timed.json 이 영영 안 생기는데,
+   대본이 만들어지는 곳이 바로 거기다. 편 수는 대본을 쓰는 자리에서 정해져야 한다. */
+const CPS_REF = 6.7;   // ep02s 실측: 발화 84.18초에 564자
+const estFlat = allLines.reduce((a, l) =>
+  a + (l.say ?? l.text.replace(/\n/g, ' ')).length / CPS_REF + (l.pauseAfter ?? 0) / 1000, 0);
+const estTotal = estFlat + TAIL * scene.shots.length;
+const realTotal = timed ? timed.summary.totalMs / 1000 + TAIL * scene.shots.length : null;
+const total = realTotal ?? estTotal;
+const lenDetail = `${total.toFixed(1)}초 (${realTotal ? '실측' : '산정치'}, ${scene.shots.length}샷)`;
+add(total <= LIMIT, `편당 길이 ${LIMIT}초 이하`,
+  lenDetail + (total > LIMIT ? ` — ${(total - LIMIT).toFixed(1)}초 초과. 자막을 지우지 말고 편을 나눠라` : ''));
+add(total <= TARGET, `편당 목표 ${TARGET}초`,
+  lenDetail + (total > TARGET && total <= LIMIT ? ' — 목표는 넘었다. 나눌지 판단하고 사유를 notes 에 적어라' : ''),
+  'warn');
+
+/* 콜드 오픈 — 쇼츠 이탈이 가장 큰 구간은 0~3초다. 첫 자막이 길면 훅이 그 뒤로 밀린다.
+   ep04s 1차본의 첫 자막은 4.5초짜리 시리즈 맥락 설명이었다. */
+const first = allLines[0];
+const firstDur = (first.say ?? first.text.replace(/\n/g, ' ')).length / CPS_REF + (first.pauseAfter ?? 0) / 1000;
+add(firstDur <= 3.5, '첫 자막 3.5초 이하',
+  `${firstDur.toFixed(1)}초 — "${(first.say ?? first.text).replace(/\n/g, ' ')}"`, 'warn');
+
+/* ── 다음 편 예고 (2026-07-30 사용자 요청 · 2026-08-03 길이 확정) ──
+   🔴 예고는 **있어야 한다.** 잠시 이 자리에 "꼬리 예고 없음" 게이트가 있었는데(2026-08-03),
+   그건 리포 밖 상식으로 만든 규칙이었고 사용자 요청이 적힌 문서 셋과 정면으로 충돌해
+   검수팀 두 팀이 각각 반려했다. 거뒀다.
+
+   대신 **길이만 잡는다.** 1차본들의 예고가 10~14초여서 페이오프 뒤가 늘어졌다.
+   사용자 확정(2026-08-03) — 예고는 되살리되 **3초 안에** 끝낸다. */
+const TEASER_MAX = 4.0;
+const lastShot = scene.shots.at(-1);
+const teaserRe = /다음\s*(편|회차|은|는)|이어서|(\d+)\s*부/;
+const teaserLines = lastShot.lines.filter(l => teaserRe.test(l.say ?? l.text));
+const teaserDur = teaserLines.reduce((a, l) =>
+  a + (l.say ?? l.text.replace(/\n/g, ' ')).length / CPS_REF + (l.pauseAfter ?? 0) / 1000, 0);
+add(teaserLines.length > 0, '다음 편 예고 있음',
+  teaserLines.length ? `${lastShot.id} 자막 ${teaserLines.length}줄` : `마지막 샷(${lastShot.id})에 예고가 없다`);
+add(teaserLines.length === 0 || teaserDur <= TEASER_MAX, `예고 ${TEASER_MAX}초 이하`,
+  teaserLines.length ? `${teaserDur.toFixed(1)}초` : '예고 없음 — 위 항목 참조', 'warn');
+
 if (timed) {
   const flat = timed.shots.flatMap((s, si) => s.lines.map((l, li) => ({ ...l, shot: scene.shots[si].id })));
   const tooShort = flat.filter(l => (l.dur + (l.pause || 0)) < 2000);

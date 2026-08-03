@@ -58,12 +58,32 @@ export function findFfmpeg() {
 }
 
 export function findBrowser() {
+  /* 🔴 클라우드 루틴(scriptBy=cloud)은 리눅스 컨테이너에서 돈다. 거기엔 크롬이 /usr/bin 에
+     없고 Playwright 가 받아 둔 것만 있어서, 이 목록이 윈도우 경로 넷 + /usr/bin 셋뿐이던
+     동안은 검수팀이 check.mjs 를 아예 못 돌렸다. env 로 직접 지정하는 길을 먼저 두고,
+     그다음에 Playwright 가 쓰는 자리를 본다. glob 대신 디렉터리를 훑는 것은 버전 번호가
+     붙기 때문이다(chromium-1194). */
+  const envPath = process.env.SCENE_VIDEO_CHROME;
+  if (envPath && fs.existsSync(envPath)) return envPath;
+
+  const pwRoot = process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/pw-browsers';
+  const pwCandidates = [];
+  try {
+    for (const dir of fs.readdirSync(pwRoot)) {
+      if (!/^chromium/.test(dir)) continue;
+      pwCandidates.push(
+        path.join(pwRoot, dir, 'chrome-linux', 'chrome'),
+        path.join(pwRoot, dir, 'chrome-linux', 'headless_shell'));
+    }
+  } catch { /* 디렉터리가 없으면 후보가 없을 뿐이다 */ }
+
   return [
     'C:/Program Files/Google/Chrome/Application/chrome.exe',
     'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
     'C:/Program Files/Microsoft/Edge/Application/msedge.exe',
     'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
-    '/usr/bin/google-chrome', '/usr/bin/chromium', '/usr/bin/chromium-browser'
+    '/usr/bin/google-chrome', '/usr/bin/chromium', '/usr/bin/chromium-browser',
+    ...pwCandidates
   ].find(p => fs.existsSync(p)) || null;
 }
 
@@ -107,8 +127,16 @@ export async function openEngine(EP, { quiet = false } = {}) {
   const server = spawn(process.execPath, [path.join(ROOT, 'serve.js')],
     { env: { ...process.env, PORT: String(PORT) }, stdio: 'ignore' });
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'scenevid-'));
+  /* 🔴 클라우드 컨테이너는 root 로 돈다. 크롬은 root 에서 --no-sandbox 없이는 아예 안 뜨고
+     (zygote_host_impl_linux.cc: "Running as root without --no-sandbox is not supported"),
+     DevToolsActivePort 가 안 생겨 '디버그 포트를 못 찾았다'로만 보인다. getuid 는 윈도우에
+     없으므로 로컬 실행에는 이 플래그가 붙지 않는다 — 샌드박스를 끄는 범위를 딱 그만큼으로
+     묶는다. */
+  const rootless = typeof process.getuid === 'function' && process.getuid() === 0
+    ? ['--no-sandbox', '--disable-dev-shm-usage'] : [];
   const chrome = spawn(browser, [
     '--headless=new', '--remote-debugging-port=0', `--user-data-dir=${profile}`,
+    ...rootless,
     '--no-first-run', '--no-default-browser-check', '--disable-extensions',
     '--hide-scrollbars', '--mute-audio', '--force-device-scale-factor=1',
     // 서브픽셀 렌더링을 끈다 — 머신마다 다른 색 테두리가 생기고 3색 점검에도 걸린다

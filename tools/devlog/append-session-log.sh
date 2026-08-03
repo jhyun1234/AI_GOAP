@@ -80,6 +80,19 @@ process_commit() {
     # core.quotepath=false: 끄지 않으면 한글 파일명이 "Docs/\352\260\234..." 8진 이스케이프로
     # 기록된다 (2026-07-28 발견 — 이 프로젝트는 Docs/ 아래 한글 파일명이 다수라 실피해).
     files=$(git -c core.quotepath=false diff-tree --no-commit-id --name-only -r "$hash")
+
+    # 🔴 세션 로그만 건드린 커밋은 항목을 만들지 않는다 (2026-08-03 버그 수정).
+    # 안 그러면 순환이 끝나지 않는다 — 커밋하면 이 훅이 항목을 붙여 작업 트리가 더러워지고,
+    # 그 항목을 커밋하면 훅이 그 커밋에 대한 항목을 또 붙인다. 실제로 이날 세 바퀴 돌았고
+    # ("ep04s 재구성 커밋 항목 추가" → "로그 전용 커밋 항목 추가" → ...) Stop 훅이 매 턴
+    # 깨끗한 트리를 요구해서 멈추지 않았다. 로그가 로그를 기록하는 항목은 blog-planner 의
+    # 1차 소스로서도 값이 0 이라 아예 안 만드는 것이 맞다.
+    # grep -qv = "패턴에 안 맞는 줄이 있나". 하나도 없으면(전부 세션 로그면) 1 을 반환하고
+    # ! 가 뒤집어 참이 되어 건너뛴다.
+    if [ -n "$files" ] && ! echo "$files" | grep -qvE '^devlog/sessions/[^/]+\.md$'; then
+        return 0
+    fi
+
     today=$(echo "$date_str" | awk '{print $1}')
     hhmm=$(echo "$date_str" | awk '{print substr($2,1,5)}')
     tag=$(get_tag "$files")

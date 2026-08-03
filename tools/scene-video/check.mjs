@@ -98,6 +98,19 @@ if (timed) {
 
   const cps = timed.summary?.charsPerSec;
   add(cps >= 6.0 && cps <= 7.2, '말 속도 6.0~7.2자/초', `${cps}자/초 (참고 영상 6.93)`, 'warn');
+
+  /* ── 총 길이 ────────────────────────────────────────
+     실측 절대 시청 시간이 16~27초인데 영상이 80~122초였다
+     (Docs/영상_이탈률_개선_실행명세서.md §관측①). 70~80% 를 아무도 안 본다.
+     🔴 30~45 는 제안치다. 이 파이프라인에 길이 상한이 있었던 적이 없어 기존 값이 없다.
+
+     상한(50)과 권장대역(45)을 나눈 이유: 상한은 페널티의 천장이고 권장은 목표다.
+     둘을 같은 값으로 합치면 46초짜리가 반려되어 무인 되돌리기 루프가 헛돈다. */
+  const totalSec = timed.shots.flatMap(s => s.lines)
+    .reduce((a, l) => a + l.dur + (l.pause || 0), 0) / 1000;
+  add(totalSec <= 50, '총 길이 50초 이하', `${totalSec.toFixed(1)}초 (목표 30~45초)`);
+  add(totalSec >= 30 && totalSec <= 45, '총 길이 30~45초 권장대역',
+    `${totalSec.toFixed(1)}초`, 'warn');
 } else {
   add(false, '실측 타임라인 존재', `episodes/${EP}/build/timed.json 이 없다 — tts.mjs 를 먼저 돌려라`);
 }

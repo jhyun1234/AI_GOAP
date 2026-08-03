@@ -47,6 +47,48 @@ add(bigPauses.length <= 2, '큰 쉼 회차당 2회 이하',
   `${bigPauses.length}회` + (bigPauses.length ? ` (${bigPauses.map(l => l.shot).join(', ')})` : ''),
   'warn');
 
+/* ── 제목 이행 — 제목이 약속한 것이 첫 두 줄 안에 나오는가 ──────────────
+   🔴 이 채널 최대의 이탈 원인이다(Docs/영상_이탈률_개선_실행명세서.md §관측②).
+   실측 절대 시청 시간이 16~27초인데 ep02s 는 제목이 약속한 장면이 34.3초에야 나왔다 —
+   시청자 대다수가 그 장면을 한 번도 못 보고 나간다.
+
+   기준을 `hook` 이 아니라 `youtube.title` 로 잡는 이유는 ADR-V-3 이다:
+   시청자가 실제로 보고 누른 것이 제목이지 화면 안 문구가 아니다.
+
+   `text`(자막)와 `say`(음성)를 **둘 다** 본다. 같은 수를 자막은 "4,096" 으로,
+   음성은 "사천 구십육" 으로 적기 때문이다 — 한쪽만 보면 통과할 것을 반려한다.
+
+   ⚠️ 검사가 거칠다. 형태소 분석 없이 어절만 대조하므로 동의어·활용형을 못 잡는다.
+   그런데도 과거 5편에 돌리면 이행이 늦은 셋(ep01s·ep02s·ep03s)만 정확히 걸린다.
+   의존성 0 이 이 파이프라인의 원칙이라(render.mjs 5행) 거친 채로 둔다.
+   🔴 오탐이 나면 게이트를 무르게 하지 말고 제목이나 첫 줄을 고쳐라 —
+   이 검사는 5편 중 3편을 잡아야 옳다. 전부 통과하면 검사가 망가진 것이다. */
+const TITLE_STOP = new Set(['유니티', 'Unity', 'GOAP', '개발일지', 'shorts', 'Shorts', '특별편']);
+const titleWords = s => [...new Set(
+  (s || '')
+    .replace(/(\d),(\d)/g, '$1$2')                 // 4,096 을 한 덩어리로 (쉼표가 어절을 쪼개지 않게)
+    .replace(/[·#,.…?!"'“”‘’·]/g, ' ')
+    .split(/\s+/).filter(Boolean)
+    .map(w => w.replace(/[을를이가은는의에서도만로]$/, ''))   // 흔한 조사만 턴다
+    .filter(w => w.length >= 2)
+    .filter(w => !TITLE_STOP.has(w))
+    .filter(w => !/^\d+(-\d+)?편$/.test(w))        // "2편"·"5-2편" 은 회차 번호지 약속이 아니다
+)];
+
+const titleKeys = titleWords(scene.youtube?.title);
+const headText = allLines.slice(0, 2).map(l => `${l.text ?? ''} ${l.say ?? ''}`).join(' ');
+const headKeys = titleWords(headText);
+const titleHit = titleKeys.filter(k =>
+  headKeys.some(h => h === k || h.includes(k) || k.includes(h)));
+
+add(titleKeys.length > 0 && titleHit.length > 0, '제목 이행 (첫 두 줄)',
+  titleKeys.length === 0
+    ? `🔴 youtube.title 에서 핵심어를 못 뽑았다 — 제목이 비었거나 상투어뿐이다`
+    : titleHit.length
+      ? `겹침: ${titleHit.join(', ')}`
+      : `🔴 제목 핵심어 [${titleKeys.join(', ')}] 가 첫 두 줄에 없다 — `
+      + `제목이 약속한 것을 30초 뒤에 주면 대부분 못 보고 나간다`);
+
 if (timed) {
   const flat = timed.shots.flatMap((s, si) => s.lines.map((l, li) => ({ ...l, shot: scene.shots[si].id })));
   const tooShort = flat.filter(l => (l.dur + (l.pause || 0)) < 2000);

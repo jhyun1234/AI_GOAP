@@ -1,6 +1,6 @@
 import {
   disp, ease, clamp, lerp, frac,
-  fitCanvas, mkCanvas, tone, roundRect, setShadow, clearShadow, GLOW, spring
+  fitCanvas, mkCanvas, tone, roundRect, setShadow, clearShadow, GLOW
 } from '../../../engine/lib.js';
 
 /* keystone — 첫 샷이 세워 둔 기둥이, 마지막에 무엇을 받고 있었는지 드러난다.
@@ -22,8 +22,9 @@ import {
 
    계속 도는 것 = 기둥을 타고 위로 흐르는 표식 넷(자막 0부터, 아래의 한 칸에서 위의
    판으로 힘이 올라가는 것), 한 칸 안을 위로 흐르는 빗금, 판이 앉은 뒤의 미세한 눌림.
-   🔑 마지막 자막(예고)에 hookCue 를 물려 훅 카드가 그때 올라온다 — 예고 자막 동안
-   화면이 통째로 멈추는 것을 막는 장치다. */
+   🔑 예고 자막 구간(마지막 자막)에 캔버스에서 도는 것은 **기둥의 표식 넷 · 칸 안 빗금 ·
+   판이 앉은 뒤의 눌림** 이 셋이다. 훅은 여기서 안 그린다 — 아웃트로 카드 안의 .oc-hook
+   이 맡는다(아래 draw 끝의 주석 참조, 2026-08-04). */
 
 const RISE = 1.9;
 const FLOW = 2.3;
@@ -36,7 +37,6 @@ export default {
     const { ctx, w } = fitCanvas(root.querySelector('canvas'));
 
     const sk = ease(cue(spec.loadCue ?? 0, 0.15, 0.55));   // 판이 내려와 앉는다
-    const hk = ease(cue(spec.hookCue ?? 1, 0.15, 0.60));   // 훅 카드가 올라온다
 
     ctx.textBaseline = 'alphabetic';
     const fit = (txt, weight, start, max, min = 7.5) => {
@@ -139,6 +139,6 @@ export default {
        가장 오래 보인 ep05s-1 도 100ms 였다. 훅은 engine/index.html 의 .oc-hook 이 맡아
        카드 안에서 2.6초 내내 서 있다. kind 는 그림에만 집중한다.
        🔑 "두 곳에 적으면 갈린다"가 원래 원칙이었는데 카드와 캔버스 사이에서 깨져 있었다. */
-ctx.textAlign = 'left';
+    ctx.textAlign = 'left';
   }
 };

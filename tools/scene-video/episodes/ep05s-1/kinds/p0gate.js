@@ -86,8 +86,11 @@ export default {
       if (cursor < w - 14) segs.push([cursor, w - 14]);
 
       ctx.globalAlpha = k;
+      /* 🔴 문턱을 2 → 6 으로 올린다. 틈 둘이 벌어지면 그 사이에 폭 4px 짜리 조각이
+         하나 남는데(notch0=[6,88] · notch1=[92,174] → seg [88,92]), 그건 "막혀 있는 띠"가
+         아니라 편집 부스러기로 읽힌다. 6 이면 사라지고, 진짜 남는 띠는 [174,338] 하나다. */
       segs.forEach(([a, b]) => {
-        if (b - a < 2) return;
+        if (b - a < 6) return;
         ctx.strokeStyle = tone('ink'); ctx.lineWidth = 3;
         roundRect(ctx, a, BAND_Y, b - a, BAND_H, 3); ctx.stroke();
 
@@ -105,13 +108,20 @@ export default {
         ctx.globalAlpha = k;
       });
 
+      /* 🔴 라벨은 "아직 막혀 있는 띠" 위에 선다 — 뚫린 자리 위가 아니다.
+         고정 x=22 였을 때 틈이 벌어지면 라벨만 화면 왼쪽에 남고 그 아래는 통째로
+         뚫려 있어서, 이 편의 요점(쿨다운을 없앤 게 아니라 예외를 뚫었다)이 거꾸로
+         읽혔다(검수 4-1). 남은 세그먼트 중 가장 넓은 것을 따라간다 — 틈이 안 열린
+         동안에는 [14,338] 하나뿐이라 예전과 같은 왼쪽 자리에 선다. */
+      const wide = segs.filter(([a, b]) => b - a >= 6).sort((p, q) => (q[1] - q[0]) - (p[1] - p[0]))[0];
+      const labX = wide ? Math.min(wide[0] + 8, w - 130) : 22;
       ctx.textAlign = 'left';
       const fs = fit(spec.barrier || '실패 쿨다운', 800, 11.5, 120, 8);
       /* 🔴 baseline 을 BAND_Y−9 가 아니라 BAND_Y−4 로 둔다. −9 이면 라벨 글자 상자가
          y 133~145 를 차지하는데 아래 ✕ 가 그 위를 지나 취소선처럼 보였다(검수 반려 이력).
          −4 이면 글자 상자가 y 138~148 이고 ✕ 는 띠 한가운데(y 160~172)라 완전히 갈린다. */
       ctx.font = disp(800, fs); ctx.fillStyle = tone('sub');
-      ctx.fillText(spec.barrier || '실패 쿨다운', 22, BAND_Y - 4);
+      ctx.fillText(spec.barrier || '실패 쿨다운', labX, BAND_Y - 4);
       ctx.globalAlpha = 1;
     }
 

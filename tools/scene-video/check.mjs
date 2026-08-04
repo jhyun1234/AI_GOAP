@@ -139,6 +139,29 @@ if (timed) {
     `${totalSec.toFixed(1)}초`, 'warn');
 } else {
   add(false, '실측 타임라인 존재', `episodes/${EP}/build/timed.json 이 없다 — tts.mjs 를 먼저 돌려라`);
+
+  /* ── 산정 길이(참고) ─────────────────────────────────
+     🔴 판정이 아니다. ok=true 로 넣어 절대 fail 이 안 나게 해 뒀다.
+
+     왜 넣나: 대본이 길이를 자기보고로 적는 자리(notes.길이)가 여섯 회차 전부
+     제각각 틀렸다. 어떤 회차는 ÷9.15+0.5×줄수, 어떤 회차는 ÷6.77, pauseAfter 합을
+     잘못 더한 것도 있었다. 식을 문서에 베껴 적게 하면 베낀 곳마다 갈린다.
+     그래서 **식은 여기 한 곳에만 두고 대본은 이 줄의 출력을 인용한다.**
+
+     회귀는 회차 다섯의 timed.json 으로 맞췄다 — ÷6.77 보다 ÷6.7(= CPS_REF)이
+     최대오차 2.8s → 2.0s 로 낫다. voice.json 의 6.77 은 발화만 잰 값이라
+     총 길이 산정에 그대로 쓰면 안 된다.
+
+     구두점은 뺀다(TTS 가 소리로 내지 않고 쉼으로 흡수한다). 샷 꼬리는
+     engine.js 의 SHOT_TAIL 과 같은 0.35s 다. */
+  const SHOT_TAIL = 0.35;
+  const spoken = l => (l.say ?? l.text.replace(/\n/g, ' ')).replace(/[.,?!…·「」"'\s]/g, '').length;
+  const allLines = scene.shots.flatMap(s => s.lines);
+  const estVoice = allLines.reduce((a, l) => a + spoken(l) / CPS_REF + (l.pauseAfter ?? 0) / 1000, 0);
+  const estTotal = estVoice + SHOT_TAIL * scene.shots.length;
+  add(true, '산정 길이 (참고 · 판정 아님)',
+    `${estTotal.toFixed(1)}초 = 발화 ${estVoice.toFixed(1)} + 꼬리 ${(SHOT_TAIL * scene.shots.length).toFixed(2)}` +
+    ` · 실측 오차 ±2.0초 — notes.길이 는 이 값을 인용할 것`);
 }
 
 /* ── B. 실제 프레임 (헤드리스에서 그려 보고 판정) ───── */

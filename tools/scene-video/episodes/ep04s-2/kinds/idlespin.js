@@ -13,10 +13,14 @@ import {
    보이지만 뿌리는 같다"고 말하는 자리다. 동시에 표식들이 고리를 **벗어나** 뿌리 선을 타고
    오른쪽으로 흘러 나간다 — 도는 것이 흐르는 것으로 바뀌는 게 이 문단의 결말이다.
 
-   hookCue 에서 고리 셋이 흐려지고 그 자리를 이 편의 한 줄이 넘겨받는다. 이 샷이 마지막
-   샷이고 마지막 자막이 다음 편 예고라, 예고를 읽는 동안 화면이 통째로 멈추는 것을 막는
-   장치이기도 하다(ep05s 가 이걸 안 걸어 정적 구간이 3.6 → 6.6초로 뛴 전례가 있다).
-   훅이 논지 옆에 나란히 붙는 것도 아니다 — 논지(뿌리 = 하나)가 끝난 뒤 화면을 넘겨받는다.
+   🔴 2026-08-04 — 여기 원래 "hookCue 에서 고리 셋이 흐려지고 그 자리를 이 편의 한 줄이
+   넘겨받는다"고 적혀 있었고 실제로 그렇게 그렸다. **둘 다 걷어냈다.**
+   ①훅은 이제 캔버스가 아니라 아웃트로 카드의 .oc-hook 이 그린다 — 카드가 .vis 를 픽셀 동일
+   좌표에 불투명하게 덮으므로 캔버스의 훅은 뜨자마자 가려졌다(검수 실측).
+   ②그래서 고리를 흐리게 하던 fade(= 1 − 0.86·hk)도 같이 지웠다. 훅이 사라진 뒤에도 fade 만
+   남아 있으면 **예고 구간에 위쪽 화면이 그냥 어두워지고 아무것도 대신 오지 않는다** —
+   실제로 그 상태로 한 판 돌았고 검수가 "위쪽 캔버스가 52%를 잃고 대체가 없다"로 잡았다.
+   지금은 예고를 읽는 동안에도 고리 셋이 밝기 그대로 돌고, 뿌리 선의 표식과 꼬리가 흐른다.
 
    🔴 정지 화면을 만들지 않으려고 고치는 장면을 '멈춤'으로 그리지 않았다. 고리가 멈추면
    그 순간부터 화면이 죽는다. 대신 같은 표식이 계속 움직이되 궤적이 닫힌 고리에서 열린
@@ -44,8 +48,6 @@ export default {
     const sk = ease(cue(spec.spinCue ?? 0, 0.15, 0.6));
     const nk = ease(cue(spec.nameCue ?? 1, 0.15, 0.65));
     const rk = ease(cue(spec.rootCue ?? 2, 0.15, 0.6));
-    /* 예고 자막에 문다. lead 0.35 라 앞 자막의 침묵에서 이미 올라오기 시작한다. */
-    const hk = ease(cue(spec.hookCue ?? 3, 0.35, 0.3));
 
     ctx.textBaseline = 'alphabetic';
     const fit = (txt, weight, start, max, min = 7.5) => {
@@ -61,14 +63,13 @@ export default {
     const rootY = 206, rootL = 20, rootR = w - 20;
     const failAng = -Math.PI * 0.62;
 
-    const fade = 1 - 0.86 * hk;   // 훅이 올라오면 고리 쪽이 자리를 내준다
 
     for (let i = 0; i < n; i++) {
       const cx = cxs[i] ?? (62 + i * 114);
       const born = clamp(sk * (n + 1) - i);
       if (born < 0.02) continue;
       const s = Math.min(1, spring(born));
-      const ringA = clamp(born * 1.7) * fade;
+      const ringA = clamp(born * 1.7);
       const out = clamp((rk - 0.45) / 0.35);
 
       /* 고리 */
@@ -93,7 +94,7 @@ export default {
 
       /* 쿨다운 걸쇠 — 실패 지점 뒤에 걸린다 */
       if (rk > 0.06) {
-        const k = clamp(rk * 1.6 - i * 0.12) * fade;
+        const k = clamp(rk * 1.6 - i * 0.12);
         if (k > 0.02) {
           const a = failAng + 0.42;
           const kk = clamp(rk * 1.6 - i * 0.12);
@@ -111,7 +112,7 @@ export default {
 
       /* 이름 */
       if (fk > 0.05) {
-        ctx.globalAlpha = clamp(fk * 1.5) * fade;
+        ctx.globalAlpha = clamp(fk * 1.5);
         ctx.textAlign = 'center';
         const label = loops[i] || '';
         const fs = fit(label, 800, 11.5, 108, 8);
@@ -123,7 +124,7 @@ export default {
       /* 뿌리로 내려가는 줄기 */
       if (rk > 0.02) {
         const k = ease(clamp(rk / 0.7));
-        ctx.globalAlpha = clamp(rk * 2) * fade;
+        ctx.globalAlpha = clamp(rk * 2);
         ctx.strokeStyle = tone('sub'); ctx.lineWidth = 3;
         ctx.beginPath();
         ctx.moveTo(cx, rootY); ctx.lineTo(cx, lerp(rootY, 136, k));
@@ -142,7 +143,7 @@ export default {
           ctx.lineWidth = 4;
           ctx.beginPath(); ctx.arc(cx, cy, r, u - ARC, u); ctx.stroke();
 
-          ctx.globalAlpha = clamp(born * 1.7) * fade;
+          ctx.globalAlpha = clamp(born * 1.7);
           setShadow(ctx, GLOW, 8, 0);
           ctx.beginPath();
           ctx.arc(cx + Math.cos(u) * r, cy + Math.sin(u) * r, 4.5, 0, Math.PI * 2);

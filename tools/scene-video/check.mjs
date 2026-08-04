@@ -97,6 +97,14 @@ add(titleKeys.length > 0 && titleHit.length > 0, '제목 이행 (첫 두 줄)',
    뒤엣것은 §0 틀린 전제 ②("ep02s 는 도입부 빌드업이 길어 초반 이탈")가 실사로 기각된
    추측에 기대고 있었다. 근거 없는 규칙을 만들지 않는다(ADR-V-7). */
 const TEASER_MAX = 4.0;
+/* 🔴 2026-08-04. 이 선언이 한때 사라져 check.mjs 가 통째로 죽었다. 명세서를 정본으로
+   병합하며 "편당 길이 75/90" 블록을 버렸는데 CPS_REF 를 거기서 선언하고 있었고,
+   아래 예고 길이 계산이 그걸 쓴다. teaserLines 가 비면 콜백이 안 불려 조용히 지나가지만,
+   바로 아래 항목이 예고를 fail 수준으로 **요구**하므로 규칙을 지킨 회차만 골라서 터진다 —
+   가장 나쁜 형태의 고장이다. 작성팀이 ep04s-2 를 쓰다 발견해 보고했다.
+   🔑 이 값은 예고 한 줄의 길이를 재는 데만 쓴다. 회차 총 길이는 timed.json 실측으로 재고
+   (W3), 산정치로 길이를 판정하지 않는다 — 그건 §관측①이 기각한 접근이다. */
+const CPS_REF = 6.7;   // ep02s 실측: 발화 84.18초에 564자
 const lastShot = scene.shots.at(-1);
 const teaserRe = /다음\s*(편|회차|은|는)|이어서|(\d+)\s*부/;
 const teaserLines = lastShot.lines.filter(l => teaserRe.test(l.say ?? l.text));

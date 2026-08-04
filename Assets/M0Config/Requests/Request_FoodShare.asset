@@ -10,17 +10,14 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 82223cb9257b4086a4ad8987f8822d45, type: 3}
-  m_Name: Request_FoodTrade
+  m_Name: Request_FoodShare
   m_EditorClassIdentifier:
-  DisplayName: "식량 직거래"
-  TaskLabel: "식량 팔기"
+  DisplayName: "식량 나눔"
+  TaskLabel: "식량 나눠주기"
   RequesterConditions:
   - Slot: 19
     Op: 2
     Value: 1
-  - Slot: 37
-    Op: 1
-    Value: 3
   TargetJob: {fileID: 0}
   TargetConditions:
   - Slot: 19
@@ -28,9 +25,7 @@ MonoBehaviour:
     Value: 3
   TradeGiveAmount: 2
   TradeGiveSlot: 22
-  TradeInflatedLines:
-  - "값이 올랐지만... 어쩔 수 없지"
-  - "돈 값이 예전만 못하군"
+  TradeInflatedLines: []
   InjectGoal: {fileID: 0}
   RadiusTiles: 6
   RefuseAffinityBelow: -10
@@ -39,18 +34,18 @@ MonoBehaviour:
   AcceptDelta: 5
   FulfillDelta: 15
   RefusedDelta: -5
-  RewardCostSlot: 37
-  RewardCostAmount: 3
+  RewardCostSlot: 0
+  RewardCostAmount: 0
   AskLines:
-  - "먹을 것 좀 팔아주게. 값은 치르겠네"
-  - "배가 고픈데 돈은 있어. 식량 좀 나눠 팔게나"
+  - "먹을 것 좀 나눠줄 수 있어? 배가 너무 고파"
+  - "며칠을 제대로 못 먹었어... 조금만 나눠줘"
   AcceptLines:
-  - "그 값이면 팔지"
-  - "좋아, 가져가게"
+  - "그래, 이거라도 먹어"
+  - "가져가. 굶는 것보단 낫지"
   RefuseBusyLines:
   - "지금 다른 부탁을 받았어"
   RefuseLowAffinityLines:
-  - "너한테 팔 건 없어"
+  - "너한테 줄 건 없어"
   FulfillLines: []
   ThanksLines: []
   RefuseNoRewardLines: []

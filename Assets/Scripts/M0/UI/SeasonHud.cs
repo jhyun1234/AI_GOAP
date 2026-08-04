@@ -456,9 +456,12 @@ namespace AIVillage.M0
                 // 거래 (M16-W5) — 생존 서사의 핵심 사건: "굶다가 사 먹고 살았다"가 연대기에 남는다
                 case EventId.Traded:
                     return $"식량 구입({ComposeMoney(e.Value)})";
-                // 집값 지불 (M18-W5) — 판마다 다른 액수가 그 판의 물가를 증언한다
+                // 집값 지불 (M18-W5 → M19 휴면) — 새 기록은 없다. 옛 판 연대기 표시 호환용
                 case EventId.HomePaid:
                     return $"집값 지불({ComposeMoney(e.Value)})";
+                // 식량 나눔 (M19-W3) — 생존 서사의 계승: "굶다가 얻어먹고 살았다"
+                case EventId.FoodShared:
+                    return $"식량 얻어먹음({e.Value}개)";
                 default:                   return e.Kind.ToString(); // 미등록 신규 — 이름 그대로 (침묵 금지)
             }
         }

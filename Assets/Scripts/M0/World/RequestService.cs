@@ -228,11 +228,12 @@ namespace AIVillage.M0
             requester.FaceForChat(target.transform.position, _agentCfg.ChatPauseSec);
             target.FaceForChat(requester.transform.position, _agentCfg.ChatPauseSec);
 
-            // 즉시 교환 (M16-W5, 확정 보완 1) — 수락 순간 실물↔돈 원자 교환. 완수·빚·정산을
-            // 타지 않는다 (판매자가 지금 실물을 갖고 있으므로 떼먹기·연기가 구조적으로 없다).
+            // 즉시 나눔 (M19-W3, 舊 즉시 교환 M16-W5 계승) — 수락 순간 실물 일방 이전.
+            // 완수·빚·정산을 타지 않는다 (주는 쪽이 지금 실물을 갖고 있으므로 떼먹기·연기가
+            // 구조적으로 없다).
             if (r.TradeGiveAmount > 0)
             {
-                AskTrade(r, requester, target, nowSec);
+                AskShare(r, requester, target, nowSec);
                 return;
             }
 
@@ -289,68 +290,49 @@ namespace AIVillage.M0
         }
 
         /// <summary>
-        /// 즉시 교환 장면 (M16-W5) — 실가격 재검사 → 판매자 거부 판정(재사용) → 원자 교환 →
-        /// 호가·응수. 가격 = 기준가 × 물가% 올림 (ADR-M16-4 — 조건 Value는 필터일 뿐, 확정 보완 2).
-        /// 돈을 먼저 옮기고 실물을 옮긴다 — 실물 선검사를 통과했으므로 두 번째 이전은 실패할 수
-        /// 없다 (실패 = 버그, 돈 반환 후 경고).
+        /// 식량 나눔 장면 (M19-W3 — 舊 즉시 교환 M16-W5의 실물 계승). **나눔은 거래가 아니다**
+        /// (ADR-M19-4): 실물 일방 이전 + 관계 델타뿐 — 반대급부·교환비를 붙이는 순간 화폐의
+        /// 재발명이다. 거부 판정(부상·바쁨·배고픔·원한)은 기존 재사용 — 거절도 장면이다
+        /// (ADR-M8-5). 무한 구걸은 의뢰인 쿨다운 + 배고픔 성립 조건이 이미 막는다 (명세 ⚠️W3).
         /// </summary>
-        private void AskTrade(RequestSO r, VillagerAgent requester, VillagerAgent target, float nowSec)
+        private void AskShare(RequestSO r, VillagerAgent requester, VillagerAgent target, float nowSec)
         {
             _requesterCooldownUntil[requester.AgentId] = nowSec + _world.RequestCooldownSec;
             _chatter?.RecordChat(requester.AgentId, target.AgentId, nowSec);
 
-            int pct = _pricePct != null ? _pricePct() : 100; // 미주입 = 기준가 (중립)
-            int price = TradePrice(r.RewardCostAmount, pct);
-
-            // 실가격 재검사 — 의뢰인 조건(기준가 필터)보다 실가격이 클 수 있다. 조용한 불성립
-            // 금지 (관측 가능해야 한다 — 명세 ⚠️W5)
-            if (!requester.CanPayReward(SlotId.MyMoney, price))
-            {
-                Debug.Log($"[Trade] 불발 — {requester.AgentId}: 잔고 부족 (실가격 {price}동 · 물가 {pct}%)");
-                return;
-            }
-            // 판매자 거부 판정 재사용 (부상·바쁨·배고픔·원한) — 거절도 장면이다 (ADR-M8-5)
+            // 나눠줄 사람의 거부 판정 재사용 (부상·바쁨·배고픔·원한)
             VillagerAgent.RequestResult verdict = target.TryGiveRequest(r, requester.AgentId,
                 upfrontAvailable: true, instantTrade: true);
             target.ShowTransientDelayed(
                 verdict == VillagerAgent.RequestResult.Accepted
-                    // 호가 = 아는 값을 부르는 것 (공유 시세, 확정 보완 9) — 액수 병기 (8-②)
-                    ? $"{Pick(r.AcceptLines)} — {SeasonHud.ComposeMoney(price)}"
+                    ? Pick(r.AcceptLines)
                     : Pick(ReplyLinesFor(r, target, verdict)),
                 _agentCfg.ReplyDelaySec);
             if (verdict != VillagerAgent.RequestResult.Accepted)
             {
                 _relationship.AddAffinity(requester.AgentId, target.AgentId, r.RefusedDelta,
                                           $"{r.DisplayName} 거절");
-                Debug.Log($"[Trade] {requester.AgentId}→{target.AgentId}: {r.DisplayName} — {Kr(verdict)}");
+                Debug.Log($"[Share] {requester.AgentId}→{target.AgentId}: {r.DisplayName} — {Kr(verdict)}");
                 return;
             }
 
-            // 원자성 (ADR-M0-8) — 선검사 전부 통과 후에만 손을 댄다
+            // 원자성 (ADR-M0-8) — 재고·공간 선검사 후 실물 일방 이전
             if (!target.CanPayReward(r.TradeGiveSlot, r.TradeGiveAmount)
                 || !requester.HasRoomFor(r.TradeGiveSlot, r.TradeGiveAmount)
-                || !requester.TransferTo(target, SlotId.MyMoney, price))
+                || !target.TransferTo(requester, r.TradeGiveSlot, r.TradeGiveAmount))
             {
-                Debug.Log($"[Trade] 불발 — 재고/공간 선검사 실패 ({requester.AgentId}→{target.AgentId}, " +
+                Debug.Log($"[Share] 불발 — 재고/공간 부족 ({target.AgentId}→{requester.AgentId}, " +
                           $"{r.TradeGiveSlot} {r.TradeGiveAmount}개)");
                 return;
             }
-            if (!target.TransferTo(requester, r.TradeGiveSlot, r.TradeGiveAmount))
-            {
-                target.TransferTo(requester, SlotId.MyMoney, price); // 돈만 사라지는 쪽이 최악 — 반환
-                Debug.LogWarning("[Trade] 실물 이전 실패 — 돈 반환 (판정 이원화 의심)");
-                return;
-            }
 
-            // 성사 — 구매자 응수: 물가 > 100%면 불평 (알지만 마음에 안 듦 — 확정 보완 9)
-            if (pct > 100 && r.TradeInflatedLines != null && r.TradeInflatedLines.Length > 0)
-                requester.ShowTransientDelayed(Pick(r.TradeInflatedLines), _agentCfg.ReplyDelaySec * 2f);
+            // 은혜는 받은 쪽이 기억한다 — 관계 델타가 보답의 자리다 (ADR-M19-4)
             _relationship.AddAffinity(requester.AgentId, target.AgentId, r.AcceptDelta,
-                                      $"{r.DisplayName} 성사");
-            _chronicle?.RecordEvent(requester.AgentId, EventId.Traded,
-                                    _gameDay != null ? _gameDay() : 0f, target.AgentId, price);
-            Debug.Log($"[Trade] {requester.AgentId}→{target.AgentId}: {r.TradeGiveSlot} " +
-                      $"{r.TradeGiveAmount}개 ← {price}동 (물가 {pct}%)");
+                                      $"{r.DisplayName} 나눔");
+            _chronicle?.RecordEvent(requester.AgentId, EventId.FoodShared,
+                                    _gameDay != null ? _gameDay() : 0f, target.AgentId, r.TradeGiveAmount);
+            Debug.Log($"[Share] {target.AgentId}→{requester.AgentId}: {r.TradeGiveSlot} " +
+                      $"{r.TradeGiveAmount}개 나눔");
         }
 
         /// <summary>실가격 (M16-W5, 순수 — 게이트 M16-T6. ADR-M16-4): 기준가 × 물가% 올림.

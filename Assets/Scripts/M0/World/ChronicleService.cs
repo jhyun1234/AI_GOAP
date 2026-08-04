@@ -23,9 +23,10 @@ namespace AIVillage.M0
         OrderRefused = 4, // 명령 거부   ← 같은 곳 (거부 3종은 한 칸 — 종류는 Value에)
         Built        = 5, // 완공        ← ConstructionService.OnCompleted (구독)
         Traded       = 6, // 식량 구입   ← RequestService.AskTrade (M16-W5. Value = 지불액 동, OtherId = 판매자)
-        HomePaid     = 7, // 집값 지불   ← RequestService 선불 이전 성공 (M18-W5. Value = 수락 시점
-                          //               실지불액 동, OtherId = 목수). 판마다 값이 다른 것 자체가
-                          //               그 판의 물가를 증언한다 — "3년 봄엔 집이 70동이었다"
+        HomePaid     = 7, // 집값 지불   ← [M19 휴면 — 기록 지점 없음. 옛 판 표시 호환용으로 잔류
+                          //               (append-only). 화폐 철거로 지불 사건 자체가 소멸]
+        FoodShared   = 8, // 식량 나눔   ← RequestService.AskShare (M19-W3. Value = 개수,
+                          //               OtherId = 나눠준 주민). "굶다가 얻어먹고 살았다"의 계승
     }
 
     /// <summary>사건 1건 (M13-C2) — 값 타입 취급: 서비스만 만들고 밖에서 고치지 않는다.</summary>

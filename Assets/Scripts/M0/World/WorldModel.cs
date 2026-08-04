@@ -31,15 +31,13 @@ namespace AIVillage.M0
         public WorldModel(DiscoveryService discovery, WorldConfigSO config, FarmService farm = null,
                           SeasonService season = null, AgentConfigSO agentCfg = null,
                           System.Func<int> injuredCount = null,
-                          System.Func<int> untendedInjuredCount = null,
-                          System.Func<int> pricePct = null)
+                          System.Func<int> untendedInjuredCount = null)
         {
             _discovery = discovery;
             _farm = farm;
             _season = season;
             _injuredCount = injuredCount;
             _untendedInjuredCount = untendedInjuredCount;
-            _pricePct = pricePct; // M18 — 확정 물가 (하루 1회 캐시, RequestService와 같은 원천)
             _decayPerDay = agentCfg != null ? agentCfg.SatietyDecayPerGameDay : 0f;
             if (config != null)
             {
@@ -48,30 +46,7 @@ namespace AIVillage.M0
                 _slots[(int)SlotId.StoneStock]   = config.InitialStoneStock;
                 _foodValues = DeriveFoodValues(config.FoodSources); // ADR-M9-10 — 액션 에셋에서 파생
                 _farmGrowthDays = config.FarmGrowthDays;            // 심기 창 판정 입력 (M14-W1)
-                // 집값 기준가 (M18, ADR-M18-3) — 원천은 집 소유권 Request 에셋의
-                // RewardCostAmount 하나뿐. 게이트 M18-T2가 복수 에셋의 값 동일성을 강제한다.
-                _homeBasePrice = DeriveHomeBasePrice(config.Requests);
-                // 시작 금고 (M17-W1) — 무에서 온 돈이므로 발행 누적에도 같이 싣는다.
-                // 안 그러면 폐곡선(§8 D2)이 첫 프레임부터 어긋난다.
-                Treasury    = Mathf.Max(0, config.StartingTreasury);
-                MintedTotal = Treasury;
             }
-        }
-
-        private readonly System.Func<int> _pricePct; // M18 — null = 미배선 (기준가 그대로)
-        private readonly int _homeBasePrice;         // M18 — 0 = 집 부탁 에셋 없음 (슬롯 0)
-
-        /// <summary>집값 기준가 파생 (M18, 순수 — 게이트 M18-T2, ADR-M18-3): 집 소유권을 주는
-        /// 화폐 보상 Request의 RewardCostAmount. 여럿이면 첫 항 — 값 동일성은 게이트가 보장한다.
-        /// 없으면 0 (집 부탁이 없는 구성 = HomePriceNow 참조 goal도 없다는 뜻 — 중립).</summary>
-        public static int DeriveHomeBasePrice(RequestSO[] requests)
-        {
-            if (requests == null) return 0;
-            foreach (RequestSO r in requests)
-                if (r != null && r.GrantOwnership && r.OwnershipSlot == SlotId.HouseCount
-                    && r.RewardCostSlot == SlotId.MyMoney && r.RewardCostAmount > 0)
-                    return r.RewardCostAmount;
-            return 0;
         }
 
         /// <summary>FoodSources → (스톡 슬롯, 1개당 포만) 가치표 (M9-G). 식량 아닌 항목은 건너뛴다.</summary>
@@ -114,215 +89,8 @@ namespace AIVillage.M0
 
         public bool GetFlag(SlotId slot) => _slots[(int)slot] != 0;
 
-        // ── 화폐 회계 (M17-W1 — ADR-M17-2: 쓰기 창구는 아래 네 메서드뿐) ──────────
-        // 舊 ADR-M16-1(Mint·Burn 둘)의 개정판이다. 금고가 생기며 "무에서 온 돈"과
-        // "금고에서 옮겨온 돈"을 구분해야 폐곡선 검산이 성립한다 (명세 M17 보완 1).
-
-        /// <summary>통화량 M = 주민 지갑의 총합. 물가(P = M÷Q)의 분자. 세이브 대상 (ADR-M0-10).
-        /// 주민 간 이동(TransferTo)은 M 불변 — 이 값은 "마을에 도는 돈의 총량"이다.
-        /// ⚠️ 금고(Treasury)는 여기 안 들어간다 — 잠긴 돈은 시중에 없는 돈이다 (ADR-M17-1).</summary>
-        public int MoneySupply { get; private set; }
-
-        /// <summary>촌장 금고 (M17-W1, ADR-M17-1) — 통화량 밖의 자리. 웃돈은 여기서 나가고
-        /// 원천징수·발행이 여기를 채운다. 금고가 비면 촌장은 웃돈을 걸 수 없다 = 압박.
-        /// 세이브 대상 (ADR-M0-10).</summary>
-        public int Treasury { get; private set; }
-
-        /// <summary>발행·소멸 누적 (M17-W1) — 폐곡선 검산 전용 (명세 §8 D2). 게임 규칙에
-        /// 쓰지 않는다: 물가는 M과 MintDebt만 본다. 세이브 대상 (ADR-M0-10).</summary>
-        public int MintedTotal { get; private set; }
-        public int BurnedTotal { get; private set; }
-
-        /// <summary>촌장이 **찍어서** 만든 돈의 누적 (M17-W3) — 연대기 기록용 (W6).
-        /// ⚠️ MintedTotal과 다르다: 그쪽은 임금·원천징수까지 포함하므로 "찍어서 버텼다"를
-        /// 왜곡한다. 이 값만이 발행 버튼을 몇 번 눌렀는지를 말한다. 세이브 대상.</summary>
-        public int IssuedTotal { get; private set; }
-
-        /// <summary>발행 부채 (M17-W3, ADR-M17-4) — 찍은 돈이 물가에 남기는 여파.
-        /// 발행 순간 액수만큼 붙고 하루마다 일정 비율 감쇠한다. **쓰지 않고 쌓아만 둬도 아프다**:
-        /// "찍었다"는 사실 자체가 돈값을 떨어뜨린다는 것이 이 축의 전부다.
-        /// ⚠️ 실물 돈이 아니다 — 폐곡선 항등식(§8 D2)에 들어가지 않는다. MoneySupply에
-        /// 더하지 않는다. 물가 산식의 항으로만 쓰인다 (W4). 세이브 대상.</summary>
-        public int MintDebt { get; private set; }
-
-        /// <summary>회계 폐곡선 (순수 — 게이트 M17-T5). 무에서 나온 총량은 언제나
-        /// "도는 돈 + 금고 + 소멸한 돈"과 같다. 다섯 번째 쓰기 경로가 생기면 여기서 깨진다.</summary>
-        public static bool IsLedgerBalanced(int minted, int supply, int treasury, int burned)
-            => minted == supply + treasury + burned;
-
-        /// <summary>금고 지급 가능 판정 (순수 — 게이트 M17-T5). 촌장은 없는 돈을 약속하지 못한다.</summary>
-        public static bool CanPayFromTreasury(int treasury, int amount)
-            => amount > 0 && treasury >= amount;
-
-        /// <summary>통화량 계단 (순수 — 게이트 M16-T2). 음수 클램프 — 소멸이 발행을 넘으면 0.</summary>
-        public static int NextSupply(int current, int delta)
-            => current + delta < 0 ? 0 : current + delta;
-
-        /// <summary>발행: 무 → 주민 (ADR-M17-2 ①). 지갑 적립과 M 누적이 한 몸.
-        /// 호출처는 임금(TickActing) 1곳뿐 — M17-W1에서 웃돈이 금고 경로로 옮겨 갔다.
-        /// 적립 실패(이론상 불가 — 돈은 상한 없음)면 M도 발행 누적도 안 늘린다.</summary>
-        public bool Mint(VillagerAgent to, int amount, string why)
-        {
-            if (to == null || amount <= 0) return false;
-            if (!to.ApplyPersonalStock(SlotId.MyMoney, EffectOp.Add, amount))
-            {
-                Debug.LogWarning($"[Money] 발행 실패 — {why}: 지갑 적립 불가 (상한 예외 누락 의심)");
-                return false;
-            }
-            MoneySupply  = NextSupply(MoneySupply, amount);
-            MintedTotal += amount;
-            Debug.Log($"[Money] +{amount}동 {to.AgentId} — {why} (통화량 {MoneySupply})");
-            return true;
-        }
-
-        /// <summary>발행: 무 → 금고 (M17-W1, ADR-M17-2 ②). 임금의 원천징수분과 촌장의 발행이
-        /// 이 통로를 지난다. M은 움직이지 않는다 — 시중에 나가지 않았기 때문이다 (ADR-M17-1).</summary>
-        public void MintToTreasury(int amount, string why)
-        {
-            if (amount <= 0) return;
-            Treasury    += amount;
-            MintedTotal += amount;
-            Debug.Log($"[Money] 금고 +{amount}동 — {why} (금고 {Treasury} · 통화량 {MoneySupply})");
-        }
-
-        /// <summary>지급: 금고 → 주민 (M17-W1, ADR-M17-2 ③). 웃돈의 유일한 통로.
-        /// 무에서 나온 돈이 아니므로 발행 누적은 늘지 않고, 시중에 나가므로 M은 는다.
-        /// 잔고 부족이면 false — 조용히 넘기지 않는다(호출자가 알린다, 명세 W1 ⚠️).
-        /// ⚠️ 적립 성공 뒤에 차감한다 — 순서를 뒤집으면 적립 실패 시 돈이 증발한다 (ADR-M0-8).</summary>
-        public bool PayFromTreasury(VillagerAgent to, int amount, string why)
-        {
-            if (to == null || amount <= 0) return false;
-            if (!CanPayFromTreasury(Treasury, amount))
-            {
-                Debug.Log($"[Money] 금고 부족 — {why} (필요 {amount}동 · 금고 {Treasury}동)");
-                return false;
-            }
-            if (!to.ApplyPersonalStock(SlotId.MyMoney, EffectOp.Add, amount))
-            {
-                Debug.LogWarning($"[Money] 금고 지급 실패 — {why}: 지갑 적립 불가");
-                return false;
-            }
-            Treasury   -= amount;
-            MoneySupply = NextSupply(MoneySupply, amount);
-            Debug.Log($"[Money] 금고 →{to.AgentId} {amount}동 — {why} (금고 {Treasury} · 통화량 {MoneySupply})");
-            return true;
-        }
-
-        /// <summary>촌장의 발행 (M17-W3) — 무 → 금고. 금고는 M 밖이라 통화량은 안 늘지만
-        /// MintDebt가 즉시 붙어 물가(예보)가 그 자리에서 움직인다.
-        /// ⚠️ 이 부채는 웃돈으로 나갈 때 **차감하지 않는다** — 차감하면 발행 마찰이 사라져
-        /// 브레인스토밍에서 기각한 "마찰 없음" 안으로 되돌아간다. 감쇠만 한다 (ADR-M17-4).</summary>
-        public void IssueCurrency(int amount, string why)
-        {
-            if (amount <= 0) return;
-            MintToTreasury(amount, why);   // 회계는 한 통로로 (폐곡선 유지)
-            IssuedTotal += amount;
-            MintDebt    += amount;
-            Debug.Log($"[Money] 발행 여파 +{amount} (누적 {MintDebt}) — 찍은 돈은 값이 더 떨어진다");
-        }
-
-        /// <summary>발행 부채 감쇠 (M17-W3, 순수 — 게이트 M17-T3). 하루 1회.
-        /// 내림이라 잔량이 1~4에서 영원히 안 사라지므로 5 미만은 0으로 떨군다
-        /// (감쇠율 0%면 영구 부채가 의도이므로 그때는 떨구지 않는다).</summary>
-        public static int DecayMintDebt(int debt, int decayPct)
-        {
-            if (debt <= 0) return 0;
-            int rate = Mathf.Clamp(decayPct, 0, 100);
-            if (rate <= 0) return debt;                 // 감쇠 없음 = 영구 부채 (에셋의 선택)
-            int next = Mathf.FloorToInt(debt * (100 - rate) / 100f);
-            return next < 5 ? 0 : next;
-        }
-
-        /// <summary>발행 여파가 사라지기까지 남은 게임일 (M17-R7, 순수 — 게이트 M17-T11).
-        /// 감쇠가 곱셈이라 사람이 암산할 수 없다 — "며칠 참으면 되는가"는 플레이어가 기다릴지
-        /// 세금을 올릴지 판단하는 재료이므로 게임이 대신 세어 준다.
-        /// 감쇠율 0(영구 부채)이거나 99일 안에 안 끝나면 -1.</summary>
-        public static int MintDebtDaysToClear(int debt, int decayPct)
-        {
-            if (debt <= 0) return 0;
-            if (Mathf.Clamp(decayPct, 0, 100) <= 0) return -1; // 감쇠 없음 = 영구
-            int d = debt, days = 0;
-            while (d > 0 && days < 99) { d = DecayMintDebt(d, decayPct); days++; }
-            return d > 0 ? -1 : days;
-        }
-
-        /// <summary>감쇠 적용 (M17-W3) — 하루 경계 블록에서 1회 호출. 순수 함수와 쓰기 지점을
-        /// 나눈 이유는 게이트가 곡선만 따로 검증할 수 있게 하기 위함이다.</summary>
-        public void TickMintDebtDecay(int decayPct)
-        {
-            if (MintDebt <= 0) return;
-            int next = DecayMintDebt(MintDebt, decayPct);
-            if (next == MintDebt) return;
-            Debug.Log($"[Money] 발행 여파 {MintDebt} → {next} (하루 감쇠 {decayPct}%)");
-            MintDebt = next;
-        }
-
-        /// <summary>소멸: 주민 → 무 (ADR-M17-2 ④). 호출처는 사망(BurnWalletOnDeath) 1곳뿐.
-        /// 지갑 차감은 호출자가 한다 (죽는 자의 지갑 정리 — 여기는 회계만).</summary>
-        public void Burn(int walletAmount, string why)
-        {
-            if (walletAmount <= 0) return;
-            MoneySupply  = NextSupply(MoneySupply, -walletAmount);
-            BurnedTotal += walletAmount;
-            Debug.Log($"[Money] -{walletAmount}동 — {why} (통화량 {MoneySupply})");
-        }
-
-        /// <summary>물가 산식 (M16-W4 · M17-W4 확장, 순수 — 게이트 M16-T5·M17-T1).
-        /// P% = clamp(100 × (M + k×발행부채) ÷ (Q × 기준가), 100 ~ 상한).
-        /// M이 작으면 100(기준가 그대로 — 화폐가 없던 판과 연속).
-        /// Q = 마을 식량 합 (거래 대상 재화만 — 자재 제외, 단위 정합).
-        ///
-        /// **확정 물가도 예보도 이 함수 하나를 지난다** (ADR-M17-3) — 다른 것은 입력 시점뿐이다.
-        /// 예보용으로 복사본을 만들면 화면과 판정이 갈린다 (산식 이원화 금지).
-        /// mintDebt·surchargeK 기본값 0 = M16 시절과 완전히 동일 (기존 호출·게이트 무수정).</summary>
-        public static int ComputePricePct(int moneySupply, int foodCount, int basePrice, int capPct,
-                                          int mintDebt = 0, float surchargeK = 0f)
-        {
-            int denom = Mathf.Max(1, foodCount * Mathf.Max(1, basePrice)); // Q=0 방어 (전멸 직전)
-            int numer = moneySupply + Mathf.RoundToInt(Mathf.Max(0, mintDebt) * Mathf.Max(0f, surchargeK));
-            return Mathf.Clamp(100 * numer / denom, 100, Mathf.Max(100, capPct));
-        }
-
-        /// <summary>남은 발행 여력, 동 단위 (M17-R6, 순수 — 게이트 M17-T10).
-        ///
-        /// **물가 산식을 역으로 푼 값이다** — 새 개념이 아니다:
-        ///   P = 100 × (M + k·D) ÷ (Q × 기준가) ≤ 상한
-        ///   → D_max = (상한 × Q × 기준가 ÷ 100 − M) ÷ k
-        /// 여력 = D_max − 현재 부채. 이만큼까지만 찍을 수 있다.
-        ///
-        /// 왜 필요한가 (§8.5 발견 A): 상한이 있으면 그 위로는 발행 페널티가 포화되어 **추가
-        /// 발행이 공짜**가 된다. 무한히 찍을 수 있으면 "촌장의 돈은 유한하다"는 M17의 전제가
-        /// 무너진다. 부채가 상한을 넘지 못하게 막으면 상한이 비로소 진짜 벽이 된다.
-        ///
-        /// 따라오는 성질: ①부채가 감쇠하면 여력이 돌아온다 (회복 곡선 = 발행 여유)
-        /// ②마을이 커지면(Q↑) 더 찍을 수 있다 (경제 규모에 비례한 발행 여력)
-        /// ③금고가 마르고 여력도 0이면 세율 인상 말고 길이 없다 (정책 판단의 강제).
-        ///
-        /// k ≤ 0(마찰 없음)이면 부채가 물가를 안 밀므로 한도가 없다 — int.MaxValue.</summary>
-        public static int MintHeadroom(int moneySupply, int mintDebt, float surchargeK,
-                                       int foodCount, int basePrice, int capPct)
-        {
-            if (surchargeK <= 0f) return int.MaxValue; // 마찰 0 = 무제한 (에셋의 선택)
-            long budget = (long)Mathf.Max(1, foodCount) * Mathf.Max(1, basePrice)
-                          * Mathf.Max(100, capPct) / 100;          // 분자가 쓸 수 있는 총액
-            long maxDebt = (long)((budget - moneySupply) / surchargeK);
-            long room = maxDebt - Mathf.Max(0, mintDebt);
-            return room <= 0 ? 0 : (int)System.Math.Min(room, int.MaxValue);
-        }
-
-        /// <summary>물가의 두 몫 (M17-W4, 순수 — 게이트 M17-T1). 화면의 "원인 분해"가 읽는
-        /// 단일 출처: 도는 돈 몫과 발행 여파 몫으로 나눈다.
-        /// ⚠️ 발행 몫은 반드시 **잔여**로 구한다 — 따로 계산하면 clamp 때문에 두 숫자의 합이
-        /// 화면의 총합과 어긋난다. clamp가 단조라 잔여는 절대 음수가 되지 않는다.
-        /// ⚠️ clamp 구간(하한 100·상한)에서는 분해가 실제 기여도와 다르다. 화면은 거짓말을
-        /// 하지 않지만(합은 항상 맞다) **이 값을 밸런스 근거로 읽지 않는다.**</summary>
-        public static (int moneyPct, int mintPct) SplitPrice(int moneySupply, int mintDebt, float surchargeK,
-                                                             int foodCount, int basePrice, int capPct)
-        {
-            int total = ComputePricePct(moneySupply, foodCount, basePrice, capPct, mintDebt, surchargeK);
-            int money = ComputePricePct(moneySupply, foodCount, basePrice, capPct);
-            return (money, total - money);
-        }
+        // (M19-W4: 화폐 회계 하위계 — 통화량·금고·발행·부채·감쇠·물가 산식·여력·분해 —
+        //  전부 화폐와 함께 철거 — ADR-M19-1. 이력은 git: M16-W4/W5 · M17-W1~W4/R6.)
 
         /// <summary>완공 플래그 세팅 — ConstructionService.Complete() 전용 (단일 완료 지점).</summary>
         internal void SetBuiltFlag(SlotId slot, bool value) => _slots[(int)slot] = value ? 1 : 0;
@@ -475,12 +243,7 @@ namespace AIVillage.M0
             // 🔴 이 한 줄이 없으면 트리거가 영원히 0을 읽어 goal이 절대 안 뜬다. 컴파일도
             // 게이트도 안 잡는다 — M16-W5에서 MyMoney로 똑같이 밟은 자리다 (명세 W7 DoD 🔴).
             slots[(int)SlotId.MyDebt] = myDebt;
-            // 집 실가격 (M18) — 기준가 × 확정 물가, 산식은 TradePrice 하나 (게이트 M16-T6의
-            // 그 함수 — 복제 금지). 🔴 SimulationLoop가 pricePct를 안 넘기면 물가 100% 고정
-            // = 기존 상수 50 동작이라 조용히 낡는다 — MyDebt와 같은 함정 자리 (명세 W2 DoD 🔴).
-            slots[(int)SlotId.HomePriceNow] = _homeBasePrice > 0
-                ? RequestService.TradePrice(_homeBasePrice, _pricePct != null ? _pricePct() : 100)
-                : 0;
+            // (M19-W4: HomePriceNow(39) 계산 철거 — 슬롯은 휴면, 항상 0. W5에서 휴면 주석 확정)
             return new WorldSnapshot(slots);
         }
 

@@ -154,106 +154,23 @@ namespace AIVillage.Tests.EditMode
                     $"{owner}: 슬롯 {c.Slot}을 자기 자신과 비교 — 상수 참/거짓이 됩니다 (RightSlot 설정 실수)");
         }
 
-        // ── T2: HomePriceNow — 집값의 단일 출처 (ADR-M18-3) ──────────────────
+        // (T2 집값 기준가·T3 수락 시점 실가격·T4 에셋 실배선 게이트는 M19에서 삭제 —
+        //  검사 대상(HomePriceNow 계산·TradePrice·AcceptancePrice·화폐 goal)이 화폐와 함께
+        //  철거됐다. 슬롯 비교 문법의 의미론은 T1 계열이 계속 지킨다.)
 
-        // (SingleSourceAcrossAssets는 M19-W1에서 삭제 — 검사 대상인 "화폐 보상 집 부탁"이
-        //  실물 사례로 복원되며 소멸. 남은 T2 둘은 아직 살아 있는 순수 함수를 검사한다 —
-        //  그 함수들 자체는 W4·W5 철거 때 게이트와 함께 제거된다.)
-
-        [Test]
-        public void M18_T2_DeriveHomeBasePrice_FiltersCorrectly()
-        {
-            // 집 소유권 + 화폐 보상만 기준가다 — 실물 보상·소유권 없는 부탁은 집값이 아니다
-            var house = ScriptableObject.CreateInstance<RequestSO>();
-            house.GrantOwnership = true; house.OwnershipSlot = SlotId.HouseCount;
-            house.RewardCostSlot = SlotId.MyMoney; house.RewardCostAmount = 50;
-            var cook = ScriptableObject.CreateInstance<RequestSO>();
-            cook.RewardCostSlot = SlotId.MyRawFood; cook.RewardCostAmount = 5;
-
-            Assert.AreEqual(50, WorldModel.DeriveHomeBasePrice(new[] { cook, house }), "집 부탁을 못 찾음");
-            Assert.AreEqual(0, WorldModel.DeriveHomeBasePrice(new[] { cook }), "실물 부탁을 집값으로 오인");
-            Assert.AreEqual(0, WorldModel.DeriveHomeBasePrice(null), "null 구성은 0 (중립)");
-
-            Object.DestroyImmediate(house);
-            Object.DestroyImmediate(cook);
-        }
+        // ── T5: 연대기 사건의 append-only (W5 → M19 개정: 표시 검사는 M19-T5로 이관) ──
 
         [Test]
-        public void M18_T2_HomePriceNow_TracksConfirmedPrice()
+        public void M18_T5_EventIds_AppendOnly()
         {
-            // 산식 = TradePrice 하나 (복제 금지 — M16-T6의 그 함수): 올림·100% 하한
-            Assert.AreEqual(50, RequestService.TradePrice(50, 100), "중립 물가 = 기준가 그대로");
-            Assert.AreEqual(70, RequestService.TradePrice(50, 140), "물가 140% → 70동");
-            Assert.AreEqual(200, RequestService.TradePrice(50, 400), "캡 400% → 200동");
-
-            // 스냅샷 통합 — 물가 140%를 주입한 WorldModel이 실가격 70을 내놓는가
-            var cfg = ScriptableObject.CreateInstance<WorldConfigSO>();
-            var house = ScriptableObject.CreateInstance<RequestSO>();
-            house.GrantOwnership = true; house.OwnershipSlot = SlotId.HouseCount;
-            house.RewardCostSlot = SlotId.MyMoney; house.RewardCostAmount = 50;
-            cfg.Requests = new[] { house };
-
-            var world = new WorldModel(null, cfg, pricePct: () => 140);
-            Assert.AreEqual(70, world.BuildSnapshot(50, 50).Get(SlotId.HomePriceNow), "물가 140% 실가격");
-
-            // 미주입 = 물가 100% (기존 상수 50과 동치 — 동작 불변의 다리)
-            var unbound = new WorldModel(null, cfg);
-            Assert.AreEqual(50, unbound.BuildSnapshot(50, 50).Get(SlotId.HomePriceNow), "미주입 = 기준가");
-
-            // 집 부탁 없는 구성 = 0 (중립 — 참조 goal도 없는 구성이라는 뜻)
-            var empty = new WorldModel(null, ScriptableObject.CreateInstance<WorldConfigSO>());
-            Assert.AreEqual(0, empty.BuildSnapshot(50, 50).Get(SlotId.HomePriceNow), "부탁 없음 = 0");
-
-            Object.DestroyImmediate(cfg);
-            Object.DestroyImmediate(house);
-        }
-
-        // ── T3: 수락 시점 실가격 (ADR-M18-2) ─────────────────────────────────
-
-        [Test]
-        public void M18_T3_AcceptancePrice_MoneyOnly()
-        {
-            // 화폐 보상만 물가를 탄다
-            Assert.AreEqual(70, RequestService.AcceptancePrice(SlotId.MyMoney, 50, 140), "집 부탁 140%");
-            Assert.AreEqual(50, RequestService.AcceptancePrice(SlotId.MyMoney, 50, 100), "중립 물가");
-            // 실물 보상은 액면 그대로 — 곱하면 요리 부탁 식량 5개가 7개가 된다 (ADR-M16-4)
-            Assert.AreEqual(5, RequestService.AcceptancePrice(SlotId.MyRawFood, 5, 140), "실물 가드");
-            Assert.AreEqual(5, RequestService.AcceptancePrice(SlotId.MyCookedFood, 5, 400), "실물 가드(캡)");
-        }
-
-        [Test]
-        public void M18_T3_Settlement_JudgesAndTransfersSameAmount()
-        {
-            // 판정≡이전 동치 — 정산 분기(ResolveSettlement)의 canPay와 실제 이전이 같은
-            // price 하나를 먹는 한, "판정은 통과했는데 이전이 실패"하는 액수 어긋남이 없다.
-            // 여기서는 순수 분기가 price 기반 입력만으로 결정됨을 고정한다 (재계산 입력 금지의 형식화).
-            int price = RequestService.AcceptancePrice(SlotId.MyMoney, 50, 140); // 70
-            bool canPay = 70 >= price;   // 잔고 70 = 수락 시점 가격과 같은 기준
-            Assert.AreEqual(RequestService.Settlement.Pay,
-                RequestService.ResolveSettlement(price <= 0, false, false, canPay, true),
-                "잔고 70·가격 70 → 지급");
-            // 물가가 정산 시점에 더 올라도(재계산 금지) 판정 입력은 수락가 그대로 → 여전히 지급
-            Assert.AreEqual(RequestService.Settlement.Pay,
-                RequestService.ResolveSettlement(price <= 0, false, false, 70 >= price, true),
-                "정산 시점 물가 무관 — 수락가 하나만 읽는다");
-        }
-
-        // (T4 에셋 실배선 게이트는 M19-W1에서 삭제 — 검사 대상인 화폐 goal 3종이 철거됐다.
-        //  슬롯 비교 문법 자체의 의미론은 T1c가 계속 지킨다.)
-
-        // ── T5: 연대기 HomePaid (W5) ─────────────────────────────────────────
-
-        [Test]
-        public void M18_T5_HomePaid_AppendOnlyAndVisible()
-        {
-            // append-only (ADR-M13-2) — 기존 값이 밀렸다면 저장된 연대기가 다른 이야기가 된다
+            // append-only (ADR-M13-2) — 기존 값이 밀렸다면 저장된 연대기가 다른 이야기가 된다.
+            // HomePaid(7)는 M19에서 휴면(기록 지점 없음)이지만 값은 영원히 7이다.
             Assert.AreEqual(6, (int)EventId.Traded, "기존 사건 정수 불변");
-            Assert.AreEqual(7, (int)EventId.HomePaid, "신규는 뒤에만");
+            Assert.AreEqual(7, (int)EventId.HomePaid, "휴면이어도 값 불변");
 
-            // 표시 — 기록만 하고 안 보여 주는 것은 M13이 진단한 실패 (M17-T7 선례)
+            // 옛 판 표시 호환 — 기록만 남고 표시가 죽으면 옛 연대기가 침묵한다
             string shown = SeasonHud.KrEvent(new ChronicleEvent { Kind = EventId.HomePaid, Value = 70 });
             StringAssert.Contains("집값 지불", shown);
-            StringAssert.Contains("70", shown, "판마다 다른 액수가 화면 언어에 실려야 한다");
         }
 
         // ── T1e: OnValidate 배선 — 에디터에서 저장 순간 ADR-M18-1 에러가 실제로 뜨는가 ──

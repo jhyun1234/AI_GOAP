@@ -129,15 +129,10 @@ namespace AIVillage.M0
         /// <summary>SimulationLoop 틱마다 호출 — 문자열은 값이 바뀔 때만 재조립 (GC 절약).
         /// 舊 foodDaysLeft 인자(M9-I·M11-D 마을 최솟값)는 2026-07-30 개정으로 삭제 —
         /// 식량 표기는 상태 알림 줄(M13-B)의 개인 열거가 전담한다.</summary>
-        public void Tick(float gameTime, SeasonService season, float forecastDays, int pricePct = 100,
-                         int forecastPct = -1, int moneyPct = 0, int mintPct = 0,
-                         int treasury = -1, int taxRatePct = 0,
-                         int mintDebt = 0, int capPct = 0, int chargesLeft = -1,
-                         int debtDaysLeft = -1)
+        public void Tick(float gameTime, SeasonService season, float forecastDays)
         {
-            string line = Compose(gameTime, season, forecastDays, pricePct,
-                                  forecastPct, moneyPct, mintPct, treasury, taxRatePct,
-                                  mintDebt, capPct, chargesLeft, debtDaysLeft);
+            // (M19-W4: 물가·금고·세율·발행 인자 9종은 화폐와 함께 철거 — 달력 줄은 계절만)
+            string line = Compose(gameTime, season, forecastDays);
             if (line != _lastCalendar)
             {
                 _lastCalendar = line;
@@ -220,9 +215,7 @@ namespace AIVillage.M0
                 $" · 직업 {(a.Job != null ? a.Job.DisplayName : "무직")}" +
                 $" · 포만 {Mathf.RoundToInt(a.Satiety)} · 피로 {Mathf.RoundToInt(a.Fatigue)}" +
                 // 소지 식량 표기 (M11-A 관측 — 보상 차감·저장 이동을 콘솔 없이 화면에서 확인)
-                $" · 소지 생{a.MyRaw}·조{a.MyCooked}" +
-                // 지갑 표기 (M16-W4 — 명세 확정 보완 8. 0동도 표시: "가난"은 정보다)
-                $" · 지갑 {ComposeMoney(a.MyMoney)}" +
+                $" · 소지 생{a.MyRaw}·조{a.MyCooked}" + // (M19-W4: 지갑 표기 철거)
                 // 부상 표기 (M10-A) — 붉은 강조. None이면 표기 없음 (중립 — M9 표시와 동일)
                 (a.Injury != InjurySeverity.None ? " · <color=#FF6B6B>부상</color>" : "");
                 // "지금: goal"은 M13-D에서 2번째 줄(ComposeReason)로 이사 — 사슬과 한 몸이 됐다
@@ -492,20 +485,11 @@ namespace AIVillage.M0
         /// 마을 최솟값 요약이 상태 알림 줄(M13-B)의 개인 열거와 겹쳐 "마을 전체가 N일치"로
         /// 오독됐다. 식량 표기는 개인 열거 한 곳만 남긴다 (같은 정보 두 형태 = 오해 소지).
         /// </summary>
-        public static string Compose(float gameTime, SeasonService season, float forecastDays,
-                                     int pricePct = 100, int forecastPct = -1,
-                                     int moneyPct = 0, int mintPct = 0,
-                                     int treasury = -1, int taxRatePct = 0,
-                                     int mintDebt = 0, int capPct = 0, int chargesLeft = -1,
-                                     int debtDaysLeft = -1)
+        public static string Compose(float gameTime, SeasonService season, float forecastDays)
         {
-            // 재정 접미사 (M17-W5) — 촌장의 장부. 금고가 음수면 미표기 = 기존 호출·게이트 불변.
-            string price = ComposeTreasury(treasury, taxRatePct, chargesLeft)
-                         + ComposePriceSuffix(pricePct, forecastPct, moneyPct, mintPct,
-                                              mintDebt, capPct, debtDaysLeft);
-
+            // (M19-W4: 재정 접미사 — 금고·세율·물가·예보·발행 — 는 화폐와 함께 철거)
             int day = (int)gameTime;
-            if (season == null || season.Current == null) return $"Day {day}{price}";
+            if (season == null || season.Current == null) return $"Day {day}";
 
             // 연차 병기 (M14-W4) — "N번째 겨울까지"라는 경주의 자를 상시 노출 (ADR-M13-1의 정신:
             // 기록 카운터가 전멸 화면에만 있으면 살아 있는 동안 아무도 못 본다).
@@ -513,87 +497,11 @@ namespace AIVillage.M0
             string yearSeason = $"{season.Year}년째 {cur.DisplayName}";
             if (cur.IsCrisis)
                 return $"Day {day} · <color=#7EC8FF>{yearSeason}</color> " +
-                       $"(남은 {Mathf.CeilToInt(season.DaysLeftInSeason)}일){price}";
+                       $"(남은 {Mathf.CeilToInt(season.DaysLeftInSeason)}일)";
             if (season.NextCrisis != null && season.DaysToCrisis <= forecastDays)
                 return $"Day {day} · {yearSeason} · <color=#FF8A65>" +
-                       $"{season.NextCrisis.DisplayName}까지 {Mathf.CeilToInt(season.DaysToCrisis)}일</color>{price}";
-            return $"Day {day} · {yearSeason}{price}";
-        }
-
-        /// <summary>무거운 세율의 문턱 % (M17-W5) — 이 이상이면 "중과"로 부르고 주민이 불평한다.
-        /// 이름과 불평 조건이 같은 상수를 봐야 화면과 말풍선이 어긋나지 않는다.</summary>
-        public const int HeavyTaxPct = 25;
-
-        /// <summary>세율 단계 이름 (M17-W2→W5 이사, 순수 — 게이트 M17-T2).
-        /// 수치가 아니라 감각을 보여준다. ComposeMoney와 같은 자리에 둔다 — 표시 변환은
-        /// 이 클래스가 단일 지점이다 (ADR-M16-6의 정신).</summary>
-        public static string TaxStageName(int ratePct)
-            => ratePct <= 0 ? "면세" : ratePct < HeavyTaxPct ? "보통" : "중과";
-
-        /// <summary>촌장 장부 접미사 (M17-W5 ①⑥, 순수 — 게이트 M17-T6).
-        /// 금고와 세율은 늘 붙어 다닌다: "얼마 있나"와 "어떻게 채우고 있나"가 한 쌍이다.
-        /// treasury &lt; 0 = 미표기 (기존 3인자 Compose 호출·게이트가 그대로 통과한다).
-        ///
-        /// 발행 여력(M17-R6)은 **남았을 때가 아니라 얼마 안 남았을 때** 붙인다 — 촌장의 급전
-        /// 수단이 바닥나 간다는 것이 판단 재료이고, 넉넉할 때의 큰 숫자는 잡음이다.
-        /// 0회면 붉게: 그 순간 촌장에게 남은 길은 세금뿐이다. chargesLeft &lt; 0 = 미표기.</summary>
-        public static string ComposeTreasury(int treasury, int taxRatePct, int chargesLeft = -1)
-        {
-            if (treasury < 0) return string.Empty;
-            string line = $" · 금고 {ComposeMoney(treasury)} · 세율 {TaxStageName(taxRatePct)} {taxRatePct}%";
-            if (chargesLeft < 0 || chargesLeft > MintChargesWarnAt) return line;
-            return line + (chargesLeft == 0
-                ? " · <color=#FF6B6B>발행 불가</color>"
-                : $" · <color=#FF8A65>발행 {chargesLeft}회</color>");
-        }
-
-        /// <summary>발행 여력 경고 문턱 (M17-R6) — 이 이하로 남으면 화면에 띄운다.</summary>
-        public const int MintChargesWarnAt = 3;
-
-        /// <summary>물가 접미사 (M16-W4 · M17-W5 ③④, 순수 — 게이트 M17-T6).
-        ///
-        /// 표시 규칙 — 잡음을 억제하되 **좋은 소식을 숨기지 않는다**:
-        /// ① 평시(물가 100%·예보 동일)면 줄 자체가 없다.
-        /// ② 예보가 확정과 다르면 방향을 함께 보여준다 — 오르면 ▲(붉게), **내리면 ▼(푸르게)**.
-        ///    ⚠️ ▼를 빼면 세율의 효과가 화면에 영영 안 나온다. 세율은 며칠에 걸쳐 M 증가를
-        ///    억제하고 Q를 늘려 작용하는데(ADR-M17-7), 그 유일한 관측 창이 내려가는 예보다.
-        ///    좋은 소식을 안 보여 주면 손잡이가 장식이 된다 = 관측 ②를 세금 쪽에서 재현하는 것.
-        /// ③ 발행 여파가 있을 때만 원인을 괄호로 분해한다 (평시 줄 길이 보호).
-        /// ④ **상한에 닿으면 분해 대신 발행 부채 원액을 낸다** (M17-R5, §8.5 발견 A·B).
-        ///    물가가 클램프되는 순간 예보도 같은 값이 되어 화살표가 사라지고, 더 찍어도 화면이
-        ///    안 변한다 — 관측 ②를 고치려 만든 예보가 가장 심각한 구간에서 침묵하는 것이다.
-        ///    게다가 그 구간의 분해는 두 몫이 모두 클램프에 걸려 실제 기여도와 다르다.
-        ///    부채는 클램프 밖의 값이라 계속 움직인다: **포화돼도 "얼마나 깊이 들어갔는지"가 보인다.**
-        /// forecastPct &lt; 0 = 예보 없음 · capPct ≤ 0 = 상한 판정 없음 (기존 호출 호환).</summary>
-        public static string ComposePriceSuffix(int pricePct, int forecastPct, int moneyPct, int mintPct,
-                                                int mintDebt = 0, int capPct = 0, int debtDaysLeft = -1)
-        {
-            bool moves = forecastPct >= 0 && forecastPct != pricePct;
-            if (pricePct <= 100 && !moves) return string.Empty;
-
-            bool capped = capPct > 100 && pricePct >= capPct;
-            var sb = new System.Text.StringBuilder(112);
-            sb.Append($" · <color=#FF8A65>물가 ×{pricePct / 100f:0.0#}</color>");
-            if (capped) sb.Append(" <color=#FF6B6B>(상한)</color>");
-            if (moves)
-            {
-                bool up = forecastPct > pricePct;
-                // 오름 = 경고색(붉음) · 내림 = 안도색(초록). 위기철 하늘색은 쓰지 않는다 (의미 충돌).
-                sb.Append($" <color={(up ? "#FF6B6B" : "#7ED694")}>→ 내일 ×{forecastPct / 100f:0.0#} " +
-                          $"{(up ? "▲" : "▼")}</color>");
-            }
-            // 라벨이 인과를 말한다 (M17-R7): "발행 여파"는 무엇 때문인지 안 알려 준다.
-            // **찍은 탓** — 쓰지 않고 금고에 둔 돈도 값을 떨어뜨린다는 것이 이 축의 전부다
-            // (ADR-M17-4). 현실 경제와 다른 게임적 선택이므로 화면이 그걸 대신 설명해야 한다.
-            if (capped && mintDebt > 0)
-            {
-                sb.Append($" <color=#FF6B6B>· 찍은 여파 {ComposeMoney(mintDebt)}");
-                if (debtDaysLeft > 0) sb.Append($" · {debtDaysLeft}일 뒤 사라짐");
-                sb.Append("</color>");
-            }
-            else if (mintPct > 0)
-                sb.Append($" <size=80%>(도는 돈 ×{moneyPct / 100f:0.0#} · 찍은 탓 ×{mintPct / 100f:0.0#})</size>");
-            return sb.ToString();
+                       $"{season.NextCrisis.DisplayName}까지 {Mathf.CeilToInt(season.DaysToCrisis)}일</color>";
+            return $"Day {day} · {yearSeason}";
         }
 
         /// <summary>화폐 표시 (M16-W4, M17-W5 진법 개편, 순수 — 게이트 M16-T8.
@@ -1005,8 +913,7 @@ namespace AIVillage.M0
         public static string ComposeStatus(IReadOnlyList<(string name, int days)> starving,
                                            int untendedInjured, int threatDaysLeft, string threatName,
                                            int freezeDaysLeft = -1,
-                                           IReadOnlyList<(string name, int days)> unprepared = null,
-                                           IReadOnlyList<int> starvingMoney = null)
+                                           IReadOnlyList<(string name, int days)> unprepared = null)
         {
             bool threat = threatDaysLeft >= 0 && !string.IsNullOrEmpty(threatName);
             bool anyStarving = starving != null && starving.Count > 0;
@@ -1018,15 +925,9 @@ namespace AIVillage.M0
             var sb = new System.Text.StringBuilder(96);
             if (anyStarving)
                 for (int i = 0; i < starving.Count; i++)
-                {
-                    // 지갑 병기 (M16-W4, 확정 보완 8-①) — 이 줄이 곧 "웃돈 명령을 줄까"의 판단
-                    // 재료다 (돈 있는 굶주림 = 거래 후보, 빈 지갑 = 웃돈 후보). 병렬 리스트가
-                    // null·짧으면 미표기 (호환 — 기존 게이트·호출 무수정).
-                    string wallet = starvingMoney != null && i < starvingMoney.Count
-                        ? $" · 지갑 {ComposeMoney(starvingMoney[i])}" : "";
+                    // (M19-W4: 지갑 병기 철거 — 굶주림 구제는 나눔 부탁이 맡는다)
                     sb.Append($"<color=#FF6B6B>■ 굶는 주민 {starving[i].name} — " +
-                              $"식량 {starving[i].days}일치{wallet}</color>\n");
-                }
+                              $"식량 {starving[i].days}일치</color>\n");
             if (untendedInjured > 0)
                 sb.Append($"<color=#FF6B6B>■ 치료가 필요한 부상자 {untendedInjured}명</color>\n");
             if (threat)

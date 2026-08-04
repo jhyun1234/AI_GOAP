@@ -22,7 +22,6 @@ namespace AIVillage.M0
         // 즉시 교환(M16-W5) 배선 — 정적 Instance 참조 금지 (명세 ⚠️), 생성자 주입 (Chatter 자리 패턴).
         // null 허용 = 교환 부탁이 없는 구성에서 중립 (기존 게이트·구형 생성 호환).
         private readonly ChronicleService _chronicle;   // Traded 사건 기록
-        private readonly System.Func<int> _pricePct;    // 하루 1회 캐시 (ADR-M16-3 — 산식 재계산 금지)
         private readonly System.Func<float> _gameDay;   // 연대기 사건의 게임일 (nowSec은 실시간이라 부적합)
 
         private float _nextScanAt;
@@ -46,7 +45,7 @@ namespace AIVillage.M0
         public RequestService(WorldConfigSO world, AgentConfigSO agentCfg, RelationshipService relationship,
                               OwnershipService ownership, ConstructionService construction,
                               IReadOnlyList<VillagerAgent> agents, ChatterService chatter = null,
-                              ChronicleService chronicle = null, System.Func<int> pricePct = null,
+                              ChronicleService chronicle = null,
                               System.Func<float> gameDay = null)
         {
             _world = world;
@@ -57,7 +56,6 @@ namespace AIVillage.M0
             _agents = agents;
             _chatter = chatter;
             _chronicle = chronicle;
-            _pricePct = pricePct;
             _gameDay = gameDay;
         }
 
@@ -218,10 +216,8 @@ namespace AIVillage.M0
         /// </summary>
         private void Ask(RequestSO r, VillagerAgent requester, VillagerAgent target, float nowSec)
         {
-            // 실가격 확정 (M18, ADR-M18-2) — 수락 장면에서 1회 산출해 진행 기록에 싣는다.
-            // 이후 선불·빚·연기 정산은 전부 이 값 하나만 읽는다 (재계산 = 판정과 이전이 갈림).
-            int price = AcceptancePrice(r.RewardCostSlot, r.RewardCostAmount,
-                                        _pricePct != null ? _pricePct() : 100);
+            // 보상 액수 (M19-W4: 물가 철거 — 실물 액면 그대로. rec.price 튜플은 W5에서 정리)
+            int price = r.RewardCostAmount;
             // 대사는 에셋 원문 그대로 (M19-W1) — 실물 보상은 액수가 대사에 이미 있다
             // ("곡식 다섯 알"). 호가 병기(M18-W4)는 화폐와 함께 철거됐다.
             requester.ShowTransient(Pick(r.AskLines));
@@ -335,17 +331,7 @@ namespace AIVillage.M0
                       $"{r.TradeGiveAmount}개 나눔");
         }
 
-        /// <summary>실가격 (M16-W5, 순수 — 게이트 M16-T6. ADR-M16-4): 기준가 × 물가% 올림.
-        /// 올림인 이유 — 내림이면 물가가 조금 올라도 정수 절사로 가격이 안 움직여 인플레가
-        /// 저액 거래에 착탄하지 않는다.</summary>
-        public static int TradePrice(int basePrice, int pricePct)
-            => Mathf.CeilToInt(basePrice * Mathf.Max(100, pricePct) / 100f);
-
-        /// <summary>수락 시점 실가격 (M18, 순수 — 게이트 M18-T3. ADR-M18-2): 화폐 보상만 물가를
-        /// 탄다. ⚠️ 실물(식량) 보상에 곱하면 "물가 140%에 요리 부탁 식량 5개가 7개"가 된다 —
-        /// 물가는 화폐의 속성이다 (ADR-M16-4).</summary>
-        public static int AcceptancePrice(SlotId costSlot, int amount, int pricePct)
-            => costSlot == SlotId.MyMoney ? TradePrice(amount, pricePct) : amount;
+        // (M19-W4: 실가격 산식 TradePrice·AcceptancePrice는 물가와 함께 철거 — ADR-M19-1)
 
         /// <summary>결과별 응수 대사 — 배고픔·피로는 성격 거부 대사 재사용 (이중 기입 금지, 명세 §4).</summary>
         private string[] ReplyLinesFor(RequestSO r, VillagerAgent target, VillagerAgent.RequestResult verdict)

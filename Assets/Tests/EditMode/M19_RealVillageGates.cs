@@ -32,6 +32,39 @@ namespace AIVillage.Tests.EditMode
             Assert.AreEqual(1, locked, "RequiredJob 사용 goal은 정확히 1곳(치료)이어야 한다");
         }
 
+        // ── T5: 옛 판 연대기 표시 호환 (W4 게이트 정리에서 이관 — 2분류 표의 "이관 필요" 4건) ──
+        // 화폐는 철거됐지만 **옛 판의 기록은 표시돼야 한다** (ADR-M14-3 append-only의 정신).
+        // ComposeMoney·ComposeRunEconomy는 그래서 생존 — 이 게이트들이 그 계약을 지킨다.
+
+        [Test]
+        public void M19_T5_ComposeMoney_TieredDisplay_ForOldChronicles()
+        {
+            // (M16-T8 이관) 1은 = 100동, 1금 = 100은. 옛 연대기의 "집값 지불(70동)"이 읽힌다.
+            Assert.AreEqual("0동", SeasonHud.ComposeMoney(0));
+            Assert.AreEqual("50동", SeasonHud.ComposeMoney(50));
+            Assert.AreEqual("1은", SeasonHud.ComposeMoney(100), "0 단위 생략");
+            Assert.AreEqual("2은 47동", SeasonHud.ComposeMoney(247));
+            Assert.AreEqual("1금 2은 47동", SeasonHud.ComposeMoney(10247));
+            Assert.AreEqual("1금 47동", SeasonHud.ComposeMoney(10047), "가운데 단위만 0이면 건너뛴다");
+            Assert.AreEqual("0동", SeasonHud.ComposeMoney(-5), "음수 방어");
+        }
+
+        [Test]
+        public void M19_T5_RunEconomy_SilentOnNewRuns_ShownOnOldRuns()
+        {
+            // (M17-T7 3종 이관) 새 판(M19 이후)은 100/0/0 기록 = 경제 줄 자체가 없다.
+            Assert.AreEqual(string.Empty, SeasonHud.ComposeRunEconomy(0, 0, 0), "빈 기록");
+            Assert.AreEqual(string.Empty, SeasonHud.ComposeRunEconomy(100, 0, 0), "M19 이후 새 판");
+            // 옛 판(화폐 시대 아카이브)은 그대로 읽힌다 — 기록은 다른 이야기가 되면 안 된다.
+            string taxRun = SeasonHud.ComposeRunEconomy(240, 1240, 0);
+            StringAssert.Contains("최고 물가 ×2.4", taxRun);
+            StringAssert.Contains("세수 12은 40동", taxRun);
+            StringAssert.DoesNotContain("발행", taxRun, "안 찍은 판에는 발행 항목이 없다");
+            string mintRun = SeasonHud.ComposeRunEconomy(400, 0, 10000);
+            StringAssert.Contains("발행 1금", mintRun);
+            StringAssert.DoesNotContain("세수", mintRun, "면세 판에는 세수 항목이 없다");
+        }
+
         // ── T3b: 효율 배율의 중립 불변식 (M5-S3) ─────────────────────────────
 
         [Test]

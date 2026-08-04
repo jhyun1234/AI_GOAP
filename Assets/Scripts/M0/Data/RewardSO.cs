@@ -20,12 +20,6 @@ namespace AIVillage.M0
         [Header("지급 (완수 시 그 주민의 포만으로)")]
         public int SatietyGain = 40;
 
-        [Header("화폐 지급 (M16-W3 — >0이면 화폐 모드: 에스크로·재고 검사 없음, 완수 시 발행)")]
-        [Tooltip("완수 시 지갑에 발행할 동(銅) — WorldModel.Mint 경유 (ADR-M16-1). 제안치 5.\n" +
-                 "화폐 모드에서 CostSlot/CostAmount/SatietyGain은 휴면 — 0으로 둘 것 (OnValidate 경고).\n" +
-                 "⚠️ 거부 오프셋은 물가로 스케일된다 (ADR-M16-4 — 남발하면 같은 액면의 설득력이 준다).")]
-        public int MoneyGain;
-
         [Header("거부 문턱 오프셋 (성격 오프셋과 합산 — ADR-M6-4. P0 대역 불가침 — ADR-M6-6)")]
         [Tooltip("-면 배고픔 거부 문턱 하향 = 웬만한 배고픔은 보상에 넘어온다")]
         public float RefuseSatietyOffset = -20f;
@@ -43,12 +37,7 @@ namespace AIVillage.M0
             if (!SlotIds.IsStock(CostSlot))
                 Debug.LogError($"[RewardSO] {name}: CostSlot은 전역 스톡 슬롯이어야 합니다 (현재 {CostSlot}).");
             if (CostAmount < 0) CostAmount = 0;
-            if (MoneyGain < 0) MoneyGain = 0;
-            // 화폐 모드 (M16-W3) — 실물 비용·포만 지급 필드는 휴면. 병기하면 어느 쪽이
-            // 진짜인지 화면과 판정이 갈린다 (같은 정보 두 형태 금지).
-            if (MoneyGain > 0 && (CostAmount > 0 || SatietyGain > 0))
-                Debug.LogWarning($"[RewardSO] {name}: 화폐 모드(MoneyGain {MoneyGain})인데 " +
-                                 $"CostAmount({CostAmount})/SatietyGain({SatietyGain})이 남아 있음 — 0 권장 (휴면 필드).");
+            // (M19-W4: 화폐 모드(MoneyGain)는 화폐와 함께 철거 — 보상은 실물 원형뿐)
         }
     }
 }

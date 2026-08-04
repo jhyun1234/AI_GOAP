@@ -61,19 +61,9 @@ namespace AIVillage.M0
             _catalog = catalog != null ? catalog : throw new ArgumentNullException(nameof(catalog));
             _bodyCap = agentCfg != null ? agentCfg.BodyCarryCap : 0;
             _homeCap = agentCfg != null ? agentCfg.HomeStorageCap : 0;
-            Recompile(0); // 무세로 출발 — 세율은 SimulationLoop이 정해 다시 부른다 (M17-W2)
-        }
-
-        /// <summary>임금 세율 반영 재컴파일 (M17-W2). 세율이 바뀌면 플래너가 보는 임금이
-        /// 낡으므로 액션 정의를 다시 만든다. **세율 단계가 실제로 바뀐 순간에만** 부른다 —
-        /// 매 프레임 호출은 명세 W2 ⚠️ 금지 항목이다.
-        ///
-        /// 안전성: ①카탈로그 순서는 안 바뀌므로 ADR-M0-6(인덱스 = 신원) 유지 ②진행 중인
-        /// 플랜은 디스패치 때 뜬 NativeArray 사본으로 돌아 영향이 없다 (기대보다 덜 받을 뿐 —
-        /// 의도한 이야기다) ③_defs는 관리 배열이라 NativeArray 누수 경로가 없다.</summary>
-        public void Recompile(int taxRatePct)
-        {
-            _defs = ActionCompiler.CompileManaged(_catalog, _bodyCap, _homeCap, taxRatePct);
+            // 컴파일 1회 (M19 — 세율 재컴파일 축은 화폐와 함께 철거. _defs가 readonly가 아닌
+            // 이력은 M17-W2 주석 참조 — 재컴파일 창구가 다시 필요하면 그 안전성 논증부터 볼 것)
+            _defs = ActionCompiler.CompileManaged(_catalog, _bodyCap, _homeCap);
             ActionCompiler.ComputeMaxGainDrop(_defs, PlanningConfig.TotalSlots, out _maxGain, out _maxDrop);
             _minBaseCost = MinBaseCost(_defs);
         }

@@ -19,7 +19,6 @@ MonoBehaviour:
   - "가뭄 대비는 미리 해둬야지"
   - "여름 볕이 오기 전에"
   - "물만 있으면 폭염도 버틴다"
-  WagePay: 12
   BaseCost: 20
   DurationSec: 4
   Preconditions: []

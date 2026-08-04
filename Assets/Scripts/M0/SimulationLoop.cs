@@ -265,173 +265,13 @@ namespace AIVillage.M0
 
         // 굶는 주민 열거 버퍼 (M13-B) — 프레임 재사용, 할당 0 (부상자 버퍼 패턴).
         // 정렬 비교자는 정적 캐시 — 틱마다 람다 할당 방지. 급한 순, 동률은 이름 순 (결정적).
-        // money(M16-W4) = 경보 줄 지갑 병기 — 정렬 후 병렬 리스트로 투영해 ComposeStatus에
-        // 넘긴다 (튜플 시그니처 변경은 기존 게이트 8곳과 오버로드 모호성 충돌 — 구현 중 발견)
-        private readonly List<(string name, int days, int money)> _starvingBuf =
-            new List<(string, int, int)>(8);
-        private readonly List<(string name, int days)> _starvingPairsBuf = new List<(string, int)>(8);
-        private readonly List<int> _starvingMoneyBuf = new List<int>(8);
-        private static readonly System.Comparison<(string name, int days, int money)> ByFoodUrgency3 =
-            (a, b) => a.days != b.days ? a.days.CompareTo(b.days) : string.CompareOrdinal(a.name, b.name);
+        // (M19-W4: M16의 지갑 병기 3튜플·병렬 리스트는 화폐와 함께 철거 — 2튜플 원형 복귀)
+        private readonly List<(string name, int days)> _starvingBuf = new List<(string, int)>(8);
         private static readonly System.Comparison<(string name, int days)> ByFoodUrgency =
             (a, b) => a.days != b.days ? a.days.CompareTo(b.days) : string.CompareOrdinal(a.name, b.name);
 
-        /// <summary>물가 % (M16-W4 — 판정·표시 공용 캐시, ADR-M16-3). 하루 1회 갱신 (하루 경계
-        /// 로그와 같은 리듬). 100 = 기준가 그대로. 세이브 대상 아님 — 파생 (로드 후 재계산).</summary>
-        public int PricePct { get; private set; } = 100;
-        private int _peakPricePct = 100; // 판 중 최고 물가 (M16-W6 — 연대기 RunEntry 기록용)
-        // 확정 물가의 원인 분해 (M17-W5) — PricePct와 **같은 입력**으로 하루 1회 갱신.
-        // 실시간 재계산 금지: 화면의 물가와 괄호 안 두 몫의 합이 어긋난다.
-        private int _pricePartMoney = 100, _pricePartMint;
-
-        // ── 물가 예보 (M17-W4 — ADR-M17-3) ───────────────────────────────────
-        private const float FORECAST_CACHE_SEC = 0.25f; // 주민 순회를 매 프레임 돌 이유가 없다
-        private float _forecastCachedAt = -1f;
-        private int _forecastCache = 100;
-        private int _headroomCache = int.MaxValue; // 남은 발행 여력(동) — M17-R6
-
-        /// <summary>물가 예보 % (M17-W4) — 🚫 **판정 금지. 화면 전용** (ADR-M17-3, 게이트 M17-T4).
-        /// 지금 이 순간의 M·발행부채·Q를 확정 물가와 **같은 함수**에 넣은 값이다.
-        /// 웃돈을 걸거나 돈을 찍으면 이 숫자가 그 자리에서 튄다 — 그것이 M16 관측 ②
-        /// ("웃돈이 물가를 올린다는 걸 알아차릴 방법이 없다")의 해답이다.
-        ///
-        /// 물가 자체를 실시간으로 만들지 않은 이유: Q(마을 식량 개수)는 주민이 하나 먹을 때마다
-        /// 움직여서, 실시간 물가는 거래 실가격과 웃돈 설득력을 초 단위로 떨게 만든다.
-        /// 그래서 **결과를 앞당기는 대신 원인을 실시간으로 보여준다.**</summary>
-        public int PriceForecastPct
-        {
-            get { RefreshFinanceCache(); return _forecastCache; }
-        }
-
-        /// <summary>남은 발행 횟수 (M17-R6) — 여력 ÷ 1회 발행량. 화면·발행 판정 공용.
-        /// 상한이 진짜 벽이 되게 하는 값이다 (§8.5 발견 A): 0이면 더 찍을 수 없고,
-        /// 부채가 감쇠하거나 마을 식량이 늘면 다시 돌아온다.</summary>
-        public int MintChargesLeft
-        {
-            get
-            {
-                int amount = _worldConfig != null ? _worldConfig.MintIssueAmount : 0;
-                if (amount <= 0) return 0;
-                RefreshFinanceCache();
-                return _headroomCache == int.MaxValue ? int.MaxValue : _headroomCache / amount;
-            }
-        }
-
-        /// <summary>예보·발행 여력 동시 갱신 (M17-R6) — 둘 다 같은 순간의 M·부채·Q를 봐야
-        /// "예보가 상한이면 여력도 0"이 어긋나지 않는다. 주민 순회는 여기 한 번뿐이다.
-        /// Time.time이 아니라 unscaledTime — 배속에서 갱신 주기가 흔들리면 안 된다.</summary>
-        private void RefreshFinanceCache()
-        {
-            if (_forecastCachedAt >= 0f && Time.unscaledTime < _forecastCachedAt + FORECAST_CACHE_SEC) return;
-            _forecastCachedAt = Time.unscaledTime;
-            int q = CountVillageFood();
-            _forecastCache = WorldModel.ComputePricePct(
-                World.MoneySupply, q, _worldConfig.MoneyBasePrice,
-                _worldConfig.PriceCapPct, World.MintDebt, _worldConfig.MintSurchargeK);
-            _headroomCache = WorldModel.MintHeadroom(
-                World.MoneySupply, World.MintDebt, _worldConfig.MintSurchargeK,
-                q, _worldConfig.MoneyBasePrice, _worldConfig.PriceCapPct);
-        }
-
-        /// <summary>물가 분모의 Q — 살아있는 주민의 식량 합 (M17-W4 추출).
-        /// 하루 경계의 확정 계산과 예보가 **같은 정의**를 쓰게 하는 단일 출처다
-        /// (두 곳에서 따로 세면 확정과 예보가 이유 없이 어긋난다).</summary>
-        private int CountVillageFood()
-        {
-            int q = 0;
-            for (int i = 0; i < _agents.Count; i++)
-            {
-                VillagerAgent a = _agents[i];
-                if (a != null && a.State != AgentState.Dead) q += a.TotalFoodCount();
-            }
-            return q;
-        }
-
-        // ── 재정 정책 (M17-W2) ────────────────────────────────────────────────
-        /// <summary>임금 원천징수 세율 단계 인덱스 (WorldConfig.TaxRatePcts의 자리). 세이브 대상.</summary>
-        public int TaxStage { get; private set; }
-
-        /// <summary>세율 변경 세대 (M17-W5) — 바뀔 때마다 1 증가. 주민은 자기가 마지막으로
-        /// 불평한 세대를 기억해, **세율이 바뀐 뒤 첫 임금에 한 번만** 투덜댄다.
-        /// 촌장이 세율을 올리면 주민들이 순차로 반응하는 장면이 되고, 도배는 안 된다.</summary>
-        public int TaxStageGeneration { get; private set; }
-
-        /// <summary>현재 세율 % — 판정·표시·플래너가 전부 이 값 하나를 읽는다 (규칙 이원화 금지).
-        /// 배열이 비거나 인덱스가 벗어나면 0(무세) = 중립.</summary>
-        public int TaxRatePct
-        {
-            get
-            {
-                int[] steps = _worldConfig != null ? _worldConfig.TaxRatePcts : null;
-                return steps != null && steps.Length > 0
-                    ? Mathf.Clamp(steps[Mathf.Clamp(TaxStage, 0, steps.Length - 1)], 0,
-                                  WorldConfigSO.MaxTaxRatePct)
-                    : 0;
-            }
-        }
-
-        /// <summary>오늘 걷힌 세수(동) — 하루 결산 줄(W5)용. **하루 경계에서 0으로 리셋**한다
-        /// (안 하면 누적값이 되어 판 전체 세수 TaxTotal과 구분이 사라진다).</summary>
-        public int TaxToday { get; private set; }
-
-        /// <summary>판 전체 세수 누적(동) — 연대기 RunEntry(W6)용. 리셋 없음.</summary>
-        public int TaxTotal { get; private set; }
-
-        /// <summary>세수 집계 (M17-W2) — 원천징수 지점(VillagerAgent 임금 지급)이 유일한 호출처.
-        /// 실제 금고 적립은 WorldModel.MintToTreasury가 한다 — 여기는 관측용 집계뿐이다
-        /// (상태 쓰기 단일 지점 원칙: 돈은 WorldModel, 통계는 여기).</summary>
-        public void RecordTaxCollected(int tax)
-        {
-            if (tax <= 0) return;
-            TaxToday += tax;
-            TaxTotal += tax;
-        }
-
-        /// <summary>세율 단계 순환 (M17-W2) — PlayerInputController의 T 키가 유일한 호출처.
-        /// 단계가 **실제로 바뀔 때만** 플래너를 다시 컴파일한다 (매 프레임 재컴파일 금지, 명세 W2 ⚠️).</summary>
-        public void CycleTaxStage()
-        {
-            int[] steps = _worldConfig != null ? _worldConfig.TaxRatePcts : null;
-            if (steps == null || steps.Length <= 1) return;
-            int next = (TaxStage + 1) % steps.Length;
-            if (next == TaxStage) return;
-            TaxStage = next;
-            TaxStageGeneration++;           // 주민들의 불평 1회분을 다시 연다 (M17-W5)
-            Planner?.Recompile(TaxRatePct); // 플래너가 보는 임금을 세후로 갱신
-            Debug.Log($"[Money] 세율 변경 → {TaxRatePct}% (단계 {TaxStage}) — 플래너 재컴파일");
-            Hud?.Notify($"세율 {SeasonHud.TaxStageName(TaxRatePct)} {TaxRatePct}%");
-        }
-
-        /// <summary>발행 (M17-W3) — PlayerInputController의 M 키가 유일한 호출처.
-        /// 금고가 차는 대신 발행 부채가 붙어 물가가 오른다. 되돌릴 수 없는 조작이지만
-        /// 며칠이면 감쇠하므로 확인 창을 두지 않는다 — 대신 무슨 일이 일어났는지 반드시 알린다.</summary>
-        public void IssueCurrency()
-        {
-            int amount = _worldConfig != null ? _worldConfig.MintIssueAmount : 0;
-            if (amount <= 0) return;
-
-            // 발행 한도 (M17-R6, §8.5 발견 A) — 부채가 물가를 상한 너머로 밀 수는 없다.
-            // 이 거절이 없으면 상한 위로 발행이 공짜가 되어 "촌장의 돈은 유한하다"가 무너진다.
-            RefreshFinanceCache();
-            if (_headroomCache < amount)
-            {
-                Debug.Log($"[Money] 발행 거부 — 여력 {_headroomCache}동 < {amount}동 " +
-                          $"(발행 부채 {World.MintDebt}동 · 물가가 상한에 닿아 있다)");
-                Hud?.Notify("더 찍을 수 없습니다 — 돈값이 바닥입니다. 여파가 가라앉기를 기다리거나 세금을 걷으세요");
-                return;
-            }
-
-            World.IssueCurrency(amount, "촌장 발행");
-            _forecastCachedAt = -1f; // 즉시 재계산 — 찍은 결과가 같은 프레임에 화면에 도착해야 한다
-            // 인과를 찍는 순간에 말한다 (M17-R7): "쓰지 않아도"가 핵심이다. 금고에 넣어만
-            // 뒀는데 물가가 오르는 것은 현실 경제와 다른 게임적 선택이고(ADR-M17-4),
-            // 화면이 설명하지 않으면 플레이어가 인과를 못 세운다 (Play 관측 2026-08-02).
-            int days = WorldModel.MintDebtDaysToClear(World.MintDebt, _worldConfig.MintDebtDecayPct);
-            Hud?.Notify($"{SeasonHud.ComposeMoney(amount)}을 찍었습니다 — " +
-                        $"쓰지 않아도 돈값이 떨어집니다" +
-                        (days > 0 ? $" ({days}일 뒤 회복 · 남은 발행 {MintChargesLeft}회)"
-                                  : $" (남은 발행 {MintChargesLeft}회)"));
-        }
+        // (M19-W4: 물가·예보·발행·세율의 재정 하위계는 화폐와 함께 철거됐다 — ADR-M19-1.
+        //  이력은 git — M16-W4 물가 캐시 · M17-W2 세율 · M17-W3 발행 · M17-W4 예보 · M17-R6 한도.)
 
         // 겨울 미대비 열거 버퍼 (M14-W4) — _starvingBuf와 동일 패턴 (재사용·정렬·급한 순)
         private readonly List<(string name, int days)> _unpreparedBuf = new List<(string, int)>(8);
@@ -626,9 +466,12 @@ namespace AIVillage.M0
                 PeakPop = PeakPopulation,
                 Settles = SettleCount,
                 Ended   = ended,
-                PeakPricePct = _peakPricePct, // M16-W6 — 부(富)의 흔적: "물가 2배까지 갔던 판"
-                TaxTotal     = TaxTotal,          // M17-W6 — 세수로 굴렸는가
-                MintTotal    = World.IssuedTotal, // M17-W6 — 찍어서 버텼는가 (MintedTotal 아님)
+                // M19-W4: 화폐 철거 — 세 필드는 append-only 규약(ADR-M14-3)으로 잔류하되
+                // 기록은 중립값 (옛 판 아카이브는 그대로 표시된다. ComposeRunEconomy는
+                // 100/0/0이면 항목을 감춘다 — 새 판에는 경제 줄이 아예 안 나온다)
+                PeakPricePct = 100,
+                TaxTotal     = 0,
+                MintTotal    = 0,
             };
             foreach (VillagerRecord r in Chronicle.RosterByBirth())
                 entry.Roster.Add(new ChronicleArchive.VillagerEntry
@@ -849,17 +692,10 @@ namespace AIVillage.M0
             // 식량 수지 (M9-G, M11-D 개인화) — 가치표는 config.FoodSources에서 파생, 인원 입력은
             // 제거됨 (식량은 개인 단위). 부상 수(M10-A)는 provider 패턴 — 파생 슬롯의 원천은 집계 하나뿐
             World        = new WorldModel(Discovery, _worldConfig, Farm, Season,
-                                         _agentConfig, CountInjured, CountUntendedInjured,
-                                         // 집 실가격 입력 (M18-W2) — RequestService(869)와 같은
-                                         // 하루 1회 캐시. 🔴 빼먹으면 물가 100% 고정 = 집값이
-                                         // 조용히 다시 상수가 된다 (명세 W2 DoD).
-                                         () => PricePct);
+                                         _agentConfig, CountInjured, CountUntendedInjured);
             Construction = new ConstructionService(World);
             Zones        = new ZoneService(); // M9-A — 배치 결정자 (군집 휴리스틱 대체, ADR-M9-1)
             Planner      = new PlannerGateway(_catalog, _agentConfig); // M11-A — 개인 상한 전제 주입 (ADR-M11-3)
-            // 시작 세율 반영 (M17-W2) — 게이트웨이는 무세로 컴파일하고 나온다. 0단계가 0%가
-            // 아닌 판(에셋에서 바꾼 경우)에서 첫 계획부터 세후 임금을 보게 하는 한 줄이다.
-            if (TaxRatePct > 0) Planner.Recompile(TaxRatePct);
             Goals        = new GoalSelector(_goals);
             Chatter      = new ChatterService(_worldConfig, _agentConfig); // M7-C — 표현 전용 (ADR-M7-1)
             Relationship = new RelationshipService();
@@ -867,10 +703,9 @@ namespace AIVillage.M0
             HomeStorage  = new HomeStorageService(); // M11-A — 집 저장 (타일 키, ADR-M11-1)
             Requests     = new RequestService(_worldConfig, _agentConfig, Relationship,
                                               Ownership, Construction, _agents,
-                                              Chatter, // M8-D — 부탁 선반 (보상은 개인 잔고, M11-H)
-                                              // 즉시 교환 배선 (M16-W5) — 물가·게임일은 델리게이트
-                                              // (정적 Instance 참조 금지, 명세 ⚠️. 하루 1회 캐시를 읽는다)
-                                              Chronicle, () => PricePct, () => GameTime);
+                                              Chatter, // M8-D — 부탁 선반 (보상은 실물, M19)
+                                              // 연대기 게임일은 델리게이트 (정적 Instance 참조 금지)
+                                              Chronicle, () => GameTime);
             // 대화 → 관계 축적의 유일한 배선 (M8-A, ADR-M8-1) — 본체는 ApplyChat (게이트 대상)
             Chatter.OnChatted += (c, speaker, target) => Relationship.ApplyChat(c, speaker.AgentId, target.AgentId);
 
@@ -1091,14 +926,8 @@ namespace AIVillage.M0
                               $"겨울 {WintersSurvived}번 · 최대 {PeakPopulation}명{(newRecord ? " · 역대 최고 갱신" : "")})");
                 }
 
-                // 재정 표시 (M17-W5). 원인 분해는 **확정 물가와 같은 입력**으로 하루 1회 계산해
-                // 둔 값을 쓴다 (_pricePartMoney/_pricePartMint) — 실시간으로 다시 나누면 화면에
-                // 적힌 물가와 괄호 안 두 몫의 합이 어긋난다. 예보만 실시간이다 (ADR-M17-3).
-                Hud?.Tick(GameTime, Season, _worldConfig.ForecastDays, PricePct,
-                          PriceForecastPct, _pricePartMoney, _pricePartMint,
-                          World.Treasury, TaxRatePct,
-                          World.MintDebt, _worldConfig.PriceCapPct, MintChargesLeft,
-                          WorldModel.MintDebtDaysToClear(World.MintDebt, _worldConfig.MintDebtDecayPct));
+                // 계절 줄 (M19-W4: 재정 인자 9종은 화폐와 함께 철거 — 계절·예보만 남는다)
+                Hud?.Tick(GameTime, Season, _worldConfig.ForecastDays);
 
                 // 상태 알림 줄 (M13-B, 2026-07-30 개정 — 舊 M11-D 마을 최솟값 요약을 개인 열거로).
                 // 관측 대상은 마을 평균이 아니라 낙오자 — 그 정신의 완성형은 "낙오자의 이름"이다.
@@ -1109,17 +938,9 @@ namespace AIVillage.M0
                     VillagerAgent a = _agents[i];
                     if (a == null || a.State == AgentState.Dead) continue;
                     int d = a.EstimateMyFoodDays();
-                    if (d <= SeasonHud.FOOD_ALERT_DAYS) _starvingBuf.Add((a.ShortName, d, a.MyMoney));
+                    if (d <= SeasonHud.FOOD_ALERT_DAYS) _starvingBuf.Add((a.ShortName, d));
                 }
-                _starvingBuf.Sort(ByFoodUrgency3); // 급한 순 — 순서가 곧 분류(triage)
-                // 정렬 후 병렬 투영 (M16-W4) — 이름·일수와 지갑이 같은 순서를 공유
-                _starvingPairsBuf.Clear();
-                _starvingMoneyBuf.Clear();
-                foreach ((string name, int days, int money) s in _starvingBuf)
-                {
-                    _starvingPairsBuf.Add((s.name, s.days));
-                    _starvingMoneyBuf.Add(s.money);
-                }
+                _starvingBuf.Sort(ByFoodUrgency); // 급한 순 — 순서가 곧 분류(triage)
 
                 int threatDaysLeft = -1;
                 string threatName = null;
@@ -1148,10 +969,9 @@ namespace AIVillage.M0
                     }
                     _unpreparedBuf.Sort(ByFoodUrgency);
                 }
-                Hud?.TickStatus(SeasonHud.ComposeStatus(_starvingPairsBuf, CountUntendedInjured(),
+                Hud?.TickStatus(SeasonHud.ComposeStatus(_starvingBuf, CountUntendedInjured(),
                                                         threatDaysLeft, threatName,
-                                                        freezeDaysLeft, _unpreparedBuf,
-                                                        _starvingMoneyBuf));
+                                                        freezeDaysLeft, _unpreparedBuf));
 
                 // 에이전트 틱 (W4) — 역순 순회: SimTick 중 파괴/해제로 리스트가 줄어도 안전
                 for (int i = _agents.Count - 1; i >= 0; i--)
@@ -1167,55 +987,8 @@ namespace AIVillage.M0
                 if (day > _lastLoggedDay)
                 {
                     _lastLoggedDay = day;
-                    // 물가 확정 (M16-W4 · M17-W4) — 하루 1회 "아침 시세". **모든 판정이 읽는
-                    // 유일한 값**이다 (ADR-M17-3 — 실시간 재계산 금지. 공유 시세 모델: 이 캐시
-                    // 하나가 마을 전체의 시세 감각이다, M16 확정 보완 9). 실시간으로 움직이는
-                    // 것은 예보(PriceForecastPct)뿐이고 그쪽은 화면 전용이다.
-                    int q = CountVillageFood(); // 예보와 같은 정의 (단일 출처)
-                    int walletSum = 0;
-                    foreach (VillagerAgent a in _agents)
-                        if (a != null && a.State != AgentState.Dead) walletSum += a.MyMoney;
-                    int prevPct = PricePct;
-                    PricePct = WorldModel.ComputePricePct(World.MoneySupply, q,
-                                                          _worldConfig.MoneyBasePrice, _worldConfig.PriceCapPct,
-                                                          World.MintDebt, _worldConfig.MintSurchargeK);
-                    _peakPricePct = Mathf.Max(_peakPricePct, PricePct); // 연대기 기록용 (M16-W6)
-                    // 원인 분해 — 확정 물가와 같은 입력(q·M·부채)으로 여기서만 갱신 (M17-W5)
-                    (_pricePartMoney, _pricePartMint) = WorldModel.SplitPrice(
-                        World.MoneySupply, World.MintDebt, _worldConfig.MintSurchargeK,
-                        q, _worldConfig.MoneyBasePrice, _worldConfig.PriceCapPct);
-                    if (PricePct != prevPct)
-                        Debug.Log($"[Money] 물가 {prevPct}% → {PricePct}% (도는 돈 {_pricePartMoney}% · " +
-                                  $"발행 여파 {_pricePartMint}% · 통화량 {World.MoneySupply} · 식량 {q}개)");
-                    // 회계 정합 상시 탐지기 (M16-W6, 명세 탐지기 표 — Σ지갑 == M): 발행·소멸·이전
-                    // 어딘가에 두 번째 경로가 생기면 여기서 하루 안에 발각된다 (ADR-M16-1 감시).
-                    if (walletSum != World.MoneySupply)
-                        Debug.LogWarning($"[Money] 회계 불일치 — Σ지갑 {walletSum} ≠ 통화량 {World.MoneySupply} " +
-                                         "(Mint/Burn 밖의 화폐 쓰기 경로 의심, ADR-M16-1)");
-                    // 폐곡선 검산 (M17-W1, 명세 §8 D2): 무에서 나온 총량 == 도는 돈 + 금고 + 소멸.
-                    // 흐름이 넷으로 늘었으므로 Σ지갑 검사(위)만으로는 금고 쪽 누수를 못 잡는다 —
-                    // 다섯 번째 쓰기 경로가 생기면 여기서 하루 안에 발각된다 (ADR-M17-2 감시).
-                    if (!WorldModel.IsLedgerBalanced(World.MintedTotal, World.MoneySupply,
-                                                     World.Treasury, World.BurnedTotal))
-                        Debug.LogWarning($"[Money] 폐곡선 불일치 — 발행누적 {World.MintedTotal} ≠ " +
-                                         $"통화량 {World.MoneySupply} + 금고 {World.Treasury} + " +
-                                         $"소멸누적 {World.BurnedTotal} (ADR-M17-2 밖의 쓰기 경로 의심)");
-                    // 오늘 세수 리셋 (M17-W2) — ⚠️ W5의 하루 결산 줄은 **이 줄보다 먼저** 읽어야 한다.
-                    // 리셋을 빼면 TaxToday가 누적이 되어 판 전체 TaxTotal과 구분이 사라진다.
-                    if (TaxToday > 0)
-                    {
-                        Debug.Log($"[Money] 어제 세수 {TaxToday}동 (판 누적 {TaxTotal}동 · 금고 {World.Treasury}동)");
-                        // 하루 결산 한 줄 (M17-W5 ⑤) — 원천징수는 조용한 흐름이라 순간 표시가
-                        // 없으면 "돌아간다"가 도착하지 않는다. 하루 한 줄이면 잡음 없이 전달된다.
-                        // ⚠️ 반드시 리셋보다 **먼저** 읽는다. "어제"인 이유: 이 블록은 날이
-                        // 바뀐 순간에 돌고, 쌓인 세수는 방금 끝난 날의 것이다.
-                        Hud?.Notify($"어제 세수 {SeasonHud.ComposeMoney(TaxToday)} · " +
-                                    $"금고 {SeasonHud.ComposeMoney(World.Treasury)}");
-                    }
-                    TaxToday = 0;
-                    // 발행 부채 감쇠 (M17-W3) — 찍고 가만두면 여파가 잦아든다.
-                    // ⚠️ 웃돈으로 나갈 때 차감하는 것이 아니다 (ADR-M17-4): 감쇠는 여기 한 곳뿐.
-                    World.TickMintDebtDecay(_worldConfig.MintDebtDecayPct);
+                    // (M19-W4: 하루 경계의 물가 확정·회계 검산·세수 결산·부채 감쇠는 화폐와
+                    //  함께 철거 — ADR-M19-1. 이력은 git: M16-W4/W6 · M17-W1/W2/W3/W5)
                     string seasonStr = Season?.Current != null
                         ? $"{Season.Current.DisplayName}(위기까지 {Mathf.CeilToInt(Season.DaysToCrisis)}일)" : "-";
                     // 위협 경주 게이지 (M10R 관측용) — 마을 크기(정보)와 게임일 래칫 활성밴드를 매일 노출.
@@ -1269,10 +1042,7 @@ namespace AIVillage.M0
                           $"모닥불={(snap.Get(SlotId.MyHasCampfire) == 1 ? "O" : "X")} · " +
                           $"몸 생식{snap.Get(SlotId.MyRawFood)}/조리{snap.Get(SlotId.MyCookedFood)} · " +
                           $"집 생식{snap.Get(SlotId.MyHomeRawFood)}/조리{snap.Get(SlotId.MyHomeCookedFood)} · " +
-                          $"식량일수={snap.Get(SlotId.MyFoodDaysLeft)} · " +
-                          // 지갑 병기 (M16-W6) — 성공 기준 1("성격 분화의 경제 증폭")의 탐지기:
-                          // 게으름뱅이의 빈 지갑이 근면 주민 곁에 찍힌다
-                          $"지갑={a.MyMoney}동");
+                          $"식량일수={snap.Get(SlotId.MyFoodDaysLeft)}"); // (M19-W4: 지갑 병기 철거)
             }
         }
 

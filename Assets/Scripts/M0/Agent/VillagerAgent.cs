@@ -237,8 +237,8 @@ namespace AIVillage.M0
         {
             if (_promisedReward != null)
             {
-                // 화폐 모드(M16-W3)는 에스크로가 없으니 반환도 없다 — 약속만 소멸 (미발행 = 무비용)
-                if (_sim != null && _promisedReward.MoneyGain <= 0)
+                // 미지급 약속은 에스크로 반환 (ADR-M6-5 원형 — M19-W4에서 화폐 분기 철거)
+                if (_sim != null)
                     World.AddStock(_promisedReward.CostSlot, _promisedReward.CostAmount);
                 _promisedReward = null;
             }
@@ -249,29 +249,13 @@ namespace AIVillage.M0
         }
 
         /// <summary>보상 지급 — 명령 완수 지점 전용 (ADR-M6-5). 지급 후 null 처리로 반환 경로 차단.
-        /// 화폐 모드(M17-W1 개정) = **금고에서 나간다** (PayFromTreasury — ADR-M17-2 ③).
-        /// 舊 M16-W3은 여기서 무에서 찍었다(Mint). 촌장의 돈이 유한해지며 웃돈은 지출이 됐다 —
-        /// 금고가 비면 못 준다. 그 실패는 반드시 화면에 알린다 (조용한 소실 금지).</summary>
+        /// M19-W4: 실물 원형 복원 — 화폐 웃돈(M16-W3 발행 → M17-W1 금고 지출)은 철거됐다.</summary>
         private void PayReward()
         {
             if (_promisedReward == null) return;
-            if (_promisedReward.MoneyGain > 0)
-            {
-                if (!World.PayFromTreasury(this, _promisedReward.MoneyGain,
-                                           $"웃돈: {_promisedReward.DisplayName}"))
-                {
-                    // 말풍선 없음 — 주민의 잘못이 아니라 촌장의 빈 금고다 (FailedNoStock 전례).
-                    _sim?.Hud?.Notify("금고가 비어 웃돈을 지급하지 못했습니다");
-                    _promisedReward = null;
-                    return;
-                }
-            }
-            else
-            {
-                ApplyNeedEffect(SlotId.MySatiety, EffectOp.Add, _promisedReward.SatietyGain);
-                Debug.Log($"[VillagerAgent] {AgentId}: 보상 지급 — {_promisedReward.DisplayName} " +
-                          $"(포만 +{_promisedReward.SatietyGain}, 비용은 수락 시 차감 완료)");
-            }
+            ApplyNeedEffect(SlotId.MySatiety, EffectOp.Add, _promisedReward.SatietyGain);
+            Debug.Log($"[VillagerAgent] {AgentId}: 보상 지급 — {_promisedReward.DisplayName} " +
+                      $"(포만 +{_promisedReward.SatietyGain}, 비용은 수락 시 차감 완료)");
             ShowTransient(Pick(_promisedReward.PayLines));
             _promisedReward = null;
         }
@@ -679,21 +663,10 @@ namespace AIVillage.M0
             // 호출처는 여기와 StarveToDeath 둘뿐. UnregisterAgent로 옮기면 C3 증분이 무너진다).
             _sim.Chronicle.RecordExit(AgentId, _sim.GameTime, ExitCause.Injury);
             SnapshotRelationsForChronicle(); // C3 — ReleaseBy(OnDestroy)가 지우기 전에
-            BurnWalletOnDeath();             // M16-W1 — 죽은 지갑은 유통에서 소멸 (회계 정합)
+            // (M19-W4: 지갑 소멸 회계(M16-W1)는 화폐와 함께 철거)
             ShowTransient(Pick(_cfg.DieLines));
             State = AgentState.Dead;      // SimTick 차단 — Depart와 동일 (새 상태 추가 금지)
             Destroy(gameObject, _cfg.TransientLineSec);
-        }
-
-        /// <summary>사망 시 지갑 소멸 (M16-W1) — M(통화량)이 유통량보다 영구히 커지는 회계
-        /// 오차 차단 (명세 확정 보완 3). 호출처는 Die·StarveToDeath 둘뿐 (ADR-M13-3 동형 —
-        /// UnregisterAgent 보루로 옮기지 않는다: Unknown 소멸은 판이 끝나는 것이라 회계 무의미).
-        /// 단짝 상속안은 백로그 — 지금은 소멸이 정합이다.</summary>
-        private void BurnWalletOnDeath()
-        {
-            if (MyMoney <= 0) return;
-            World.Burn(MyMoney, $"사망 소멸: {AgentId}");
-            ApplyPersonalStock(SlotId.MyMoney, EffectOp.SubClamp0, MyMoney); // 지갑 비움 — Σ지갑 == M 유지
         }
 
         /// <summary>퇴장 관계 스냅샷 (M13-C3) — 죽는 순간의 단짝·원한을 명부에 남긴다.
@@ -769,7 +742,7 @@ namespace AIVillage.M0
             _sim.RecordDeath(TileX, TileY, ShortName, (int)_sim.GameTime, AgentId); // 부상 사망과 같은 문 — 무덤·카운터 (원인만 이원)
             _sim.Chronicle.RecordExit(AgentId, _sim.GameTime, ExitCause.Starvation); // 명부 — 사유 이원화 유지 (ADR-M13-3)
             SnapshotRelationsForChronicle(); // C3 — ReleaseBy(OnDestroy)가 지우기 전에
-            BurnWalletOnDeath();             // M16-W1 — 죽은 지갑은 유통에서 소멸 (회계 정합)
+            // (M19-W4: 지갑 소멸 회계(M16-W1)는 화폐와 함께 철거)
             _sim.Hud?.Notify($"{ShortName}이(가) 굶어 숨을 거뒀습니다");
             ShowTransient(Pick(_cfg.StarveLines));
             State = AgentState.Dead;      // SimTick 차단 — 새 상태 추가 금지 (ADR-M6-3)
@@ -1077,40 +1050,8 @@ namespace AIVillage.M0
                 }
             }
 
-            // 임금 (M16-W2) — 유일한 지급 지점 (명세 실사 ①: BuildRunner도 이 경로를 지난다).
-            // 명령·자율 무관 — 지불은 액션이 결정 (ADR-M16-2).
-            //
-            // M17-W2 원천징수: 총액을 지갑에 넣었다 빼지 않는다. **처음부터 순액만 발행**하고
-            // 세액은 무에서 금고로 간다 — Mint(총액) 후 Burn(세액)을 하면 발행 누적이 부풀어
-            // 폐곡선(§8 D2)이 깨진다 (명세 W2 ⚠️). 세액은 잔여로 구해 합이 총액과 어긋나지 않는다.
-            int wage = _plan[_planIndex].WagePay;
-            if (wage > 0)
-            {
-                string label = _plan[_planIndex].DisplayName;
-                int net = ActionSO.NetWage(wage, _sim != null ? _sim.TaxRatePct : 0);
-                int tax = wage - net;
-
-                bool paid = net <= 0 || World.Mint(this, net, $"임금: {label}");
-                if (tax > 0) World.MintToTreasury(tax, $"원천징수: {label}");
-                _sim?.RecordTaxCollected(tax); // 하루 결산 줄(W5)·연대기(W6)의 집계원
-
-                if (paid && !_everPaid)
-                {
-                    // 생애 첫 임금만 말풍선 1회 (명세 확정 보완 8-③ — 이후는 로그·지갑 표기가 맡는다)
-                    _everPaid = true;
-                    ShowTransient(Pick(_cfg.FirstWageLines));
-                }
-                else if (tax > 0 && _sim != null && _sim.TaxRatePct >= SeasonHud.HeavyTaxPct
-                         && _lastTaxGrumbleGen != _sim.TaxStageGeneration)
-                {
-                    // 중과세 불평 (M17-W5 ⑥) — **실제로 떼인 자리**에서만 말한다.
-                    // ⚠️ 명령 거부에 붙이지 않는다: 세율은 거부 판정에 들어가지 않으므로
-                    // (웃돈은 비과세, ADR-M17-5) 거부에 세금 탓을 붙이면 거짓말이다.
-                    // 세율 단계가 바뀔 때마다 주민당 1회 — 촌장의 조작에 마을이 순차로 반응한다.
-                    _lastTaxGrumbleGen = _sim.TaxStageGeneration;
-                    ShowTransient(Pick(_cfg.TaxGrumbleLines));
-                }
-            }
+            // (M19-W4: 임금 지급·원천징수·중과세 불평은 화폐와 함께 철거 — ADR-M19-1.
+            //  노동의 대가는 마을이 커지는 것 그 자체다. 이력 = M16-W2 · M17-W2/W5)
 
             _runner.Cleanup(this);
             _runner = null;
@@ -1221,34 +1162,17 @@ namespace AIVillage.M0
         /// 화면의 여유와 실제 거부가 어긋난다 (판단 규칙 이원화).</summary>
         public static float RefuseSatietyLimit(AgentConfigSO cfg, PersonalitySO p, TraitValue[] traits,
                                                RewardSO r)
-            => RefuseSatietyLimit(cfg, p, traits, r, 100); // 호환 진입점 — 물가 무관(평시·舊 게이트)
-
-        /// <summary>화폐 웃돈의 실질 가치 배율 (M16-W3, 순수 — 게이트 M16-T4. ADR-M16-4):
-        /// 물가가 오르면 같은 액면의 설득력이 줄어든다. P=100 → 1.0, P=200 → 0.5. 100 미만 방어.</summary>
-        public static float EffectiveRewardScale(int pricePct)
-            => 100f / Mathf.Max(100, pricePct);
-
-        /// <summary>보상 오프셋의 물가 스케일 (순수) — 화폐 모드(MoneyGain > 0)만 스케일.
-        /// 실물 보상(舊 식량 에셋)은 물가 무관 — 실물의 가치는 돈 값과 함께 떨어지지 않는다.</summary>
-        private static float RewardOffsetScale(RewardSO r, int pricePct)
-            => r != null && r.MoneyGain > 0 ? EffectiveRewardScale(pricePct) : 1f;
-
-        public static float RefuseSatietyLimit(AgentConfigSO cfg, PersonalitySO p, TraitValue[] traits,
-                                               RewardSO r, int pricePct)
             => TraitVector.Threshold(traits, cfg.RefuseSatietyBias, cfg.OrderRefuseSatiety)
              + (p != null ? p.RefuseSatietyOffset : 0f)
-             + (r != null ? r.RefuseSatietyOffset * RewardOffsetScale(r, pricePct) : 0f);
+             + (r != null ? r.RefuseSatietyOffset : 0f);
+             // (M19-W4: 물가 스케일 철거 — 실물 보상의 설득력은 돈 값과 무관하다)
 
         /// <summary>실효 피로 거부 문턱 (순수, M13-D 추출) — 위와 동일 사유.</summary>
         public static float RefuseFatigueLimit(AgentConfigSO cfg, PersonalitySO p, TraitValue[] traits,
                                                RewardSO r)
-            => RefuseFatigueLimit(cfg, p, traits, r, 100); // 호환 진입점
-
-        public static float RefuseFatigueLimit(AgentConfigSO cfg, PersonalitySO p, TraitValue[] traits,
-                                               RewardSO r, int pricePct)
             => TraitVector.Threshold(traits, cfg.RefuseFatigueBias, cfg.OrderRefuseFatigue)
              + (p != null ? p.RefuseFatigueOffset : 0f)
-             + (r != null ? r.RefuseFatigueOffset * RewardOffsetScale(r, pricePct) : 0f);
+             + (r != null ? r.RefuseFatigueOffset : 0f);
 
         /// <summary>호환 진입점 (게이트·구형 호출 전용 — 벡터 = 성격 원본, 편차 없음. ⚠️W3-⑤).</summary>
         public static OrderResult JudgeOrder(float satiety, float fatigue, AgentConfigSO cfg,
@@ -1257,17 +1181,11 @@ namespace AIVillage.M0
 
         public static OrderResult JudgeOrder(float satiety, float fatigue, AgentConfigSO cfg,
                                              PersonalitySO p, TraitValue[] traits, RewardSO r)
-            => JudgeOrder(satiety, fatigue, cfg, p, traits, r, 100); // 호환 진입점 (물가 무관)
-
-        public static OrderResult JudgeOrder(float satiety, float fatigue, AgentConfigSO cfg,
-                                             PersonalitySO p, TraitValue[] traits, RewardSO r,
-                                             int pricePct)
         {
             // 성향 가중치가 비면 Threshold가 기준값을 그대로 돌려주므로 현행 판정과 완전히 같다.
             // 벡터(traits)는 호출자가 개체 편차 포함본(MyTraits)을 넘긴다 (M14-W3 — ⚠️W3-⑤).
-            // pricePct(M16-W3): 화폐 웃돈의 오프셋만 실질 가치로 스케일 (ADR-M16-4).
-            if (satiety < RefuseSatietyLimit(cfg, p, traits, r, pricePct)) return OrderResult.RefusedHungry;
-            if (fatigue > RefuseFatigueLimit(cfg, p, traits, r, pricePct)) return OrderResult.RefusedTired;
+            if (satiety < RefuseSatietyLimit(cfg, p, traits, r)) return OrderResult.RefusedHungry;
+            if (fatigue > RefuseFatigueLimit(cfg, p, traits, r)) return OrderResult.RefusedTired;
             return OrderResult.Accepted;
         }
 
@@ -1311,39 +1229,25 @@ namespace AIVillage.M0
                 return OrderResult.RefusedInjured;
             }
 
-            // 화폐 모드(M16-W3)는 재고 선검사 없음 — 촌장 발행은 무에서 나온다 (ADR-M16-1).
-            // 舊 식량 보상 에셋은 기존 경로 유지 (병존 — 스코프 가드).
-            if (reward != null && reward.MoneyGain <= 0
-                && World.GetStock(reward.CostSlot) < reward.CostAmount)
+            // 재고 선검사 (M6-E 원형 — M19-W4에서 화폐 분기 철거): 없는 것을 약속할 수 없다.
+            if (reward != null && World.GetStock(reward.CostSlot) < reward.CostAmount)
                 return OrderResult.FailedNoStock; // 말풍선 없음 — 주민이 아니라 촌장의 실수
 
-            int pricePct = _sim != null ? _sim.PricePct : 100;
-            OrderResult verdict = JudgeOrder(Satiety, Fatigue, _cfg, Personality, MyTraits, reward, pricePct);
-            // 물가 사유 판정 (확정 보완 9 — 공유 시세: 아는 자의 반응): 기준 물가(100)였다면
-            // 수락했을 거부만 "돈 값" 탓이다 — 그냥 너무 배고픈 거부에 물가 대사를 붙이면 거짓말.
-            bool refusedByPrice = reward != null && reward.MoneyGain > 0 && pricePct > 100
-                && (verdict == OrderResult.RefusedHungry || verdict == OrderResult.RefusedTired)
-                && JudgeOrder(Satiety, Fatigue, _cfg, Personality, MyTraits, reward, 100)
-                   == OrderResult.Accepted;
+            OrderResult verdict = JudgeOrder(Satiety, Fatigue, _cfg, Personality, MyTraits, reward);
             if (verdict == OrderResult.RefusedHungry || verdict == OrderResult.RefusedTired)
                 _sim.Profiler?.RecordRefusal(Personality); // 계측 (M12-J) — 자존 축의 관측 신호
             if (verdict == OrderResult.RefusedHungry)
             {
-                // 물가 사유면 대체 — 한 장면 한 말풍선 (명세 W3 DoD)
-                ShowTransient(refusedByPrice ? Pick(_cfg.RefusePriceLines)
-                    : Pick(FirstNonEmpty(Personality != null ? Personality.RefuseHungryLines : null, _cfg.RefuseHungryLines)));
-                Debug.Log($"[VillagerAgent] {AgentId}: 명령 거부 (배고픔 {Satiety:F0} < {_cfg.OrderRefuseSatiety}" +
-                          $"{(refusedByPrice ? $" · 물가 {pricePct}% — 실질 가치 미달" : "")})");
+                ShowTransient(Pick(FirstNonEmpty(Personality != null ? Personality.RefuseHungryLines : null, _cfg.RefuseHungryLines)));
+                Debug.Log($"[VillagerAgent] {AgentId}: 명령 거부 (배고픔 {Satiety:F0} < {_cfg.OrderRefuseSatiety})");
                 _sim.Chronicle.RecordEvent(AgentId, EventId.OrderRefused, _sim.GameTime,
                                            value: ChronicleEvent.REFUSE_HUNGRY); // 연대기 (M13-C2)
                 return verdict;
             }
             if (verdict == OrderResult.RefusedTired)
             {
-                ShowTransient(refusedByPrice ? Pick(_cfg.RefusePriceLines)
-                    : Pick(FirstNonEmpty(Personality != null ? Personality.RefuseTiredLines : null, _cfg.RefuseTiredLines)));
-                Debug.Log($"[VillagerAgent] {AgentId}: 명령 거부 (피로 {Fatigue:F0} > {_cfg.OrderRefuseFatigue}" +
-                          $"{(refusedByPrice ? $" · 물가 {pricePct}% — 실질 가치 미달" : "")})");
+                ShowTransient(Pick(FirstNonEmpty(Personality != null ? Personality.RefuseTiredLines : null, _cfg.RefuseTiredLines)));
+                Debug.Log($"[VillagerAgent] {AgentId}: 명령 거부 (피로 {Fatigue:F0} > {_cfg.OrderRefuseFatigue})");
                 _sim.Chronicle.RecordEvent(AgentId, EventId.OrderRefused, _sim.GameTime,
                                            value: ChronicleEvent.REFUSE_TIRED); // 연대기 (M13-C2)
                 return verdict;
@@ -1351,22 +1255,13 @@ namespace AIVillage.M0
 
             ClearOrderInstance(); // 기존 명령 교체 시 런타임 사본·미지급 약속 정리 (반환 경유)
 
-            // 보상 에스크로 (M6-E): 수락 확정 시점에 즉시 차감 — 완수=지급, 그 외=반환 (ADR-M6-5).
-            // 화폐 모드(M16-W3)는 에스크로 없음 — 발행은 완수 시점의 Mint뿐 (ADR-M16-1).
+            // 보상 에스크로 (M6-E 원형): 수락 확정 시점에 즉시 차감 — 완수=지급, 그 외=반환 (ADR-M6-5).
             if (reward != null)
             {
-                if (reward.MoneyGain <= 0)
-                {
-                    if (!World.TrySpendStock(reward.CostSlot, reward.CostAmount))
-                        return OrderResult.FailedNoStock; // 선검사 통과 후 변동 — 방어 (원자성은 TrySpend가 보장)
-                    Debug.Log($"[VillagerAgent] {AgentId}: 보상 약속 — {reward.DisplayName} " +
-                              $"({reward.CostSlot} -{reward.CostAmount} 에스크로)");
-                }
-                else
-                {
-                    Debug.Log($"[VillagerAgent] {AgentId}: 웃돈 약속 — {reward.DisplayName} " +
-                              $"({reward.MoneyGain}동, 완수 시 발행)");
-                }
+                if (!World.TrySpendStock(reward.CostSlot, reward.CostAmount))
+                    return OrderResult.FailedNoStock; // 선검사 통과 후 변동 — 방어 (원자성은 TrySpend가 보장)
+                Debug.Log($"[VillagerAgent] {AgentId}: 보상 약속 — {reward.DisplayName} " +
+                          $"({reward.CostSlot} -{reward.CostAmount} 에스크로)");
                 _promisedReward = reward;
                 ShowTransient(Pick(reward.PromiseLines));
             }
@@ -1714,7 +1609,6 @@ namespace AIVillage.M0
 
         // 중과세 불평을 마지막으로 한 세율 세대 (M17-W5) — 세율이 바뀔 때마다 1회분이 다시
         // 열린다. 0은 "아직 안 함"이 아니라 "0세대에 함"이므로 -1로 출발한다. 세이브 대상.
-        private int _lastTaxGrumbleGen = -1;
 
         /// <summary>슬롯별 잔량 — EffectApplier 선검사·스냅샷 주입 공용 (판정 단일).</summary>
         public int GetPersonalStock(SlotId slot)

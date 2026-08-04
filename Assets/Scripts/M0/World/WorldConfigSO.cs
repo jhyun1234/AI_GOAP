@@ -88,65 +88,8 @@ namespace AIVillage.M0
                  "비면 FoodDaysLeft 항상 99 (중립 — 기존 동작과 완전 동일).")]
         public ConsumeActionSO[] FoodSources;
 
-        [Header("화폐 (M16-W4 — 물가 산식. Play 리뷰 ① 후 재조정, M16-B)")]
-        [Tooltip("물가 분모의 기준가 계수 — 물가 % = 100 × 통화량 ÷ (마을 식량 개수 × 이 값), ADR-M16-3.\n" +
-                 "⚠️ 거래 실가격(RequestSO.RewardCostAmount)과는 별개다 — 이 값은 **인플레 속도**만 정한다.\n" +
-                 "10 = M16-B 재조정치: 임금 2.5배 인상 + 채집 산출 감소(식량 개수 ↓)를 상쇄해 " +
-                 "인플레 곡선을 M16 최초안과 같게 유지한다 (그 전 3).")]
-        public int MoneyBasePrice = 10;
-
-        [Tooltip("물가 상한 % (폭주 클램프 — 회복 불능 나선 차단). 하한은 100 고정.")]
-        public int PriceCapPct = 400;
-
-        [Header("촌장 금고 (M17-W1 — ADR-M17-1: 금고는 통화량 M 밖이다)")]
-        [Tooltip("판 시작 시 금고 잔고(동). 0 = 촌장의 첫 개입이 곧 첫 발행이 된다 (제안치).\n" +
-                 "⚠️ 0보다 크면 그 돈도 '무에서 나온 돈'이므로 발행 누적에 함께 실린다 " +
-                 "— 안 그러면 폐곡선 검산(§8 D2)이 첫 프레임부터 어긋난다.")]
-        public int StartingTreasury = 0;
-
-        [Tooltip("임금 원천징수 세율 단계 % (M17-W2 — 과세 대상은 임금뿐, ADR-M17-5).\n" +
-                 "0번이 판 시작 단계. 촌장이 T 키로 순환시킨다.\n" +
-                 "제안치 0/15/30 — 실측 근거 없음, Play 재조정 대상 (명세 §9).\n" +
-                 "⚠️ 세율은 즉효 버튼이 아니다 (ADR-M17-7): 이미 도는 돈을 회수하지 못하고 " +
-                 "통화량 증가를 늦출 뿐이다. 물가는 며칠에 걸쳐 움직인다.")]
-        public int[] TaxRatePcts = { 0, 15, 30 };
-
-        [Header("발행 (M17-W3 — 화폐 신뢰. ⚠️ 아래 셋은 짝이다: 방법론 M17)")]
-        [Tooltip("한 번 찍을 때의 발행량(동). 제안치 100 — 집값 50동·웃돈 10동 세계에서 " +
-                 "웃돈 10회분이라 '비상 수혈' 감각이 된다. 실측 근거 없음, Play 재조정 대상.")]
-        public int MintIssueAmount = 100;
-
-        [Tooltip("발행 가산 계수 k (M17-W3) — 물가 분자에 k × 발행부채가 더해진다.\n" +
-                 "0 = 마찰 없음(찍어도 안 아프다) · 1 = 액면 전액이 분자에 실린다.\n" +
-                 "🔑 **쓰지 않고 금고에 둔 돈도 물가를 올린다** (ADR-M17-4). 현실 경제와 다른 " +
-                 "게임적 선택이다 — 그래야 '평시에 미리 무한히 찍어 두기'가 막히고 금고가 " +
-                 "의미를 갖는다. 대신 화면이 그 인과를 설명한다(찍은 탓 · N일 뒤 사라짐).\n" +
-                 "⚠️ MintDebtDecayPct와 **짝**이다 — k가 커도 하루 만에 잦아들면 안 아프고, " +
-                 "k가 작아도 안 잦아들면 영구 페널티다. 하나만 바꾸지 않는다.\n" +
-                 "제안치 1.0 — 실측 근거 없음.")]
-        public float MintSurchargeK = 1f;
-
-        [Tooltip("발행 부채의 하루 감쇠율 % (M17-W3). 제안치 50 — 100동 발행 시\n" +
-                 "100 → 50 → 25 → 12 → 6 → 0 (5일. 5 미만 잔량은 떨어뜨린다).\n" +
-                 "⚠️ 곱셈 감쇠라 체감이 직관과 다르다: 20%/일이면 5일 뒤가 0이 아니라 32이고 " +
-                 "0에 닿기까지 13일이 걸린다 — 겨울이 4일인 이 게임에서는 사실상 영구 페널티다.\n" +
-                 "0 = 감쇠 없음(영구 부채). ⚠️ MintSurchargeK와 짝 — 위 설명 참조.")]
-        public int MintDebtDecayPct = 50;
-
-        /// <summary>세율 상한 90 % (M17-W2) — 100%면 실수령이 0이 되어 임금이 플래너 시야에서
-        /// 통째로 사라지고 Goal_SaveForHome이 NoSolution이 된다. 손잡이의 사각지대를 에디터에서 막는다.</summary>
-        public const int MaxTaxRatePct = 90;
-
-        private void OnValidate()
-        {
-            if (StartingTreasury < 0) StartingTreasury = 0;
-            if (MintIssueAmount < 0) MintIssueAmount = 0;
-            MintSurchargeK   = Mathf.Max(0f, MintSurchargeK);
-            MintDebtDecayPct = Mathf.Clamp(MintDebtDecayPct, 0, 100);
-            if (TaxRatePcts == null) return;
-            for (int i = 0; i < TaxRatePcts.Length; i++)
-                TaxRatePcts[i] = Mathf.Clamp(TaxRatePcts[i], 0, MaxTaxRatePct);
-        }
+        // (M19-W4: 화폐 설정 8종 — 기준가·물가상한·금고·세율·발행량·가산계수·감쇠율·세율상한 —
+        //  화폐와 함께 철거 — ADR-M19-1. 에셋의 잔존 필드 값은 다음 임포트에서 자연 소거된다.)
 
         [Header("HUD (M13-B — 상태 알림 줄)")]
         [Tooltip("상태 알림 줄 폰트 크기. 초기값 24가 작다는 Play 피드백(2026-07-30)으로 30 제안. " +

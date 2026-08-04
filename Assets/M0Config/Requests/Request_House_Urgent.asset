@@ -21,11 +21,6 @@ MonoBehaviour:
   - Slot: 26
     Op: 0
     Value: 1
-  - Slot: 37
-    Op: 1
-    Value: 0
-    CompareToSlot: 1
-    RightSlot: 39
   TargetJob: {fileID: 11400000, guid: fda218a4d94842849b31a189131a4926, type: 2}
   InjectGoal: {fileID: 11400000, guid: 985a7498ebc14268bb07b6118224dccc, type: 2}
   RadiusTiles: 12
@@ -35,14 +30,14 @@ MonoBehaviour:
   AcceptDelta: 5
   FulfillDelta: 15
   RefusedDelta: -5
-  RewardCostSlot: 37
-  RewardCostAmount: 50
+  RewardCostSlot: 22
+  RewardCostAmount: 5
   RewardSatietyGain: 0
-  AlwaysUpfront: 1
+  AlwaysUpfront: 0
   AskLines:
-  - "늑대한테 물렸어... 집 좀 지어줘. 삯은 어떻게든 마련할게"
-  - "한데서 자다간 죽겠어. 품삯은 시세대로, 지금 없으면 나중에라도 갚을게"
-  - "무서워서 못 자겠어. 벽이라도 있어야지... 값은 치를게"
+  - "늑대한테 물렸어... 집 좀 지어줘. 곡식 다섯 알은 어떻게든 마련할게"
+  - "한데서 자다간 죽겠어. 품삯 다섯 알, 지금 없으면 나중에라도 갚을게"
+  - "무서워서 못 자겠어. 벽이라도 있어야지... 곡식 다섯 알 줄게"
   AcceptLines:
   - "그런 일이 있었구나. 지어줄게"
   - "당장 시작하지. 걱정 마"

@@ -808,7 +808,8 @@ namespace AIVillage.Tests.EditMode
             // ①에 자리를 만들어 "저 사람은 마을 일을 안 도와"가 눈에 보이게 한다.
             var communal = new[] { "Goal_GatherWood", "Goal_GatherStone", "Goal_BuildHouse",
                                    "Goal_RequestHouse", "Goal_TendInjured", "Goal_TreatInjured" };
-            var personal = new[] { "Goal_BuildMyHouse", "Goal_SaveForHome", "Goal_StoreFood",
+            // Goal_SaveForHome은 M19-W1에서 화폐와 함께 삭제 (저축 goal 소멸 — 목록 동기화)
+            var personal = new[] { "Goal_BuildMyHouse", "Goal_StoreFood",
                                    "Goal_Plant", "Goal_HarvestCrop" };
 
             List<GoalSO> goals = LoadAllGoals();

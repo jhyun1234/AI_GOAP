@@ -336,20 +336,8 @@ namespace AIVillage.Tests.EditMode
             }
         }
 
-        [Test]
-        public void M17_T9_HouseRequests_LeaveNoDebt()
-        {
-            // 집 부탁이 선불이라는 것이 "빚이 안 생긴다"의 근거다 (M17-R4).
-            // 후불로 되돌리려면 빚 정산을 능동으로 만드는 설계가 먼저 있어야 한다.
-            foreach (string name in new[] { "Request_BuildMyHouse", "Request_House_Urgent" })
-            {
-                var r = UnityEditor.AssetDatabase.LoadAssetAtPath<RequestSO>(
-                    $"Assets/M0Config/Requests/{name}.asset");
-                Assert.IsNotNull(r, $"{name} 에셋 존재");
-                Assert.IsTrue(r.AlwaysUpfront, $"{name}: 집 부탁은 선불이어야 한다");
-                Assert.AreEqual(SlotId.MyMoney, r.RewardCostSlot, $"{name}: 대가는 돈");
-            }
-        }
+        // (M17_T9_HouseRequests_LeaveNoDebt는 M19-W1에서 삭제 — 집 부탁 선불(M17-R4)은
+        //  화폐 빚 아사의 처방이었고, 실물 사례 복원(ADR-M19-2)으로 후불 원형이 정답이 됐다.)
 
         // ── T8: 빚 슬롯의 분류와 스냅샷 주입 (M17-W7) ────────────────────────
 

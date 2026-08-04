@@ -222,14 +222,9 @@ namespace AIVillage.M0
             // 이후 선불·빚·연기 정산은 전부 이 값 하나만 읽는다 (재계산 = 판정과 이전이 갈림).
             int price = AcceptancePrice(r.RewardCostSlot, r.RewardCostAmount,
                                         _pricePct != null ? _pricePct() : 100);
-            // 호가 병기 (M18-W4, ADR-M18-4) — 액수는 대사 문자열이 아니라 여기서만 나온다
-            // (에셋에 "50동"을 하드코딩하면 물가가 오른 판에서 대사가 거짓말을 한다).
-            // 화폐 보상 부탁만 — 직거래는 AskTrade가 자기 호가(AcceptLines)를 이미 병기한다.
-            bool quotesPrice = r.TradeGiveAmount == 0
-                               && r.RewardCostSlot == SlotId.MyMoney && price > 0;
-            requester.ShowTransient(quotesPrice
-                ? $"{Pick(r.AskLines)} — {SeasonHud.ComposeMoney(price)}"
-                : Pick(r.AskLines));
+            // 대사는 에셋 원문 그대로 (M19-W1) — 실물 보상은 액수가 대사에 이미 있다
+            // ("곡식 다섯 알"). 호가 병기(M18-W4)는 화폐와 함께 철거됐다.
+            requester.ShowTransient(Pick(r.AskLines));
             requester.FaceForChat(target.transform.position, _agentCfg.ChatPauseSec);
             target.FaceForChat(requester.transform.position, _agentCfg.ChatPauseSec);
 

@@ -18,11 +18,6 @@ MonoBehaviour:
   - Slot: 17
     Op: 0
     Value: 0
-  - Slot: 37
-    Op: 1
-    Value: 0
-    CompareToSlot: 1
-    RightSlot: 39
   - Slot: 19
     Op: 1
     Value: 3

@@ -156,23 +156,9 @@ namespace AIVillage.Tests.EditMode
 
         // ── T2: HomePriceNow — 집값의 단일 출처 (ADR-M18-3) ──────────────────
 
-        [Test]
-        public void M18_T2_HomeBasePrice_SingleSourceAcrossAssets()
-        {
-            // 집 소유권 Request 에셋 전수 — 기준가가 갈리면 HomePriceNow가 "어느 집값"인지
-            // 애매해진다 (런타임은 첫 항을 읽으므로 두 번째 값은 조용히 무시된다 — red가 정답)
-            var prices = new System.Collections.Generic.List<int>();
-            foreach (string guid in AssetDatabase.FindAssets("t:RequestSO", new[] { "Assets/M0Config" }))
-            {
-                var r = AssetDatabase.LoadAssetAtPath<RequestSO>(AssetDatabase.GUIDToAssetPath(guid));
-                if (r != null && r.GrantOwnership && r.OwnershipSlot == SlotId.HouseCount
-                    && r.RewardCostSlot == SlotId.MyMoney && r.RewardCostAmount > 0)
-                    prices.Add(r.RewardCostAmount);
-            }
-            Assert.Greater(prices.Count, 0, "집 소유권 Request 에셋이 없다 — 스캔 조건이 낡았다");
-            foreach (int p in prices)
-                Assert.AreEqual(prices[0], p, "집 부탁들의 기준가가 갈린다 — ADR-M18-3 위반");
-        }
+        // (SingleSourceAcrossAssets는 M19-W1에서 삭제 — 검사 대상인 "화폐 보상 집 부탁"이
+        //  실물 사례로 복원되며 소멸. 남은 T2 둘은 아직 살아 있는 순수 함수를 검사한다 —
+        //  그 함수들 자체는 W4·W5 철거 때 게이트와 함께 제거된다.)
 
         [Test]
         public void M18_T2_DeriveHomeBasePrice_FiltersCorrectly()
@@ -252,56 +238,8 @@ namespace AIVillage.Tests.EditMode
                 "정산 시점 물가 무관 — 수락가 하나만 읽는다");
         }
 
-        // ── T4: 에셋 실배선 (W4) — 집 사슬·빚이 실제로 파생 슬롯을 보는가 ──────
-
-        private static WorldSnapshot HouseSnap(int myMoney, int homePrice)
-        {
-            int[] slots = new int[PlanningConfig.TotalSlots];
-            slots[(int)SlotId.MyMoney]        = myMoney;
-            slots[(int)SlotId.HomePriceNow]   = homePrice;
-            slots[(int)SlotId.MyFoodDaysLeft] = 5;   // 저축 트리거의 "배는 부르다" 전제
-            slots[(int)SlotId.DaysToFreeze]   = 30;  // 겨울 직전 저축 중단 전제 회피
-            return new WorldSnapshot(slots);         // MyHasHome(17) = 0 = 무주택
-        }
-
-        [Test]
-        public void M18_T4_SaveAndSeek_NoOverlapAtBoundary()
-        {
-            var save = AssetDatabase.LoadAssetAtPath<GoalSO>("Assets/M0Config/Goals/Goal_SaveForHome.asset");
-            var seek = AssetDatabase.LoadAssetAtPath<GoalSO>("Assets/M0Config/Goals/Goal_SeekCarpenter.asset");
-            Assert.IsNotNull(save); Assert.IsNotNull(seek);
-
-            // 물가 140% 세계 (실가격 70): 69동 = 아직 모은다, 사러 가지 않는다
-            Assert.IsTrue(GoalSelector.AllHold(save.TriggerConditions, HouseSnap(69, 70)), "69 < 70 저축");
-            Assert.IsFalse(GoalSelector.AllHold(seek.TriggerConditions, HouseSnap(69, 70)), "69로 구매 불가");
-            // 정확히 70동 = 저축은 꺼지고 구매만 켜진다 — Less 도입의 존재 이유 (경계 동시 발동 0)
-            Assert.IsFalse(GoalSelector.AllHold(save.TriggerConditions, HouseSnap(70, 70)), "70 도달 — 저축 종료");
-            Assert.IsTrue(GoalSelector.AllHold(seek.TriggerConditions, HouseSnap(70, 70)), "70 도달 — 사러 간다");
-            // 물가 100% 세계 (실가격 50): 기존 상수 49/50과 동일 경계 — 동작 불변의 다리
-            Assert.IsTrue(GoalSelector.AllHold(save.TriggerConditions, HouseSnap(49, 50)), "49 < 50 저축(기존 동치)");
-            Assert.IsTrue(GoalSelector.AllHold(seek.TriggerConditions, HouseSnap(50, 50)), "50 도달(기존 동치)");
-        }
-
-        [Test]
-        public void M18_T4_RepayDebt_ComparesDebtNotHomePrice()
-        {
-            var repay = AssetDatabase.LoadAssetAtPath<GoalSO>("Assets/M0Config/Goals/Goal_RepayDebt.asset");
-            Assert.IsNotNull(repay);
-
-            int[] slots = new int[PlanningConfig.TotalSlots];
-            slots[(int)SlotId.MyDebt]         = 70;  // 수락 시점 실가격으로 진 빚 (W3)
-            slots[(int)SlotId.MyMoney]        = 60;
-            slots[(int)SlotId.MyFoodDaysLeft] = 5;
-            // ⚠️ HomePriceNow를 0으로 둔 채 발동해야 한다 — 우변이 집값(39)으로 잘못 배선됐다면
-            // "60 < 0"이 되어 여기서 false가 난다 (명세 ⚠️W4-① 기계적 교체 실수의 탐지기)
-            Assert.IsTrue(GoalSelector.AllHold(repay.TriggerConditions, new WorldSnapshot(slots)), "빚 70·소지 60 발동");
-
-            slots[(int)SlotId.MyMoney] = 70; // 갚을 만큼 모임 — 벌이 goal 종료
-            Assert.IsFalse(GoalSelector.AllHold(repay.TriggerConditions, new WorldSnapshot(slots)), "빚만큼 모이면 미발동");
-
-            slots[(int)SlotId.MyDebt] = 0; slots[(int)SlotId.MyMoney] = 0; // 빚 없음 — 첫 조건이 막는다
-            Assert.IsFalse(GoalSelector.AllHold(repay.TriggerConditions, new WorldSnapshot(slots)), "무채무 미발동");
-        }
+        // (T4 에셋 실배선 게이트는 M19-W1에서 삭제 — 검사 대상인 화폐 goal 3종이 철거됐다.
+        //  슬롯 비교 문법 자체의 의미론은 T1c가 계속 지킨다.)
 
         // ── T5: 연대기 HomePaid (W5) ─────────────────────────────────────────
 

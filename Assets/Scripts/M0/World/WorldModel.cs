@@ -31,13 +31,15 @@ namespace AIVillage.M0
         public WorldModel(DiscoveryService discovery, WorldConfigSO config, FarmService farm = null,
                           SeasonService season = null, AgentConfigSO agentCfg = null,
                           System.Func<int> injuredCount = null,
-                          System.Func<int> untendedInjuredCount = null)
+                          System.Func<int> untendedInjuredCount = null,
+                          System.Func<int> pricePct = null)
         {
             _discovery = discovery;
             _farm = farm;
             _season = season;
             _injuredCount = injuredCount;
             _untendedInjuredCount = untendedInjuredCount;
+            _pricePct = pricePct; // M18 — 확정 물가 (하루 1회 캐시, RequestService와 같은 원천)
             _decayPerDay = agentCfg != null ? agentCfg.SatietyDecayPerGameDay : 0f;
             if (config != null)
             {
@@ -46,11 +48,30 @@ namespace AIVillage.M0
                 _slots[(int)SlotId.StoneStock]   = config.InitialStoneStock;
                 _foodValues = DeriveFoodValues(config.FoodSources); // ADR-M9-10 — 액션 에셋에서 파생
                 _farmGrowthDays = config.FarmGrowthDays;            // 심기 창 판정 입력 (M14-W1)
+                // 집값 기준가 (M18, ADR-M18-3) — 원천은 집 소유권 Request 에셋의
+                // RewardCostAmount 하나뿐. 게이트 M18-T2가 복수 에셋의 값 동일성을 강제한다.
+                _homeBasePrice = DeriveHomeBasePrice(config.Requests);
                 // 시작 금고 (M17-W1) — 무에서 온 돈이므로 발행 누적에도 같이 싣는다.
                 // 안 그러면 폐곡선(§8 D2)이 첫 프레임부터 어긋난다.
                 Treasury    = Mathf.Max(0, config.StartingTreasury);
                 MintedTotal = Treasury;
             }
+        }
+
+        private readonly System.Func<int> _pricePct; // M18 — null = 미배선 (기준가 그대로)
+        private readonly int _homeBasePrice;         // M18 — 0 = 집 부탁 에셋 없음 (슬롯 0)
+
+        /// <summary>집값 기준가 파생 (M18, 순수 — 게이트 M18-T2, ADR-M18-3): 집 소유권을 주는
+        /// 화폐 보상 Request의 RewardCostAmount. 여럿이면 첫 항 — 값 동일성은 게이트가 보장한다.
+        /// 없으면 0 (집 부탁이 없는 구성 = HomePriceNow 참조 goal도 없다는 뜻 — 중립).</summary>
+        public static int DeriveHomeBasePrice(RequestSO[] requests)
+        {
+            if (requests == null) return 0;
+            foreach (RequestSO r in requests)
+                if (r != null && r.GrantOwnership && r.OwnershipSlot == SlotId.HouseCount
+                    && r.RewardCostSlot == SlotId.MyMoney && r.RewardCostAmount > 0)
+                    return r.RewardCostAmount;
+            return 0;
         }
 
         /// <summary>FoodSources → (스톡 슬롯, 1개당 포만) 가치표 (M9-G). 식량 아닌 항목은 건너뛴다.</summary>
@@ -454,6 +475,12 @@ namespace AIVillage.M0
             // 🔴 이 한 줄이 없으면 트리거가 영원히 0을 읽어 goal이 절대 안 뜬다. 컴파일도
             // 게이트도 안 잡는다 — M16-W5에서 MyMoney로 똑같이 밟은 자리다 (명세 W7 DoD 🔴).
             slots[(int)SlotId.MyDebt] = myDebt;
+            // 집 실가격 (M18) — 기준가 × 확정 물가, 산식은 TradePrice 하나 (게이트 M16-T6의
+            // 그 함수 — 복제 금지). 🔴 SimulationLoop가 pricePct를 안 넘기면 물가 100% 고정
+            // = 기존 상수 50 동작이라 조용히 낡는다 — MyDebt와 같은 함정 자리 (명세 W2 DoD 🔴).
+            slots[(int)SlotId.HomePriceNow] = _homeBasePrice > 0
+                ? RequestService.TradePrice(_homeBasePrice, _pricePct != null ? _pricePct() : 100)
+                : 0;
             return new WorldSnapshot(slots);
         }
 

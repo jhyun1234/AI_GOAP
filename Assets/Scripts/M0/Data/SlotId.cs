@@ -101,11 +101,19 @@ namespace AIVillage.M0
                                 // 빚은 소지품이 아니다. 넣으면 TransferTo가 "빚을 남에게 주는"
                                 // 경로를 열어 준다. 액션 효과 금지 (원천이 서비스 한 곳).
                                 // 예산 52칸 중 39.
+
+        // ── M18 확장 (집값의 물가 연동) ──
+        HomePriceNow      = 39, // 수치형 파생 — 집 실가격(동) = TradePrice(기준가, 확정 물가).
+                                // 트리거 전용 (ADR-M9-9 패턴 — 플래너 전제·효과 금지, MyMoney
+                                // ADR-M16-5 동형). 원천 = WorldModel.BuildSnapshot 한 곳.
+                                // 기준가 원천 = 집 소유권 Request의 RewardCostAmount (ADR-M18-3
+                                // — WorldConfig에 새 필드 금지, 이중 기입). **예보가 아니라 확정
+                                // 물가만** 쓴다 ("내일 오를 테니 오늘 비싸게" 금지). 예산 52칸 중 40.
     }
 
     public static class SlotIds
     {
-        public const int Count = 39;
+        public const int Count = 40;
 
         /// <summary>전역 스톡 슬롯 여부 — EffectApplier/러너가 공유하는 유일한 판정.
         /// ⚠️ 개인 스톡(MyRawFood 등)을 여기 넣으면 안 된다 (명세 M11-A ⚠️①) —
@@ -142,7 +150,8 @@ namespace AIVillage.M0
             || slot == SlotId.CampfireCount // MyHasCampfire(32)는 논리형이라 제외
             || slot == SlotId.DaysToFreeze  // PlantWindowOpen(36)은 논리형이라 제외
             || slot == SlotId.MyMoney       // M16 — 지갑(동)
-            || slot == SlotId.MyDebt;       // M17 — 빚(동)
+            || slot == SlotId.MyDebt        // M17 — 빚(동)
+            || slot == SlotId.HomePriceNow; // M18 — 집 실가격(동)
 
         /// <summary>자원 타입 → 스톡 슬롯. M0 미지원 타입이면 null (Iron/Copper/Silver는 M1).</summary>
         public static SlotId? StockOf(ResourceType type)

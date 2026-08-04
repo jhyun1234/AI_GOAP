@@ -849,7 +849,11 @@ namespace AIVillage.M0
             // 식량 수지 (M9-G, M11-D 개인화) — 가치표는 config.FoodSources에서 파생, 인원 입력은
             // 제거됨 (식량은 개인 단위). 부상 수(M10-A)는 provider 패턴 — 파생 슬롯의 원천은 집계 하나뿐
             World        = new WorldModel(Discovery, _worldConfig, Farm, Season,
-                                         _agentConfig, CountInjured, CountUntendedInjured);
+                                         _agentConfig, CountInjured, CountUntendedInjured,
+                                         // 집 실가격 입력 (M18-W2) — RequestService(869)와 같은
+                                         // 하루 1회 캐시. 🔴 빼먹으면 물가 100% 고정 = 집값이
+                                         // 조용히 다시 상수가 된다 (명세 W2 DoD).
+                                         () => PricePct);
             Construction = new ConstructionService(World);
             Zones        = new ZoneService(); // M9-A — 배치 결정자 (군집 휴리스틱 대체, ADR-M9-1)
             Planner      = new PlannerGateway(_catalog, _agentConfig); // M11-A — 개인 상한 전제 주입 (ADR-M11-3)

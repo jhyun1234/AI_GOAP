@@ -154,6 +154,74 @@ namespace AIVillage.Tests.EditMode
                     $"{owner}: 슬롯 {c.Slot}을 자기 자신과 비교 — 상수 참/거짓이 됩니다 (RightSlot 설정 실수)");
         }
 
+        // ── T2: HomePriceNow — 집값의 단일 출처 (ADR-M18-3) ──────────────────
+
+        [Test]
+        public void M18_T2_HomeBasePrice_SingleSourceAcrossAssets()
+        {
+            // 집 소유권 Request 에셋 전수 — 기준가가 갈리면 HomePriceNow가 "어느 집값"인지
+            // 애매해진다 (런타임은 첫 항을 읽으므로 두 번째 값은 조용히 무시된다 — red가 정답)
+            var prices = new System.Collections.Generic.List<int>();
+            foreach (string guid in AssetDatabase.FindAssets("t:RequestSO", new[] { "Assets/M0Config" }))
+            {
+                var r = AssetDatabase.LoadAssetAtPath<RequestSO>(AssetDatabase.GUIDToAssetPath(guid));
+                if (r != null && r.GrantOwnership && r.OwnershipSlot == SlotId.HouseCount
+                    && r.RewardCostSlot == SlotId.MyMoney && r.RewardCostAmount > 0)
+                    prices.Add(r.RewardCostAmount);
+            }
+            Assert.Greater(prices.Count, 0, "집 소유권 Request 에셋이 없다 — 스캔 조건이 낡았다");
+            foreach (int p in prices)
+                Assert.AreEqual(prices[0], p, "집 부탁들의 기준가가 갈린다 — ADR-M18-3 위반");
+        }
+
+        [Test]
+        public void M18_T2_DeriveHomeBasePrice_FiltersCorrectly()
+        {
+            // 집 소유권 + 화폐 보상만 기준가다 — 실물 보상·소유권 없는 부탁은 집값이 아니다
+            var house = ScriptableObject.CreateInstance<RequestSO>();
+            house.GrantOwnership = true; house.OwnershipSlot = SlotId.HouseCount;
+            house.RewardCostSlot = SlotId.MyMoney; house.RewardCostAmount = 50;
+            var cook = ScriptableObject.CreateInstance<RequestSO>();
+            cook.RewardCostSlot = SlotId.MyRawFood; cook.RewardCostAmount = 5;
+
+            Assert.AreEqual(50, WorldModel.DeriveHomeBasePrice(new[] { cook, house }), "집 부탁을 못 찾음");
+            Assert.AreEqual(0, WorldModel.DeriveHomeBasePrice(new[] { cook }), "실물 부탁을 집값으로 오인");
+            Assert.AreEqual(0, WorldModel.DeriveHomeBasePrice(null), "null 구성은 0 (중립)");
+
+            Object.DestroyImmediate(house);
+            Object.DestroyImmediate(cook);
+        }
+
+        [Test]
+        public void M18_T2_HomePriceNow_TracksConfirmedPrice()
+        {
+            // 산식 = TradePrice 하나 (복제 금지 — M16-T6의 그 함수): 올림·100% 하한
+            Assert.AreEqual(50, RequestService.TradePrice(50, 100), "중립 물가 = 기준가 그대로");
+            Assert.AreEqual(70, RequestService.TradePrice(50, 140), "물가 140% → 70동");
+            Assert.AreEqual(200, RequestService.TradePrice(50, 400), "캡 400% → 200동");
+
+            // 스냅샷 통합 — 물가 140%를 주입한 WorldModel이 실가격 70을 내놓는가
+            var cfg = ScriptableObject.CreateInstance<WorldConfigSO>();
+            var house = ScriptableObject.CreateInstance<RequestSO>();
+            house.GrantOwnership = true; house.OwnershipSlot = SlotId.HouseCount;
+            house.RewardCostSlot = SlotId.MyMoney; house.RewardCostAmount = 50;
+            cfg.Requests = new[] { house };
+
+            var world = new WorldModel(null, cfg, pricePct: () => 140);
+            Assert.AreEqual(70, world.BuildSnapshot(50, 50).Get(SlotId.HomePriceNow), "물가 140% 실가격");
+
+            // 미주입 = 물가 100% (기존 상수 50과 동치 — 동작 불변의 다리)
+            var unbound = new WorldModel(null, cfg);
+            Assert.AreEqual(50, unbound.BuildSnapshot(50, 50).Get(SlotId.HomePriceNow), "미주입 = 기준가");
+
+            // 집 부탁 없는 구성 = 0 (중립 — 참조 goal도 없는 구성이라는 뜻)
+            var empty = new WorldModel(null, ScriptableObject.CreateInstance<WorldConfigSO>());
+            Assert.AreEqual(0, empty.BuildSnapshot(50, 50).Get(SlotId.HomePriceNow), "부탁 없음 = 0");
+
+            Object.DestroyImmediate(cfg);
+            Object.DestroyImmediate(house);
+        }
+
         // ── T1e: OnValidate 배선 — 에디터에서 저장 순간 ADR-M18-1 에러가 실제로 뜨는가 ──
 
         [Test]

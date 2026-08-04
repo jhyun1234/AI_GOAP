@@ -27,9 +27,16 @@ REM Daily at 15:00. Must land AFTER the cloud routine pushes the script
 REM (it starts 09:09 and pushes around 11:04). The old registration was
 REM DAILY /mo 2 /st 09:00 and fired 9 minutes BEFORE the cloud run, so every
 REM episode shipped a day late. Daily, and no interval gate here: the beat
-REM belongs to the cloud routine (one episode per day since 2026-08-02), and a
-REM second beat here only re-creates the drift. See routine.cmd and
-REM routine-prompt.md for the full story.
+REM belongs to the cloud routine, and a second beat here only re-creates the
+REM drift. See routine.cmd and routine-prompt.md for the full story.
+REM
+REM 2026-08-03: the cloud routine now writes TWO scripts a day, not one.
+REM This task deliberately stays at ONCE a day - do NOT add a second time.
+REM publish.mjs --routine renders every pending script in one run (up to 4),
+REM so one trigger already drains the backlog. Adding a second trigger would
+REM give local and cloud two places to disagree about timing, which is exactly
+REM the bug that shipped every episode a day late. See ADR-V-5 in the
+REM retention spec under Docs/ (grep for ADR-V-5).
 echo [1/2] daily 15:00
 schtasks /create /tn "AI_GOAP scene-video" /tr "\"%TASKCMD%\"" /sc DAILY /st 15:00 /f
 if errorlevel 1 goto :fail

@@ -168,10 +168,36 @@ function buildTimeline(timed) {
 }
 
 /* ── DOM ──────────────────────────────────────────── */
+/* 아웃트로 카드가 뜨는 구간. 🔑 3000 이 아니라 2600 인 이유는 check.mjs 의
+   `정적 구간 3초 이하` 다 — 카드가 뒤 그림을 덮으므로 그 구간은 자막만 움직인다.
+   3초를 꽉 채우면 마지막 자막이 짧은 회차에서 정적 구간이 3초를 넘길 수 있다. */
+const OUTRO_MS = 2600;
+
 function buildDom() {
   $('hudTitle').textContent = scene.hud.title;
-  $('hudAiText').textContent = scene.hud.aiHook;
+
+  /* 🔴 상단에서 AI 한 줄을 뺀다(2026-08-03). 세로 화면 최상단은 훅이 쓸 자리인데
+     영상 내내 안 바뀌는 텍스트가 점유하고 있었다.
+     🔑 URL 은 **남긴다.** 원래 주석("어느 지점에서 이탈해도 이건 남는다")이 맞다 —
+     평균 시청이 16~27초라 URL 을 아웃트로로 옮기면 절반 이상이 블로그 주소를 못 본다.
+     AI 문구만 아웃트로 카드로 내린다. */
+  $('hudAi').hidden = true;
   $('hudOutro').textContent = scene.hud.outro;
+
+  /* 아웃트로 카드 채우기. `scene.outro` 가 없으면(기존 회차) AI 문구만 뜬다 —
+     필드를 안 쓰는 회차가 깨지지 않아야 한다. */
+  const o = scene.outro || {};
+  $('ocSrc').textContent = [o.source && `「${o.source}」`, o.part].filter(Boolean).join(' · ');
+  $('ocSrc').hidden = !o.source && !o.part;
+  const sibs = $('ocSibs'); sibs.innerHTML = '';
+  for (const s of o.siblings || []) {
+    const li = document.createElement('li');
+    li.textContent = typeof s === 'string' ? s : (s.label || '');
+    if (s.me) li.className = 'me';
+    sibs.appendChild(li);
+  }
+  sibs.hidden = !(o.siblings || []).length;
+  $('ocAi').textContent = scene.hud.aiHook || '';
 
   const vis = $('vis'); vis.innerHTML = '';
   shots.forEach(s => {
@@ -208,6 +234,10 @@ function seek(t) {
   $('prog').style.width = (t / TOTAL * 100) + '%';
   $('time').textContent = (t / 1000).toFixed(1) + 's';
   $('scrub').value = Math.round(t / TOTAL * 1000);
+
+  // 아웃트로 카드 — seek 이 유일한 그리기 경로이므로 여기서만 켠다.
+  // 이렇게 해야 스크럽으로 뒤로 감아도 상태가 맞는다(렌더는 seek 을 임의 순서로 부른다).
+  $('outroCard').hidden = !(t >= TOTAL - OUTRO_MS);
 
   // 활성 샷 — 마지막 샷은 끝까지 유지
   let act = shots[0];

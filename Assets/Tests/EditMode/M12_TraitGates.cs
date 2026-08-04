@@ -763,8 +763,10 @@ namespace AIVillage.Tests.EditMode
             //  '목수 곁에 도착'은 위치라 GoalConditions로 쓸 수 없다. ⓑ 풀 1개 ⓒ 이동만·효과 없음)
             ["DirectActionPool"] = new[] { "Goal_Leisure", "Goal_ReportDone", "Goal_Routine_Explorer",
                                            "Goal_Routine_Farmer", "Goal_SeekCarpenter" },
-            // ADR-M5-4 (폴백 불변식) — "세 번째 용도 = 규칙 재검토 신호"라는 자폭 트리거 내장
-            ["RequiredJob"] = new[] { "Goal_TreatInjured", "Goal_BuildMyHouse" },
+            // ADR-M5-4 (폴백 불변식) — "세 번째 용도 = 규칙 재검토 신호"라는 자폭 트리거 내장.
+            // M19-W2 개정 (ADR-M19-3): 목수 자가 건축 독점(Goal_BuildMyHouse)을 해제 —
+            // 효율 전문화(BuildDurationMult)로 대체. 남은 예외 = 치료 1곳 (M20에서 재설계).
+            ["RequiredJob"] = new[] { "Goal_TreatInjured" },
             // ADR-M6-2 (게임건강 예외) — 식량 goal 3 + 명령 goal 3
             ["MayHaveNoSolution"] = new[] { "Goal_P0_Hunger", "Goal_Snack", "Goal_GatherFood",
                                             "Order_ChopWood", "Order_HarvestBerries", "Order_MineStone" },

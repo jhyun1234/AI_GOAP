@@ -34,6 +34,12 @@ namespace AIVillage.M0
         public float BuildCostMult = 1f;
         public float ExploreCostMult = 1f;
 
+        [Tooltip("건설 실행 시간 배율 (M19 — 효율 전문화, ADR-M19-3). 1 = 현행(일반·무직 전부 " +
+                 "불변 — 중립 불변식 M5-S3). 목수만 <1 = 솜씨 보너스 (Job_Carpenter 0.5, 제안치).\n" +
+                 "⚠️ BuildCostMult(플래너 비용 = 계획 선호)와 다른 축 — 이쪽은 실행층 시간이다. " +
+                 "적용 지점은 BuildRunner 하나 — 채집·농사에 곱지 않는다.")]
+        public float BuildDurationMult = 1f;
+
         [Tooltip("할 일 없을 때의 일과 goal (개인 사다리 주입, ADR-M5-2). 비면 일과 없음")]
         public GoalSO RoutineGoal;
 

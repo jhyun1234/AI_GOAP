@@ -33,7 +33,7 @@ MonoBehaviour:
   SkipFailureCooldown: 0
   MaxWorkers: 0
   AllowedWhenInjured: 0
-  RequiredJob: {fileID: 11400000, guid: fda218a4d94842849b31a189131a4926, type: 2}
+  RequiredJob: {fileID: 0}
   TraitWeights:
   - Trait: 4
     Weight: 0.4

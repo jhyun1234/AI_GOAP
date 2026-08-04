@@ -15,6 +15,7 @@ namespace AIVillage.M0
 
         private readonly BuildActionSO _so;
         private Vector2Int _buildTile; // 완공 위치 — 차단 건물은 서는 타일(MoveTarget)과 분리 (ADR-M3-3)
+        private float _durationMult = 1f; // M19 — 직업 효율 (Prepare에서 캐시, 기본 1 = 중립)
 
         public override bool AppliesOwnEffects => true;
 
@@ -30,6 +31,7 @@ namespace AIVillage.M0
                 FailReason = $"{_so.name}: BuildingSO 미연결";
                 return false;
             }
+            _durationMult = agent.BuildDurationMultOfJob(); // M19 — 실행 시점 직업 기준 (중립 = 1)
 
             // 주민이 서 있거나 이동 중인 타일(타인 예약)도 제외 — 통행 차단 건물이 주민 위에
             // 완공되면 JPS 출발 불가로 영구 고립 (2026-07-16 방치 관측: 경로없음 반복의 근본 원인 후보)
@@ -224,7 +226,8 @@ namespace AIVillage.M0
 
         public override RunnerResult Tick(VillagerAgent agent, float dt)
         {
-            if (!DurationElapsed(dt)) return RunnerResult.Running;
+            // M19 효율 전문화 — 목수는 빨리 짓는다 (배율 유도는 VillagerAgent 한 곳)
+            if (!DurationElapsed(dt, _durationMult)) return RunnerResult.Running;
 
             // 완공 순간 타일에 다른 주민이 있으면 실패 → 재계획 (매몰 방지의 두 번째 겹).
             // 대기(Running 유지)는 금지 — 건설자가 동상이 되어 통행 정체를 누적시키고

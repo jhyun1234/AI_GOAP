@@ -61,6 +61,14 @@ namespace AIVillage.M0
             return Elapsed >= Action.DurationSec;
         }
 
+        /// <summary>배율 판 (M19 — 효율 전문화). 소비처는 BuildRunner뿐 — 다른 러너가 쓰기
+        /// 시작하면 "직업이 생존·소비 속도를 바꾸는" ADR-M5-3 위반 신호다.</summary>
+        protected bool DurationElapsed(float dt, float durationMult)
+        {
+            Elapsed += dt;
+            return Elapsed >= Action.DurationSec * Mathf.Max(0.05f, durationMult);
+        }
+
         protected RunnerResult Fail(string reason)
         {
             FailReason = reason;

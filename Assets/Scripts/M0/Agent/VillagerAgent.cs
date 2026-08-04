@@ -132,6 +132,11 @@ namespace AIVillage.M0
         /// <summary>직업 (M5-A). null = 무직 — M4와 goal 선택 동일 (M5-S3). 세이브 대상 (ADR-M5-5).</summary>
         public JobSO Job { get; private set; }
 
+        /// <summary>건설 실행 시간 배율 (M19 — 효율 전문화, ADR-M19-3). 직업 없음 = 1(중립,
+        /// M5-S3). 소비처는 BuildRunner뿐 — 여기가 유도의 유일한 지점이다.</summary>
+        public float BuildDurationMultOfJob()
+            => Job != null ? Job.BuildDurationMult : 1f;
+
         // goal 실효 우선순위 보정 (M5-B 직업 + M6 후속 성격 합산, ADR-M5-1) — 스폰 1회 캐시.
         // 둘 다 null이면 null = Select가 기존과 완전 동일 경로 (중립 불변식).
         private System.Func<GoalSO, int> _goalBias;

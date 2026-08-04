@@ -22,6 +22,7 @@ MonoBehaviour:
   FarmCostMult: 1
   BuildCostMult: 0.7
   ExploreCostMult: 1
+  BuildDurationMult: 0.5
   RoutineGoal: {fileID: 0}
   HomePreferredDist: -0.75
   PreferWeights:

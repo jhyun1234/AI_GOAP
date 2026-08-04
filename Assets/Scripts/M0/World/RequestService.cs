@@ -218,7 +218,18 @@ namespace AIVillage.M0
         /// </summary>
         private void Ask(RequestSO r, VillagerAgent requester, VillagerAgent target, float nowSec)
         {
-            requester.ShowTransient(Pick(r.AskLines));
+            // 실가격 확정 (M18, ADR-M18-2) — 수락 장면에서 1회 산출해 진행 기록에 싣는다.
+            // 이후 선불·빚·연기 정산은 전부 이 값 하나만 읽는다 (재계산 = 판정과 이전이 갈림).
+            int price = AcceptancePrice(r.RewardCostSlot, r.RewardCostAmount,
+                                        _pricePct != null ? _pricePct() : 100);
+            // 호가 병기 (M18-W4, ADR-M18-4) — 액수는 대사 문자열이 아니라 여기서만 나온다
+            // (에셋에 "50동"을 하드코딩하면 물가가 오른 판에서 대사가 거짓말을 한다).
+            // 화폐 보상 부탁만 — 직거래는 AskTrade가 자기 호가(AcceptLines)를 이미 병기한다.
+            bool quotesPrice = r.TradeGiveAmount == 0
+                               && r.RewardCostSlot == SlotId.MyMoney && price > 0;
+            requester.ShowTransient(quotesPrice
+                ? $"{Pick(r.AskLines)} — {SeasonHud.ComposeMoney(price)}"
+                : Pick(r.AskLines));
             requester.FaceForChat(target.transform.position, _agentCfg.ChatPauseSec);
             target.FaceForChat(requester.transform.position, _agentCfg.ChatPauseSec);
 
@@ -229,11 +240,6 @@ namespace AIVillage.M0
                 AskTrade(r, requester, target, nowSec);
                 return;
             }
-
-            // 실가격 확정 (M18, ADR-M18-2) — 수락 장면에서 1회 산출해 진행 기록에 싣는다.
-            // 이후 선불·빚·연기 정산은 전부 이 값 하나만 읽는다 (재계산 = 판정과 이전이 갈림).
-            int price = AcceptancePrice(r.RewardCostSlot, r.RewardCostAmount,
-                                        _pricePct != null ? _pricePct() : 100);
 
             // 선불 가용성 판정도 개인 잔고로 (M11-H) — 전역 스톡 조회는 폐지됐다.
             // 가난한 의뢰인은 선불 성격 수행자에게 RefusedNoReward (기존 대사 재사용).

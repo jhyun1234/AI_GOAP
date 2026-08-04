@@ -252,6 +252,57 @@ namespace AIVillage.Tests.EditMode
                 "정산 시점 물가 무관 — 수락가 하나만 읽는다");
         }
 
+        // ── T4: 에셋 실배선 (W4) — 집 사슬·빚이 실제로 파생 슬롯을 보는가 ──────
+
+        private static WorldSnapshot HouseSnap(int myMoney, int homePrice)
+        {
+            int[] slots = new int[PlanningConfig.TotalSlots];
+            slots[(int)SlotId.MyMoney]        = myMoney;
+            slots[(int)SlotId.HomePriceNow]   = homePrice;
+            slots[(int)SlotId.MyFoodDaysLeft] = 5;   // 저축 트리거의 "배는 부르다" 전제
+            slots[(int)SlotId.DaysToFreeze]   = 30;  // 겨울 직전 저축 중단 전제 회피
+            return new WorldSnapshot(slots);         // MyHasHome(17) = 0 = 무주택
+        }
+
+        [Test]
+        public void M18_T4_SaveAndSeek_NoOverlapAtBoundary()
+        {
+            var save = AssetDatabase.LoadAssetAtPath<GoalSO>("Assets/M0Config/Goals/Goal_SaveForHome.asset");
+            var seek = AssetDatabase.LoadAssetAtPath<GoalSO>("Assets/M0Config/Goals/Goal_SeekCarpenter.asset");
+            Assert.IsNotNull(save); Assert.IsNotNull(seek);
+
+            // 물가 140% 세계 (실가격 70): 69동 = 아직 모은다, 사러 가지 않는다
+            Assert.IsTrue(GoalSelector.AllHold(save.TriggerConditions, HouseSnap(69, 70)), "69 < 70 저축");
+            Assert.IsFalse(GoalSelector.AllHold(seek.TriggerConditions, HouseSnap(69, 70)), "69로 구매 불가");
+            // 정확히 70동 = 저축은 꺼지고 구매만 켜진다 — Less 도입의 존재 이유 (경계 동시 발동 0)
+            Assert.IsFalse(GoalSelector.AllHold(save.TriggerConditions, HouseSnap(70, 70)), "70 도달 — 저축 종료");
+            Assert.IsTrue(GoalSelector.AllHold(seek.TriggerConditions, HouseSnap(70, 70)), "70 도달 — 사러 간다");
+            // 물가 100% 세계 (실가격 50): 기존 상수 49/50과 동일 경계 — 동작 불변의 다리
+            Assert.IsTrue(GoalSelector.AllHold(save.TriggerConditions, HouseSnap(49, 50)), "49 < 50 저축(기존 동치)");
+            Assert.IsTrue(GoalSelector.AllHold(seek.TriggerConditions, HouseSnap(50, 50)), "50 도달(기존 동치)");
+        }
+
+        [Test]
+        public void M18_T4_RepayDebt_ComparesDebtNotHomePrice()
+        {
+            var repay = AssetDatabase.LoadAssetAtPath<GoalSO>("Assets/M0Config/Goals/Goal_RepayDebt.asset");
+            Assert.IsNotNull(repay);
+
+            int[] slots = new int[PlanningConfig.TotalSlots];
+            slots[(int)SlotId.MyDebt]         = 70;  // 수락 시점 실가격으로 진 빚 (W3)
+            slots[(int)SlotId.MyMoney]        = 60;
+            slots[(int)SlotId.MyFoodDaysLeft] = 5;
+            // ⚠️ HomePriceNow를 0으로 둔 채 발동해야 한다 — 우변이 집값(39)으로 잘못 배선됐다면
+            // "60 < 0"이 되어 여기서 false가 난다 (명세 ⚠️W4-① 기계적 교체 실수의 탐지기)
+            Assert.IsTrue(GoalSelector.AllHold(repay.TriggerConditions, new WorldSnapshot(slots)), "빚 70·소지 60 발동");
+
+            slots[(int)SlotId.MyMoney] = 70; // 갚을 만큼 모임 — 벌이 goal 종료
+            Assert.IsFalse(GoalSelector.AllHold(repay.TriggerConditions, new WorldSnapshot(slots)), "빚만큼 모이면 미발동");
+
+            slots[(int)SlotId.MyDebt] = 0; slots[(int)SlotId.MyMoney] = 0; // 빚 없음 — 첫 조건이 막는다
+            Assert.IsFalse(GoalSelector.AllHold(repay.TriggerConditions, new WorldSnapshot(slots)), "무채무 미발동");
+        }
+
         // ── T1e: OnValidate 배선 — 에디터에서 저장 순간 ADR-M18-1 에러가 실제로 뜨는가 ──
 
         [Test]

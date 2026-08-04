@@ -319,13 +319,20 @@ namespace AIVillage.Tests.EditMode
             {
                 if (!r.AlwaysUpfront || r.RewardCostAmount <= 0) continue;
 
+                // M18 개정 (2026-08-04): 보장 형태가 둘이 됐다 — ①상수 'MyMoney ≥ 기준가'(舊)
+                // ②슬롯 비교 'MyMoney ≥ HomePriceNow'(신). ②가 보장인 이유: 성립 판정의
+                // HomePriceNow와 지불액 AcceptancePrice가 **같은 기준가 × 같은 하루 1회 물가**를
+                // 읽는다 (ADR-M18-2·3) — 스캔과 지불이 같은 날이면 액수가 같을 수밖에 없다.
                 bool guaranteed = r.RequesterConditions != null && r.RequesterConditions.Any(
                     c => c.Slot == r.RewardCostSlot
                          && c.Op == CompareOp.GreaterOrEqual
-                         && c.Value >= r.RewardCostAmount);
+                         && (c.CompareToSlot
+                                 ? c.RightSlot == SlotId.HomePriceNow
+                                 : c.Value >= r.RewardCostAmount));
                 Assert.IsTrue(guaranteed,
                     $"{r.name}: AlwaysUpfront인데 의뢰인 조건이 지불 능력을 보장하지 않는다 — " +
-                    $"'{r.RewardCostSlot} ≥ {r.RewardCostAmount}'가 RequesterConditions에 있어야 한다");
+                    $"'{r.RewardCostSlot} ≥ {r.RewardCostAmount}(상수)' 또는 " +
+                    "'≥ HomePriceNow(슬롯 비교)'가 RequesterConditions에 있어야 한다");
             }
         }
 

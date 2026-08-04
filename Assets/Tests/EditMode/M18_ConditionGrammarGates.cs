@@ -303,6 +303,21 @@ namespace AIVillage.Tests.EditMode
             Assert.IsFalse(GoalSelector.AllHold(repay.TriggerConditions, new WorldSnapshot(slots)), "무채무 미발동");
         }
 
+        // ── T5: 연대기 HomePaid (W5) ─────────────────────────────────────────
+
+        [Test]
+        public void M18_T5_HomePaid_AppendOnlyAndVisible()
+        {
+            // append-only (ADR-M13-2) — 기존 값이 밀렸다면 저장된 연대기가 다른 이야기가 된다
+            Assert.AreEqual(6, (int)EventId.Traded, "기존 사건 정수 불변");
+            Assert.AreEqual(7, (int)EventId.HomePaid, "신규는 뒤에만");
+
+            // 표시 — 기록만 하고 안 보여 주는 것은 M13이 진단한 실패 (M17-T7 선례)
+            string shown = SeasonHud.KrEvent(new ChronicleEvent { Kind = EventId.HomePaid, Value = 70 });
+            StringAssert.Contains("집값 지불", shown);
+            StringAssert.Contains("70", shown, "판마다 다른 액수가 화면 언어에 실려야 한다");
+        }
+
         // ── T1e: OnValidate 배선 — 에디터에서 저장 순간 ADR-M18-1 에러가 실제로 뜨는가 ──
 
         [Test]

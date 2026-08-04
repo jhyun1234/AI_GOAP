@@ -273,8 +273,16 @@ namespace AIVillage.M0
                                && canPayNow
                                && requester.TransferTo(target, r.RewardCostSlot, price);
                 if (prepaid)
+                {
                     Debug.Log($"[Request] 선불 — {requester.AgentId}→{target.AgentId}: " +
                               $"{r.RewardCostSlot} {price}개 이전");
+                    // 연대기 (M18-W5) — 지불을 아는 곳이 기록한다 (ADR-M13-3의 정신 —
+                    // GotHome은 완수 시점 구독이라 액수를 모른다). Traded(347) 기록 동형.
+                    if (r.RewardCostSlot == SlotId.MyMoney)
+                        _chronicle?.RecordEvent(requester.AgentId, EventId.HomePaid,
+                                                _gameDay != null ? _gameDay() : 0f,
+                                                target.AgentId, price);
+                }
                 _inFlight[target.AgentId] = (r, requester.AgentId, prepaid, price);
             }
             else

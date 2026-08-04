@@ -15,6 +15,50 @@ metadata:
 
 ## 최신 사용 커밋
 
+- `latest_commit`: `b105360` (전체 해시 `b105360ddc0f0029479cab3657d5029129d0d383`,
+  2026-07-30 23:54:24 +0900, `docs(devlog): S9 회상 테스트 결과 — 첫 통과 신호,
+  준비된 자의 아사 수수께끼` — 마스터 Step 6 2차 판정서(`06_verdict.md`) handoff_notes
+  ①이 명시한 소재 소비 커밋. 기획팀 브리프의 `verify_at`은 `458e882`(M13 결산 커밋)였으나,
+  글의 결론을 떠받치는 최고위험 회상 인용의 실제 근거는 `b105360`이며, `458e882`는
+  `b105360`의 조상이라 그대로 기록하면 다음 회차 기획팀이 `b105360`을 미발행 소재로
+  재선정할 위험이 있어 이 값을 채택했다.)
+- `selected_commits_range`: `dc797d0`(docs(devlog) M13 목적 재정의) ~ `b105360`(docs(devlog)
+  S9 회상 테스트 결과) — M13 "사건과 흔적" 전 항목(A~D+C3, 6개) 완결 + 결산 + 회상 테스트
+  실측까지 20커밋: `dc797d0`(M13 목적 재정의, 07-26) · `a5f362c`(M13 브레인스토밍 —
+  GOAP 의도 판정·RimWorld 대조·코드 실사, 07-27) · `d6b63c4`(M13 = '사건과 흔적' 확정 —
+  항목 6개·순서, spec-write 실사 1, 07-27) · `d6a84bf`(spec(m13) 사건과 흔적 실행명세서 —
+  실사 2~5 완료, 07-27) · `ea042a0`(feat(m13) A 비석 이름) · `2192563`(A 후속 — 비석
+  이름표 크기 에셋화) · `9a6acad`(feat(m13) B 상태 알림 줄) · `0b2a8cc`(B 개정 — 굶는
+  주민을 이름으로, 달력 식량 요약 삭제) · `8b68ff9`(B 후속 — 굶는 주민 줄 클릭 = 카메라
+  점프 + 선택) · `74cc183`(B 후속 — 선택 = 추적 카메라) · `f5c24a6`(B 후속 — 상태줄
+  폰트 에셋화 + 확장 규칙 주석) · `d613d0e`(feat(m13) C1 명부+회고) · `e7003b5`(디버그
+  전멸 Ctrl+F9) · `9262660`(feat(m13) C2 사건+정보줄) · `92c8d8b`(C2 개정 — 명부는 목차,
+  깊이는 클릭) · `3f4906f`(C2 후속 — 완공 사건에 건물명 병기) · `00d743c`(C2 후속 — 압축을
+  연속에서 전체 묶음으로) · `4d2c265`(feat(m13) D 문턱·이유) · `9a0a94d`(feat(m13) C3
+  관계 보존) · `458e882`(docs(devlog) M13 결산 — 항목 6개 완료·증분 실증·S9 회상 테스트
+  인계, 07-30 17:18) · `b105360`(docs(devlog) S9 회상 테스트 결과 — 첫 통과 신호,
+  준비된 자의 아사 수수께끼, 07-30 23:54, **latest_commit**). 기획팀 브리프(`.staging/
+  01_planner_brief.md`) commit_refs 전체 반영.
+- `cycle_date`: 2026-08-04 (마스터 Step 6 2차 APPROVED, 반려 0회 — 정상 승인 경로 완주.
+  게시팀 Step 7이 `.staging/05_final.md`의 title/meta_description/labels/html_content를
+  수정 없이 그대로 정식 공개 발행.)
+- `publish_status`: PUBLISHED (Blogger published: 2026-08-03T22:49:02-07:00, status: LIVE)
+- `blogger_post_id`: 2763756011570552738
+- `blog_url`: https://gamedevclaude.blogspot.com/2026/08/claude-code-ai-unity-goap.html
+- `title`: Claude Code 게임 개발 AI 페어 프로그래밍 후기 — 주민이 죽어도 "그냥 죽었어"로
+  끝났다: Unity GOAP 마을에 사건과 흔적을 심은 인디게임 개발일지
+- `labels`: Unity GOAP, Claude Code 게임 개발, 인디게임 개발일지, AI 페어 프로그래밍
+- `local_archive`: tools/blog-automation/published/2026-08-04-unity-goap-m13-events-and-traces.html
+  (게시 직후 Blogger POST 응답 JSON의 `content` 필드를 게시 직전 임시 파일
+  `_tmp_content.html`과 문자열 비교(파이썬 `==`) 및 md5 대조해 완전 일치함을 직접
+  확인(byte-identical, md5 `cdf6d74339e81ff40364e1ce2982c1b9` 동일, 16,065자, U+FFFD
+  0건). `title`·`labels`(4개, 순서만 다름) 필드도 일치 확인.)
+- `content_note`: 이 회차는 blog-editor(Step 5)를 정상 경유했다(반려 0회). 마스터 Step 6
+  2차 판정서(`06_verdict.md`)가 승인 스냅샷과 `.staging/02_draft.md`를 sha256까지 대조해
+  사이클 중 원고 변조가 없음을 확인했고, 편집팀의 실질 변경은 목록 기호(`①②③④`→
+  `1)2)3)4)`) 1건 + M12 링크 삽입 1건뿐이었다.
+
+## 이전 사용 커밋 (2026-08-02, M12 성격 축/성향 벡터)
 - `latest_commit`: `c1d87e2` (docs(devlog) M12 종료 — S4 15/15 분화, 회상 테스트 실패,
   M13 = 표현층 — 기획팀 브리프(`incidents/2026-08-02/01_planner_brief.md`)의 `verify_at`
   이자 commit_refs 중 가장 최신 커밋)

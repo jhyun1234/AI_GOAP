@@ -170,12 +170,17 @@ namespace AIVillage.M0
         }
     }
 
-    /// <summary>전제조건 비교 연산. 값은 舊 goalOps 규약(1=GreaterEq)과 정렬 — W2 컴파일 단순화.</summary>
+    /// <summary>전제조건 비교 연산. 값은 舊 goalOps 규약(1=GreaterEq)과 정렬 — W2 컴파일 단순화.
+    /// ⚠️ Less/Greater(M18)는 **트리거 전용**이다 (ADR-M18-1) — 플래너 잡은 0~2만 안다.
+    /// ActionCompiler가 (int)Op를 그대로 잡에 먹이므로 Preconditions·GoalConditions에 새 값이
+    /// 들어가면 잡의 스위치가 모르는 연산이 된다. 게이트 M18-T1이 에셋 전수를 감시한다.</summary>
     public enum CompareOp
     {
         Equal          = 0,
         GreaterOrEqual = 1,
         LessOrEqual    = 2,
+        Less           = 3, // M18 — 슬롯 비교의 경계 겹침 방지 (상수 시절의 "≤ N-1" 수법 대체)
+        Greater        = 4, // M18 — 〃 (대칭)
     }
 
     /// <summary>효과 연산. 값은 舊 effect op 규약(0=Set, 1=Add, 2=Sub)과 정렬. Sub는 항상 0 클램프.</summary>
@@ -192,6 +197,25 @@ namespace AIVillage.M0
         public SlotId Slot;
         public CompareOp Op;
         public int Value;
+
+        // ── M18 — 슬롯 대 슬롯 비교 (ADR-M18-1: 트리거 전용) ──
+        // 켜면 Value 대신 RightSlot의 현재값이 우변이 된다 (AllHold 한 곳만 해석).
+        // 기존 에셋은 필드 부재 → false/0 역직렬화 = 동작 완전 불변.
+        // ⚠️ GoalConditions·Preconditions에서 켜면 잡은 이 필드를 몰라 상수 Value로 목표를
+        // 세운다 — 플래너 목표와 완수 판정이 갈린다. OnValidate 2곳 + 게이트 M18-T1이 막는다.
+        public bool   CompareToSlot;
+        public SlotId RightSlot;
+
+        /// <summary>트리거 전용 문법(슬롯 비교·Less·Greater) 사용 여부 — 금지 칸 판정의
+        /// **유일한 출처** (ADR-M18-1). GoalSO/ActionSO OnValidate와 게이트 M18-T1이 이것
+        /// 하나를 읽는다 — 판정을 각자 들고 있으면 게이트와 에디터가 갈린다.</summary>
+        public static bool UsesTriggerOnlyGrammar(SlotCondition[] conditions)
+        {
+            if (conditions == null) return false;
+            foreach (SlotCondition c in conditions)
+                if (c.CompareToSlot || c.Op >= CompareOp.Less) return true;
+            return false;
+        }
     }
 
     [Serializable]

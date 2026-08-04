@@ -92,5 +92,15 @@ namespace AIVillage.M0
         /// abstract이므로 새 계열 SO는 컴파일러가 구현을 강제한다. 문자열 분기 금지의 핵심.
         /// </summary>
         public abstract IActionRunner CreateRunner(VillagerAgent agent);
+
+        /// <summary>ADR-M18-1: Preconditions는 잡이 (int)Op 그대로 삼킨다 — 슬롯 비교·새
+        /// 연산자가 들어가면 잡이 모르는 연산이 된다 (조용한 오동작). virtual인 이유:
+        /// 서브클래스(BuildActionSO)가 자기 OnValidate로 이 검사를 가리면 안 된다.</summary>
+        protected virtual void OnValidate()
+        {
+            if (SlotCondition.UsesTriggerOnlyGrammar(Preconditions))
+                Debug.LogError($"[ActionSO] {name}: Preconditions에 슬롯 비교/새 연산자 금지 — " +
+                               "플래너 잡은 상수 3연산만 압니다 (ADR-M18-1).", this);
+        }
     }
 }

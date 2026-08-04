@@ -46,8 +46,9 @@ namespace AIVillage.M0
 
         public override IActionRunner CreateRunner(VillagerAgent agent) => new BuildRunner(this);
 
-        private void OnValidate()
+        protected override void OnValidate()
         {
+            base.OnValidate(); // ADR-M18-1 Preconditions 검사 — 가리면 게이트 사각지대가 된다
             if (Building == null)
                 Debug.LogError($"[BuildActionSO] {name}: Building이 비어 있습니다.", this);
         }

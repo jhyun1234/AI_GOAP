@@ -108,12 +108,16 @@ namespace AIVillage.M0
             foreach (SlotCondition c in conditions)
             {
                 int v = snap.Get(c.Slot);
+                // M18 — 우변 선택: 슬롯 비교(트리거 전용, ADR-M18-1)면 RightSlot 현재값, 아니면 상수.
+                int rhs = c.CompareToSlot ? snap.Get(c.RightSlot) : c.Value;
                 bool hold;
                 switch (c.Op)
                 {
-                    case CompareOp.Equal:          hold = v == c.Value; break;
-                    case CompareOp.GreaterOrEqual: hold = v >= c.Value; break;
-                    case CompareOp.LessOrEqual:    hold = v <= c.Value; break;
+                    case CompareOp.Equal:          hold = v == rhs; break;
+                    case CompareOp.GreaterOrEqual: hold = v >= rhs; break;
+                    case CompareOp.LessOrEqual:    hold = v <= rhs; break;
+                    case CompareOp.Less:           hold = v <  rhs; break; // M18 — 경계 겹침 방지
+                    case CompareOp.Greater:        hold = v >  rhs; break; // M18
                     default:                       hold = false; break;
                 }
                 if (!hold) return false;

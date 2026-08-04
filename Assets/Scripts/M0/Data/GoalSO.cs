@@ -110,6 +110,14 @@ namespace AIVillage.M0
                 Debug.LogError($"[GoalSO] {name}: PriorityScale({PriorityScale})이 30을 넘습니다 — " +
                                "성향이 P0 생존 goal을 밀어낼 수 있습니다 (ADR-M12-7).", this);
 
+            // ADR-M18-1: GoalConditions는 관리(달성 스킵·명령/부탁 완수)와 잡이 함께 읽는다 —
+            // 슬롯 비교·새 연산자를 켜면 잡은 상수로 목표를 세워 완수 판정과 갈린다.
+            // ⚠️ RelativeToCurrent 조기 반환보다 앞에 있어야 한다 (상대 goal도 금지 대상).
+            if (SlotCondition.UsesTriggerOnlyGrammar(GoalConditions))
+                Debug.LogError($"[GoalSO] {name}: GoalConditions에 슬롯 비교/새 연산자 금지 — " +
+                               "플래너 목표와 완수 판정이 갈립니다 (ADR-M18-1). 트리거로 옮기세요.",
+                               this);
+
             if (TriggerConditions == null || GoalConditions == null) return;
             // 상대 goal은 검사 제외 — GoalConditions.Value가 절대 목표가 아니라 증분이라
             // 발동 조건과 직접 비교하는 것이 범주 오류다 (해석은 ResolveRelativeGoal이 수행,
@@ -133,11 +141,16 @@ namespace AIVillage.M0
 
         private static bool Satisfies(int value, SlotCondition cond)
         {
+            // M18 — 슬롯 비교 트리거는 우변이 런타임 값이라 정적 판정 불가. ADR-M0-7 루프
+            // 검사에서 제외한다 (발동 판정은 트리거가 전담 — RelativeToCurrent 면제와 같은 논리).
+            if (cond.CompareToSlot) return false;
             switch (cond.Op)
             {
                 case CompareOp.Equal:          return value == cond.Value;
                 case CompareOp.GreaterOrEqual: return value >= cond.Value;
                 case CompareOp.LessOrEqual:    return value <= cond.Value;
+                case CompareOp.Less:           return value <  cond.Value; // M18 — 상수 트리거도 루프 검사 유지
+                case CompareOp.Greater:        return value >  cond.Value; // M18
                 default:                       return false;
             }
         }

@@ -16,9 +16,13 @@ import {
    🔴 **크기의 순서가 곧 원문이 말한 우선순위다** — "기술적 완성도가 목적이 아니라,
    그 한 마디가 나오는 경험이 목적".
 
-   🔴 훅과 다음 편 칩을 **마지막 자막(예고)에 물렸다.** 카드가 앉고 나면 그 뒤 3.3초 동안
+   🔴 **다음 편 칩**을 마지막 자막(예고)에 물렸다(nextCue). 카드가 앉고 나면 그 뒤 3.3초 동안
    화면에 새로 일어나는 일이 없어 통째로 멈춘다 — ep05s 가 그렇게 정적 구간 6.6초를
-   만들었다. 예고를 읽는 동안 아래에서 둘이 올라오면 화면이 산다.
+   만들었다. 예고를 읽는 동안 아래에서 칩이 올라오면 화면이 산다.
+   🔴 2026-08-04 — 여기 원래 "훅과 다음 편 칩을" 이라고 적혀 있었고 실제로 훅도 같이 그렸다.
+   훅은 걷어냈다: 아웃트로 카드가 .vis 를 픽셀 동일 좌표에 불투명하게 덮어 캔버스의 훅은
+   뜨자마자 가려진다(검수 실측). 지금은 카드 안의 .oc-hook 이 scene.hook 을 2.6초 내내 띄운다.
+   그래서 hookCue 도 지웠다 — 다음 편 칩은 자기 nextCue 를 갖고 있어 훅과 무관하다.
 
    계속 도는 것 = 위쪽 띠의 왕복(2.6초)과 그 경로의 점선 흐름. */
 
@@ -32,8 +36,7 @@ export default {
     const { ctx, w } = fitCanvas(root.querySelector('canvas'));
 
     const qk = ease(cue(spec.quoteCue ?? 0, 0.15, 0.5));
-    const hkk = ease(cue(spec.hookCue ?? 1, 0.15, 0.5));
-    const nkk = ease(cue(spec.nextCue ?? spec.hookCue ?? 1, 0.15, 0.45));
+    const nkk = ease(cue(spec.nextCue ?? 1, 0.15, 0.45));
 
     ctx.textBaseline = 'alphabetic';
     const fit = (txt, weight, start, max, min = 7.5) => {

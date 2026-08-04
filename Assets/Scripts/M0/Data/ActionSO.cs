@@ -40,8 +40,8 @@ namespace AIVillage.M0
             if (Preconditions != null) into.AddRange(Preconditions);
         }
 
-        /// <summary>플래너·실행이 공유하는 효과 수집. **실행이 읽는 것은 이쪽뿐**이다 —
-        /// 임금은 여기 들어오지 않는다 (지급은 Mint 한 곳, 이중 지급 차단).</summary>
+        /// <summary>플래너·실행이 공유하는 효과 수집 — 같은 Effects를 읽어 수치 이원화가
+        /// 구조적으로 불가능하다 (ADR-M0-1. M19: 임금 층 철거로 플래너 효과와도 동일).</summary>
         public virtual void CollectEffects(List<SlotEffect> into)
         {
             if (Effects != null) into.AddRange(Effects);

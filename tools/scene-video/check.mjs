@@ -32,6 +32,37 @@ const missingMeta = scene.shots.filter(s => !s.reads || !s.source || !s.kind).ma
 add(missingMeta.length === 0, 'shot 메타 완비',
   missingMeta.length ? `reads/source/kind 누락: ${missingMeta.join(', ')}` : `${scene.shots.length}샷 전부 있음`);
 
+/* ── 형제 카드 라벨 = 그 편의 youtube.title ──────────
+   🔴 분할 회차 여섯이 서로를 부르는 이름 열여덟 개 중 **하나도 안 맞았다**(2026-08-04 검수).
+   그중 둘은 사실관계까지 어긋났다 — 5-1·5-3 이 5-2 를 「갇혔다」(완료형)로 불렀는데
+   원문은 '갇히지 않으려면' 이라는 조건절이고 안 난 사고다. 한 편이 원문 대조로 바로잡은
+   수위가 형제 카드에서 무효가 되고 있었다.
+
+   정본을 새로 만들지 않고 이미 승인된 youtube.title 에서 기계적으로 파생한다:
+   「<제목> · 유니티 GOAP 개발일지 5-2편 #shorts」 → 「5-2편 · <제목>」.
+   그러면 카드를 보고 검색·추천에서 그 편을 찾는 시청자가 같은 문장을 만난다.
+   지어낸 문구가 0개이므로 라벨이 네 번째 표기가 되는 일도 없다. */
+const sibTail = /^(.+) · 유니티 GOAP 개발일지 ([\d-]+편) #shorts$/;
+const sibLabel = sc => { const m = sibTail.exec(sc.youtube?.title ?? ''); return m ? `${m[2]} · ${m[1]}` : null; };
+const sibs = scene.outro?.siblings ?? [];
+if (sibs.length) {
+  const bad = [];
+  for (const s of sibs) {
+    const got = typeof s === 'string' ? s : s.label;
+    const part = /^([\d-]+편)/.exec(got ?? '')?.[1];
+    /* 4-2편 → ep04s-2. 이 규약이 §1 의 분할 id 규약과 같은 자리에서 나온다. */
+    const m = /^(\d+)-(\d+)편$/.exec(part ?? '');
+    const sibEp = m ? `ep${String(m[1]).padStart(2, '0')}s-${m[2]}` : null;
+    const sibPath = sibEp && path.join(ROOT, 'episodes', sibEp, 'scene.json');
+    if (!sibPath || !fs.existsSync(sibPath)) { bad.push(`${got} → 회차를 못 찾았다`); continue; }
+    const want = sibLabel(JSON.parse(fs.readFileSync(sibPath, 'utf8')));
+    if (want === null) { bad.push(`${sibEp} 의 youtube.title 이 규약 형식이 아니다`); continue; }
+    if (want !== got) bad.push(`${sibEp}: "${got}" ≠ "${want}"`);
+  }
+  add(bad.length === 0, '형제 라벨 = 그 편의 youtube.title',
+    bad.length ? bad.join(' / ') : `${sibs.length}개 전부 일치`);
+}
+
 const kindsDir = path.join(ROOT, 'episodes', EP, 'kinds');
 const badKind = [...new Set(scene.shots.map(s => s.kind))].filter(k => !fs.existsSync(path.join(kindsDir, `${k}.js`)));
 add(badKind.length === 0, 'kind 파일 존재', badKind.length ? `없음: ${badKind.join(', ')}` : '전부 존재');

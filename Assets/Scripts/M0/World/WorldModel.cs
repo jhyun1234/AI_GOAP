@@ -170,8 +170,7 @@ namespace AIVillage.M0
                                            bool wasAttacked = false,
                                            int myPlots = 0, int myEmptyPlots = 0, int myRipeCrops = 0,
                                            bool hasCampfire = false,
-                                           bool wasStarved = false,
-                                           int myMoney = 0, int myDebt = 0)
+                                           bool wasStarved = false)
         {
             var slots = new int[PlanningConfig.TotalSlots];
 
@@ -236,14 +235,7 @@ namespace AIVillage.M0
             // 위협 근접 (M10-D) — My* 계열 개인 파생 슬롯 (에이전트가 개인 감지 배율로 계산해
             // 인자로 넘긴다, MySatiety 패턴). 기본 false = 0 (중립 — Goal_Flee 영구 불발).
             slots[(int)SlotId.ThreatNear] = threatNear ? 1 : 0;
-            // 지갑 (M16-W5) — 원천 = VillagerAgent. 부탁 스캔 조건 전용 (플래너 전제·효과 금지,
-            // ADR-M16-5). 기본 0 = 중립 (직거래 의뢰인 조건 MyMoney ≥ N 영구 불발 = 화폐 이전 동작).
-            slots[(int)SlotId.MyMoney] = myMoney;
-            // 빚 (M17-W7) — 원천 = RequestService(미정산 보상). Goal_RepayDebt 트리거 전용.
-            // 🔴 이 한 줄이 없으면 트리거가 영원히 0을 읽어 goal이 절대 안 뜬다. 컴파일도
-            // 게이트도 안 잡는다 — M16-W5에서 MyMoney로 똑같이 밟은 자리다 (명세 W7 DoD 🔴).
-            slots[(int)SlotId.MyDebt] = myDebt;
-            // (M19-W4: HomePriceNow(39) 계산 철거 — 슬롯은 휴면, 항상 0. W5에서 휴면 주석 확정)
+            // (M19-W5: 지갑(37)·빚(38)·집값(39) 주입 철거 — 슬롯 3칸 휴면, 항상 0)
             return new WorldSnapshot(slots);
         }
 

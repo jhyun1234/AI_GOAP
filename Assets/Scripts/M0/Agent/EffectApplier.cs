@@ -125,7 +125,6 @@ namespace AIVillage.M0
         }
 
         private static string Kr(SlotId slot)
-            => slot == SlotId.MyRawFood || slot == SlotId.MyHomeRawFood ? "생식"
-             : slot == SlotId.MyMoney ? "돈" : "조리식"; // 돈(M16) — v1은 Mint 경유라 이 경로에 안 오지만 라벨은 정직하게
+            => slot == SlotId.MyRawFood || slot == SlotId.MyHomeRawFood ? "생식" : "조리식";
     }
 }

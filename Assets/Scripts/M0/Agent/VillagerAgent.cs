@@ -499,9 +499,7 @@ namespace AIVillage.M0
                 Farm != null ? Farm.CountEmptyOf(AgentId) : 0,
                 Farm != null ? Farm.CountRipeOf(AgentId) : 0,
                 hasCampfire,                                                   // 내 모닥불 (M11-K)
-                MyWasStarved,                                                  // 아사 직전 경험 (M12-G)
-                MyMoney,                                                       // 지갑 (M16-W5 — 부탁 스캔 조건 전용)
-                MyDebt);                                                       // 빚 (M17-W7 — Goal_RepayDebt 트리거)
+                MyWasStarved);                                                 // 아사 직전 경험 (M12-G)
         }
 
         /// <summary>
@@ -1585,42 +1583,16 @@ namespace AIVillage.M0
         /// <summary>몸 소지 조리식.</summary>
         public int MyCooked { get; private set; }
 
-        /// <summary>몸 소지 돈(동) — M16-W1. 쓰기는 ApplyPersonalStock만 (ADR-M11-1).
-        /// 발행(적립+M 누적)은 WorldModel.Mint 경유가 유일 (ADR-M16-1). 세이브 대상 (ADR-M11-10).</summary>
-        public int MyMoney { get; private set; }
-
-        /// <summary>내가 남에게 갚아야 할 돈(동) — M17-W7. **원천은 RequestService 하나뿐**이다
-        /// (미정산 보상 = 조각 Y의 빚). 액션 효과로 바뀌지 않고 이전 대상도 아니다:
-        /// 빚은 소지품이 아니라 관계다. 세이브 대상 (ADR-M0-10).</summary>
-        public int MyDebt { get; private set; }
-
-        /// <summary>빚 설정 (M17-W7) — RequestService 전용 창구 (상태 쓰기 단일 지점).
-        /// 0을 넣으면 청산이다 (정산·떼먹기·이탈 어느 쪽이든 빚은 끝난다).</summary>
-        public void SetDebt(int amount, string why)
-        {
-            int next = Mathf.Max(0, amount);
-            if (next == MyDebt) return;
-            MyDebt = next;
-            Debug.Log($"[Request] {AgentId}: 빚 {(next > 0 ? $"{next}동 발생" : "청산")} — {why}");
-        }
-
-        // 생애 첫 임금 표식 (M16-W2) — 첫 지급만 말풍선 (스팸 방지). 세이브 대상 (ADR-M0-10)
-        private bool _everPaid;
-
-        // 중과세 불평을 마지막으로 한 세율 세대 (M17-W5) — 세율이 바뀔 때마다 1회분이 다시
-        // 열린다. 0은 "아직 안 함"이 아니라 "0세대에 함"이므로 -1로 출발한다. 세이브 대상.
+        // (M19-W5: 지갑 MyMoney·빚 MyDebt·SetDebt·첫 임금 표식은 화폐와 함께 철거 — ADR-M19-1)
 
         /// <summary>슬롯별 잔량 — EffectApplier 선검사·스냅샷 주입 공용 (판정 단일).</summary>
         public int GetPersonalStock(SlotId slot)
             => slot == SlotId.MyRawFood ? MyRaw
-             : slot == SlotId.MyCookedFood ? MyCooked
-             : slot == SlotId.MyMoney ? MyMoney : 0;
+             : slot == SlotId.MyCookedFood ? MyCooked : 0;
 
-        /// <summary>개인 스톡 슬롯별 상한 (순수 — 게이트 M16-T1). 돈은 부피가 없다 —
-        /// 상한을 걸면 임금이 BodyCarryCap(식량 기준)에서 막힌다 (명세 실사 ④).
-        /// ⚠️ 상한 예외는 이 함수뿐 — BodyCarryCap 값 인상으로 풀지 않는다 (식량까지 올라간다).</summary>
+        /// <summary>개인 스톡 슬롯별 상한 (M19-W5: 돈 예외 철거 — 전 슬롯 몸 상한 하나).</summary>
         public static int PersonalCapOf(SlotId slot, int bodyCarryCap)
-            => slot == SlotId.MyMoney ? int.MaxValue : bodyCarryCap;
+            => bodyCarryCap;
 
         /// <summary>
         /// 개인 스톡 계단 (순수 — 게이트 M11-T1): Sub 부족 = 실패(무변경), Add 상한 초과 = 실패
@@ -1655,7 +1627,7 @@ namespace AIVillage.M0
             if (!ok) return false;
             if (slot == SlotId.MyRawFood) MyRaw = next;
             else if (slot == SlotId.MyCookedFood) MyCooked = next;
-            else MyMoney = next; // M16 — 지갑
+            else return false; // (M19-W5: 지갑 철거 — 개인 스톡은 식량 2종뿐)
             return true;
         }
 
@@ -1673,12 +1645,12 @@ namespace AIVillage.M0
         public bool HasRoomFor(SlotId slot, int amount)
             => amount <= 0 || PersonalCapOf(slot, _cfg.BodyCarryCap) - GetPersonalStock(slot) >= amount;
 
-        /// <summary>내 집 저장 잔량 — 무주택·미배선이면 0. 돈은 집 저장 없음 = 0 (몸만, M16).</summary>
+        /// <summary>내 집 저장 잔량 — 무주택·미배선이면 0.</summary>
         private int HomeStockOf(SlotId slot)
         {
             SlotId homeSlot = slot == SlotId.MyRawFood ? SlotId.MyHomeRawFood
                             : slot == SlotId.MyCookedFood ? SlotId.MyHomeCookedFood : slot;
-            if (homeSlot == slot) return 0; // 개인 스톡이 아니거나 집 매핑 없음(MyMoney) — 집 몫 0
+            if (homeSlot == slot) return 0; // 개인 스톡이 아니면 집 몫 0
             return HomeStorage != null && TryGetHomeTile(out Vector2Int home)
                 ? HomeStorage.GetStock(home, homeSlot) : 0;
         }

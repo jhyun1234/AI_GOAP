@@ -89,26 +89,13 @@ namespace AIVillage.M0
                                 // ⚠️ 액션 효과 금지 — ForageFrozen(33) 규약 동형 (위조 가능하면 겨울 파종이 뚫린다).
                                 // 예산 52칸 중 37.
 
-        // ── M16 확장 (화폐 — 개인 지갑) ──
-        MyMoney           = 37, // 수치형 — 몸 소지 돈(동). 개인 스톡 (원천 = VillagerAgent.ApplyPersonalStock,
-                                // ADR-M11-1). ⚠️ 집 저장 없음·소지 상한 없음 (돈은 부피가 없다 — PersonalCapOf).
-                                // 플래너 전제·효과 금지 (ADR-M16-5 — 스냅샷 값은 부탁 스캔 조건 전용).
-                                // 예산 52칸 중 38.
-
-        // ── M17 확장 (재정 — 빚) ──
-        MyDebt            = 38, // 수치형 — 내가 남에게 갚아야 할 돈(동). 원천 = RequestService
-                                // (미정산 보상 = 조각 Y의 빚 사전). ⚠️ **IsPersonalStock 아님** —
-                                // 빚은 소지품이 아니다. 넣으면 TransferTo가 "빚을 남에게 주는"
-                                // 경로를 열어 준다. 액션 효과 금지 (원천이 서비스 한 곳).
-                                // 예산 52칸 중 39.
-
-        // ── M18 확장 (집값의 물가 연동) ──
-        HomePriceNow      = 39, // 수치형 파생 — 집 실가격(동) = TradePrice(기준가, 확정 물가).
-                                // 트리거 전용 (ADR-M9-9 패턴 — 플래너 전제·효과 금지, MyMoney
-                                // ADR-M16-5 동형). 원천 = WorldModel.BuildSnapshot 한 곳.
-                                // 기준가 원천 = 집 소유권 Request의 RewardCostAmount (ADR-M18-3
-                                // — WorldConfig에 새 필드 금지, 이중 기입). **예보가 아니라 확정
-                                // 물가만** 쓴다 ("내일 오를 테니 오늘 비싸게" 금지). 예산 52칸 중 40.
+        // ── 🪦 M16~M18 화폐 유산 — M19 화폐 전면 철거로 **휴면** (ADR-M19-1) ──
+        // 번호 재사용 금지 (append-only, ADR-M0-9): 지우면 뒤 슬롯 인덱스가 밀려 기존 에셋이
+        // 전부 다른 슬롯을 가리킨다. 예산 3칸(38~40번째)은 소모된 채 유지된다.
+        // 읽기·쓰기 지점 0 — 스냅샷은 항상 0을 담는다. 게이트 M19-T1이 에셋 참조 0을 감시한다.
+        MyMoney           = 37, // 휴면 — 舊 몸 소지 돈(동)
+        MyDebt            = 38, // 휴면 — 舊 화폐 빚(동)
+        HomePriceNow      = 39, // 휴면 — 舊 집 실가격(동)
     }
 
     public static class SlotIds
@@ -123,10 +110,10 @@ namespace AIVillage.M0
             || slot == SlotId.CookedFoodStock;
 
         /// <summary>몸 소지 개인 스톡 여부 (M11-A) — 원천 = VillagerAgent (ADR-M11-1).
-        /// MyMoney(M16)도 여기다 — 이전·지급 판정(TransferTo·CanPayReward)이 이 판정 하나를
-        /// 공유한다. ⚠️ IsStock에는 절대 넣지 않는다 (전역 스톡 라우팅 — 명세 W1 ⚠️).</summary>
+        /// 이전·지급 판정(TransferTo·CanPayReward)이 이 판정 하나를 공유한다.
+        /// ⚠️ IsStock에는 절대 넣지 않는다 (전역 스톡 라우팅 — 명세 W1 ⚠️).</summary>
         public static bool IsPersonalStock(SlotId slot)
-            => slot == SlotId.MyRawFood || slot == SlotId.MyCookedFood || slot == SlotId.MyMoney;
+            => slot == SlotId.MyRawFood || slot == SlotId.MyCookedFood;
 
         /// <summary>집 저장 스톡 여부 (M11-A) — 원천 = HomeStorageService (ADR-M11-1). 무주택이면 효과 실패.</summary>
         public static bool IsHomeStock(SlotId slot)
@@ -148,10 +135,8 @@ namespace AIVillage.M0
             || slot == SlotId.MyFarmPlotCount || slot == SlotId.MyEmptyPlot
             || slot == SlotId.MyRipeCrop || slot == SlotId.UntendedInjuredCount
             || slot == SlotId.CampfireCount // MyHasCampfire(32)는 논리형이라 제외
-            || slot == SlotId.DaysToFreeze  // PlantWindowOpen(36)은 논리형이라 제외
-            || slot == SlotId.MyMoney       // M16 — 지갑(동)
-            || slot == SlotId.MyDebt        // M17 — 빚(동)
-            || slot == SlotId.HomePriceNow; // M18 — 집 실가격(동)
+            || slot == SlotId.DaysToFreeze; // PlantWindowOpen(36)은 논리형이라 제외
+            // (M19-W5: 화폐 슬롯 37~39는 휴면 — 수치형 분류에서도 제외)
 
         /// <summary>자원 타입 → 스톡 슬롯. M0 미지원 타입이면 null (Iron/Copper/Silver는 M1).</summary>
         public static SlotId? StockOf(ResourceType type)

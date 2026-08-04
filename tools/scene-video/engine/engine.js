@@ -187,6 +187,11 @@ function buildDom() {
   /* 아웃트로 카드 채우기. `scene.outro` 가 없으면(기존 회차) AI 문구만 뜬다 —
      필드를 안 쓰는 회차가 깨지지 않아야 한다. */
   const o = scene.outro || {};
+  /* 훅은 카드가 맡는다(2026-08-04). outro.hook 으로 회차별 재정의를 열어 두고,
+     없으면 scene.hook 을 그대로 쓴다 — 기존 회차가 필드 없이도 동작해야 한다. */
+  const ocHook = o.hook ?? scene.hook ?? '';
+  $('ocHook').textContent = ocHook;
+  $('ocHook').hidden = !ocHook;
   $('ocSrc').textContent = [o.source && `「${o.source}」`, o.part].filter(Boolean).join(' · ');
   $('ocSrc').hidden = !o.source && !o.part;
   const sibs = $('ocSibs'); sibs.innerHTML = '';

@@ -32,7 +32,7 @@ const PRESS = 2.4;
 export default {
   build(root) { root.innerHTML = ''; mkCanvas(root); },
 
-  draw(root, { spec, scene, t, cue }) {
+  draw(root, { spec, t, cue }) {
     const { ctx, w } = fitCanvas(root.querySelector('canvas'));
 
     const sk = ease(cue(spec.loadCue ?? 0, 0.15, 0.55));   // 판이 내려와 앉는다
@@ -132,24 +132,13 @@ export default {
       ctx.globalAlpha = 1;
     }
 
-    /* ── 훅 — 마지막 자막(예고)에 물려 올라온다 ───── */
-    const hook = (scene?.hook || '').replace(/\n/g, ' ');
-    if (hk > 0.02 && hook) {
-      const k = clamp(hk * 1.6);
-      const s = Math.min(1, spring(clamp(hk)));
-      ctx.globalAlpha = k * 0.9;
-      ctx.strokeStyle = tone('track'); ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.moveTo(28, 248); ctx.lineTo(w - 28, 248); ctx.stroke();
-
-      ctx.globalAlpha = k;
-      ctx.textAlign = 'center';
-      const fs = fit(hook, 900, 17, w - 40, 10);
-      ctx.font = disp(900, fs * s); ctx.fillStyle = tone('ink');
-      ctx.fillText(hook, w / 2, 274 + (1 - k) * 9);
-      ctx.globalAlpha = 1;
-    }
-
-    ctx.textAlign = 'left';
+    /* 🔴 훅 카드는 여기서 그리지 않는다(2026-08-04 사용자 판정).
+       .outrocard 가 .vis 와 좌표가 한 픽셀도 다르지 않고 배경이 불투명이라, 마지막
+       OUTRO_MS(2.6초) 동안 이 캔버스는 통째로 덮인다 — 검수 실측으로 ep04s-3 은 훅이
+       단 한 프레임도 보인 적이 없었고(카드 등장 35,765ms vs 예고 자막 35,776ms),
+       가장 오래 보인 ep05s-1 도 100ms 였다. 훅은 engine/index.html 의 .oc-hook 이 맡아
+       카드 안에서 2.6초 내내 서 있다. kind 는 그림에만 집중한다.
+       🔑 "두 곳에 적으면 갈린다"가 원래 원칙이었는데 카드와 캔버스 사이에서 깨져 있었다. */
+ctx.textAlign = 'left';
   }
 };

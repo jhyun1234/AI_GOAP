@@ -178,23 +178,13 @@ export default {
       ctx.globalAlpha = 1;
     }
 
-    /* ── 남는 한 줄 ───────────────────────────────── */
-    /* 예고 자막에 물려 있다. 예고 자막엔 cue 가 없어 그냥 두면 그 구간이 통째로 멈춘다.
-       🟡 아웃트로 카드(engine.js OUTRO_MS 2600)가 마지막 2.6초에 .vis 를 덮으므로 이 카드는
-       뜨자마자 그 뒤로 들어간다. 그래도 여기에 둔 이유는 이 샷의 첫 자막이 같은 문장을 이미
-       소리로 준다는 것과, 정적 구간을 막는 것이 화면이 사는 유일한 조건이라는 것 둘이다. */
-    const hook = spec.hook || scene?.hook;
-    if (hook && hk > 0.02) {
-      const k = clamp(hk * 1.6);
-      const s2 = Math.min(1, spring(k));
-      ctx.globalAlpha = k;
-      ctx.textAlign = 'center';
-      const fs = fit(String(hook), 900, 15, w - 30, 10);
-      ctx.font = disp(900, fs * s2); ctx.fillStyle = tone('ink');
-      ctx.fillText(String(hook), w / 2, 292);
-      ctx.globalAlpha = 1;
-    }
-
-    ctx.textAlign = 'left';
+    /* 🔴 훅 카드는 여기서 그리지 않는다(2026-08-04 사용자 판정).
+       .outrocard 가 .vis 와 좌표가 한 픽셀도 다르지 않고 배경이 불투명이라, 마지막
+       OUTRO_MS(2.6초) 동안 이 캔버스는 통째로 덮인다 — 검수 실측으로 ep04s-3 은 훅이
+       단 한 프레임도 보인 적이 없었고(카드 등장 35,765ms vs 예고 자막 35,776ms),
+       가장 오래 보인 ep05s-1 도 100ms 였다. 훅은 engine/index.html 의 .oc-hook 이 맡아
+       카드 안에서 2.6초 내내 서 있다. kind 는 그림에만 집중한다.
+       🔑 "두 곳에 적으면 갈린다"가 원래 원칙이었는데 카드와 캔버스 사이에서 깨져 있었다. */
+ctx.textAlign = 'left';
   }
 };

@@ -28,7 +28,7 @@ const FLOW = 2.0;
 export default {
   build(root) { root.innerHTML = ''; mkCanvas(root); },
 
-  draw(root, { spec, scene, t, cue }) {
+  draw(root, { spec, t, cue }) {
     const { ctx, w } = fitCanvas(root.querySelector('canvas'));
 
     const qk = ease(cue(spec.quoteCue ?? 0, 0.15, 0.5));
@@ -147,20 +147,13 @@ export default {
     }
 
     /* ── 남는 한 줄 ───────────────────────────────── */
-    /* 🔴 이 줄은 ep01s erasure 가 만들고 ep02s·ep03s 가 이어 온 자리다. 훅 문구 자체는
-       scene.hook 에서 읽는다 — 화면 안에서 다시 적지 않는다(두 곳에 적으면 갈린다). */
-    const hook = spec.hook || scene?.hook;
-    if (hook && hkk > 0.02) {
-      const k = clamp(hkk * 1.6);
-      const s = Math.min(1, spring(k));
-      ctx.globalAlpha = k;
-      ctx.textAlign = 'center';
-      const fs = fit(String(hook), 900, 15, w - 30, 10);
-      ctx.font = disp(900, fs * s); ctx.fillStyle = tone('ink');
-      ctx.fillText(String(hook), w / 2, 292);
-      ctx.globalAlpha = 1;
-    }
-
-    ctx.textAlign = 'left';
+    /* 🔴 훅 카드는 여기서 그리지 않는다(2026-08-04 사용자 판정).
+       .outrocard 가 .vis 와 좌표가 한 픽셀도 다르지 않고 배경이 불투명이라, 마지막
+       OUTRO_MS(2.6초) 동안 이 캔버스는 통째로 덮인다 — 검수 실측으로 ep04s-3 은 훅이
+       단 한 프레임도 보인 적이 없었고(카드 등장 35,765ms vs 예고 자막 35,776ms),
+       가장 오래 보인 ep05s-1 도 100ms 였다. 훅은 engine/index.html 의 .oc-hook 이 맡아
+       카드 안에서 2.6초 내내 서 있다. kind 는 그림에만 집중한다.
+       🔑 "두 곳에 적으면 갈린다"가 원래 원칙이었는데 카드와 캔버스 사이에서 깨져 있었다. */
+ctx.textAlign = 'left';
   }
 };

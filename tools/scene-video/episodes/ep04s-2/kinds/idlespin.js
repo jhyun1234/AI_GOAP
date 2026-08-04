@@ -197,33 +197,13 @@ export default {
       }
     }
 
-    /* ── 이 편의 한 줄 — 고리가 있던 자리를 넘겨받는다 ── */
-    const hook = String(scene?.hook || '');
-    if (hk > 0.02 && hook) {
-      const bx = 8, by = 26, bw = w - 16, bh = 74;
-      /* 🔴 spring 은 1.05 까지 오버슛한다. 폭을 꽉 채우는 상자에 그대로 곱하면
-         좌우가 캔버스 밖으로 나가 '가장자리 잘림'에 걸린다. 반드시 1 로 자른다. */
-      const s = Math.min(1, spring(clamp(hk * 1.5)));
-      ctx.globalAlpha = clamp(hk * 1.7);
-      setShadow(ctx, GLOW, 16, 0);
-      ctx.lineWidth = 4; ctx.strokeStyle = tone('accent');
-      roundRect(ctx, bx + (bw - bw * s) / 2, by + (bh - bh * s) / 2, bw * s, bh * s, 4);
-      ctx.stroke();
-      clearShadow(ctx);
-
-      const ls = hook.split('\n');
-      ctx.textAlign = 'center';
-      let fs = 17; ctx.font = disp(900, fs);
-      while (fs > 11 && ls.some(l => ctx.measureText(l).width > bw - 28)) {
-        fs -= 0.5; ctx.font = disp(900, fs);
-      }
-      ctx.fillStyle = tone('ink');
-      const gap = fs * 1.4;
-      const y0 = by + bh / 2 - (ls.length - 1) * gap / 2 + fs * 0.36;
-      ls.forEach((l, i) => ctx.fillText(l, bx + bw / 2, y0 + i * gap));
-      ctx.globalAlpha = 1;
-    }
-
-    ctx.textAlign = 'left';
+    /* 🔴 훅 카드는 여기서 그리지 않는다(2026-08-04 사용자 판정).
+       .outrocard 가 .vis 와 좌표가 한 픽셀도 다르지 않고 배경이 불투명이라, 마지막
+       OUTRO_MS(2.6초) 동안 이 캔버스는 통째로 덮인다 — 검수 실측으로 ep04s-3 은 훅이
+       단 한 프레임도 보인 적이 없었고(카드 등장 35,765ms vs 예고 자막 35,776ms),
+       가장 오래 보인 ep05s-1 도 100ms 였다. 훅은 engine/index.html 의 .oc-hook 이 맡아
+       카드 안에서 2.6초 내내 서 있다. kind 는 그림에만 집중한다.
+       🔑 "두 곳에 적으면 갈린다"가 원래 원칙이었는데 카드와 캔버스 사이에서 깨져 있었다. */
+ctx.textAlign = 'left';
   }
 };

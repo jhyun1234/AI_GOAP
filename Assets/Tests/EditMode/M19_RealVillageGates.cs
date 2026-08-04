@@ -32,6 +32,115 @@ namespace AIVillage.Tests.EditMode
             Assert.AreEqual(1, locked, "RequiredJob 사용 goal은 정확히 1곳(치료)이어야 한다");
         }
 
+        // ── T1: 화폐 슬롯 잔존 감시 (W6) — 휴면 3칸(37~39)을 아무도 다시 만지지 않는다 ──
+
+        /// <summary>휴면 화폐 슬롯 여부 — 이 게이트의 판정 단일 출처.</summary>
+        private static bool IsDormantMoneySlot(SlotId slot)
+            => slot == SlotId.MyMoney || slot == SlotId.MyDebt || slot == SlotId.HomePriceNow;
+
+        private static bool TouchesDormantSlot(SlotCondition[] conditions)
+        {
+            if (conditions == null) return false;
+            foreach (SlotCondition c in conditions)
+                if (IsDormantMoneySlot(c.Slot) || (c.CompareToSlot && IsDormantMoneySlot(c.RightSlot)))
+                    return true;
+            return false;
+        }
+
+        private static bool TouchesDormantSlot(SlotEffect[] effects)
+        {
+            if (effects == null) return false;
+            foreach (SlotEffect e in effects)
+                if (IsDormantMoneySlot(e.Slot)) return true;
+            return false;
+        }
+
+        [Test]
+        public void M19_T1_Detector_FlagsDormantSlotUse()
+        {
+            // 위반 실증 (M17 "실패 불가능한 테스트" 교훈) — 탐지기가 실제로 잡는가
+            Assert.IsTrue(TouchesDormantSlot(new[] { new SlotCondition { Slot = SlotId.MyMoney } }), "좌변");
+            Assert.IsTrue(TouchesDormantSlot(new[] { new SlotCondition
+                { Slot = SlotId.MySatiety, CompareToSlot = true, RightSlot = SlotId.HomePriceNow } }), "우변");
+            Assert.IsTrue(TouchesDormantSlot(new[] { new SlotEffect { Slot = SlotId.MyDebt } }), "효과");
+            Assert.IsFalse(TouchesDormantSlot(new[] { new SlotCondition { Slot = SlotId.MyRawFood } }), "오탐");
+        }
+
+        [Test]
+        public void M19_T1_NoAssetTouchesDormantMoneySlots()
+        {
+            // 전체 에셋 스캔 — 조건·효과·보상·나눔 슬롯 어디에도 37~39가 없다 (S1의 에셋판).
+            // 휴면 슬롯은 스냅샷이 항상 0이라, 참조가 생기면 "영구 불발 또는 항상 발동"으로
+            // 조용히 썩는다 — 컴파일도 못 잡으므로 이 스캔이 유일한 방어선이다.
+            foreach (string guid in AssetDatabase.FindAssets("t:GoalSO", new[] { "Assets/M0Config" }))
+            {
+                var g = AssetDatabase.LoadAssetAtPath<GoalSO>(AssetDatabase.GUIDToAssetPath(guid));
+                if (g == null) continue;
+                Assert.IsFalse(TouchesDormantSlot(g.TriggerConditions), $"{g.name}: 트리거가 휴면 슬롯 참조");
+                Assert.IsFalse(TouchesDormantSlot(g.GoalConditions), $"{g.name}: 목표가 휴면 슬롯 참조");
+            }
+            foreach (string guid in AssetDatabase.FindAssets("t:ActionSO", new[] { "Assets/M0Config" }))
+            {
+                var a = AssetDatabase.LoadAssetAtPath<ActionSO>(AssetDatabase.GUIDToAssetPath(guid));
+                if (a == null) continue;
+                Assert.IsFalse(TouchesDormantSlot(a.Preconditions), $"{a.name}: 전제가 휴면 슬롯 참조");
+                Assert.IsFalse(TouchesDormantSlot(a.Effects), $"{a.name}: 효과가 휴면 슬롯 참조");
+            }
+            foreach (string guid in AssetDatabase.FindAssets("t:RequestSO", new[] { "Assets/M0Config" }))
+            {
+                var r = AssetDatabase.LoadAssetAtPath<RequestSO>(AssetDatabase.GUIDToAssetPath(guid));
+                if (r == null) continue;
+                Assert.IsFalse(TouchesDormantSlot(r.RequesterConditions), $"{r.name}: 의뢰인 조건");
+                Assert.IsFalse(TouchesDormantSlot(r.TargetConditions), $"{r.name}: 대상 조건");
+                Assert.IsFalse(TouchesDormantSlot(r.TraitBypassConditions), $"{r.name}: 우회 조건");
+                Assert.IsFalse(IsDormantMoneySlot(r.RewardCostSlot), $"{r.name}: 보상 슬롯이 돈");
+                Assert.IsFalse(r.TradeGiveAmount > 0 && IsDormantMoneySlot(r.TradeGiveSlot),
+                               $"{r.name}: 나눔 슬롯이 돈");
+            }
+            foreach (string guid in AssetDatabase.FindAssets("t:RewardSO", new[] { "Assets/M0Config" }))
+            {
+                var w = AssetDatabase.LoadAssetAtPath<RewardSO>(AssetDatabase.GUIDToAssetPath(guid));
+                if (w != null)
+                    Assert.IsFalse(IsDormantMoneySlot(w.CostSlot), $"{w.name}: 보상 비용이 돈");
+            }
+        }
+
+        // ── T2: 실물 집 사슬 (W6) — 집 부탁의 대가는 실물·후불이다 (ADR-M19-2) ──
+
+        [Test]
+        public void M19_T2_HouseRequests_RealGoodsAndDeferred()
+        {
+            int houses = 0;
+            foreach (string guid in AssetDatabase.FindAssets("t:RequestSO", new[] { "Assets/M0Config" }))
+            {
+                var r = AssetDatabase.LoadAssetAtPath<RequestSO>(AssetDatabase.GUIDToAssetPath(guid));
+                if (r == null || !r.GrantOwnership || r.OwnershipSlot != SlotId.HouseCount) continue;
+                houses++;
+                Assert.IsTrue(SlotIds.IsPersonalStock(r.RewardCostSlot),
+                    $"{r.name}: 집 사례는 실물 개인 스톡이어야 한다 (ADR-M19-2)");
+                Assert.IsFalse(r.AlwaysUpfront,
+                    $"{r.name}: 실물 사례는 후불 원형 — 선불은 화폐 빚의 처방이었다 (ADR-M19-2)");
+            }
+            Assert.Greater(houses, 0, "집 부탁 에셋이 없다 — 스캔 조건이 낡았다");
+        }
+
+        // ── T4: 나눔 무상 (W6) — 나눔은 거래가 아니다 (ADR-M19-4) ──
+
+        [Test]
+        public void M19_T4_ShareRequests_AreFree()
+        {
+            int shares = 0;
+            foreach (string guid in AssetDatabase.FindAssets("t:RequestSO", new[] { "Assets/M0Config" }))
+            {
+                var r = AssetDatabase.LoadAssetAtPath<RequestSO>(AssetDatabase.GUIDToAssetPath(guid));
+                if (r == null || r.TradeGiveAmount <= 0) continue;
+                shares++;
+                Assert.AreEqual(0, r.RewardCostAmount,
+                    $"{r.name}: 나눔에 반대급부가 붙었다 — 화폐의 재발명 (ADR-M19-4)");
+            }
+            Assert.Greater(shares, 0, "나눔 부탁 에셋이 없다 — 굶주림 구제 통로 소실");
+        }
+
         // ── T5: 옛 판 연대기 표시 호환 (W4 게이트 정리에서 이관 — 2분류 표의 "이관 필요" 4건) ──
         // 화폐는 철거됐지만 **옛 판의 기록은 표시돼야 한다** (ADR-M14-3 append-only의 정신).
         // ComposeMoney·ComposeRunEconomy는 그래서 생존 — 이 게이트들이 그 계약을 지킨다.

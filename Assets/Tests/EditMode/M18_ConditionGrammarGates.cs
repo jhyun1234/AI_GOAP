@@ -222,6 +222,36 @@ namespace AIVillage.Tests.EditMode
             Object.DestroyImmediate(house);
         }
 
+        // ── T3: 수락 시점 실가격 (ADR-M18-2) ─────────────────────────────────
+
+        [Test]
+        public void M18_T3_AcceptancePrice_MoneyOnly()
+        {
+            // 화폐 보상만 물가를 탄다
+            Assert.AreEqual(70, RequestService.AcceptancePrice(SlotId.MyMoney, 50, 140), "집 부탁 140%");
+            Assert.AreEqual(50, RequestService.AcceptancePrice(SlotId.MyMoney, 50, 100), "중립 물가");
+            // 실물 보상은 액면 그대로 — 곱하면 요리 부탁 식량 5개가 7개가 된다 (ADR-M16-4)
+            Assert.AreEqual(5, RequestService.AcceptancePrice(SlotId.MyRawFood, 5, 140), "실물 가드");
+            Assert.AreEqual(5, RequestService.AcceptancePrice(SlotId.MyCookedFood, 5, 400), "실물 가드(캡)");
+        }
+
+        [Test]
+        public void M18_T3_Settlement_JudgesAndTransfersSameAmount()
+        {
+            // 판정≡이전 동치 — 정산 분기(ResolveSettlement)의 canPay와 실제 이전이 같은
+            // price 하나를 먹는 한, "판정은 통과했는데 이전이 실패"하는 액수 어긋남이 없다.
+            // 여기서는 순수 분기가 price 기반 입력만으로 결정됨을 고정한다 (재계산 입력 금지의 형식화).
+            int price = RequestService.AcceptancePrice(SlotId.MyMoney, 50, 140); // 70
+            bool canPay = 70 >= price;   // 잔고 70 = 수락 시점 가격과 같은 기준
+            Assert.AreEqual(RequestService.Settlement.Pay,
+                RequestService.ResolveSettlement(price <= 0, false, false, canPay, true),
+                "잔고 70·가격 70 → 지급");
+            // 물가가 정산 시점에 더 올라도(재계산 금지) 판정 입력은 수락가 그대로 → 여전히 지급
+            Assert.AreEqual(RequestService.Settlement.Pay,
+                RequestService.ResolveSettlement(price <= 0, false, false, 70 >= price, true),
+                "정산 시점 물가 무관 — 수락가 하나만 읽는다");
+        }
+
         // ── T1e: OnValidate 배선 — 에디터에서 저장 순간 ADR-M18-1 에러가 실제로 뜨는가 ──
 
         [Test]

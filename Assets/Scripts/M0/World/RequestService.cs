@@ -28,16 +28,19 @@ namespace AIVillage.M0
         private float _nextScanAt;
         // 의뢰인 개인 쿨다운 — 거절당하면 한동안 다시 조르지 않는다 (수락 시에도 기록 — 중복 방지 이중화)
         private readonly Dictionary<string, float> _requesterCooldownUntil = new Dictionary<string, float>(16);
-        // 진행 중 부탁 (수락~완수): 수락자 ID → (부탁, 의뢰인 ID, 선불 완료 여부). 세이브 대상 (ADR-M0-10)
-        private readonly Dictionary<string, (RequestSO so, string requesterId, bool prepaid)> _inFlight =
-            new Dictionary<string, (RequestSO, string, bool)>(4);
-        // 보상 미정산 빚 (조각 Y, 2026-07-18): 수행자 ID → (부탁, 의뢰인 ID, 선불 여부).
+        // 진행 중 부탁 (수락~완수): 수락자 ID → (부탁, 의뢰인 ID, 선불 완료 여부, 실가격).
+        // price(M18, ADR-M18-2) = 수락 시점에 확정한 실지불액(동) — 이후 판정·이전·빚·로그는
+        // 전부 이 값 하나만 읽는다. 정산 시점 재계산 금지 (판정 액수와 이전 액수가 갈린다).
+        // 실물 보상 부탁은 액면 그대로다 (물가는 화폐의 속성 — ADR-M16-4). 세이브 대상 (ADR-M0-10)
+        private readonly Dictionary<string, (RequestSO so, string requesterId, bool prepaid, int price)> _inFlight =
+            new Dictionary<string, (RequestSO, string, bool, int)>(4);
+        // 보상 미정산 빚 (조각 Y, 2026-07-18): 수행자 ID → (부탁, 의뢰인 ID, 선불 여부, 실가격).
         // 일 완수 순간 기록되고, 수행자와 의뢰인이 자연스럽게 마주치면(TickRewardSettlement) 정산·소멸한다.
         // 쫓아가지 않으므로 타임아웃 소실 없음 — 정리는 이탈(ReleaseBy)뿐.
         // 세이브 대상으로 승격 (ADR-M11-10, M11-H): 이제 빚은 연출이 아니라 실제 식량이다 —
-        // 로드 후 소멸시키면 지급이 소실된다.
-        private readonly Dictionary<string, (RequestSO so, string requesterId, bool prepaid)> _pendingReports =
-            new Dictionary<string, (RequestSO, string, bool)>(4);
+        // 로드 후 소멸시키면 지급이 소실된다. price도 함께 저장한다 (수락 시점 가격이 진실).
+        private readonly Dictionary<string, (RequestSO so, string requesterId, bool prepaid, int price)> _pendingReports =
+            new Dictionary<string, (RequestSO, string, bool, int)>(4);
         private readonly List<VillagerAgent> _scratch = new List<VillagerAgent>(16);
 
         public RequestService(WorldConfigSO world, AgentConfigSO agentCfg, RelationshipService relationship,
@@ -61,7 +64,7 @@ namespace AIVillage.M0
         /// <summary>정보줄용 (M8 후속) — agentId가 수락해 진행 중인 부탁의 (의뢰인, 할 일 라벨).</summary>
         public bool TryGetAssignment(string agentId, out string requesterId, out string taskLabel)
         {
-            if (_inFlight.TryGetValue(agentId, out (RequestSO so, string requesterId, bool prepaid) rec))
+            if (_inFlight.TryGetValue(agentId, out (RequestSO so, string requesterId, bool prepaid, int price) rec))
             {
                 requesterId = rec.requesterId;
                 taskLabel = rec.so.TaskLabelOrDefault;
@@ -92,14 +95,14 @@ namespace AIVillage.M0
         /// <summary>이 주민이 지금 짓는 건물을 자기 것으로 가져도 되는가 (위 순수 판정의 창구).</summary>
         public bool ShouldSelfAssignFor(string workerId, SlotId countSlot)
             => ShouldSelfAssign(
-                _inFlight.TryGetValue(workerId, out (RequestSO so, string requesterId, bool prepaid) rec)
+                _inFlight.TryGetValue(workerId, out (RequestSO so, string requesterId, bool prepaid, int price) rec)
                     ? rec.so : null,
                 countSlot);
 
         public bool TryGetRequester(string workerId, out VillagerAgent requester)
         {
             requester = null;
-            if (!_inFlight.TryGetValue(workerId, out (RequestSO so, string requesterId, bool prepaid) rec))
+            if (!_inFlight.TryGetValue(workerId, out (RequestSO so, string requesterId, bool prepaid, int price) rec))
                 return false;
             requester = FindAgent(rec.requesterId);
             return requester != null;
@@ -142,7 +145,7 @@ namespace AIVillage.M0
         /// <summary>agentId가 의뢰인으로 걸어 둔 진행 중 부탁이 있는가 — 중복 부탁 방지.</summary>
         public bool HasInFlightFrom(string requesterId)
         {
-            foreach (KeyValuePair<string, (RequestSO so, string requesterId, bool prepaid)> kv in _inFlight)
+            foreach (KeyValuePair<string, (RequestSO so, string requesterId, bool prepaid, int price)> kv in _inFlight)
                 if (kv.Value.requesterId == requesterId) return true;
             return false;
         }
@@ -227,6 +230,11 @@ namespace AIVillage.M0
                 return;
             }
 
+            // 실가격 확정 (M18, ADR-M18-2) — 수락 장면에서 1회 산출해 진행 기록에 싣는다.
+            // 이후 선불·빚·연기 정산은 전부 이 값 하나만 읽는다 (재계산 = 판정과 이전이 갈림).
+            int price = AcceptancePrice(r.RewardCostSlot, r.RewardCostAmount,
+                                        _pricePct != null ? _pricePct() : 100);
+
             // 선불 가용성 판정도 개인 잔고로 (M11-H) — 전역 스톡 조회는 폐지됐다.
             // 가난한 의뢰인은 선불 성격 수행자에게 RefusedNoReward (기존 대사 재사용).
             // ⚠️ 수령 공간을 여기 넣지 말 것 (2026-07-23 중간 리뷰 ② 관측으로 제거): 선불 성격의
@@ -234,8 +242,8 @@ namespace AIVillage.M0
             // 공간을 조건에 넣으면 평상시 생식 4를 채우는(Goal_GatherFood 목표) 수행자가 상한 8에서
             // 5를 못 받아 **구조적으로 항상 거절**했다. 공간이 없으면 후불로 수락하고 연기 정산이
             // 처리한다 (아래 prepaid는 실제 이전 성공 여부만 본다).
-            bool canPayNow = UpfrontAvailable(r.RewardCostAmount,
-                                             requester.CanPayReward(r.RewardCostSlot, r.RewardCostAmount));
+            bool canPayNow = UpfrontAvailable(price,
+                                             requester.CanPayReward(r.RewardCostSlot, price));
             VillagerAgent.RequestResult verdict = target.TryGiveRequest(r, requester.AgentId, canPayNow);
             target.ShowTransientDelayed(Pick(ReplyLinesFor(r, target, verdict)), _agentCfg.ReplyDelaySec);
 
@@ -257,11 +265,11 @@ namespace AIVillage.M0
                                         && _agentCfg.DemandsUpfront(target.Personality, target.MyTraits));
                 bool prepaid = wantsUpfront
                                && canPayNow
-                               && requester.TransferTo(target, r.RewardCostSlot, r.RewardCostAmount);
+                               && requester.TransferTo(target, r.RewardCostSlot, price);
                 if (prepaid)
                     Debug.Log($"[Request] 선불 — {requester.AgentId}→{target.AgentId}: " +
-                              $"{r.RewardCostSlot} {r.RewardCostAmount}개 이전");
-                _inFlight[target.AgentId] = (r, requester.AgentId, prepaid);
+                              $"{r.RewardCostSlot} {price}개 이전");
+                _inFlight[target.AgentId] = (r, requester.AgentId, prepaid, price);
             }
             else
             {
@@ -342,6 +350,12 @@ namespace AIVillage.M0
         public static int TradePrice(int basePrice, int pricePct)
             => Mathf.CeilToInt(basePrice * Mathf.Max(100, pricePct) / 100f);
 
+        /// <summary>수락 시점 실가격 (M18, 순수 — 게이트 M18-T3. ADR-M18-2): 화폐 보상만 물가를
+        /// 탄다. ⚠️ 실물(식량) 보상에 곱하면 "물가 140%에 요리 부탁 식량 5개가 7개"가 된다 —
+        /// 물가는 화폐의 속성이다 (ADR-M16-4).</summary>
+        public static int AcceptancePrice(SlotId costSlot, int amount, int pricePct)
+            => costSlot == SlotId.MyMoney ? TradePrice(amount, pricePct) : amount;
+
         /// <summary>결과별 응수 대사 — 배고픔·피로는 성격 거부 대사 재사용 (이중 기입 금지, 명세 §4).</summary>
         private string[] ReplyLinesFor(RequestSO r, VillagerAgent target, VillagerAgent.RequestResult verdict)
         {
@@ -382,7 +396,7 @@ namespace AIVillage.M0
         /// </summary>
         public void NotifyFulfilled(string builderId)
         {
-            if (!_inFlight.TryGetValue(builderId, out (RequestSO so, string requesterId, bool prepaid) rec)) return;
+            if (!_inFlight.TryGetValue(builderId, out (RequestSO so, string requesterId, bool prepaid, int price) rec)) return;
             _inFlight.Remove(builderId);
 
             _relationship.AddAffinity(rec.requesterId, builderId, rec.so.FulfillDelta, $"{rec.so.DisplayName} 완수");
@@ -418,13 +432,15 @@ namespace AIVillage.M0
                 builder?.ShowTransient(Pick(rec.so.FulfillLines));
                 return;
             }
-            _pendingReports[builderId] = (rec.so, rec.requesterId, rec.prepaid);
+            _pendingReports[builderId] = (rec.so, rec.requesterId, rec.prepaid, rec.price);
 
             // 빚 표식 (M17-W7) — 갚아야 할 사람은 **의뢰인**이다. 화폐 보상에만 붙인다:
             // 실물(식량) 보상은 "돈을 벌어 갚는다"는 goal로 이어지지 않는다.
             // 선불이면 이미 치렀으므로 빚이 아니다.
-            if (!rec.prepaid && rec.so.RewardCostSlot == SlotId.MyMoney && rec.so.RewardCostAmount > 0)
-                requester.SetDebt(rec.so.RewardCostAmount, $"{rec.so.DisplayName} 미정산");
+            // 액수 = 수락 시점 실가격 (M18, ADR-M18-2) — 액면으로 적으면 물가가 오른 판에서
+            // "빚은 50인데 정산은 70을 요구"하는 어긋남이 생긴다.
+            if (!rec.prepaid && rec.so.RewardCostSlot == SlotId.MyMoney && rec.price > 0)
+                requester.SetDebt(rec.price, $"{rec.so.DisplayName} 미정산");
         }
 
         /// <summary>
@@ -452,14 +468,16 @@ namespace AIVillage.M0
             return canPay && hasRoom ? Settlement.Pay : Settlement.Defer;
         }
 
-        /// <summary>장면 전 분기 판정 — 순수 규칙에 현재 잔고·관계를 먹인다.</summary>
-        private Settlement Resolve(RequestSO so, bool prepaid, VillagerAgent requester, VillagerAgent builder)
+        /// <summary>장면 전 분기 판정 — 순수 규칙에 현재 잔고·관계를 먹인다.
+        /// 액수 = 수락 시점 실가격 (M18, ADR-M18-2) — 여기서 재계산하면 판정과 이전이 갈린다.</summary>
+        private Settlement Resolve(RequestSO so, bool prepaid, int price,
+                                   VillagerAgent requester, VillagerAgent builder)
             => ResolveSettlement(
-                so.RewardCostAmount <= 0, prepaid,
+                price <= 0, prepaid,
                 ShouldStiffReward(requester.Personality,
                                   _relationship.AffinityOf(requester.AgentId, builder.AgentId)),
-                requester.CanPayReward(so.RewardCostSlot, so.RewardCostAmount),
-                builder.HasRoomFor(so.RewardCostSlot, so.RewardCostAmount));
+                requester.CanPayReward(so.RewardCostSlot, price),
+                builder.HasRoomFor(so.RewardCostSlot, price));
 
         // 연기 로그 1회용 (같은 빚이 매 틱 로그를 도배하지 않도록) — 정산·이탈 시 해제
         private readonly HashSet<string> _deferLogged = new HashSet<string>();
@@ -474,11 +492,11 @@ namespace AIVillage.M0
         {
             if (builder == null) return;
             if (!_pendingReports.TryGetValue(builder.AgentId,
-                    out (RequestSO so, string requesterId, bool prepaid) rec))
+                    out (RequestSO so, string requesterId, bool prepaid, int price) rec))
                 return; // 정산할 빚 없음
 
             VillagerAgent payer = FindAgent(rec.requesterId);
-            Settlement how = payer != null ? Resolve(rec.so, rec.prepaid, payer, builder)
+            Settlement how = payer != null ? Resolve(rec.so, rec.prepaid, rec.price, payer, builder)
                                            : Settlement.Thanks; // 의뢰인 부재 = 장면만 정리
             if (how == Settlement.Defer)
             {
@@ -490,7 +508,7 @@ namespace AIVillage.M0
                 if (_deferLogged.Add(builder.AgentId))
                 {
                     Debug.Log($"[Request] 정산 연기 — {rec.requesterId} 잔고/공간 부족 " +
-                              $"({rec.so.RewardCostSlot} {rec.so.RewardCostAmount}). 빚 유지");
+                              $"({rec.so.RewardCostSlot} {rec.price}). 빚 유지");
                     builder.ShowTransientDelayed(Pick(rec.so.FulfillLines), 0f);
                     if (payer != null)
                     {
@@ -532,12 +550,12 @@ namespace AIVillage.M0
                               $"(수행자 {builder.AgentId} 관계 {rec.so.StiffedDelta})");
                 }
                 else if (how == Settlement.Pay
-                         && requester.TransferTo(builder, rec.so.RewardCostSlot, rec.so.RewardCostAmount))
+                         && requester.TransferTo(builder, rec.so.RewardCostSlot, rec.price))
                 {
                     requester.ShowTransientDelayed(Pick(FirstNonEmpty(rec.so.RewardLines, rec.so.ThanksLines)),
                                                    _agentCfg.ReplyDelaySec);
                     Debug.Log($"[Request] 보상 — {rec.requesterId}→{builder.AgentId}: " +
-                              $"{rec.so.RewardCostSlot} {rec.so.RewardCostAmount}개 이전");
+                              $"{rec.so.RewardCostSlot} {rec.price}개 이전");
                 }
                 else
                 {
@@ -557,7 +575,7 @@ namespace AIVillage.M0
         private void TickRewardSettlement(float nowSec)
         {
             if (_pendingReports.Count == 0) return;
-            foreach (KeyValuePair<string, (RequestSO so, string requesterId, bool prepaid)> kv in _pendingReports)
+            foreach (KeyValuePair<string, (RequestSO so, string requesterId, bool prepaid, int price)> kv in _pendingReports)
             {
                 VillagerAgent builder   = FindAgent(kv.Key);
                 VillagerAgent requester = FindAgent(kv.Value.requesterId);
@@ -580,21 +598,21 @@ namespace AIVillage.M0
         public void ReleaseBy(string agentId)
         {
             _keysToRemove.Clear();
-            foreach (KeyValuePair<string, (RequestSO so, string requesterId, bool prepaid)> kv in _inFlight)
+            foreach (KeyValuePair<string, (RequestSO so, string requesterId, bool prepaid, int price)> kv in _inFlight)
                 if (kv.Key == agentId || kv.Value.requesterId == agentId)
                     _keysToRemove.Add(kv.Key);
             foreach (string key in _keysToRemove)
                 _inFlight.Remove(key);
 
             _keysToRemove.Clear();
-            foreach (KeyValuePair<string, (RequestSO so, string requesterId, bool prepaid)> kv in _pendingReports)
+            foreach (KeyValuePair<string, (RequestSO so, string requesterId, bool prepaid, int price)> kv in _pendingReports)
                 if (kv.Key == agentId || kv.Value.requesterId == agentId)
                     _keysToRemove.Add(kv.Key);
             foreach (string key in _keysToRemove)
             {
                 // 빚 표식도 함께 지운다 (M17-W7) — 안 지우면 상대가 죽은 뒤에도 의뢰인이
                 // 영원히 갚을 곳 없는 빚을 지고 Goal_RepayDebt가 계속 뜬다 (유령 채무).
-                if (_pendingReports.TryGetValue(key, out (RequestSO so, string requesterId, bool prepaid) gone))
+                if (_pendingReports.TryGetValue(key, out (RequestSO so, string requesterId, bool prepaid, int price) gone))
                     FindAgent(gone.requesterId)?.SetDebt(0, "정산 상대 부재 — 채무 소멸");
                 _pendingReports.Remove(key); // 목수든 의뢰인이든 이탈 → 정산 불가, 빚 소멸
                 _deferLogged.Remove(key);    // 연기 로그 표식도 함께 (M11-H)

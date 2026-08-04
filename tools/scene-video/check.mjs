@@ -293,7 +293,17 @@ try {
       }
       if (sx >= 3) { P.edgeSideFrames++; P.edgeSide = Math.max(P.edgeSide, sx); }
 
-      // 정적 구간
+      /* 정적 구간.
+         🔴 아웃트로 카드가 덮는 구간은 세지 않는다(2026-08-04). .outrocard 는 .vis 와 좌표가
+         한 픽셀도 다르지 않고 배경이 불투명 z-index 3 이라, 마지막 OUTRO_MS 동안 캔버스는
+         **설계상 아무도 못 본다.** 그런데 이 검사는 .shot.on canvas 픽셀만 읽으므로 그 구간의
+         정지를 세서 회차에 경고를 냈다 — 검수 세 팀이 각각 짚었고, 훅이 카드로 옮겨간 뒤로는
+         그 구간에 캔버스가 움직일 이유 자체가 없어졌다.
+         🔑 이것은 기준을 무르게 하는 것이 아니라 **측정을 보이는 것으로 좁히는 것**이다.
+         실제로 ep05s-2 는 이 패치 뒤에도 보이는 정적이 2.6초로 남아 3.0초 코앞이다. */
+      const OUTRO_MS = 2600;   // engine.js 의 같은 이름 상수와 맞춰라
+      const covered = (i / FPS * 1000) >= window.TOTAL - OUTRO_MS;
+      if (covered) { P.staticRun = 0; prev = L; prevId = id; continue; }
       if (prev && prevId === id && prev.length === L.length) {
         let diff = 0;
         for (let j=0;j<L.length;j+=3) diff += Math.abs(L[j]-prev[j]);

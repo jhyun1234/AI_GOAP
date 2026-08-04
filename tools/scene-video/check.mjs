@@ -47,54 +47,55 @@ add(bigPauses.length <= 2, '큰 쉼 회차당 2회 이하',
   `${bigPauses.length}회` + (bigPauses.length ? ` (${bigPauses.map(l => l.shot).join(', ')})` : ''),
   'warn');
 
-/* ── 편당 길이 (2026-08-03 사용자 확정) ──────────────
-   🔑 **글 분량이 정하는 것은 "한 편의 길이"가 아니라 "편 수"다.**
+/* ── 제목 이행 — 제목이 약속한 것이 첫 두 줄 안에 나오는가 ──────────────
+   🔴 이 채널 최대의 이탈 원인이다(Docs/영상_이탈률_개선_실행명세서.md §관측②).
+   실측 절대 시청 시간이 16~27초인데 ep02s 는 제목이 약속한 장면이 34.3초에야 나왔다 —
+   시청자 대다수가 그 장면을 한 번도 못 보고 나간다.
 
-   옛 방침은 "길이 상한 없음 · 글 분량이 정한다"였고, 그 아래에 ep02s 사고가 적혀 있었다 —
-   83.6초짜리가 "쇼츠 60초 상한"으로 반려돼 36초가 잘렸고, 그 숫자는 리포 어디에도 없는
-   바깥 상식이었다. 그래서 "길이를 반려 사유로 쓰지 마라"가 됐다.
+   기준을 `hook` 이 아니라 `youtube.title` 로 잡는 이유는 ADR-V-3 이다:
+   시청자가 실제로 보고 누른 것이 제목이지 화면 안 문구가 아니다.
 
-   그 교훈은 그대로 살아 있다. 다만 결론이 바뀌었다 — 긴 글이 오면 **자르지 말고 나눈다.**
-   원문 하나가 1편·2편·3편이 될 수 있고, 편 수는 기획팀이 원문 분량을 보고 미리 정한다.
-   그러면 길이가 내용을 깎지 않으면서도 편당 길이는 지켜진다. ep04s(158.8초 → 1편·2편)와
-   ep05s(127.5초 → 1편·2편)가 그 첫 두 사례다.
+   `text`(자막)와 `say`(음성)를 **둘 다** 본다. 같은 수를 자막은 "4,096" 으로,
+   음성은 "사천 구십육" 으로 적기 때문이다 — 한쪽만 보면 통과할 것을 반려한다.
 
-   ⚠️ 그래서 이 항목이 걸렸을 때 할 일은 **자막을 지우는 것이 아니라 편을 늘리는 것**이다.
-   내용을 버리는 것과 회차를 쪼개는 것은 다르다. */
-const TARGET = 75;   // 편당 목표. 넘으면 경고 — 작성·검수가 나눌지 판단한다
-const LIMIT = 90;    // 편당 상한. 넘으면 나눠야 한다
-const TAIL = 0.35;   // engine/engine.js 의 SHOT_TAIL 과 같은 값
+   ⚠️ 검사가 거칠다. 형태소 분석 없이 어절만 대조하므로 동의어·활용형을 못 잡는다.
+   그런데도 과거 5편에 돌리면 이행이 늦은 셋(ep01s·ep02s·ep03s)만 정확히 걸린다.
+   의존성 0 이 이 파이프라인의 원칙이라(render.mjs 5행) 거친 채로 둔다.
+   🔴 오탐이 나면 게이트를 무르게 하지 말고 제목이나 첫 줄을 고쳐라 —
+   이 검사는 5편 중 3편을 잡아야 옳다. 전부 통과하면 검사가 망가진 것이다. */
+const TITLE_STOP = new Set(['유니티', 'Unity', 'GOAP', '개발일지', 'shorts', 'Shorts', '특별편']);
+const titleWords = s => [...new Set(
+  (s || '')
+    .replace(/(\d),(\d)/g, '$1$2')                 // 4,096 을 한 덩어리로 (쉼표가 어절을 쪼개지 않게)
+    .replace(/[·#,.…?!"'“”‘’·]/g, ' ')
+    .split(/\s+/).filter(Boolean)
+    .map(w => w.replace(/[을를이가은는의에서도만로]$/, ''))   // 흔한 조사만 턴다
+    .filter(w => w.length >= 2)
+    .filter(w => !TITLE_STOP.has(w))
+    .filter(w => !/^\d+(-\d+)?편$/.test(w))        // "2편"·"5-2편" 은 회차 번호지 약속이 아니다
+)];
 
-/* 실측(timed.json)이 있으면 그것을 쓰고, 없으면 산정치로라도 본다.
-   산정치라도 보는 이유 = 클라우드에는 TTS 모델이 없어 timed.json 이 영영 안 생기는데,
-   대본이 만들어지는 곳이 바로 거기다. 편 수는 대본을 쓰는 자리에서 정해져야 한다. */
-const CPS_REF = 6.7;   // ep02s 실측: 발화 84.18초에 564자
-const estFlat = allLines.reduce((a, l) =>
-  a + (l.say ?? l.text.replace(/\n/g, ' ')).length / CPS_REF + (l.pauseAfter ?? 0) / 1000, 0);
-const estTotal = estFlat + TAIL * scene.shots.length;
-const realTotal = timed ? timed.summary.totalMs / 1000 + TAIL * scene.shots.length : null;
-const total = realTotal ?? estTotal;
-const lenDetail = `${total.toFixed(1)}초 (${realTotal ? '실측' : '산정치'}, ${scene.shots.length}샷)`;
-add(total <= LIMIT, `편당 길이 ${LIMIT}초 이하`,
-  lenDetail + (total > LIMIT ? ` — ${(total - LIMIT).toFixed(1)}초 초과. 자막을 지우지 말고 편을 나눠라` : ''));
-add(total <= TARGET, `편당 목표 ${TARGET}초`,
-  lenDetail + (total > TARGET && total <= LIMIT ? ' — 목표는 넘었다. 나눌지 판단하고 사유를 notes 에 적어라' : ''),
-  'warn');
+const titleKeys = titleWords(scene.youtube?.title);
+const headText = allLines.slice(0, 2).map(l => `${l.text ?? ''} ${l.say ?? ''}`).join(' ');
+const headKeys = titleWords(headText);
+const titleHit = titleKeys.filter(k =>
+  headKeys.some(h => h === k || h.includes(k) || k.includes(h)));
 
-/* 콜드 오픈 — 쇼츠 이탈이 가장 큰 구간은 0~3초다. 첫 자막이 길면 훅이 그 뒤로 밀린다.
-   ep04s 1차본의 첫 자막은 4.5초짜리 시리즈 맥락 설명이었다. */
-const first = allLines[0];
-const firstDur = (first.say ?? first.text.replace(/\n/g, ' ')).length / CPS_REF + (first.pauseAfter ?? 0) / 1000;
-add(firstDur <= 3.5, '첫 자막 3.5초 이하',
-  `${firstDur.toFixed(1)}초 — "${(first.say ?? first.text).replace(/\n/g, ' ')}"`, 'warn');
+add(titleKeys.length > 0 && titleHit.length > 0, '제목 이행 (첫 두 줄)',
+  titleKeys.length === 0
+    ? `🔴 youtube.title 에서 핵심어를 못 뽑았다 — 제목이 비었거나 상투어뿐이다`
+    : titleHit.length
+      ? `겹침: ${titleHit.join(', ')}`
+      : `🔴 제목 핵심어 [${titleKeys.join(', ')}] 가 첫 두 줄에 없다 — `
+      + `제목이 약속한 것을 30초 뒤에 주면 대부분 못 보고 나간다`);
 
 /* ── 다음 편 예고 (2026-07-30 사용자 요청 · 2026-08-03 길이 확정) ──
-   🔴 예고는 **있어야 한다.** 잠시 이 자리에 "꼬리 예고 없음" 게이트가 있었는데(2026-08-03),
-   그건 리포 밖 상식으로 만든 규칙이었고 사용자 요청이 적힌 문서 셋과 정면으로 충돌해
-   검수팀 두 팀이 각각 반려했다. 거뒀다.
-
-   대신 **길이만 잡는다.** 1차본들의 예고가 10~14초여서 페이오프 뒤가 늘어졌다.
-   사용자 확정(2026-08-03) — 예고는 되살리되 **3초 안에** 끝낸다. */
+   예고 자체는 사용자 요청이라 있어야 하고, 길이만 잡는다 — 1차본들이 10~14초를 써서
+   페이오프 뒤가 늘어졌다. 명세서와 충돌하지 않아 그대로 둔다(명세서는 예고를 다루지 않는다).
+   🔴 같은 커밋에 있던 "편당 길이 75/90"과 "첫 자막 3.5초"는 버렸다 —
+   앞엣것은 명세서 §관측①(길이는 원인이 아니다)이 기각했고 W3(50초/30~45초)이 대신한다.
+   뒤엣것은 §0 틀린 전제 ②("ep02s 는 도입부 빌드업이 길어 초반 이탈")가 실사로 기각된
+   추측에 기대고 있었다. 근거 없는 규칙을 만들지 않는다(ADR-V-7). */
 const TEASER_MAX = 4.0;
 const lastShot = scene.shots.at(-1);
 const teaserRe = /다음\s*(편|회차|은|는)|이어서|(\d+)\s*부/;
@@ -115,6 +116,19 @@ if (timed) {
 
   const cps = timed.summary?.charsPerSec;
   add(cps >= 6.0 && cps <= 7.2, '말 속도 6.0~7.2자/초', `${cps}자/초 (참고 영상 6.93)`, 'warn');
+
+  /* ── 총 길이 ────────────────────────────────────────
+     실측 절대 시청 시간이 16~27초인데 영상이 80~122초였다
+     (Docs/영상_이탈률_개선_실행명세서.md §관측①). 70~80% 를 아무도 안 본다.
+     🔴 30~45 는 제안치다. 이 파이프라인에 길이 상한이 있었던 적이 없어 기존 값이 없다.
+
+     상한(50)과 권장대역(45)을 나눈 이유: 상한은 페널티의 천장이고 권장은 목표다.
+     둘을 같은 값으로 합치면 46초짜리가 반려되어 무인 되돌리기 루프가 헛돈다. */
+  const totalSec = timed.shots.flatMap(s => s.lines)
+    .reduce((a, l) => a + l.dur + (l.pause || 0), 0) / 1000;
+  add(totalSec <= 50, '총 길이 50초 이하', `${totalSec.toFixed(1)}초 (목표 30~45초)`);
+  add(totalSec >= 30 && totalSec <= 45, '총 길이 30~45초 권장대역',
+    `${totalSec.toFixed(1)}초`, 'warn');
 } else {
   add(false, '실측 타임라인 존재', `episodes/${EP}/build/timed.json 이 없다 — tts.mjs 를 먼저 돌려라`);
 }

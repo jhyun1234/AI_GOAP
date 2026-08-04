@@ -142,6 +142,46 @@ if (!EP) {
   if (ROUTINE) console.log(`회차     ${EP} (schedule.json 에서 자동 선택)`);
 }
 
+/* ── 밀린 대본을 다 렌더한다 (routine 전용) ───────────
+   🔴 하루 두 편이 되면서 대본이 렌더보다 빨리 쌓인다(2026-08-03). 그런데 이 스크립트는
+   한 번에 한 편만 처리하므로, 태스크가 하루 한 번이면 대본이 영원히 하루씩 밀린다.
+
+   해법으로 **로컬 태스크 시각을 늘리지 않는다**(ADR-V-5). 로컬과 클라우드의 박자를
+   두 지점에서 맞추면 또 어긋난다 — 실제로 로컬이 클라우드보다 9분 먼저 돌아
+   매 회차가 하루씩 밀린 이력이 있다(cloud-routine-prompt.md 20행). 대신 여기서
+   밀린 것을 다 처리한다. "안 렌더한 대본이 있으면 렌더한다"는 로컬의 기존 규칙 그대로다.
+
+   🔑 자기 자신을 회차별로 다시 부른다. 한 프로세스에서 루프를 돌지 않는 이유는
+   이 파일의 아래쪽 600줄이 전역 상수(EP·scenePath·timed…)에 기대는 선형 스크립트라
+   루프로 감싸면 그 전제가 통째로 깨지기 때문이다. 프로세스를 가르면 **한 편이 죽어도
+   나머지가 산다** — 무인 실행에서 그날치가 통째로 없어지는 것을 막는 게 더 중요하다.
+
+   자식은 회차를 인자로 받으므로 이 갈래(`인자 없음`)에 걸리지 않는다 = 재귀하지 않는다.
+   순서표를 늘리는 것(backlog --extend)도 인자 없는 실행만 하므로 부모만 한다. */
+const MAX_PER_RUN = 4;                    // 폭주 방지. 4편이면 렌더만 20분 남짓이다
+if (ROUTINE && !argv.find(a => !a.startsWith('--'))) {
+  const ready = sched.order.filter(id => !state[id] && fs.existsSync(epScene(id)));
+  if (ready.length > 1) {
+    const todo = ready.slice(0, MAX_PER_RUN);
+    console.log(`밀림     안 렌더한 대본 ${ready.length}편 — 이번 실행에서 ${todo.length}편 처리한다`);
+    if (ready.length > MAX_PER_RUN) {
+      console.log(`         나머지 ${ready.length - MAX_PER_RUN}편은 다음 실행으로 넘긴다 (한 번에 ${MAX_PER_RUN}편 상한)`);
+    }
+    let done = 0, failed = [];
+    for (const id of todo) {
+      console.log(`\n${'═'.repeat(52)}\n▶ ${id}\n${'═'.repeat(52)}`);
+      const r = spawnSync(process.execPath, [fileURLToPath(import.meta.url), id, ...argv],
+        { stdio: 'inherit' });
+      /* 🔴 한 편이 실패해도 멈추지 않는다. 무인이라 여기서 죽으면 그날치가 통째로 없어진다. */
+      if (r.status === 0) done++;
+      else { failed.push(id); console.error(`🔴 ${id} 실패 (exit ${r.status}) — 다음 회차로 넘어간다`); }
+    }
+    console.log(`\n${'─'.repeat(52)}\n처리     성공 ${done}편` +
+      (failed.length ? ` · 실패 ${failed.length}편 (${failed.join(', ')})` : ''));
+    process.exit(failed.length ? 1 : 0);
+  }
+}
+
 const scenePath = epScene(EP);
 
 /* ── 0. 대본이 없으면 만든다 ─────────────────────────
@@ -295,7 +335,11 @@ function renderEvent(line) {
 }
 
 async function writeScript(ep) {
-  const src = sched.sources?.[ep] || {};
+  /* 🔴 분할 회차(`ep05s-1`)의 원본은 **글 단위 키**(`ep05s`)에 있다.
+     `sources` 를 편 단위로 늘리지 않는 이유는 원문 URL 이 여러 벌로 갈리면
+     어느 것이 정본인지 모호해지기 때문이다 — 한 글에서 나온 편들은 같은 원문을 본다.
+     끝자리 숫자만 뗀다. `split('-')[0]` 로 쓰면 나중에 하이픈 든 특별편에서 갈린다. */
+  const src = sched.sources?.[ep] || sched.sources?.[ep.replace(/-\d+$/, '')] || {};
   const prompt = `tools/scene-video/routine-prompt.md 의 절차대로 **${ep}** 회차의 대본을 만들어라.
 
 이건 스케줄러가 부른 무인 실행이다. 사람이 안 보고 있다.
@@ -623,8 +667,33 @@ if (!SKIP_CHECK) {
 const y = scene.youtube || {};
 const privacy = ALLOW_PUBLIC ? (y.privacy || 'private') : 'private';
 
+/* ── 형제 편 — 같은 글에서 나온 다른 편 ─────────────
+   한 글이 2~3편으로 나뉘는데(§W1) 발행은 하루 2편 고정이라 글 경계를 넘는다(ADR-V-8).
+   즉 "3편 중 2편"이라고 적는 시점에 3편이 아직 안 올라와 있을 수 있다.
+   🔴 그때 링크를 만들면 죽은 안내가 된다. `uploads.json` 에 **url 이 있는 것만** 링크하고
+   나머지는 "곧 올라옵니다"로 적는다. 업로드가 사람 손이라 preparedAt 만 있고
+   url 이 없는 상태가 정상적으로 존재한다(2026-08-03 현재 6건 전부 그렇다). */
+const epBase = EP.replace(/-\d+$/, '');
+const epPart = Number((EP.match(/-(\d+)$/) || [])[1] || 0);
+const epSplit = sched.sources?.[epBase]?.split ?? 1;
+const sibLines = epSplit > 1
+  ? Array.from({ length: epSplit }, (_, i) => `${epBase}-${i + 1}`)
+    .filter(id => id !== EP)
+    .map(id => {
+      const label = id.replace(/^ep0*(\d+)s-(\d+)$/, '$1-$2편');
+      const s = state[id];
+      return s?.url ? `${label} ${s.title ?? ''} ${s.url}`.replace(/\s+/g, ' ').trim()
+        : `${label} (곧 올라옵니다)`;
+    })
+  : [];
+
 const desc = [
   y.blurb || '',
+  '',
+  epSplit > 1 && epPart
+    ? `이 편은 「${scene.source?.title ?? '원문'}」 에서 나온 ${epSplit}편 중 ${epPart}편입니다.`
+    : '',
+  ...sibLines,
   '',
   scene.source?.title ? `원문: ${scene.source.title}` : '',
   scene.source?.url || '',

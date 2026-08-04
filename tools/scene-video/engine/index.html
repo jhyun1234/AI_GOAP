@@ -24,6 +24,18 @@
 
   <main class="vis" id="vis"></main>
 
+  <!-- 아웃트로 카드 — 마지막 몇 초에만 뜬다.
+       🔑 이 엔진에서 **시간에 따라 나타나는 HUD 요소는 이것이 처음**이다. 나머지 HUD 는
+       전부 로드 시 한 번 쓰고 끝이었다. 자리를 여기 만든 이유는 사용자 요구
+       ("어느 글에서 나온 얘기인지, 몇 편 중 몇 편인지 확실하게 알려줘야 한다")다.
+       ⚠️ `.vis` 와 같은 상자를 쓴다 — 하단 안전영역·가장자리 잘림 검사가 이미
+       그 상자에 맞춰져 있어서, 새 좌표를 발명하면 그 검사들을 처음부터 다시 맞춰야 한다. -->
+  <section class="outrocard" id="outroCard" hidden>
+    <p class="oc-src"  id="ocSrc"></p>
+    <ul class="oc-sibs" id="ocSibs"></ul>
+    <p class="oc-ai"   id="ocAi"></p>
+  </section>
+
   <footer class="cap"><p id="cap"></p></footer>
 </div>
 

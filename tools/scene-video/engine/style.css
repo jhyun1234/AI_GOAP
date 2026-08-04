@@ -106,6 +106,19 @@ body{background:#000;color:var(--ink);font-family:var(--mono);
   z-index:3;background:var(--bg);display:flex;flex-direction:column;
   justify-content:center;gap:9px}
 .outrocard[hidden]{display:none}
+/* 🔴 훅은 카드 맨 위다(2026-08-04). 원래 마지막 샷 canvas 가 그렸는데,
+   .outrocard 가 .vis 와 좌표가 한 픽셀도 다르지 않고 배경이 불투명이라
+   OUTRO_MS 구간에 통째로 덮였다 — 검수 실측으로 ep04s-3 은 훅이 단 한 프레임도
+   보인 적이 없었다(카드 등장 35,765ms vs 예고 자막 시작 35,776ms).
+   두 곳에 적으면 갈린다는 원칙(verdict.js:150)이 카드와 캔버스 사이에서 깨져 있었다.
+   여기로 옮기면 훅이 OUTRO_MS 2.6초 내내 서 있고, kind 는 그림에만 집중한다. */
+.oc-hook{font-family:var(--disp);font-weight:900;font-size:19px;line-height:1.22;
+  letter-spacing:-.02em;color:var(--ink);margin-bottom:2px;
+  /* 🔴 scene.hook 은 줄바꿈을 담는다(여섯 회차가 쓴다). 캔버스가 그릴 때는 kind 가
+     직접 줄을 나눴는데 여기는 DOM 이라 white-space 가 없으면 \n 이 공백으로 뭉개진다.
+     검수가 잡았다 — 훅을 카드로 옮기며 같이 옮겨야 했던 성질이다. */
+  white-space:pre-line}
+.oc-hook[hidden]{display:none}
 .oc-src{font-family:var(--disp);font-weight:800;font-size:15px;line-height:1.3;
   letter-spacing:-.02em;color:var(--ink)}
 .oc-sibs{list-style:none;display:flex;flex-direction:column;gap:5px}

@@ -32,6 +32,37 @@ const missingMeta = scene.shots.filter(s => !s.reads || !s.source || !s.kind).ma
 add(missingMeta.length === 0, 'shot 메타 완비',
   missingMeta.length ? `reads/source/kind 누락: ${missingMeta.join(', ')}` : `${scene.shots.length}샷 전부 있음`);
 
+/* ── 형제 카드 라벨 = 그 편의 youtube.title ──────────
+   🔴 분할 회차 여섯이 서로를 부르는 이름 열여덟 개 중 **하나도 안 맞았다**(2026-08-04 검수).
+   그중 둘은 사실관계까지 어긋났다 — 5-1·5-3 이 5-2 를 「갇혔다」(완료형)로 불렀는데
+   원문은 '갇히지 않으려면' 이라는 조건절이고 안 난 사고다. 한 편이 원문 대조로 바로잡은
+   수위가 형제 카드에서 무효가 되고 있었다.
+
+   정본을 새로 만들지 않고 이미 승인된 youtube.title 에서 기계적으로 파생한다:
+   「<제목> · 유니티 GOAP 개발일지 5-2편 #shorts」 → 「5-2편 · <제목>」.
+   그러면 카드를 보고 검색·추천에서 그 편을 찾는 시청자가 같은 문장을 만난다.
+   지어낸 문구가 0개이므로 라벨이 네 번째 표기가 되는 일도 없다. */
+const sibTail = /^(.+) · 유니티 GOAP 개발일지 ([\d-]+편) #shorts$/;
+const sibLabel = sc => { const m = sibTail.exec(sc.youtube?.title ?? ''); return m ? `${m[2]} · ${m[1]}` : null; };
+const sibs = scene.outro?.siblings ?? [];
+if (sibs.length) {
+  const bad = [];
+  for (const s of sibs) {
+    const got = typeof s === 'string' ? s : s.label;
+    const part = /^([\d-]+편)/.exec(got ?? '')?.[1];
+    /* 4-2편 → ep04s-2. 이 규약이 §1 의 분할 id 규약과 같은 자리에서 나온다. */
+    const m = /^(\d+)-(\d+)편$/.exec(part ?? '');
+    const sibEp = m ? `ep${String(m[1]).padStart(2, '0')}s-${m[2]}` : null;
+    const sibPath = sibEp && path.join(ROOT, 'episodes', sibEp, 'scene.json');
+    if (!sibPath || !fs.existsSync(sibPath)) { bad.push(`${got} → 회차를 못 찾았다`); continue; }
+    const want = sibLabel(JSON.parse(fs.readFileSync(sibPath, 'utf8')));
+    if (want === null) { bad.push(`${sibEp} 의 youtube.title 이 규약 형식이 아니다`); continue; }
+    if (want !== got) bad.push(`${sibEp}: "${got}" ≠ "${want}"`);
+  }
+  add(bad.length === 0, '형제 라벨 = 그 편의 youtube.title',
+    bad.length ? bad.join(' / ') : `${sibs.length}개 전부 일치`);
+}
+
 const kindsDir = path.join(ROOT, 'episodes', EP, 'kinds');
 const badKind = [...new Set(scene.shots.map(s => s.kind))].filter(k => !fs.existsSync(path.join(kindsDir, `${k}.js`)));
 add(badKind.length === 0, 'kind 파일 존재', badKind.length ? `없음: ${badKind.join(', ')}` : '전부 존재');
@@ -97,6 +128,14 @@ add(titleKeys.length > 0 && titleHit.length > 0, '제목 이행 (첫 두 줄)',
    뒤엣것은 §0 틀린 전제 ②("ep02s 는 도입부 빌드업이 길어 초반 이탈")가 실사로 기각된
    추측에 기대고 있었다. 근거 없는 규칙을 만들지 않는다(ADR-V-7). */
 const TEASER_MAX = 4.0;
+/* 🔴 2026-08-04. 이 선언이 한때 사라져 check.mjs 가 통째로 죽었다. 명세서를 정본으로
+   병합하며 "편당 길이 75/90" 블록을 버렸는데 CPS_REF 를 거기서 선언하고 있었고,
+   아래 예고 길이 계산이 그걸 쓴다. teaserLines 가 비면 콜백이 안 불려 조용히 지나가지만,
+   바로 아래 항목이 예고를 fail 수준으로 **요구**하므로 규칙을 지킨 회차만 골라서 터진다 —
+   가장 나쁜 형태의 고장이다. 작성팀이 ep04s-2 를 쓰다 발견해 보고했다.
+   🔑 이 값은 예고 한 줄의 길이를 재는 데만 쓴다. 회차 총 길이는 timed.json 실측으로 재고
+   (W3), 산정치로 길이를 판정하지 않는다 — 그건 §관측①이 기각한 접근이다. */
+const CPS_REF = 6.7;   // ep02s 실측: 발화 84.18초에 564자
 const lastShot = scene.shots.at(-1);
 const teaserRe = /다음\s*(편|회차|은|는)|이어서|(\d+)\s*부/;
 const teaserLines = lastShot.lines.filter(l => teaserRe.test(l.say ?? l.text));
@@ -131,6 +170,29 @@ if (timed) {
     `${totalSec.toFixed(1)}초`, 'warn');
 } else {
   add(false, '실측 타임라인 존재', `episodes/${EP}/build/timed.json 이 없다 — tts.mjs 를 먼저 돌려라`);
+
+  /* ── 산정 길이(참고) ─────────────────────────────────
+     🔴 판정이 아니다. ok=true 로 넣어 절대 fail 이 안 나게 해 뒀다.
+
+     왜 넣나: 대본이 길이를 자기보고로 적는 자리(notes.길이)가 여섯 회차 전부
+     제각각 틀렸다. 어떤 회차는 ÷9.15+0.5×줄수, 어떤 회차는 ÷6.77, pauseAfter 합을
+     잘못 더한 것도 있었다. 식을 문서에 베껴 적게 하면 베낀 곳마다 갈린다.
+     그래서 **식은 여기 한 곳에만 두고 대본은 이 줄의 출력을 인용한다.**
+
+     회귀는 회차 다섯의 timed.json 으로 맞췄다 — ÷6.77 보다 ÷6.7(= CPS_REF)이
+     최대오차 2.8s → 2.0s 로 낫다. voice.json 의 6.77 은 발화만 잰 값이라
+     총 길이 산정에 그대로 쓰면 안 된다.
+
+     구두점은 뺀다(TTS 가 소리로 내지 않고 쉼으로 흡수한다). 샷 꼬리는
+     engine.js 의 SHOT_TAIL 과 같은 0.35s 다. */
+  const SHOT_TAIL = 0.35;
+  const spoken = l => (l.say ?? l.text.replace(/\n/g, ' ')).replace(/[.,?!…·「」"'\s]/g, '').length;
+  const allLines = scene.shots.flatMap(s => s.lines);
+  const estVoice = allLines.reduce((a, l) => a + spoken(l) / CPS_REF + (l.pauseAfter ?? 0) / 1000, 0);
+  const estTotal = estVoice + SHOT_TAIL * scene.shots.length;
+  add(true, '산정 길이 (참고 · 판정 아님)',
+    `${estTotal.toFixed(1)}초 = 발화 ${estVoice.toFixed(1)} + 꼬리 ${(SHOT_TAIL * scene.shots.length).toFixed(2)}` +
+    ` · 실측 오차 ±2.0초 — notes.길이 는 이 값을 인용할 것`);
 }
 
 /* ── B. 실제 프레임 (헤드리스에서 그려 보고 판정) ───── */
@@ -285,7 +347,17 @@ try {
       }
       if (sx >= 3) { P.edgeSideFrames++; P.edgeSide = Math.max(P.edgeSide, sx); }
 
-      // 정적 구간
+      /* 정적 구간.
+         🔴 아웃트로 카드가 덮는 구간은 세지 않는다(2026-08-04). .outrocard 는 .vis 와 좌표가
+         한 픽셀도 다르지 않고 배경이 불투명 z-index 3 이라, 마지막 OUTRO_MS 동안 캔버스는
+         **설계상 아무도 못 본다.** 그런데 이 검사는 .shot.on canvas 픽셀만 읽으므로 그 구간의
+         정지를 세서 회차에 경고를 냈다 — 검수 세 팀이 각각 짚었고, 훅이 카드로 옮겨간 뒤로는
+         그 구간에 캔버스가 움직일 이유 자체가 없어졌다.
+         🔑 이것은 기준을 무르게 하는 것이 아니라 **측정을 보이는 것으로 좁히는 것**이다.
+         실제로 ep05s-2 는 이 패치 뒤에도 보이는 정적이 2.6초로 남아 3.0초 코앞이다. */
+      const OUTRO_MS = 2600;   // engine.js 의 같은 이름 상수와 맞춰라
+      const covered = (i / FPS * 1000) >= window.TOTAL - OUTRO_MS;
+      if (covered) { P.staticRun = 0; prev = L; prevId = id; continue; }
       if (prev && prevId === id && prev.length === L.length) {
         let diff = 0;
         for (let j=0;j<L.length;j+=3) diff += Math.abs(L[j]-prev[j]);

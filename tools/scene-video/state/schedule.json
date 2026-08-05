@@ -17,7 +17,8 @@
     "ep05s-2",
     "ep05s-3",
     "ep06s",
-    "ep07s",
+    "ep07s-1",
+    "ep07s-2",
     "ep08s",
     "ep09s",
     "ep10s",
@@ -65,7 +66,9 @@
     },
     "ep07s": {
       "local": "2026-07-18-unity-goap-m5-job-schedule.html",
-      "url": "https://gamedevclaude.blogspot.com/2026/07/unity-goap-ai.html"
+      "url": "https://gamedevclaude.blogspot.com/2026/07/unity-goap-ai.html",
+      "split": 2,
+      "note": "🔴 2026-08-06 사건 단위로 2편 분할(사용자 승인). order 는 ep07s-1·-2 이고 sources 는 글 단위로 이 키 하나만 둔다(명세서 §1) — 그래야 nextId() 가 본편 번호를 정확히 세고 claimed 가 글 파일을 문다. 1편 = 직업을 성격과 별개 축으로 얹어 마을이 흩어진 이야기 / 2편 = 그날 아침 수정이 반쪽이라 대각선 길찾기가 죽어 있었고, 직업 따라 흩어진 주민이 그 길을 밟아 드러난 이야기. 🔑 2편은 ep06s 가 한 번 이월했던 소재다 — 두 번 미루지 않으려고 여기서 세웠다."
     },
     "ep08s": {
       "local": "2026-07-19-unity-goap-m6-season-winter-crisis.html",

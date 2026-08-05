@@ -484,10 +484,11 @@ namespace AIVillage.M0
             _deferLogged.Remove(builder.AgentId);
             // 이 장면으로 채무 관계는 끝난다 — 떼먹힌 원한은 관계 축이 따로 기억한다 (M11-H).
 
-            // 목수 완수 대사도 지연 경로로 (2026-07-18 버그 수정): 즉시 ShowTransient는 정산
-            // 순간(마주침=이동 중단)의 AbortPlan.Clear에 지워져 목수만 침묵하고 의뢰인 감사만
+            // 시공자 완수 대사도 지연 경로로 (2026-07-18 버그 수정): 즉시 ShowTransient는 정산
+            // 순간(마주침=이동 중단)의 AbortPlan.Clear에 지워져 시공자만 침묵하고 의뢰인 감사만
             // 남았다. 의뢰인 응수와 동일하게 clear-후-표시라 그 Clear를 비껴간다. 0f = 곧바로
-            // (의뢰인 ReplyDelaySec보다 먼저 = "목수 먼저, 의뢰인 응수" 순서 보존).
+            // (의뢰인 ReplyDelaySec보다 먼저 = "시공자 먼저, 의뢰인 응수" 순서 보존).
+            // ⚠️ M19 이후 시공자는 목수가 아닐 수 있다 — 독점이 풀려 누구나 지을 수 있다.
             builder.ShowTransientDelayed(Pick(rec.so.FulfillLines), 0f);
             VillagerAgent requester = payer; // 분기 판정에 쓴 그 사람 — 재조회하면 판정과 어긋날 수 있다
             if (requester != null)

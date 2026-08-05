@@ -905,7 +905,7 @@ namespace AIVillage.Tests.EditMode
                 "기록 시점에는 아직 죽지 않아야 한다 (살아남아야 표시가 쓸모 있다)");
         }
 
-        // ── M12-T14: 직업 배정 성향 편향 + 목수 최소 보장 (M12-H) ──────────────
+        // ── M12-T14: 직업 배정 성향 편향 (M12-H. 최소 보장은 M20-W5에서 삭제) ──────
         // 명세는 M12_T8로 불렀으나 T8은 이미 6성격 이식이 점유 → 실제 파일 연번을 따른다.
 
         private const string JOBS_DIR = "Assets/M0Config/Jobs";

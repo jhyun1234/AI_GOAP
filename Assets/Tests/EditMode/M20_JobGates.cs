@@ -123,26 +123,24 @@ namespace AIVillage.Tests.EditMode
             Assert.AreEqual(2, flagged, "IsCookingWork가 켜진 액션은 정확히 2곳(CookMeal·CookMealScarce)");
         }
 
-        // ── T5: 집 부탁 사슬 휴면 (ADR-M20-7) ────────────────────────────────
+        // ── T5: 집은 개인이 짓는다 (ADR-M20-7) ───────────────────────────────
 
         [Test]
-        public void M20_T5_HouseRequestChain_StaysDormant()
+        public void M20_T5_NoRequestGrantsHouseOwnership()
         {
             var world = AssetDatabase.LoadAssetAtPath<WorldConfigSO>("Assets/M0Config/WorldConfig.asset");
             Assert.IsNotNull(world, "WorldConfig 에셋 존재");
-            var injected = AssetDatabase.LoadAssetAtPath<GoalSO>(
-                "Assets/M0Config/Goals/Goal_RequestHouse.asset");
-            Assert.IsNotNull(injected, "Goal_RequestHouse 에셋은 보존한다 (휴면 ≠ 삭제)");
-
-            // 집은 개인이 짓는다 (M19 독점 해제의 완결) — 부탁으로 남의 집을 짓는 경로는 없다.
-            // 이 단언이 실패하는 구현 = 집 부탁을 다시 등록한 상태. 되살리려면 ADR-M20-7의
-            // 개정 사유부터 쓴다 (두 번 패치하고도 맴돌기·경고 폭풍이 났던 사슬이다).
             if (world.Requests == null) return;
+
+            // 집은 개인이 짓는다 (M19 독점 해제의 완결) — 부탁으로 남의 집을 지어 주는 경로는
+            // 없다. 이 단언이 실패하는 구현 = 집 부탁을 다시 만든 상태. 되살리려면 ADR-M20-7의
+            // 개정 사유부터 쓴다 (두 번 패치하고도 맴돌기·경고 폭풍이 났던 사슬이다 — §9~10).
+            // 판정은 이름이 아니라 소유 슬롯(값 신원)으로 — 새 이름으로 만들어도 잡힌다.
             foreach (RequestSO r in world.Requests)
             {
                 if (r == null) continue;
-                Assert.AreNotSame(injected, r.InjectGoal,
-                    $"{r.name}: 집 짓기를 주입하는 부탁은 휴면이다 (ADR-M20-7)");
+                Assert.IsFalse(r.GrantOwnership && r.OwnershipSlot == SlotId.HouseCount,
+                    $"{r.name}: 집 소유를 배정하는 부탁은 금지다 (ADR-M20-7 — 집은 개인이 짓는다)");
             }
         }
 

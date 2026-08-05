@@ -190,7 +190,8 @@ namespace AIVillage.Tests.EditMode
 
             // M11-E 개정: 선행 조건이 모닥불 → **내 집**으로 바뀌었다 (밭은 내 집 곁에 선다).
             // Tech Tree 게이트의 정신은 그대로 — 선행이 없으면 goal이 뜨지 않는다. 모닥불 전제는
-            // 이제 집 goal(BuildMyHouse·RequestHouse)이 지므로 MyHasHome==1이 그걸 전이 보장한다.
+            // 이제 집 goal(BuildMyHouse — RequestHouse는 M20-W12에서 삭제)이 지므로
+            // MyHasHome==1이 그걸 전이 보장한다.
             var slots = new int[PlanningConfig.TotalSlots];
             slots[(int)SlotId.WoodStock] = 50;
             slots[(int)SlotId.MySatiety] = 80;

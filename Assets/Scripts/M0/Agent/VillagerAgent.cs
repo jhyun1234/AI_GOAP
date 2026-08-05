@@ -1454,26 +1454,8 @@ namespace AIVillage.M0
             return null;
         }
 
-        /// <summary>탐색 반경 안에서 가장 가까운 해당 직업 주민 (M17-R3, SeekJobRunner 전용).
-        /// 자기 자신·사망자 제외. maxDist 0 이하 = 무제한. 없으면 null.
-        /// 에이전트 목록 순회를 VillagerAgent 안에 가둔다 — FindVisitTarget과 같은 이유
-        /// (러너가 _sim을 직접 잡으면 주민 전용 로직이 밖으로 샌다, CLAUDE.md 후반 확장 규칙 2).</summary>
-        public VillagerAgent FindNearestWithJob(JobSO job, int maxDist)
-        {
-            if (job == null) return null;
-            VillagerAgent best = null;
-            int bestDist = int.MaxValue;
-            foreach (VillagerAgent a in _sim.Agents)
-            {
-                if (a == null || a == this || a.State == AgentState.Dead || a.Job != job) continue;
-                int d = Mathf.Abs(TileX - a.TileX) + Mathf.Abs(TileY - a.TileY);
-                if (maxDist > 0 && d > maxDist) continue;
-                if (d >= bestDist) continue;
-                bestDist = d;
-                best = a;
-            }
-            return best;
-        }
+        // FindNearestWithJob(M17-R3)은 M20-W12에서 SeekJob 사슬(유일한 호출처)과 함께 삭제
+        // (ADR-M0-4 폐기=삭제 — 집 부탁 철거 ADR-M20-7의 귀결. 복원은 git 히스토리에서).
 
         /// <summary>
         /// 보고 심부름 부여 (RequestService 전용) — 부탁 슬롯 재사용 (ADR-M8-4: 새 실행 경로 없음).

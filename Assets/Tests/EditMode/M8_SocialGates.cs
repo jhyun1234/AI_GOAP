@@ -298,55 +298,8 @@ namespace AIVillage.Tests.EditMode
             DestroyAll(order, request, bigRequest);
         }
 
-        // ── M8-T4: 에셋 정책 (M8-E — 부탁 에셋의 데이터 완결성) ─────────────────
-
-        private static RequestSO LoadRequest(string name)
-        {
-            var r = UnityEditor.AssetDatabase.LoadAssetAtPath<RequestSO>(
-                $"Assets/M0Config/Requests/{name}.asset");
-            Assert.IsNotNull(r, $"{name}.asset 로드 실패");
-            return r;
-        }
-
-        [Test]
-        public void M8_T4_AssetPolicy_BuildMyHouseComplete()
-        {
-            RequestSO r = LoadRequest("Request_BuildMyHouse");
-
-            // 의뢰인 조건: 무주택 (MyHasHome == 0)
-            bool hasHomeCondition = false;
-            foreach (SlotCondition c in r.RequesterConditions)
-                if (c.Slot == SlotId.MyHasHome && c.Op == CompareOp.Equal && c.Value == 0)
-                    hasHomeCondition = true;
-            Assert.IsTrue(hasHomeCondition, "RequesterConditions에 MyHasHome == 0 필수");
-
-            Assert.IsNotNull(r.TargetJob, "TargetJob(목수) 참조 실재");
-            Assert.IsNotNull(r.InjectGoal, "InjectGoal 참조 실재");
-            Assert.IsTrue(r.InjectGoal.RelativeToCurrent,
-                "주입 goal은 RelativeToCurrent — '지금보다 1채 더' (M1-C 사본 규약)");
-            Assert.IsTrue(r.GrantOwnership, "완수 시 소유 배정");
-            Assert.AreEqual(SlotId.HouseCount, r.OwnershipSlot, "배정 슬롯 = 집");
-
-            // 거절 사유 대사 — 무언 거절 0 (ADR-M8-5). 배고픔·피로는 성격 대사 재사용이라 검사 제외
-            Assert.GreaterOrEqual(r.AskLines.Length, 1, "부탁 대사");
-            Assert.GreaterOrEqual(r.AcceptLines.Length, 1, "수락 대사");
-            Assert.GreaterOrEqual(r.RefuseBusyLines.Length, 1, "바쁨 거절 대사");
-            Assert.GreaterOrEqual(r.RefuseLowAffinityLines.Length, 1, "원한 거절 대사");
-            Assert.GreaterOrEqual(r.FulfillLines.Length, 1, "완수 대사");
-        }
-
-        [Test]
-        public void M8_T4_AssetPolicy_RequestHousePriorityMatchesBuildHouse()
-        {
-            // 부탁이라고 더 급하지 않다 (명세 M8-E ⚠️ — Priority는 Goal_BuildHouse 기존 값)
-            var buildHouse = UnityEditor.AssetDatabase.LoadAssetAtPath<GoalSO>(
-                "Assets/M0Config/Goals/Goal_BuildHouse.asset");
-            var requestHouse = UnityEditor.AssetDatabase.LoadAssetAtPath<GoalSO>(
-                "Assets/M0Config/Goals/Goal_RequestHouse.asset");
-            Assert.IsNotNull(buildHouse, "Goal_BuildHouse.asset 로드 실패");
-            Assert.IsNotNull(requestHouse, "Goal_RequestHouse.asset 로드 실패");
-            Assert.AreEqual(buildHouse.Priority, requestHouse.Priority, "동일 Priority");
-        }
+        // M8-T4(집 부탁 에셋 정책 2종)는 M20-W12에서 삭제 — 집 부탁 사슬이 에셋째 삭제됐다
+        // (ADR-M20-7 "집은 개인이 짓는다"). 부탁 메커니즘 게이트(M8-T2 계열)는 그대로다.
 
         // ── M8-T1: 대화 이벤트 → 관계 배선 (ChatterSO 델타 필드의 계약) ─────────
 

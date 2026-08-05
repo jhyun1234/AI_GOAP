@@ -696,11 +696,13 @@ namespace AIVillage.Tests.EditMode
             // **집 주변 반경 2가 만원이 될 때까지 모닥불을 반복 건축**했다.
             // 원인은 판정 기준이 "부탁 수행 중인가"(누구)였다는 것 — "이 건물이 그 부탁의 소유
             // 대상인가"(무엇)로 바꿔야 한다.
-            var houseReq = AssetDatabase.LoadAssetAtPath<RequestSO>(
-                "Assets/M0Config/Requests/Request_BuildMyHouse.asset");
+            // M20-W12: 집 부탁 에셋이 삭제(ADR-M20-7)되어 소유 배정형 부탁을 런타임 인스턴스로
+            // 재현한다 — ShouldSelfAssign은 순수 판정이라 회귀 가드는 그대로 유효하다.
+            var houseReq = ScriptableObject.CreateInstance<RequestSO>();
+            houseReq.GrantOwnership = true;
+            houseReq.OwnershipSlot = SlotId.HouseCount;
             var cookReq = AssetDatabase.LoadAssetAtPath<RequestSO>(
                 "Assets/M0Config/Requests/Request_CookForMe.asset");
-            Assert.IsNotNull(houseReq, "집 부탁 로드");
             Assert.IsNotNull(cookReq, "요리 부탁 로드");
 
             // 부탁 없음 = 지은 사람 것
@@ -718,6 +720,8 @@ namespace AIVillage.Tests.EditMode
             // 소유를 안 넘기는 부탁(요리)은 어떤 건물도 막지 않는다
             Assert.IsTrue(RequestService.ShouldSelfAssign(cookReq, SlotId.HouseCount));
             Assert.IsTrue(RequestService.ShouldSelfAssign(cookReq, SlotId.CampfireCount));
+
+            Object.DestroyImmediate(houseReq);
         }
 
         [Test]
@@ -759,10 +763,9 @@ namespace AIVillage.Tests.EditMode
             // ADR-M2-5 (쿨다운 면제 = 물러설 수 없는 goal의 자격)
             ["SkipFailureCooldown"] = new[] { "Goal_P0_Hunger", "Goal_P0_Fatigue", "Goal_Flee" },
             // GoalSO.DirectActionPool 툴팁의 자격 3조건
-            // (M17-R3 추가: Goal_SeekCarpenter — ⓐ의 두 번째 종류 "끝이 슬롯 밖에 있는 것".
-            //  '목수 곁에 도착'은 위치라 GoalConditions로 쓸 수 없다. ⓑ 풀 1개 ⓒ 이동만·효과 없음)
+            // (M20-W12: Goal_SeekCarpenter는 집 부탁 사슬 삭제(ADR-M20-7)와 함께 목록에서 제거)
             ["DirectActionPool"] = new[] { "Goal_Leisure", "Goal_ReportDone", "Goal_Routine_Explorer",
-                                           "Goal_Routine_Farmer", "Goal_SeekCarpenter" },
+                                           "Goal_Routine_Farmer" },
             // ADR-M5-4 (폴백 불변식) — "세 번째 용도 = 규칙 재검토 신호"라는 자폭 트리거 내장.
             // M19-W2 개정 (ADR-M19-3): 목수 자가 건축 독점(Goal_BuildMyHouse)을 해제 —
             // 효율 전문화(BuildDurationMult)로 대체. 남은 예외 = 치료 1곳 (M20에서 재설계).
@@ -808,8 +811,9 @@ namespace AIVillage.Tests.EditMode
         {
             // 결함 5의 처방(결정 16): 자존이 ③문턱에만 있으면 고집쟁이·새침이는 방치 시 평범하다.
             // ①에 자리를 만들어 "저 사람은 마을 일을 안 도와"가 눈에 보이게 한다.
+            // Goal_RequestHouse는 M20-W12에서 집 부탁 사슬과 함께 삭제 (목록 동기화)
             var communal = new[] { "Goal_GatherWood", "Goal_GatherStone", "Goal_BuildHouse",
-                                   "Goal_RequestHouse", "Goal_TendInjured", "Goal_TreatInjured" };
+                                   "Goal_TendInjured", "Goal_TreatInjured" };
             // Goal_SaveForHome은 M19-W1에서 화폐와 함께 삭제 (저축 goal 소멸 — 목록 동기화)
             var personal = new[] { "Goal_BuildMyHouse", "Goal_StoreFood",
                                    "Goal_Plant", "Goal_HarvestCrop" };
@@ -843,42 +847,41 @@ namespace AIVillage.Tests.EditMode
         }
 
         [Test]
-        public void M12_T13_HouseRequest_TraitGateAndStarvedBypass()
+        public void M12_T13_RequesterTraitGate_MechanismContract()
         {
-            var r = AssetDatabase.LoadAssetAtPath<RequestSO>(
-                "Assets/M0Config/Requests/Request_BuildMyHouse.asset");
-            Assert.IsNotNull(r, "Request_BuildMyHouse 로드");
-            Assert.IsNotEmpty(r.RequesterTraits, "집 부탁에 성향 문턱이 걸려 있어야 한다 (M12-G의 핵심)");
+            // M20-W12: 집 부탁 에셋은 삭제(ADR-M20-7) — '경험 > 기질' 서사는 자가 건축의
+            // ExperienceOverrideWhen으로 이전됐다 (게이트 M20_T8이 그쪽을 감시).
+            // 여기는 **선반 메커니즘**(RequesterQualifies — 미래의 부탁이 쓸 성향 문턱 + 경험
+            // 우회)의 계약만 지킨다. 사용처 0이어도 선반은 살아 있다 — 부탁 추가는 에셋 1개다.
+            var r = ScriptableObject.CreateInstance<RequestSO>();
+            r.RequesterTraits = new[] { new TraitCondition { Trait = TraitId.Foresight, MinValue = -50 } };
+            r.TraitBypassConditions = new[]
+            {
+                new SlotCondition { Slot = SlotId.MyWasStarved, Op = CompareOp.GreaterOrEqual, Value = 1 }
+            };
 
             WorldSnapshot none = SnapWith(SlotId.MyWasStarved, 0);
             WorldSnapshot starved = SnapWith(SlotId.MyWasStarved, 1);
 
-            // 게으름뱅이(대비 -70)는 스톡 조건을 이미 통과했어도 집을 부탁하지 않는다.
-            // 이것이 성격 페널티 우회 구조(2026-07-24 관측)의 차단 지점이다.
+            // 문턱 미달(게으름뱅이 대비 -70)은 여력이 있어도 성립하지 않는다 —
+            // 성격 페널티 우회 구조(2026-07-24 관측)의 차단 지점.
             PersonalitySO lazy = LoadAllPersonalities().First(p => p.name == "Personality_Lazy");
             Assert.IsFalse(RequestService.RequesterQualifies(r, lazy, none),
-                "게으름뱅이는 여력이 있어도 집 부탁이 성립하면 안 된다");
+                "문턱 미달 성격은 성립하면 안 된다");
 
-            // 그러나 굶어 죽을 뻔한 경험이 있으면 기질을 넘어 성립한다 (경험 > 기질).
+            // 굶어 죽을 뻔한 경험은 기질을 넘는다 (경험 > 기질 — 우회 OR).
             Assert.IsTrue(RequestService.RequesterQualifies(r, lazy, starved),
-                "MyWasStarved면 대비 문턱을 우회해 성립해야 한다 (영원히 못 하는 사람 방지)");
-
-            // 대비가 문턱 이상인 성격은 경험 없이도 성립 — 문턱이 마을 전체를 막지 않는다.
-            List<PersonalitySO> qualifying = LoadAllPersonalities()
-                .Where(p => RequestService.RequesterQualifies(r, p, none)).ToList();
-            Assert.IsNotEmpty(qualifying, "경험 없이 집을 부탁할 수 있는 성격이 최소 1종은 있어야 한다");
-            // M10 '규모 8 정체' 재현 방어 — 집이 안 서면 위협 티어 진행까지 막힌다.
-            Assert.GreaterOrEqual(qualifying.Count, LoadAllPersonalities().Count / 2,
-                "성향 문턱이 과반을 막으면 집이 안 서서 마을 규모가 정체한다");
+                "MyWasStarved면 성향 문턱을 우회해 성립해야 한다");
 
             // 중립 불변식 — 성향 조건이 비면 성격과 무관하게 현행 동작.
             var neutral = ScriptableObject.CreateInstance<RequestSO>();
             Assert.IsTrue(RequestService.RequesterQualifies(neutral, lazy, none),
                 "RequesterTraits가 비면 성향 무관 = 현행 동작(중립 불변식)");
-            // 성격 미배정도 중립 — 전 축 0인 벡터와 같아야 한다.
             Assert.IsTrue(RequestService.RequesterQualifies(neutral, null, none),
                 "성격 null도 중립 경로");
+
             Object.DestroyImmediate(neutral);
+            Object.DestroyImmediate(r);
         }
 
         [Test]

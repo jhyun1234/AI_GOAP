@@ -78,12 +78,34 @@
 그림으로 채워졌고, 사용자 판정이 "돌려막기는 내가 원하는 방향이 아니다" 였다.
 공유하는 것은 `engine/lib.js`(팔레트·이징·캔버스 헬퍼)뿐 — 그림이 아니라 붓이다.
 
+## 🌍 영어 자막은 한국어 대본 **안에** 산다 (ep06s부터)
+
+정본 = `Docs/영상_영어권_확장_실행명세서.md`.
+
+**영상은 하나다.** 더빙도 번인 자막도 한국어로 나가고, 영어권 시청자는 **CC 를 켜서** 본다.
+그래서 영어 대본 파일(`scene.en.json`)을 **만들지 않는다**(ADR-V-9 폐기).
+영어는 `scene.json` 안의 두 자리에 산다 — 줄마다 `lines[].en`, 그리고 `youtube.en`.
+
+**왜 파일을 안 나누나** — ①검수팀이 원문 옆에서 한 줄씩 대조해야 지어낸 내용을 잡는다
+②파일 개수가 안 늘어 `backlog.mjs` 와 클라우드 루틴이 **아무 영향을 안 받는다**
+③줄이 늘거나 합쳐질 때 번역이 자동으로 따라 움직인다(인덱스로 짝을 맞추면 어긋난다).
+
+작성팀이 한국어와 **함께** 쓰고, 검수팀이 한 줄씩 대조한다. 게이트 2종(`영어 자막 전 줄 존재`·
+`영어 자막 2줄 상한`)이 `check.mjs` 에 있고 파일만 보므로 크로미움 없이도 돈다.
+⚠️ **`en` 이 0줄이면 게이트가 통째로 건너뛴다**(옛 회차용) — 그러니 **번역 누락은 사람과
+검수팀이 잡아야 한다.** `srt.mjs` 는 렌더가 되는 로컬에서만 돌고 산출물은 `build/` 다.
+
+🔤 함께: **그림 안의 짧은 라벨은 언어 중립(영어)** 이다(ADR-V-10). 잣대 한 줄 —
+*"이게 코드나 인스펙터에 그대로 있을 법한 말인가?"* → 그렇다면 영어, 서술이면 한국어.
+🔴 **고유명사(`순둥이`·`농부`)는 한국어다** — C# 소스에 한국어 리터럴로 실재한다.
+자막에서는 반대로 **뜻으로 옮긴다**(`the easygoing one`, ADR-V-19). 갈리는 것이 의도다.
+
 ## 4개 부서 (Agent 도구로 이 순서대로)
 
 | | 에이전트 | 모델 | 산출 |
 |---|---|---|---|
 | 1 | `scene-planner` | `claude-opus-5` | `episodes/<ep>/notes/planner.md` |
-| 2 | `scene-writer` | `claude-opus-5` | `episodes/<ep>/scene.json` + `kinds/*.js` + `notes/writer.md` |
+| 2 | `scene-writer` | `claude-opus-5` | `episodes/<ep>/scene.json`(**한국어 + `lines[].en`·`youtube.en`**) + `kinds/*.js` + `notes/writer.md` |
 | 3 | `scene-reviewer` | `claude-opus-5` | `episodes/<ep>/notes/review.md` (또는 작성팀에 반려) |
 | 4 | `scene-master` | `claude-opus-5` | `episodes/<ep>/notes/verdict.md` |
 

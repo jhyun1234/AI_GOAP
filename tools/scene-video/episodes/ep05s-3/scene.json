@@ -73,11 +73,13 @@
         {
           "text": "주민이 요리를 하게 됐어요.\n새로 쓴 코드는 0줄이고요.",
           "say": "주민이 요리를 하게 됐어요. 새로 쓴 코드는 영 줄이고요.",
+          "en": "Villagers can cook now.\nNew code written: zero lines.",
           "pauseAfter": 150
         },
         {
           "text": "그다음엔 집에서 쉬게 됐고,\n여기도 0줄.",
           "say": "그다음엔 집에서 쉬게 됐고, 여기도 영 줄이에요.",
+          "en": "Then they rested at home.\nZero lines there too.",
           "pauseAfter": 300
         }
       ]
@@ -100,11 +102,13 @@
         {
           "text": "우연이 아니에요.\n설계할 때 적어 둔 값이거든요.",
           "say": "우연이 아니에요. 설계할 때 적어 둔 값이거든요.",
+          "en": "That wasn't luck.\nIt's a budget I set at design time.",
           "pauseAfter": 150
         },
         {
           "text": "행동 하나 붙이는 값이\n에셋 1개, 코드 0줄.",
           "say": "행동 하나 붙이는 값이 에셋 한 개, 코드 영 줄.",
+          "en": "One new behavior costs\none asset and zero lines of code.",
           "pauseAfter": 300
         }
       ]
@@ -132,6 +136,7 @@
         {
           "text": "요리는 에셋 세 개 만들어\n카탈로그에 등록하면 끝.",
           "say": "요리는 에셋 세 개 만들어 카탈로그에 등록하면 끝.",
+          "en": "Cooking: build three assets,\nregister them in the catalog. Done.",
           "pauseAfter": 300
         }
       ],
@@ -167,11 +172,13 @@
         {
           "text": "집을 다 짓고 남은 작업도\n파일 한 개였어요.",
           "say": "집을 다 짓고 남은 작업도 파일 한 개였어요.",
+          "en": "The work left after finishing\nthe house was one file too.",
           "pauseAfter": 150
         },
         {
           "text": "「모닥불 옆에서 쉬기」,\n그 자리를 집으로 바꿨어요.",
           "say": "모닥불 옆에서 쉬기, 그 자리를 집으로 바꿨어요.",
+          "en": "\"Rest by the campfire\" —\nI pointed that spot at a house.",
           "pauseAfter": 300
         }
       ],
@@ -209,21 +216,25 @@
         {
           "text": "요리에서 한 번,\n집에서 또 한 번.",
           "say": "요리에서 한 번, 집에서 또 한 번.",
+          "en": "Once with cooking,\nonce again with houses.",
           "pauseAfter": 150
         },
         {
           "text": "이게 두 번 연속\n재현된 거예요.",
           "say": "이게 두 번 연속 재현된 거예요.",
+          "en": "That's twice in a row\nit held up.",
           "pauseAfter": 600
         },
         {
           "text": "이게 단순한\n편리함이 아니에요.",
           "say": "이게 단순한 편리함이 아니에요.",
+          "en": "This isn't just\nconvenience.",
           "pauseAfter": 200
         },
         {
           "text": "다음 편은 주민마다\n성격이 달라져요.",
           "say": "다음 편은 주민마다 성격이 달라져요.",
+          "en": "Next up: every villager\ngets a different personality.",
           "pauseAfter": 0
         }
       ],

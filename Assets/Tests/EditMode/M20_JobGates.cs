@@ -180,6 +180,26 @@ namespace AIVillage.Tests.EditMode
             return false;
         }
 
+        // ── T7: 솜씨 표기 — 효율이 화면에 도달하는가 (ADR-M20-1 표현 조항) ────
+
+        [Test]
+        public void M20_T7_SkillLabel_ShowsOnlyWhenItMatters()
+        {
+            // 중립은 침묵한다 — 전원에게 늘 붙는 라벨은 정보가 아니라 소음이다.
+            Assert.IsNull(SeasonHud.ComposeSkill(1f), "무직·비전문은 표기 없음");
+            Assert.IsNull(SeasonHud.ComposeSkill(0f), "0 이하는 방어적으로 표기 없음");
+
+            // 전문가는 배수로 읽힌다 (배율 0.5 = 소요 시간 절반 = 두 배 빨리).
+            // ⚠️ 배율을 그대로 노출하면 안 된다 — 내부값 노출 금지 규율.
+            string fast = SeasonHud.ComposeSkill(0.5f);
+            StringAssert.Contains("두 배", fast);
+            StringAssert.Contains("빨리", fast);
+            StringAssert.DoesNotContain("0.5", fast, "배율(내부값)은 화면에 나오지 않는다");
+
+            // 느린 쪽도 말한다 — 지금은 그런 직업이 없지만(중립 불변식) 생기면 화면이 먼저 안다.
+            StringAssert.Contains("느리게", SeasonHud.ComposeSkill(2f));
+        }
+
         // ── T4: 자원별 배율 조회 ─────────────────────────────────────────────
 
         [Test]

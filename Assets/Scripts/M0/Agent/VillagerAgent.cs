@@ -137,6 +137,11 @@ namespace AIVillage.M0
         public float BuildDurationMultOfJob()
             => Job != null ? Job.BuildDurationMult : 1f;
 
+        /// <summary>지금 하는 일에 걸린 직업 효율 배율 (M20-W10 — 표기 전용).
+        /// 러너가 없으면(계획 중·쉬는 중) 1. **HUD는 이 값만 읽는다** — 액션 타입으로 다시
+        /// 유도하면 판정이 이원화된다.</summary>
+        public float CurrentActionDurationMult => _runner != null ? _runner.DurationMult : 1f;
+
         /// <summary>밭일 실행 시간 배율 (M20). 소비처는 FarmRunner뿐.</summary>
         public float FarmDurationMultOfJob()
             => Job != null ? Job.FarmDurationMult : 1f;

@@ -32,6 +32,11 @@ namespace AIVillage.M0
         /// false = 에이전트가 SO Effects를 EffectApplier로 일괄 적용.</summary>
         bool AppliesOwnEffects { get; }
 
+        /// <summary>이번 실행에 걸린 직업 효율 배율 (M20-W10). 1 = 중립, &lt;1 = 남보다 빠름.
+        /// **배율을 실제로 적용하는 러너가 보고한다** — HUD가 액션 타입을 분기해 다시 유도하면
+        /// 판정이 이원화된다(ADR-M0-1 정신). 표기는 SeasonHud가 플레이어 언어로 옮긴다.</summary>
+        float DurationMult { get; }
+
         string FailReason { get; }
     }
 
@@ -43,6 +48,9 @@ namespace AIVillage.M0
 
         public Vector2Int? MoveTarget { get; protected set; }
         public virtual bool AppliesOwnEffects => false;
+
+        /// <summary>직업 효율 배율 (M20-W10) — Prepare에서 1회 확정. 기본 1 = 중립(무직·비전문).</summary>
+        public float DurationMult { get; protected set; } = 1f;
         public string FailReason { get; protected set; }
 
         protected ActionRunnerBase(ActionSO action)

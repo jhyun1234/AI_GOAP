@@ -261,7 +261,8 @@ namespace AIVillage.M0
             // RimWorld는 계획이 없어(깊이 1) 이 줄을 만들 수 없다.
             line += "\n" + ComposeReason(a.CurrentGoal, a.CurrentPlan, a.CurrentPlanIndex,
                                          a.Satiety, a.Fatigue, a.Injury, a.AgentConfig,
-                                         a.Personality, a.MyTraits, a.EstimateMyFoodDays());
+                                         a.Personality, a.MyTraits, a.EstimateMyFoodDays(),
+                                         a.CurrentActionDurationMult);
             return line;
         }
 
@@ -286,7 +287,7 @@ namespace AIVillage.M0
         public static string ComposeReason(GoalSO goal, IReadOnlyList<ActionSO> plan, int planIndex,
                                            float satiety, float fatigue, InjurySeverity injury,
                                            AgentConfigSO cfg, PersonalitySO p, TraitValue[] traits,
-                                           int foodDays)
+                                           int foodDays, float durationMult = 1f)
         {
             var sb = new System.Text.StringBuilder(96);
             sb.Append(goal != null ? $"지금: {goal.DisplayName}" : "지금: 쉬는 중");
@@ -301,6 +302,13 @@ namespace AIVillage.M0
                     else sb.Append(plan[i].DisplayName);
                 }
             }
+
+            // 솜씨 (M20-W10) — 직업 효율은 실재하는데 **화면에 없어서** 판별이 불가능했다
+            // (2026-08-05 Play: "목수 있는 판과 없는 판의 완공 속도차를 판별하기 힘들다").
+            // 판을 나눠 비교할 수는 없으니, 그 자리에서 읽히게 한다. 배율이 아니라 배수로 —
+            // 내부값 노출 금지 규율(표기는 플레이어 언어만)을 지킨다.
+            string skill = ComposeSkill(durationMult);
+            if (skill != null) sb.Append($" · <color=#8FD694>{skill}</color>");
 
             if (cfg != null)
             {
@@ -325,6 +333,33 @@ namespace AIVillage.M0
                     ? $" · <color=#FF6B6B>식량 {foodDays}일치</color>"
                     : $" · 식량 {foodDays}일치");
             return sb.ToString();
+        }
+
+        /// <summary>
+        /// 솜씨 표기 (M20-W10, 순수 — 게이트 M20-T7). 중립(1)이면 null = 아무것도 안 붙인다:
+        /// 대다수 주민에게 늘 붙는 라벨은 정보가 아니라 소음이다.
+        /// 배수는 소요 시간의 역수 — 0.5배 시간 = "두 배 빨리". 정수배는 한글로 읽고
+        /// (두 배·세 배) 나머지는 소수 한 자리로. 느린 쪽(>1)도 표기한다 — 지금은 그런 직업이
+        /// 없지만(중립 불변식), 생기면 화면이 먼저 알려야 한다.
+        /// </summary>
+        public static string ComposeSkill(float durationMult)
+        {
+            if (durationMult <= 0f || Mathf.Approximately(durationMult, 1f)) return null;
+
+            if (durationMult < 1f)
+            {
+                float times = 1f / durationMult;
+                return $"솜씨 {Times(times)} 빨리";
+            }
+            return $"솜씨 {Times(durationMult)} 느리게";
+        }
+
+        private static string Times(float t)
+        {
+            if (Mathf.Approximately(t, 2f)) return "두 배";
+            if (Mathf.Approximately(t, 3f)) return "세 배";
+            if (Mathf.Approximately(t, 4f)) return "네 배";
+            return $"{t:0.#}배";
         }
 
         /// <summary>정보줄 최근 사건 표시 수 (제안치 3 — 명세 §12-1, 유일하게 발명한 수치). 연출 상수.</summary>

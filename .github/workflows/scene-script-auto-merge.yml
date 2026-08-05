@@ -14,6 +14,11 @@ name: Scene script auto-merge
 #
 # 🔴 build/ 는 .gitignore 라 애초에 안 올라온다(mp4·wav 를 리포에 넣지 않는다).
 #    혹시 올라오면 아래 검사가 막는다 — 경로를 episodes/**/{scene.json,kinds,notes} 로 좁혔다.
+#
+# 🔑 **브랜치 이름으로는 아무것도 판단하지 않는다.** 클라우드 루틴은 자기 브랜치 이름을
+#    짓지 않고 Claude Code 가 자동으로 짓는다(`claude/busy-brahmagupta-bzbs7e`). 트리거가
+#    `claude/**` 인 것도 그래서다. 판정은 전부 **바뀐 경로**로 한다 — 자세한 이유는 아래
+#    CARRIES_SCRIPT 주석에.
 
 on:
   push:
@@ -49,12 +54,10 @@ jobs:
 
           CHANGED=$(git diff --name-only origin/main..."origin/$BRANCH")
           if [ -z "$CHANGED" ]; then
-            if [[ "$BRANCH" == claude/scene-* ]]; then
-              echo "No changes on $BRANCH vs main — deleting stale script branch."
-              git push origin --delete "$BRANCH"
-            else
-              echo "No changes on $BRANCH vs main — not a script branch, leaving it alone."
-            fi
+            # 브랜치가 main 에 더할 게 없다. 여기서는 지우지 않는다 —
+            # 무엇이 대본 브랜치였는지 알 방법이 diff 뿐인데 그 diff 가 비어 있다.
+            # 이름으로 찍으면 틀린다(아래 참조). 우리가 머지한 브랜치만 우리가 지운다.
+            echo "No changes on $BRANCH vs main — nothing to do."
             exit 0
           fi
 
@@ -66,12 +69,34 @@ jobs:
           #   새 블로그 글을 회차로 편입한다(2026-08-02, 격일→매일 전환과 함께). 그 줄이
           #   여기로 안 들어오면 다음 실행이 같은 판정을 되풀이하고 회차가 영영 안 늘어난다.
           ALLOW='^tools/scene-video/(episodes/[^/]+/(scene\.json|kinds/.+\.js|notes/.+)|state/schedule\.json)$'
+
+          # 🔴 "대본 브랜치인가"를 **이름으로 묻지 않는다** (2026-08-05 수정).
+          #
+          # 옛 코드는 `claude/scene-*` 를 가정했다. 그런데 클라우드 루틴은 자기 브랜치
+          # 이름을 짓지 않는다 — Claude Code 가 `claude/busy-brahmagupta-bzbs7e` 처럼
+          # 자동으로 짓는다. 그래서 이 가정은 **한 번도 참인 적이 없었고**, 이름에 매달린
+          # 세 갈래(다 쓴 브랜치 삭제 · 경로 위반 엄격 정지 · 머지 후 삭제)가 전부
+          # 죽은 코드였다. 머지 자체는 `claude/**` 트리거라 돌았기 때문에 아무도 몰랐다.
+          #
+          # 이름 대신 **내용**으로 묻는다: 이 브랜치가 scene.json 을 건드리는가.
+          # 대본을 실어 나르는 브랜치는 반드시 그것을 건드린다.
+          CARRIES_SCRIPT=no
+          if echo "$CHANGED" | grep -qE '^tools/scene-video/episodes/[^/]+/scene\.json$' ; then
+            CARRIES_SCRIPT=yes
+          fi
+
           if echo "$CHANGED" | grep -qEv "$ALLOW" ; then
-            if [[ "$BRANCH" == claude/scene-* ]]; then
-              echo "::error::$BRANCH is a script branch but modifies files outside episodes/**/{scene.json,kinds,notes} — refusing to merge."
-              exit 1
+            if [ "$CARRIES_SCRIPT" = yes ]; then
+              # 대본과 다른 것이 한 브랜치에 섞였다. 받으면 대본 아닌 것까지 main 에
+              # 밀어넣게 되므로 안 받는다. 그런데 **조용히 넘기면 안 된다** — 이 갈래가
+              # 조용했기 때문에 2026-08-05 에 하루치 대본을 잃었다. 실행을 red 로
+              # 만들지는 않는다(대본을 곁들여 고친 평범한 세션 브랜치도 여기로 온다).
+              echo "::warning::$BRANCH carries a scene.json AND non-script changes — not merging. The script will NOT reach main from here; merge this branch by hand."
+              echo "Non-script paths on this branch:"
+              echo "$CHANGED" | grep -Ev "$ALLOW"
+              exit 0
             fi
-            echo "$BRANCH modifies non-script paths — normal session branch, skipping."
+            echo "$BRANCH modifies non-script paths and carries no script — normal session branch, skipping."
             exit 0
           fi
 
@@ -118,7 +143,10 @@ jobs:
           fi
 
           git push origin main
-          if [[ "$BRANCH" == claude/scene-* ]]; then
-            git push origin --delete "$BRANCH"
-            echo "Deleted script branch $BRANCH."
-          fi
+
+          # 여기까지 왔다는 것은 이 브랜치가 대본 파일만 건드렸고 그게 지금 main 에
+          # 들어갔다는 뜻이다. 내용이 증명한 사실이므로 이름을 볼 필요가 없다.
+          # 🔑 우리가 머지한 브랜치만 우리가 지운다 — 스스로 머지하지 않은 남의
+          #    세션 브랜치를 지우면 거기 걸린 PR 이 함께 닫힌다.
+          git push origin --delete "$BRANCH"
+          echo "Deleted $BRANCH — its script is now on main."

@@ -33,8 +33,15 @@ namespace AIVillage.Tests.EditMode
             }
         }
 
-        // W1 시점 = 빈 목록 (에셋은 전부 중립 — 배율 추가는 W3에서).
-        private static readonly JobExpect[] Expected = { };
+        /// <summary>승격 4종 (M20-W3). 값은 전부 제안치 0.5 — 유일 선례인 목수
+        /// BuildDurationMult 0.5(M19)의 복제이지 발명이 아니다 (명세 §4).</summary>
+        private static readonly JobExpect[] Expected =
+        {
+            new JobExpect("Job_Farmer",     0.5f, 1f,   ResourceType.RawFood, 0f),
+            new JobExpect("Job_Cook",       1f,   0.5f, ResourceType.RawFood, 0f),
+            new JobExpect("Job_Lumberjack", 1f,   1f,   ResourceType.Wood,    0.5f),
+            new JobExpect("Job_Miner",      1f,   1f,   ResourceType.Stone,   0.5f),
+        };
 
         private static bool TryExpect(string jobName, out JobExpect expect)
         {
@@ -81,7 +88,12 @@ namespace AIVillage.Tests.EditMode
                 Assert.AreEqual(e.Farm, job.FarmDurationMult, $"{e.Name} 밭일 배율");
                 Assert.AreEqual(e.Cook, job.CookDurationMult, $"{e.Name} 조리 배율");
 
-                if (e.GatherMult <= 0f) continue;
+                if (e.GatherMult <= 0f)
+                {
+                    Assert.IsTrue(job.GatherDurationMults == null || job.GatherDurationMults.Length == 0,
+                        $"{e.Name}: 채집 전문이 아니므로 자원별 배율을 갖지 않는다");
+                    continue;
+                }
                 Assert.AreEqual(e.GatherMult, job.GatherDurationMultFor(e.GatherRes),
                     $"{e.Name}: {e.GatherRes} 채집 보너스");
 
@@ -92,7 +104,24 @@ namespace AIVillage.Tests.EditMode
             }
         }
 
-        // ── T3: 식사 불가침 (W3에서 추가 — ConsumeActionSO.IsCookingWork 신설 후) ──
+        // ── T3: 식사 불가침 — 조리 플래그는 조리 액션에만 (ADR-M5-3·ADR-M20-3) ─────
+
+        [Test]
+        public void M20_T3_CookingFlag_OnlyOnCookActions()
+        {
+            // 이 단언이 실패하는 구현: Eat* 액션에 IsCookingWork가 켜지면 식사 속도가 직업에
+            // 따라 달라진다 = 몸값 불가침 위반. 그 순간 red가 되는 것이 이 게이트의 존재 이유다.
+            int flagged = 0;
+            foreach (string guid in AssetDatabase.FindAssets("t:ConsumeActionSO", new[] { "Assets/M0Config" }))
+            {
+                var action = AssetDatabase.LoadAssetAtPath<ConsumeActionSO>(AssetDatabase.GUIDToAssetPath(guid));
+                if (action == null || !action.IsCookingWork) continue;
+                flagged++;
+                Assert.IsTrue(action.name == "CookMeal" || action.name == "CookMealScarce",
+                    $"{action.name}: 조리 노동 플래그는 조리 액션에만 허용된다 (ADR-M20-3)");
+            }
+            Assert.AreEqual(2, flagged, "IsCookingWork가 켜진 액션은 정확히 2곳(CookMeal·CookMealScarce)");
+        }
 
         // ── T4: 자원별 배율 조회 ─────────────────────────────────────────────
 

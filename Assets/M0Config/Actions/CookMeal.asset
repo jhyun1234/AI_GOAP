@@ -38,6 +38,7 @@ MonoBehaviour:
   - Slot: 23
     Op: 1
     Value: 1
+  IsCookingWork: 1
   EatAtAnchor: 1
   AnchorPriority:
   - 31

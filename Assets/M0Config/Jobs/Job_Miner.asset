@@ -20,6 +20,9 @@ MonoBehaviour:
   FarmCostMult: 1
   BuildCostMult: 1
   ExploreCostMult: 1
+  GatherDurationMults:
+  - Resource: 3
+    Mult: 0.5
   RoutineGoal: {fileID: 0}
   PreferWeights:
   - Trait: 0

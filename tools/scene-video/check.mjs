@@ -82,6 +82,38 @@ add(bigPauses.length <= 2, '큰 쉼 회차당 2회 이하',
   `${bigPauses.length}회` + (bigPauses.length ? ` (${bigPauses.map(l => l.shot).join(', ')})` : ''),
   'warn');
 
+/* ── 영어 자막 (CC 로 나가는 트랙) ──────────────────
+   영상은 하나다 — 더빙도 번인 자막도 한국어고, 영어권 시청자는 CC 를 켜서 본다.
+   그 자막의 원문이 `lines[].en` 이고 srt.mjs 가 그것을 엔진 타임라인에 얹는다.
+
+   🔴 **잴 수 있는 것만 잰다**(명세 ADR-V-18). "직역인가"는 기계로 못 재므로 여기서
+   판정하지 않는다 — 억지로 만들면 근거 없는 임계값이 되고 그건 ADR-V-7 이 금지한 것이다.
+
+   🔑 옛 회차(ep00s~ep05s-2)에는 `en` 이 아예 없다. **하나도 없으면 영어 자막 대상이 아닌
+   회차로 보고 건너뛴다** — 안 그러면 옛 회차를 다시 볼 때마다 헛경보가 난다.
+   반대로 **일부만 있으면 fail 이다.** 그게 진짜 누락이고, 빠진 줄만큼 자막이 비어 나간다. */
+const enCount = allLines.filter(l => l.en?.trim()).length;
+if (enCount > 0) {
+  const noEn = allLines.filter(l => !l.en?.trim());
+  add(noEn.length === 0, '영어 자막 전 줄 존재',
+    noEn.length
+      ? `${noEn.length}줄 빠짐 (${[...new Set(noEn.map(l => l.shot))].join(', ')}) — srt.mjs 가 멈춘다`
+      : `${allLines.length}줄 전부 있음`);
+
+  /* 2줄 상한의 근거는 명세 §0.4 실측이다: 유튜브가 쇼츠 자막을 프레임 318px 에서
+     시작해 **아래로** 키우는데, 2줄이 정확히 그림 시작선(420px)에서 끝난다.
+     3줄이면 그림을 덮는다.
+     🔴 이 값은 기기 1대·관측 2건에서 나왔다. 더 조이지도 풀지도 마라 — 관측이 쌓이면 그때. */
+  const enTooMany = allLines.filter(l => (l.en ?? '').split('\n').length > 2);
+  add(enTooMany.length === 0, '영어 자막 2줄 상한',
+    enTooMany.length
+      ? `${enTooMany.length}줄이 3줄 이상 (${enTooMany[0].shot}) — 그림을 덮는다`
+      : `${enCount}줄 전부 2줄 이하`);
+} else {
+  add(true, '영어 자막 (없음 · 판정 안 함)',
+    `이 회차는 en 이 0줄이다 — 영어 자막 대상이 아닌 회차로 보고 건너뛴다`);
+}
+
 /* ── 제목 이행 — 제목이 약속한 것이 첫 두 줄 안에 나오는가 ──────────────
    🔴 이 채널 최대의 이탈 원인이다(Docs/영상_이탈률_개선_실행명세서.md §관측②).
    실측 절대 시청 시간이 16~27초인데 ep02s 는 제목이 약속한 장면이 34.3초에야 나왔다 —

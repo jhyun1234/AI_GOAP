@@ -20,6 +20,12 @@ const ENTER = 0.26;            // 샷 진입 모션 (초)
 const $ = id => document.getElementById(id);
 const qs = new URLSearchParams(location.search);
 const EP = qs.get('ep') || 'ep01';
+/* 언어. ko 는 회차 폴더의 정본을 그대로 읽고, 그 외는 Node 가 구워 둔 병합본을 읽는다
+   (병합을 여기서도 하면 Node 쪽과 갈라진다 — lib-node.mjs 의 bakeScene 이 유일한 구현이다).
+   🔴 그림(kinds/)은 언제나 회차 폴더에서 온다. 언어별로 가르지 않는다. */
+const LANG = qs.get('lang') || 'ko';
+const EPD = `../episodes/${EP}`;
+const LDIR = LANG === 'ko' ? `${EPD}/build` : `${EPD}/build/${LANG}`;
 
 let scene = null, shots = [], lines = [], TOTAL = 0, kinds = {};
 const failedKinds = [];   // 로드에 실패한 그림 — check.mjs 가 읽는다
@@ -30,12 +36,13 @@ async function boot() {
   // 창 폭에 따라 무대가 줄면 글자 크기 대비 화면 비율이 달라져 다른 그림이 나온다.
   if (qs.has('render')) document.body.classList.add('render');
 
-  scene = await (await fetch(`../episodes/${EP}/scene.json`)).json();
+  scene = await (await fetch(
+    LANG === 'ko' ? `${EPD}/scene.json` : `${LDIR}/scene.json`)).json();
 
   // timed 본이 있으면 실측 타임라인을 쓴다 (없으면 임시 계산)
   let timed = null;
   try {
-    const r = await fetch(`../episodes/${EP}/build/timed.json`);
+    const r = await fetch(`${LDIR}/timed.json`);
     if (r.ok) timed = await r.json();
   } catch { /* 없으면 그만 */ }
 

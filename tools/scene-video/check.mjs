@@ -11,15 +11,19 @@
 */
 import fs from 'fs';
 import path from 'path';
-import { ROOT, openEngine, epScene, epBuild } from './lib-node.mjs';
+import { ROOT, openEngine, langPaths, langOf, bakeScene } from './lib-node.mjs';
 
 const argv = process.argv.slice(2);
 const EP = argv.find(a => !a.startsWith('--')) || 'ep01s';
 const FPS = Number((argv[argv.indexOf('--fps') + 1] > 0 && argv.includes('--fps')) ? argv[argv.indexOf('--fps') + 1] : 5);
 const AS_JSON = argv.includes('--json');
+const LANG = langOf(argv);
+/* 🔴 언어별 게이트 규칙(LANG_RULES)은 W2 의 것이다. 여기서는 경로만 가른다 —
+   모르는 언어는 bakeScene 이 "대본이 없다"로 명시적으로 멈춘다. */
+const P = langPaths(EP, LANG);
 
-const scene = JSON.parse(fs.readFileSync(epScene(EP), 'utf8'));
-const timedPath = epBuild(EP, 'timed.json');
+const scene = JSON.parse(fs.readFileSync(bakeScene(EP, LANG), 'utf8'));
+const timedPath = P.build('timed.json');
 const timed = fs.existsSync(timedPath) ? JSON.parse(fs.readFileSync(timedPath, 'utf8')) : null;
 
 const results = [];
@@ -204,7 +208,7 @@ for (const s of scene.shots) {
 }
 
 let frame = null;
-const { cdp, close } = await openEngine(EP, { quiet: AS_JSON });
+const { cdp, close } = await openEngine(EP, { quiet: AS_JSON, lang: LANG });
 try {
   /* 읽기 경로 점검.
      🔴 여기서 한 번 크게 틀렸다. 투명 캔버스에 rgba(255,255,255,0.28) 을 칠하고 색 채널을

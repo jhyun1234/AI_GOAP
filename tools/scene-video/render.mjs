@@ -20,7 +20,7 @@
 import fs from 'fs';
 import path from 'path';
 import { spawn } from 'child_process';
-import { ROOT, OUT_W, OUT_H, findFfmpeg, openEngine, epScene, epBuild } from './lib-node.mjs';
+import { ROOT, OUT_W, OUT_H, findFfmpeg, openEngine, langPaths, langOf, bakeScene } from './lib-node.mjs';
 import { synth } from './sfx.mjs';
 
 const argv = process.argv.slice(2);
@@ -33,6 +33,8 @@ const FPS = Number(flag('fps', 30));
 const MAX_FRAMES = flag('frames', 0) ? Number(flag('frames', 0)) : 0;
 const QUICK = !!flag('quick', false);        // 확인용 저화질·고속 인코딩
 const STILL = flag('still', null);
+const LANG = langOf(argv);                   // 'ko'(기본) 또는 scene.<lang>.json 이 있는 언어
+const P = langPaths(EP, LANG);
 
 /* ── wav 읽기/쓰기 ───────────────────────────────── */
 function readWav(file) {
@@ -98,7 +100,7 @@ function buildTrack(timeline, outFile) {
      🔑 여기가 이미 PCM 을 더하는 자리라 붙일 곳이 정확히 여기다. ffmpeg 필터 그래프를
      새로 쓰지 않는다 — 나레이션과 같은 배열에 더하면 끝이다.
      sfx 가 없는 회차는 이 블록이 통째로 안 돈다(기존 동작 그대로). */
-  const scene = JSON.parse(fs.readFileSync(epScene(EP), 'utf8'));
+  const scene = JSON.parse(fs.readFileSync(P.scene, 'utf8'));
   let sfxN = 0, sfxPeak = 0;
   let li = 0;                                    // 샷의 첫 자막이 평탄화 목록에서 몇 번째인가
   for (const sh of scene.shots) {
@@ -133,12 +135,13 @@ function buildTrack(timeline, outFile) {
 /* ── 본체 ────────────────────────────────────────── */
 const ffmpeg = findFfmpeg();
 if (!ffmpeg) { console.error('ffmpeg 를 못 찾았다. winget install yt-dlp.FFmpeg'); process.exit(1); }
-if (!fs.existsSync(epScene(EP))) {
-  console.error(`episodes/${EP}/scene.json 이 없다`); process.exit(1);
+if (!fs.existsSync(P.src)) {
+  console.error(`${path.relative(ROOT, P.src)} 가 없다`); process.exit(1);
 }
+bakeScene(EP, LANG);            // 🔴 매 실행마다 다시 굽는다 (ko 는 no-op)
 console.log(`ffmpeg   ${ffmpeg}`);
 
-const { cdp, close } = await openEngine(EP);
+const { cdp, close } = await openEngine(EP, { lang: LANG });
 let ff = null;
 try {
   // 폰트가 폴백으로 떨어졌는지 — 여기서 걸러야 3천 프레임을 헛돌지 않는다
@@ -157,7 +160,7 @@ try {
   /* --still 12.5,30  → 그 시각의 프레임만 PNG 로. 4분짜리 전체 렌더 없이 고친 샷 하나를
      눈으로 확인할 때 쓴다. 여기가 실제 추출과 같은 경로라 믿을 수 있다. */
   if (STILL && STILL !== true) {
-    const dir = epBuild(EP, 'stills');
+    const dir = P.build('stills');
     fs.mkdirSync(dir, { recursive: true });
     for (const sec of String(STILL).split(',').map(Number)) {
       await cdp.evaluate(`window.seek(${sec * 1000})`);
@@ -169,7 +172,7 @@ try {
     close(); process.exit(0);
   }
 
-  const trackFile = epBuild(EP, 'track.wav');
+  const trackFile = P.build('track.wav');
   const tr = buildTrack(timeline, trackFile);
   /* 효과음 개수를 반드시 찍는다. 안 찍었더니 넣고도 들어갔는지 알 수가 없어서
      전체 피크로 판단했다가 오판했다 — 효과음은 나레이션보다 작아서 전체 피크를 안 바꾼다. */
@@ -185,7 +188,7 @@ try {
   const pw = png.readUInt32BE(16), ph = png.readUInt32BE(20);
   console.log(`프레임   ${pw}×${ph}` + (pw === OUT_W && ph === OUT_H ? '' : ` → ${OUT_W}×${OUT_H} 로 보정`));
 
-  const outFile = epBuild(EP, QUICK ? 'quick.mp4' : 'video.mp4');
+  const outFile = P.build(QUICK ? 'quick.mp4' : 'video.mp4');
   const DUR = (nFrames / FPS).toFixed(3);
   /* 영상·소리를 한 filter_complex 에서 처리한다. -vf 와 -filter_complex 를 섞으면
      같은 스트림을 두 번 잡으려 해서 거절당한다.

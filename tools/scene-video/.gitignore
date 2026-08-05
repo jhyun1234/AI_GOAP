@@ -10,6 +10,14 @@ episodes/*/build/track.wav
 episodes/*/build/upload.txt
 episodes/*/build/youtube.json
 
+# 🔴 위 여섯 줄은 **이미 무효다.** 이 파일 맨 아래의 `build/` 가 슬래시로 시작하지 않아
+#    **모든 깊이의 build 디렉터리**를 잡는다 — episodes/*/build/ 도 통째로 무시된다.
+#    (2026-08-05 확인: `git ls-files 'episodes/*/build/*'` 가 0건. timed.json 을 포함해
+#     build/ 아래 어떤 파일도 추적된 적이 없다.)
+#    지우지 않고 남기는 것은 "무엇을 산출물로 보는가"의 기록이기 때문이다.
+#    🔑 그래서 다른 언어판(build/en/ 등)에도 **새 규칙이 필요 없다.** 여기에 규칙을 더하지 마라 —
+#    내가 W1 에서 여덟 줄을 더했다가 전부 죽은 규칙임을 확인하고 걷어냈다.
+
 # 목소리 클로닝용 생녹음 — 리포가 PUBLIC 이다. 원본이 올라가면 누구나 같은 방법으로 복제한다.
 voices/
 

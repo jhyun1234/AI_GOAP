@@ -13,19 +13,25 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { loadTextToSpeech, loadVoiceStyle, writeWavFile } from './vendor/repo/nodejs/helper.js';
+import { langPaths, langOf, bakeScene } from './lib-node.mjs';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
-const EP = process.argv[2] || 'ep01';
+/* 🔴 전에는 process.argv[2] 만 읽었다. render/check 와 같은 모양(플래그를 건너뛰고
+   첫 비플래그를 회차로)으로 맞춘다 — `tts.mjs ep06s --lang en` 이 돌아야 한다. */
+const argv = process.argv.slice(2);
+const EP = argv.find(a => !a.startsWith('--')) || 'ep01';
+const LANG = langOf(argv);
 const read = p => JSON.parse(fs.readFileSync(path.join(ROOT, p), 'utf8'));
 
 const voice = read('voice.json');
-const scene = read(`episodes/${EP}/scene.json`);
+const P = langPaths(EP, LANG);
+const scene = JSON.parse(fs.readFileSync(bakeScene(EP, LANG), 'utf8'));
 const { voice: voiceName, speed, steps, assets } = voice.engine;
 if (voice.engine.provider !== 'supertonic')
   throw new Error(`voice.json provider 가 supertonic 이 아니다: ${voice.engine.provider}`);
 
 const A = path.join(ROOT, assets);
-const outDir = path.join(ROOT, 'episodes', EP, 'build', 'audio');
+const outDir = P.build('audio');
 fs.mkdirSync(outDir, { recursive: true });
 
 const tts = await loadTextToSpeech(path.join(A, 'onnx'), false);
@@ -48,7 +54,7 @@ const SR = tts.sampleRate;
 
 const flat = [];
 scene.shots.forEach((s, si) => s.lines.forEach((l, li) => flat.push({ si, li, l })));
-console.log(`${EP} · Supertonic ${voiceName} · speed ${speed} · ${SR}Hz · ${flat.length}줄`);
+console.log(`${EP} · ${LANG} · Supertonic ${voiceName} · speed ${speed} · ${SR}Hz · ${flat.length}줄`);
 
 /* 같은 문장은 다시 합성하지 않는다 — 파일 이름을 내용으로 짓는다.
    🔴 인덱스(00.wav, 01.wav…)로 이름을 지으면 안 된다. 자막을 하나 합치거나
@@ -63,7 +69,7 @@ const keyOf = say => {
 };
 
 const timed = {
-  id: EP, engine: 'supertonic', voice: voiceName, speed, sampleRate: SR,
+  id: EP, lang: LANG, engine: 'supertonic', voice: voiceName, speed, sampleRate: SR,
   shots: scene.shots.map(s => ({ id: s.id, lines: s.lines.map(() => ({})) }))
 };
 
@@ -81,7 +87,7 @@ for (let i = 0; i < flat.length; i++) {
   if (twin && path.join(outDir, twin) !== file) fs.renameSync(path.join(outDir, twin), file);
 
   if (!fs.existsSync(file)) {
-    const r = await tts.call(say, 'ko', style, steps, speed);
+    const r = await tts.call(say, LANG, style, steps, speed);
     writeWavFile(file, r.wav.slice(0, Math.floor(SR * r.duration[0])), SR);
     made++;
   } else reused++;
@@ -109,7 +115,7 @@ console.log(`\n  새로 만듦 ${made} · 재사용 ${reused}`);
 let total = 0; for (const p of pcm) total += p.length;
 const all = new Float32Array(total);
 let o = 0; for (const p of pcm) { all.set(p, o); o += p.length; }
-writeWavFile(path.join(ROOT, 'episodes', EP, 'build', 'full.wav'), all, SR);
+writeWavFile(P.build('full.wav'), all, SR);
 
 timed.summary = {
   spokenMs: spoken, pauseMs: pauses, totalMs: spoken + pauses,
@@ -117,10 +123,19 @@ timed.summary = {
   chars: flat.reduce((a, { l }) => a + (l.say || l.text).replace(/[.,?!…]/g, '').length, 0)
 };
 timed.summary.charsPerSec = +(timed.summary.chars / (timed.summary.totalMs / 1000)).toFixed(2);
-fs.writeFileSync(path.join(ROOT, 'episodes', EP, 'build', 'timed.json'), JSON.stringify(timed, null, 1));
+
+/* 단어/분은 **실제로 센다.** 자/초에서 추정하면 "자당 몇 단어"라는 나눗셈 상수를 발명하게 되고
+   그건 근거 없는 수치다(ADR-V-7). 자/초는 언어마다 뜻이 달라져(한국어 6.5 · 영어 15.5)
+   영어 회차에서 판정 근거가 못 되는데, 단어/분은 두 언어에서 같은 것을 잰다.
+   한국어에서도 계산은 하되 판정에는 안 쓴다 — 지표를 언어별로 다르게 만들지 않는다. */
+timed.summary.words = flat.reduce((a, { l }) =>
+  a + (l.say || l.text).trim().split(/\s+/).filter(Boolean).length, 0);
+timed.summary.wordsPerMin = +(timed.summary.words / (timed.summary.totalMs / 60000)).toFixed(0);
+
+fs.writeFileSync(P.build('timed.json'), JSON.stringify(timed, null, 1));
 
 const S = timed.summary;
 console.log(`  말하는 시간  ${(S.spokenMs / 1000).toFixed(1)}s`);
 console.log(`  침묵         ${(S.pauseMs / 1000).toFixed(1)}s  (${(S.pauseMs / S.totalMs * 100).toFixed(1)}%)`);
 console.log(`  합계         ${(S.totalMs / 1000).toFixed(1)}s   통짜 ${(S.fullMs / 1000).toFixed(1)}s`);
-console.log(`  말 속도      ${S.charsPerSec}자/초   (참고 영상 6.93)`);
+console.log(`  말 속도      ${S.charsPerSec}자/초 · ${S.wordsPerMin}단어/분   (한국어 참고 영상 6.93자/초)`);

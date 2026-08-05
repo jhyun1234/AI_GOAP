@@ -21,6 +21,64 @@ export const epDir = ep => path.join(ROOT, 'episodes', ep);
 export const epScene = ep => path.join(epDir(ep), 'scene.json');
 export const epBuild = (ep, ...rest) => path.join(epDir(ep), 'build', ...rest);
 
+/* ── 언어 ──────────────────────────────────────────
+   회차는 하나인데 대본이 여럿일 수 있다(한국어 정본 + scene.<lang>.json sidecar).
+   🔴 sidecar 인 이유: 자동화 전체가 `scene.json` 이라는 **정확한 이름**의 존재 여부로
+   게이트한다(cloud-routine-prompt.md, schedule.json.order). 새 회차 폴더(ep06s-en/)를
+   만들면 backlog.mjs --extend 가 "대본 없는 회차"로 보고 대기열을 오염시킨다.
+
+   🔑 epScene/epBuild 는 **바꾸지 않고 남겨 둔다.** publish.mjs·backlog.mjs 의 호출부가
+   전부 한국어용으로 유효하다. 더하되 바꾸지 않는다. */
+export const langPaths = (ep, lang = 'ko') => ({
+  lang,
+  /** 그 언어의 대본 원본. ko 는 정본, 그 외는 sidecar. */
+  src: lang === 'ko' ? epScene(ep) : path.join(epDir(ep), `scene.${lang}.json`),
+  /** 엔진·검사가 읽을 대본. ko 는 병합이 없으므로 원본과 같다. */
+  scene: lang === 'ko' ? epScene(ep) : epBuild(ep, lang, 'scene.json'),
+  build: (...rest) => epBuild(ep, ...(lang === 'ko' ? [] : [lang]), ...rest),
+});
+
+/* 영어 sidecar 는 언어 중립 라벨을 담지 않는다 — 한국어 정본에서 shot id 로 상속한다.
+   상속은 **부분 오버라이드**다(ADR-V-13 개정): 라벨(HUNGER·ACCEPT)은 상속되고
+   서술(note·quote·landing·nextLabel…)만 영어 대본이 덮어쓴다.
+   🔴 통짜 복사로 되돌리지 마라 — 영어 영상에 한국어 서술이 박힌다.
+
+   병합을 브라우저와 Node 양쪽에 두면 반드시 갈라지는데, engine/lib.js 는 Node 가 못 읽는다
+   (package.json 이 type=commonjs 라 .js 안의 export 를 못 읽는다). 그래서 Node 가 굽고
+   엔진은 완성본을 fetch 한다.
+   🔴 매 실행마다 다시 굽는다. 있는 파일을 재사용하면 낡은 병합으로 렌더하게 된다. */
+export function bakeScene(ep, lang = 'ko') {
+  const P = langPaths(ep, lang);
+  if (lang === 'ko') return P.scene;
+  if (!fs.existsSync(P.src)) throw new Error(
+    `${lang} 대본이 없다: ${path.relative(ROOT, P.src)}`);
+
+  const ko = JSON.parse(fs.readFileSync(epScene(ep), 'utf8'));
+  const tr = JSON.parse(fs.readFileSync(P.src, 'utf8'));
+  const koById = new Map(ko.shots.map(s => [s.id, s]));
+
+  const merged = {
+    ...tr,
+    shots: tr.shots.map(s => {
+      const k = koById.get(s.id);
+      if (!k) throw new Error(
+        `${lang} 대본의 샷 ${s.id} 가 한국어 정본에 없다 — spec 을 상속할 곳이 없다`);
+      // kind 는 통짜 상속 — 대본이 그림을 재발명하지 못하게 막는 장치라 예외를 두지 않는다.
+      return { ...s, kind: k.kind, spec: { ...k.spec, ...(s.spec ?? {}) } };
+    }),
+  };
+
+  fs.mkdirSync(path.dirname(P.scene), { recursive: true });
+  fs.writeFileSync(P.scene, JSON.stringify(merged, null, 2));
+  return P.scene;
+}
+
+/** `--lang en` 을 읽는다. 없으면 'ko'. render/check/tts 가 같은 모양을 쓴다. */
+export const langOf = argv => {
+  const i = argv.indexOf('--lang');
+  return i >= 0 && argv[i + 1] && !argv[i + 1].startsWith('--') ? argv[i + 1] : 'ko';
+};
+
 export const STAGE_W = 392;                     // 디자인 기준 폭 (style.css .stage 와 같아야 한다)
 export const OUT_W = 1080, OUT_H = 1920;
 export const DSF = OUT_W / STAGE_W;             // 2.7551…
@@ -119,7 +177,7 @@ export class CDP {
 
 /** 정적 서버 + 헤드리스 브라우저를 띄우고 엔진이 준비될 때까지 기다린다.
  *  반환한 close() 를 반드시 부를 것 — 안 부르면 크롬과 서버가 남는다. */
-export async function openEngine(EP, { quiet = false } = {}) {
+export async function openEngine(EP, { quiet = false, lang = 'ko' } = {}) {
   const browser = findBrowser();
   if (!browser) throw new Error('크롬/엣지를 못 찾았다');
 
@@ -170,7 +228,7 @@ export async function openEngine(EP, { quiet = false } = {}) {
     await b.send('Runtime.enable');
     await b.send('Emulation.setDeviceMetricsOverride',
       { width: STAGE_W, height: VIEW_H, deviceScaleFactor: DSF, mobile: false });
-    await b.send('Page.navigate', { url: `http://127.0.0.1:${PORT}/engine/?ep=${EP}&render=1` });
+    await b.send('Page.navigate', { url: `http://127.0.0.1:${PORT}/engine/?ep=${EP}&render=1&lang=${lang}` });
 
     if (!quiet) process.stdout.write('준비 중');
     let ready = false;

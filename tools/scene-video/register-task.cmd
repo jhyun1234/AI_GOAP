@@ -43,9 +43,31 @@ if errorlevel 1 goto :fail
 
 REM Catches the days the PC is off at 15:00. 3-minute delay so it does not
 REM fight the desktop for CPU during logon.
+REM
+REM *** NOT schtasks. *** (2026-08-05 - this line used to be
+REM    `schtasks /create ... /sc ONLOGON /delay 0003:00 /f` and it failed with
+REM    "Access is denied" from an ordinary shell.)
+REM
+REM    /sc ONLOGON is the ONLY mode here that demands elevation: schtasks
+REM    registers a logon trigger for ANY user, which is a machine-wide change.
+REM    /sc DAILY above goes through un-elevated in the very same shell, so the
+REM    old :fail advice ("run this from an Administrator cmd window") sent
+REM    people hunting for admin rights they never needed.
+REM
+REM    Register-ScheduledTask can scope the trigger to THIS account
+REM    (-User <domain>\<user>), which is not a machine-wide change and needs no
+REM    elevation. It also takes the exe path as its own field instead of a
+REM    command-line string, so a repo path containing spaces cannot mis-quote.
+REM
+REM    The extra settings are deliberate and this task has them while the daily
+REM    one does not: this trigger exists precisely for "the PC was off or asleep
+REM    at 15:00", which on a laptop means it fires right after a battery boot.
+REM    Task Scheduler's default is to refuse to start on battery and to stop if
+REM    the machine switches to it - that default would gut the one task whose
+REM    whole job is catching up.
 echo.
 echo [2/2] on logon (+3 min)
-schtasks /create /tn "AI_GOAP scene-video logon" /tr "\"%TASKCMD%\"" /sc ONLOGON /delay 0003:00 /f
+powershell -NoProfile -ExecutionPolicy Bypass -Command "try { $a = New-ScheduledTaskAction -Execute '%TASKCMD%'; $t = New-ScheduledTaskTrigger -AtLogOn -User ($env:USERDOMAIN + '\' + $env:USERNAME); $t.Delay = 'PT3M'; $s = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable; Register-ScheduledTask -TaskName 'AI_GOAP scene-video logon' -Action $a -Trigger $t -Settings $s -Force -ErrorAction Stop | Out-Null; Write-Host 'SUCCESS: registered AI_GOAP scene-video logon'; exit 0 } catch { Write-Host ('ERROR: ' + $_.Exception.Message); exit 1 }"
 if errorlevel 1 goto :fail
 
 echo.
@@ -62,9 +84,22 @@ exit /b 0
 :fail
 echo.
 echo FAILED. Common causes:
-echo   - "Access is denied": run this from an Administrator cmd window.
+echo   - "Access is denied" on [1/2]: rare - /sc DAILY does not need elevation.
+echo     Check whether a policy blocks Task Scheduler for this account, or
+echo     whether the task is owned by a different user.
 echo   - The task already exists and is locked by another user account.
-echo Inspect with: schtasks /query /fo LIST /v /tn "AI_GOAP scene-video"
+echo   - [2/2] cannot find Register-ScheduledTask: the ScheduledTasks module is
+echo     missing (very old Windows). Then, and only then, elevate and run:
+echo       schtasks /create /tn "AI_GOAP scene-video logon" /tr "\"%TASKCMD%\"" /sc ONLOGON /delay 0003:00 /f
+echo.
+echo NOTE: do NOT reach for an Administrator window as the first move. Both
+echo       steps here are designed to work from an ordinary shell - [2/2] scopes
+echo       its trigger to this account precisely so it does not need elevation.
+echo       If it is asking for admin, something else is wrong; read the message.
+echo.
+echo Inspect with:
+echo   schtasks /query /fo LIST /v /tn "AI_GOAP scene-video"
+echo   powershell -NoProfile -Command "Get-ScheduledTask | Where-Object TaskName -like '*scene-video*'"
 echo.
 pause
 exit /b 1

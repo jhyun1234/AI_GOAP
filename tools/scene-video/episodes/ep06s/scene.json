@@ -37,7 +37,12 @@
       "마을시뮬레이션"
     ],
     "categoryId": "28",
-    "privacy": "private"
+    "privacy": "private",
+    "en": {
+      "_": "스튜디오 → 자막/언어 → 번역 추가 → 영어(미국). 태그는 언어별로 안 나뉘므로 없다.",
+      "title": "All five villagers moved like one person · Unity GOAP Devlog #6 #shorts",
+      "blurb": "Leave the sim running and all five villagers get hungry at the same time, rest at the same time, and head out to work at the same time. Whoever I gave an order to, the result was identical — there was nobody to negotiate with.\n\nThe fix wasn't in the GOAP planner job. It was one step earlier: the personality multiplier only lands where the action data gets copied for the job. A farmer's harvest cost drops, and the planner works out a path to the field on its own — with no change to the job code.\n\nOrder refusal varies by personality too, but there are no dice rolls in that check. Negotiation only means something if the player can learn the pattern.\n\nFull write-up (in Korean):\nhttps://gamedevclaude.blogspot.com/2026/07/unity-goap_0950458123.html\n\nSeries: Act 3 · Rebuilding\nA devlog about building a Unity GOAP village sim with Claude Code.\n\n#Unity #gamedev #devlog #GOAP #indiedev #gameai #ClaudeCode #gameprogramming #unity3d"
+    }
   },
   "shots": [
     {
@@ -62,11 +67,13 @@
         {
           "text": "주민 다섯 명이 지금\n한 사람처럼 움직이고 있어요.",
           "say": "주민 다섯 명이 지금 한 사람처럼 움직이고 있어요.",
+          "en": "All five villagers are moving\nlike a single person.",
           "pauseAfter": 150
         },
         {
           "text": "동시에 배고프고, 동시에 쉬고,\n동시에 일하러 나가요.",
           "say": "동시에 배고프고, 동시에 쉬고, 동시에 일하러 나가요.",
+          "en": "They get hungry together, rest together,\nand head out to work together.",
           "pauseAfter": 300
         }
       ]
@@ -90,11 +97,13 @@
         {
           "text": "누구를 골라도\n달라지는 게 없었어요.",
           "say": "누구를 골라도 달라지는 게 없었어요.",
+          "en": "It didn't matter\nwhich one I picked.",
           "pauseAfter": 150
         },
         {
           "text": "협상할 상대가\n없었던 거죠.",
           "say": "협상할 상대가 없었던 거죠.",
+          "en": "There was nobody\nto negotiate with.",
           "pauseAfter": 300
         }
       ]
@@ -121,11 +130,13 @@
         {
           "text": "고친 건 플래너가 아니에요.\nA* 코드는 그대로 뒀고요.",
           "say": "고친 건 플래너가 아니에요. 에이스타 코드는 그대로 뒀고요.",
+          "en": "I didn't fix the planner.\nThe A* code is untouched.",
           "pauseAfter": 150
         },
         {
           "text": "잡에 넘길 데이터를\n복사할 때만 배율을 곱했어요.",
           "say": "잡에 넘길 데이터를 복사할 때만 배율을 곱했어요.",
+          "en": "The multiplier only lands where\nthe data gets copied into the job.",
           "pauseAfter": 300
         }
       ],
@@ -168,11 +179,13 @@
         {
           "text": "농사꾼은 밭 수확 비용이\n낮아지거든요.",
           "say": "농사꾼은 밭 수확 비용이 낮아지거든요.",
+          "en": "For a farmer, harvesting\njust got cheaper.",
           "pauseAfter": 200
         },
         {
           "text": "그랬더니 플래너가 알아서\n밭으로 가는 계획을 세워요.",
           "say": "그랬더니 플래너가 알아서 밭으로 가는 계획을 세워요.",
+          "en": "So the planner works out a path\nto the field on its own.",
           "pauseAfter": 300
         }
       ],
@@ -226,11 +239,13 @@
         {
           "text": "순둥이는 지쳐도 받고,\n고집쟁이는 멀쩡해도 거부해요.",
           "say": "순둥이는 지쳐도 받고, 고집쟁이는 멀쩡해도 거부해요.",
+          "en": "The easygoing one says yes while exhausted.\nThe stubborn one says no while fresh.",
           "pauseAfter": 150
         },
         {
           "text": "여기 랜덤은 없어요.\n패턴을 배울 수 있어야 하니까요.",
           "say": "여기 랜덤은 없어요. 패턴을 배울 수 있어야 하니까요.",
+          "en": "No dice rolls here.\nYou have to be able to learn the pattern.",
           "pauseAfter": 300
         }
       ],
@@ -266,16 +281,19 @@
         {
           "text": "이제 누구한테 시키냐가\n처음으로 중요해졌어요.",
           "say": "이제 누구한테 시키냐가 처음으로 중요해졌어요.",
+          "en": "For the first time it matters\nwho you give the order to.",
           "pauseAfter": 200
         },
         {
           "text": "곱셈 하나로\n협상이 시작된 거예요.",
           "say": "곱셈 하나로 협상이 시작된 거예요.",
+          "en": "One multiplication\nturned this into a negotiation.",
           "pauseAfter": 600
         },
         {
           "text": "다음 편은 직업이에요.\n성격만으론 안 흩어져요.",
           "say": "다음 편은 직업이에요. 성격만으론 안 흩어져요.",
+          "en": "Next up: jobs.\nPersonality alone doesn't spread them out.",
           "pauseAfter": 0
         }
       ]

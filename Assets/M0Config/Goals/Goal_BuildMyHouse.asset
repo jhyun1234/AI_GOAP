@@ -24,6 +24,10 @@ MonoBehaviour:
   - Slot: 8
     Op: 1
     Value: 10
+  ExperienceOverrideWhen:
+  - Slot: 34
+    Op: 1
+    Value: 1
   GoalConditions:
   - Slot: 17
     Op: 0

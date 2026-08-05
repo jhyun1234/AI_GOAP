@@ -48,6 +48,14 @@ namespace AIVillage.M0
         [Tooltip("이 조건 전부 만족 시 goal 후보로 발동. 비우면 항상 후보.")]
         public SlotCondition[] TriggerConditions;
 
+        [Tooltip("경험 우회 (M20-W11 — M12-G '경험 > 기질'의 자가 건축 이전). 조건 전부 성립 시 " +
+                 "이 goal의 **음수 성향 보정(기질 페널티)을 지운다** (양수 보너스는 불변).\n" +
+                 "예: 굶어 죽을 뻔한(MyWasStarved) 게으름뱅이는 집 goal의 게으름 페널티가 사라져 " +
+                 "스스로 집을 원하게 된다 — '한 번 구해줬더니 사람이 됐다'.\n" +
+                 "비우면 우회 없음 = 현행 (중립 불변식). 트리거 문법이므로 슬롯 비교 허용 " +
+                 "(적용 지점 = GoalSelector.Consider 한 곳 — 플래너 잡은 이 필드를 모른다).")]
+        public SlotCondition[] ExperienceOverrideWhen;
+
         [Tooltip("플래너에 넘길 목표 조건. 이미 전부 만족이면 GoalSelector가 스킵한다. " +
                  "비워 두면 '항상 미달성'으로 취급 (여가 등 달성 개념이 없는 goal — DirectActionPool과 함께 사용).")]
         public SlotCondition[] GoalConditions;

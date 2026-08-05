@@ -200,6 +200,51 @@ namespace AIVillage.Tests.EditMode
             StringAssert.Contains("느리게", SeasonHud.ComposeSkill(2f));
         }
 
+        // ── T8: 경험 우회 — 경험이 기질 페널티를 지운다 (M20-W11, M12-G 이전) ──
+
+        [Test]
+        public void M20_T8_ExperienceOverride_ErasesOnlyNegativeBias()
+        {
+            // "굶어 죽을 뻔했으면 기질을 넘어 집을 원한다" — 舊 집 부탁의 TraitBypassConditions
+            // (M12_T13에서 검증하던 것)를 자가 건축의 우선순위 세계로 이전한 것.
+            var wants = ScriptableObject.CreateInstance<GoalSO>(); // 집 (기질이 말리는 goal)
+            wants.name = "T8_Wants";
+            wants.Priority = 30;
+            wants.ExperienceOverrideWhen = new[]
+            {
+                new SlotCondition { Slot = SlotId.MyWasStarved, Op = CompareOp.GreaterOrEqual, Value = 1 }
+            };
+            var rival = ScriptableObject.CreateInstance<GoalSO>(); // 경쟁 goal (중립)
+            rival.name = "T8_Rival";
+            rival.Priority = 25;
+
+            var selector = new GoalSelector(new[] { wants, rival });
+            int Bias(GoalSO g) => g == wants ? -10 : 0; // 게으름 페널티 (진폭 안 값)
+
+            var slots = new int[PlanningConfig.TotalSlots];
+            var normal = new WorldSnapshot(slots);
+            Assert.AreSame(rival, selector.Select(normal, bias: Bias),
+                "경험 없음 = 페널티 그대로 (30-10=20 < 25) — 기질이 이긴다");
+
+            slots[(int)SlotId.MyWasStarved] = 1;
+            var starved = new WorldSnapshot(slots);
+            Assert.AreSame(wants, selector.Select(starved, bias: Bias),
+                "굶어 죽을 뻔한 경험 = 페널티 소거 (30 > 25) — 경험이 기질을 넘는다");
+
+            // 양수 보너스는 건드리지 않는다 — 우회는 발목을 지우는 것이지 열정을 더하는 게 아니다
+            // (실효 상한 불변 = 명령 대역 60 불침범).
+            int Bonus(GoalSO g) => g == wants ? 10 : 0;
+            Assert.AreSame(wants, selector.Select(starved, bias: Bonus), "양수는 그대로 40");
+
+            // 조건이 빈 goal은 페널티가 그대로다 (중립 불변식 — 우회는 명시한 goal에만)
+            wants.ExperienceOverrideWhen = null;
+            Assert.AreSame(rival, selector.Select(starved, bias: Bias),
+                "우회 미명시 goal은 경험이 있어도 현행과 동일");
+
+            Object.DestroyImmediate(wants);
+            Object.DestroyImmediate(rival);
+        }
+
         // ── T4: 자원별 배율 조회 ─────────────────────────────────────────────
 
         [Test]

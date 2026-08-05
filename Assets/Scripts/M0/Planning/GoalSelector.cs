@@ -57,7 +57,13 @@ namespace AIVillage.M0
             void Consider(GoalSO g)
             {
                 if (g == null || !Passes(g, snap, skip)) return;
-                int p = g.Priority + (bias != null ? bias(g) : 0);
+                int b = bias != null ? bias(g) : 0;
+                // 경험 우회 (M20-W11): 조건 성립 시 음수 보정(기질 페널티)만 지운다 — 경험 > 기질.
+                // 양수는 불변이라 실효 상한이 안 오르고(명령 대역 60 불침범), 빈 배열 = 현행(중립).
+                if (b < 0 && g.ExperienceOverrideWhen != null && g.ExperienceOverrideWhen.Length > 0
+                    && AllHold(g.ExperienceOverrideWhen, snap))
+                    b = 0;
+                int p = g.Priority + b;
                 if (p > bestP) { bestP = p; best = g; }
             }
             foreach (GoalSO goal in _goals) Consider(goal);

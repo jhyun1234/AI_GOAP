@@ -37,16 +37,27 @@ namespace AIVillage.Tests.EditMode
             Assert.AreEqual(1.4f, neg, 1e-5f, "간호는 홀드다 — 누적 1.4일이 0으로 돌아가지 않는다");
         }
 
+        /// <summary>M21-W1 재보정 — 부상 사망 판정이 방치 일수 문턱에서 **체력 0**으로 옮겨졌다.
+        /// 여기서 지키는 것은 "부상 방치가 에셋의 사망 문턱 일수 만에 끝나는가"다
+        /// (舊 ShouldDie는 삭제 — 아무도 안 쓰는 함수를 지키지 않는다).</summary>
         [Test]
-        public void M10_T1_ShouldDie_ThresholdBoundary()
+        public void M10_T1_InjuryDeath_TimingPreserved()
         {
             var cfg = ScriptableObject.CreateInstance<AgentConfigSO>();
             cfg.InjuryDeathAfterDays = 1.5f;
+            cfg.MaxHp = 100f;
+            cfg.InjuredBelowHp = 67f;
+            cfg.BleedHpLossPerDay = 0f; // 0 = 자동 환산
 
-            Assert.IsFalse(VillagerAgent.ShouldDie(0f, cfg), "방치 없음");
-            Assert.IsFalse(VillagerAgent.ShouldDie(1.49f, cfg), "문턱 직전");
-            Assert.IsTrue(VillagerAgent.ShouldDie(1.5f, cfg), "문턱 도달 = 사망");
-            Assert.IsTrue(VillagerAgent.ShouldDie(3f, cfg), "초과분도 사망");
+            Assert.AreEqual(1.5f, VillagerAgent.DaysToBleedDeath(cfg), 1e-4f,
+                "부상 진입 체력이 출혈만으로 정확히 사망 문턱 일수 만에 0이 되어야 한다");
+
+            // 부상 진입 피해 = MaxHp − InjuredBelowHp: 다친 순간 체력이 부상선까지 내려온다
+            Assert.AreEqual(33f, cfg.MaxHp - cfg.InjuredBelowHp, 1e-4f, "진입 피해 = 만복 − 부상선");
+            Assert.IsFalse(VillagerAgent.IsDead(cfg.InjuredBelowHp), "부상은 즉사가 아니다");
+
+            cfg.BleedHpLossPerDay = 67f;
+            Assert.AreEqual(1f, VillagerAgent.DaysToBleedDeath(cfg), 1e-4f, "명시값 우선");
 
             Object.DestroyImmediate(cfg);
         }

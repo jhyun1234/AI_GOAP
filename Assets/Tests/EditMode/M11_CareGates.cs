@@ -74,18 +74,24 @@ namespace AIVillage.Tests.EditMode
         [Test]
         public void M11_T8_DeathTimeline_StabilizedNoHealerStillDies()
         {
-            // 안정화됐지만 치료사가 안 오면: 유예(1.0) 소진 후 방치가 사망 문턱(1.5)까지 → 결국 사망
+            // 안정화됐지만 치료사가 안 오면: 유예(1.0) 소진 후 출혈이 체력을 0까지 → 결국 사망.
+            // M21-W1 재보정: 사망 판정이 방치 문턱에서 **체력 0**으로 옮겨졌으므로 루프도
+            // 체력을 돈다 (舊 ShouldDie를 계속 돌리면 아무도 안 쓰는 함수를 지키게 된다).
+            // 출혈은 방치 시계의 증분이라 유예 중에는 멎는다 — 런타임 SimTick과 같은 배선.
             var cfg = ScriptableObject.CreateInstance<AgentConfigSO>();
             float rec = 0f, neg = 0f, grace = GRACE; bool stab = true;
+            float hp = cfg.InjuredBelowHp; // 부상 진입 직후 체력
             int steps = 0;
-            while (!VillagerAgent.ShouldDie(neg, cfg) && steps < 1000)
+            while (!VillagerAgent.IsDead(hp) && steps < 1000)
             {
+                float prevNeg = neg;
                 (rec, neg, stab, grace) = Step(rec, neg, stab, grace, healer: false, helper: false);
+                hp -= cfg.BleedHpPerDay * (neg - prevNeg);
                 steps++;
             }
             Assert.Less(steps, 1000, "치료사 없으면 반드시 사망한다 (무한 생존 불가 — S3 착탄)");
-            // 유예 1.0 + 사망 문턱 1.5 = 약 2.5게임일 = 25스텝(dt 0.1)
-            Assert.AreEqual(25, steps, 1, "≈2.5일 (유예 1.0 + 문턱 1.5)");
+            // 유예 1.0 + 출혈 1.5 = 약 2.5게임일 = 25스텝(dt 0.1). 환산 전과 같은 값이어야 한다.
+            Assert.AreEqual(25, steps, 1, "≈2.5일 (유예 1.0 + 출혈 1.5)");
         }
 
         // ── 직업 게이트 (BlockedByJob) ───────────────────────────────────────────

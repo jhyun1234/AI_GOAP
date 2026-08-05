@@ -228,6 +228,50 @@ namespace AIVillage.M0
             "미안해… 더는 못 일어나겠어…",
         };
 
+        [Header("체력 (M21-W1 — ADR-M21-2: 생존 단일 척도. 굶주림·전투·간호가 한 눈금을 공유)")]
+        [Tooltip("최대 체력. 굶주림·전투 피해가 여기서 깎이고 0이 되면 죽는다 — 사망 시계가 " +
+                 "일수 카운터에서 이 눈금으로 옮겨졌다(M21-W1). 표기는 정수. 제안치 100.")]
+        public float MaxHp = 100f;
+
+        [Tooltip("이 체력 이하면 '부상' 상태로 본다 (M21-W1). 부상 진입 피해 = MaxHp − 이 값 " +
+                 "(제안 100−67=33) — 다쳤다는 상태와 체력이 어긋나지 않게 하는 유일한 연결점이다.\n" +
+                 "⚠️ 매 틱 재판정하는 값이 아니다 — 부상 진입은 피격 순간에만 판정한다. " +
+                 "틱마다 보면 완치 직후 체력이 낮은 사람이 영원히 재부상한다.")]
+        public float InjuredBelowHp = 67f;
+
+        [Tooltip("굶주림 1일당 체력 감소 (M21-W1). **0 = 자동 환산** = MaxHp / DepartAfterStarvingDays " +
+                 "— 만복에서 굶기 시작하면 기존과 **똑같은 날수**에 죽는다(검증된 밸런스 보존). " +
+                 "0이 아닌 값을 넣으면 아사 소요가 달라지므로 M17(수치의 짝) 절차를 거칠 것.")]
+        public float StarveHpLossPerDay;
+
+        [Tooltip("부상 방치 1일당 체력 감소(출혈, M21-W1). **0 = 자동 환산** = InjuredBelowHp / " +
+                 "InjuryDeathAfterDays — 부상 진입 체력이 정확히 기존 사망 문턱 일수 만에 0이 된다. " +
+                 "간호·안정화 유예 중에는 방치 시계가 멈추므로 출혈도 함께 멎는다(판단 규칙 단일).")]
+        public float BleedHpLossPerDay;
+
+        [Tooltip("굶주리지 않고 다치지도 않은 상태의 1일당 체력 회복 (M21-W1). **0 = 자동 = 굶주림 " +
+                 "감쇠율과 대칭** — 굶어서 깎인 만큼 먹으면서 되돌아온다.\n" +
+                 "⚠️ 여기가 M21의 밸런스 급소다: 舊 규칙은 한 끼면 아사 시계가 **즉시 리셋**이었는데 " +
+                 "이제는 회복에 시간이 든다. 대칭(자동값)이면 문턱 아래에 절반 이상 머무는 개인만 " +
+                 "죽으므로 舊 의도('식량 경쟁에서 계속 밀리는 개인부터')와 같지만, 값을 낮추면 " +
+                 "겨울에 조용히 전멸이 난다. 리뷰① 검산 대상.")]
+        public float SatedHpRegenPerDay;
+
+        /// <summary>굶주림 감쇠율 (환산 포함) — 런타임·게이트가 같은 값을 읽는 유일한 지점.
+        /// 0 입력 = 기존 아사 소요(DepartAfterStarvingDays)를 그대로 재현하는 자동 환산.</summary>
+        public float StarveHpPerDay
+            => StarveHpLossPerDay > 0f ? StarveHpLossPerDay
+                                       : MaxHp / Mathf.Max(1e-4f, DepartAfterStarvingDays);
+
+        /// <summary>출혈 감쇠율 (환산 포함) — 부상 진입 체력이 InjuryDeathAfterDays 만에 0이 된다.</summary>
+        public float BleedHpPerDay
+            => BleedHpLossPerDay > 0f ? BleedHpLossPerDay
+                                      : InjuredBelowHp / Mathf.Max(1e-4f, InjuryDeathAfterDays);
+
+        /// <summary>포만 상태 회복률 (환산 포함) — 기본은 굶주림 감쇠와 대칭.</summary>
+        public float SatedHpRegen
+            => SatedHpRegenPerDay > 0f ? SatedHpRegenPerDay : StarveHpPerDay;
+
         [Header("부상 (M10-A — 최초의 사망 축. 전부 제안치, 명세 §4.4)")]
         [Tooltip("부상 중 이동 속도 배율 (<1 = 절뚝임). 도망·식사도 이 속도 — 다음 타격의 최우선 후보가 된다.")]
         public float InjuredMoveSpeedMult = 0.4f;

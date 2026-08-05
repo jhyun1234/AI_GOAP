@@ -899,14 +899,15 @@ namespace AIVillage.Tests.EditMode
             Assert.Less(c.NearStarvationRatio, 1f,
                 "비율 1이면 기록 시점 = 사망 시점이라 살아남은 자가 존재할 수 없다");
 
-            float death = c.DepartAfterStarvingDays;
-            Assert.IsFalse(VillagerAgent.IsNearStarvation(0f, c), "굶주림 0일에는 기록 없음");
-            Assert.IsFalse(VillagerAgent.IsNearStarvation(death * c.NearStarvationRatio * 0.5f, c),
-                "문턱 이전에는 기록 없음");
-            Assert.IsTrue(VillagerAgent.IsNearStarvation(death * c.NearStarvationRatio, c),
-                "문턱에 닿으면 기록");
+            // M21-W1 재보정: 판정 축이 굶주림 누적일 → **남은 체력**으로 옮겨졌다. 같은 에셋 값
+            // (NearStarvationRatio)을 그대로 쓰되 "남은 체력 20%"로 읽는다 — 만복에서 굶기
+            // 시작하면 舊 0.4일 지점과 정확히 같은 순간이다(환산이지 새 수치가 아니다).
+            float line = c.MaxHp * (1f - c.NearStarvationRatio); // 기록 시작선
+            Assert.IsFalse(VillagerAgent.IsNearDeath(c.MaxHp, c), "만복에는 기록 없음");
+            Assert.IsFalse(VillagerAgent.IsNearDeath(line + 0.01f, c), "선 이전에는 기록 없음");
+            Assert.IsTrue(VillagerAgent.IsNearDeath(line, c), "선에 닿으면 기록");
             // 기록 지점이 사망 지점보다 반드시 앞 — 이 순서가 깨지면 슬롯이 영구히 0이다.
-            Assert.IsFalse(VillagerAgent.ShouldStarveToDeath(death * c.NearStarvationRatio, c),
+            Assert.IsFalse(VillagerAgent.IsDead(line),
                 "기록 시점에는 아직 죽지 않아야 한다 (살아남아야 표시가 쓸모 있다)");
         }
 

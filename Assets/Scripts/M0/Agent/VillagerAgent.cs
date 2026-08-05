@@ -23,6 +23,19 @@ namespace AIVillage.M0
     }
 
     /// <summary>
+    /// 피해 원인 (M21-W1, ADR-M21-2) — 체력이 하나로 합쳐졌어도 **왜 깎였는가**는 갈라야 한다.
+    /// 이 값이 가르는 것 둘: ①사망 시 어느 문으로 나가는가(StarveToDeath / Die — 무덤 문구·
+    /// 연대기 사유가 갈린다) ②MyWasStarved를 찍을 자격이 있는가(굶주림뿐 — 전투 피해로도 찍히면
+    /// 경험 우회가 전투마다 발동해 M12-G가 지키려던 희소성이 사라진다).
+    /// append-only: 새 원인은 뒤에만 (세이브·연대기 사유와 결합될 자리).
+    /// </summary>
+    public enum DamageCause
+    {
+        Combat     = 0, // 전투·야수 타격·출혈
+        Starvation = 1, // 굶주림
+    }
+
+    /// <summary>
     /// M0 주민 에이전트 — 舊 VillagerFSM(3,476줄)의 대체. 5상태 고정 (성공 기준 S5: ≤600줄).
     ///
     /// 원칙:
@@ -324,6 +337,7 @@ namespace AIVillage.M0
             float spread = StableHash.Spread(AgentId, "satiety"); // [-1, 1]
             Satiety = Mathf.Clamp(_cfg.InitialSatiety + spread * _cfg.InitialSatietyVariance, 0f, 100f);
             Fatigue = _cfg.InitialFatigue;
+            Hp = _cfg.MaxHp; // M21-W1 — 체력만 편차 없이 만복 시작 (몸값 불가침: 누구는 태생이 약한 설계 아님)
             // 감쇠율 개체 편차 — 동기화(포만 0 클램프·같은 문턱 식사)가 생겨도 되돌리는 상시 힘.
             // 편차가 없으면 감쇠율이 전원 동일이라 한 번 뭉친 웨이브가 영구 지속된다.
             _decayJitter = 1f + StableHash.Spread(AgentId, "decay") * _cfg.SatietyDecayVariancePct;
@@ -437,17 +451,18 @@ namespace AIVillage.M0
             float decayMult = (_sim.Season != null ? _sim.Season.SatietyDecayMult : 1f) * _decayJitter;
             Satiety = Mathf.Max(0f, Satiety - SatietyDecay(_cfg.SatietyDecayPerGameDay, decayMult, deltaGameDays));
 
-            // 아사 (M6-D → ADR-M10-3 개정) — 계절 분기 없음: 굶주림은 계절 무관 사실 (⚠️③).
-            // 대기 가드 금지 (M4 교훈 — 동상·데드락) — 판정은 누적 시간 하나뿐.
+            // 아사 (M6-D → ADR-M10-3 → M21-W1 체력 환산) — 계절 분기 없음: 굶주림은 계절 무관 사실 (⚠️③).
+            // 대기 가드 금지 (M4 교훈 — 동상·데드락) — 시계는 누적 시간 하나뿐.
+            // 검증된 시계는 그대로 돌리고 **증분만** 피해로 환산한다: 시계를 지우고 새 판정을
+            // 만들면 0.5일이라는 검증된 아사 소요가 조용히 어긋난다 (M17 수치의 짝).
+            float prevStarvingDays = _starvingDays;
             _starvingDays = NextStarvingDays(_starvingDays, Satiety, _cfg.StarvingBelowSatiety, deltaGameDays);
-            // "죽을 뻔했다"는 죽음 판정 **앞**에서 찍는다 (M12-G) — 문턱에 닿으면 즉사하므로
-            // 사후에 남길 수 없다. 여기가 MyWasStarved의 유일한 쓰기 지점이다.
-            if (IsNearStarvation(_starvingDays, _cfg)) MyWasStarved = true;
-            if (ShouldStarveToDeath(_starvingDays, _cfg))
-            {
-                StarveToDeath();
-                return;
-            }
+            float starvingDelta = _starvingDays - prevStarvingDays;
+            if (starvingDelta > 0f)
+                TakeDamage(_cfg.StarveHpPerDay * starvingDelta, DamageCause.Starvation);
+            else if (Injury == InjurySeverity.None)
+                RecoverHp(_cfg.SatedHpRegen * deltaGameDays); // 먹고 지내면 되돌아온다 (부상 중엔 간호가 맡는다)
+            if (State == AgentState.Dead) return;
 
             // 부상 계단 v2 (M11-I 간호 2단계) — 굶주림과 같은 패턴, 원인·결말은 분리 (ADR-M10-3).
             // 치료 간호(Medic)만 회복을 올린다. 일반 간호(응급조치)는 최초 1회 안정화(유예 부여)뿐 —
@@ -457,15 +472,19 @@ namespace AIVillage.M0
                 bool tended = Time.time < _tendedUntil;
                 bool byHealer = tended && _tendedByHealer;
                 bool byHelper = tended && !_tendedByHealer;
+                float prevNeglectDays = _injuryNeglectDays;
                 (_injuryRecovery, _injuryNeglectDays, _stabilized, _graceLeft) = NextInjuryStateV2(
                     _injuryRecovery, _injuryNeglectDays, _stabilized, _graceLeft,
                     byHealer, byHelper, _tendMult, _cfg.StabilizeGraceDays, deltaGameDays);
-                if (_injuryRecovery >= _cfg.InjuryRecoverDays) HealInjury();
-                else if (ShouldDie(_injuryNeglectDays, _cfg))
+                // 출혈 = 방치 시계의 증분 (M21-W1). 간호 중·안정화 유예 중에는 방치가 멈추므로
+                // 출혈도 함께 멎는다 — 그 우선순위 규칙(결정 15)을 여기에 복제하지 않는 이유다.
+                float neglectDelta = _injuryNeglectDays - prevNeglectDays;
+                if (neglectDelta > 0f)
                 {
-                    Die();
-                    return;
+                    TakeDamage(_cfg.BleedHpPerDay * neglectDelta, DamageCause.Combat);
+                    if (State == AgentState.Dead) return;
                 }
+                if (_injuryRecovery >= _cfg.InjuryRecoverDays) HealInjury();
             }
             _tickCounter++;
 
@@ -538,6 +557,70 @@ namespace AIVillage.M0
         public static float SatietyDecay(float perGameDay, float seasonMult, float deltaGameDays)
             => perGameDay * seasonMult * deltaGameDays;
 
+        // ── 체력 (M21-W1 — ADR-M21-2: 생존 단일 척도) ─────────────────────────
+        //
+        // 굶주림도 전투도 여기서 깎인다. 舊 구조는 사망 시계가 둘(_starvingDays·_injuryNeglectDays)
+        // 이었고 서로를 몰랐다 — 굶주린 사람이 물려도 두 시계가 따로 돌아 "쇠약해진 사람이 먼저
+        // 죽는다"가 표현되지 않았다. 이제 눈금 하나를 공유한다.
+        //
+        // ⚠️ 시계를 지운 게 아니라 **판정을 옮겼다**: NextStarvingDays·NextInjuryStateV2는 그대로
+        // 돌고(게이트도 그대로), 그 **증분**이 피해로 환산된다. "언제 시계가 도는가"의 규칙을
+        // 두 벌 두지 않기 위해서다 — 간호·안정화 유예의 우선순위(M11-I 결정 15)를 출혈 쪽에
+        // 복제했다면 두 규칙이 언젠가 갈렸을 것이다.
+
+        /// <summary>현재 체력. 세이브 대상 (ADR-M0-10). 쓰기는 TakeDamage/RecoverHp 둘뿐.</summary>
+        public float Hp { get; private set; }
+
+        /// <summary>사망 판정 (순수 — 게이트 M21-T1). 문턱이 0인 유일한 판정이다.</summary>
+        public static bool IsDead(float hp) => hp <= 0f;
+
+        /// <summary>
+        /// "죽을 뻔했다" 판정 (순수 — 게이트 M21-T1. 舊 IsNearStarvation의 HP판).
+        /// 舊 판정은 굶주림 **누적일**을 봤는데, 체력이 합쳐진 뒤로는 그 값이 죽음과의 거리를
+        /// 더는 말해주지 못한다 — 이미 다쳐서 체력 30인 사람은 0.15일 만에 죽으므로 舊 문턱
+        /// (0.4일)에 영영 닿지 못하고, **가장 아슬아슬했던 사람이 기록에서 빠진다.**
+        /// 기준선은 기존 에셋 값을 그대로 쓴다: NearStarvationRatio 0.8 = 남은 체력 20% 지점
+        /// (만복에서 굶기 시작하면 舊 0.4일 지점과 정확히 같다 — 환산이지 새 수치가 아니다).
+        /// </summary>
+        public static bool IsNearDeath(float hp, AgentConfigSO cfg)
+            => hp <= cfg.MaxHp * (1f - cfg.NearStarvationRatio);
+
+        /// <summary>아사 소요 (순수 — 게이트 M21-T1): 만복에서 굶기만 할 때 죽기까지의 게임일.
+        /// 이 값이 DepartAfterStarvingDays와 어긋나면 검증된 밸런스가 조용히 바뀐 것이다.</summary>
+        public static float DaysToStarveDeath(AgentConfigSO cfg) => cfg.MaxHp / cfg.StarveHpPerDay;
+
+        /// <summary>부상 방치 사망 소요 (순수 — 게이트 M21-T1): 부상 진입 체력에서 출혈만으로
+        /// 죽기까지의 게임일. InjuryDeathAfterDays와 일치해야 한다.</summary>
+        public static float DaysToBleedDeath(AgentConfigSO cfg)
+            => cfg.InjuredBelowHp / cfg.BleedHpPerDay;
+
+        /// <summary>
+        /// 피해의 유일한 문 (ADR-M21-2) — 체력 차감·경험 기록·사망 라우팅이 전부 여기 모인다.
+        /// 밖에서 Hp를 직접 만지지 않는다: 두 번째 쓰기 경로가 생기는 순간 "누가 죽였는가"를
+        /// 잃는다 (ADR-M0-3 상태 쓰기 단일 지점).
+        /// 원인(cause)이 사망 문을 가른다 — 무덤·연대기 사유·마지막 대사가 원인별로 다르다.
+        /// </summary>
+        public void TakeDamage(float amount, DamageCause cause)
+        {
+            if (State == AgentState.Dead || amount <= 0f) return;
+            Hp = Mathf.Max(0f, Hp - amount);
+            // 굶주림 원인일 때만 기록 (M12-G 희소성 — DamageCause 주석 참조).
+            // 여기가 MyWasStarved의 유일한 쓰기 지점이다 (舊 SimTick에서 이전).
+            if (cause == DamageCause.Starvation && IsNearDeath(Hp, _cfg)) MyWasStarved = true;
+            if (!IsDead(Hp)) return;
+            if (cause == DamageCause.Starvation) StarveToDeath();
+            else Die();
+        }
+
+        /// <summary>체력 회복 (M21-W1) — 굶주리지 않고 다치지도 않은 사람만. 부상 중 회복은
+        /// 간호의 몫이라 여기로 오지 않는다 (전투 피해가 시간만으로 지워지면 위협이 다시
+        /// 날씨가 된다 — ADR-M21-2).</summary>
+        private void RecoverHp(float amount)
+        {
+            if (State == AgentState.Dead || amount <= 0f) return;
+            Hp = Mathf.Min(_cfg.MaxHp, Hp + amount);
+        }
+
         // ── 부상·사망 (M10-A — 최초의 사망 축. ADR-M10-2: 쓰기는 Injure/HealInjury/SimTick뿐) ──
 
         /// <summary>부상 상태. 세이브 대상 (ADR-M0-10 — Severity·회복·방치 누적 3종 함께).</summary>
@@ -586,6 +669,10 @@ namespace AIVillage.M0
             ShowTransient(Pick(_cfg.InjuredLines));
             Debug.LogWarning($"[Injury] {AgentId}: 부상 ({severity})");
             _sim.Hud?.Notify($"{ShortName}이(가) 다쳤습니다");
+            // 부상 진입 피해 (M21-W1) — 마지막에 둔다: 이 피해로 즉사해도 위의 기록(연대기·경험·
+            // 대사)이 먼저 남아야 "물려서 그 자리에서 숨졌다"가 이야기로 성립한다.
+            // ⚠️ W2에서 이 자리가 위협의 StrikeDamage로 바뀌고 진입 판정이 체력 쪽으로 뒤집힌다.
+            TakeDamage(Mathf.Max(0f, _cfg.MaxHp - _cfg.InjuredBelowHp), DamageCause.Combat);
         }
 
         /// <summary>간호 표시 (TendRunner 전용, M11-I) — 유효 시간 동안 간호 인정. isHealer가
@@ -638,11 +725,12 @@ namespace AIVillage.M0
             return (recovery, neglect + dt, stabilized, grace);
         }
 
-        /// <summary>사망 판정 (순수 — 게이트 M10-T1) — 문턱은 에셋 값 (ADR-M0-2). ShouldDepart와 동일 형식.</summary>
-        public static bool ShouldDie(float neglectDays, AgentConfigSO cfg)
-            => neglectDays >= cfg.InjuryDeathAfterDays;
+        // (M21-W1: 舊 ShouldDie(방치 일수 문턱)는 삭제 — 사망 판정은 IsDead(Hp) 하나로 합쳐졌다.
+        //  방치 시계 자체는 살아 있고 그 증분이 출혈이 된다. 폐기=삭제 ADR-M0-4)
 
-        /// <summary>완치 — 부상 소멸의 유일한 지점. 감속·goal 필터가 같은 틱에 해제된다.</summary>
+        /// <summary>완치 — 부상 소멸의 유일한 지점. 감속·goal 필터가 같은 틱에 해제된다.
+        /// 체력은 여기서 되돌리지 않는다 (M21-W1) — 나은 직후엔 아직 쇠약하고, 먹고 지내는
+        /// 동안 RecoverHp가 채운다. 즉시 만복 회복은 "간호로 살아났다"를 공짜로 만든다.</summary>
         private void HealInjury()
         {
             // 연대기 (M13-C2) — 치료 완료는 알림 누락 5건 중 유일한 🔴였다: 개입해서
@@ -668,8 +756,8 @@ namespace AIVillage.M0
         /// </summary>
         private void Die()
         {
-            Debug.LogWarning($"[VillagerAgent] {AgentId}: 부상 사망 — 방치 {_injuryNeglectDays:F2}일 " +
-                             $"(문턱 {_cfg.InjuryDeathAfterDays}일)");
+            Debug.LogWarning($"[VillagerAgent] {AgentId}: 부상 사망 — 체력 0 " +
+                             $"(방치 {_injuryNeglectDays:F2}일 / 출혈 {_cfg.BleedHpPerDay:F1}/일)");
             _sim.Hud?.Notify($"{ShortName}이(가) 숨을 거뒀습니다");
             _sim.RecordDeath(TileX, TileY, ShortName, (int)_sim.GameTime, AgentId);
             // 명부 퇴장 기록 (M13-C1) — 사유를 아는 곳에서만 쓴다 (ADR-M13-3:
@@ -724,19 +812,10 @@ namespace AIVillage.M0
                                              float deltaGameDays)
             => satiety < starvingBelow ? current + deltaGameDays : 0f;
 
-        /// <summary>아사 판정 (순수, 게이트 M6-T3) — 문턱은 에셋 값 (ADR-M0-2).
-        /// 舊 ShouldDepart에서 개명 (ADR-M10-3 개정 — 굶주림의 결말이 이탈에서 아사로 바뀜).</summary>
-        public static bool ShouldStarveToDeath(float starvingDays, AgentConfigSO cfg)
-            => starvingDays >= cfg.DepartAfterStarvingDays;
-
-        /// <summary>
-        /// "죽을 뻔했다" 판정 (순수, 게이트 M12-T7) — 아사 문턱의 NearStarvationRatio 지점.
-        /// 아사 문턱 자체가 아니라 그 **앞**인 이유: ShouldStarveToDeath가 참이 되는 틱에 바로
-        /// 죽으므로 "문턱 이상 지속하고 살아남은 자"는 존재할 수 없다. 죽음 직전까지 갔다
-        /// 회복한 자만 골라내려면 문턱 앞에서 찍어야 한다.
-        /// </summary>
-        public static bool IsNearStarvation(float starvingDays, AgentConfigSO cfg)
-            => starvingDays >= cfg.DepartAfterStarvingDays * cfg.NearStarvationRatio;
+        // (M21-W1: 舊 ShouldStarveToDeath·IsNearStarvation은 삭제 — 아사 판정은 IsDead(Hp),
+        //  "죽을 뻔했다"는 IsNearDeath(Hp)로 이관됐다. 굶주림 누적일은 여전히 시계로 돌지만
+        //  더는 죽음과의 거리를 말하지 못한다: 이미 다친 사람은 그 문턱에 닿기 전에 죽는다.
+        //  에셋 값(DepartAfterStarvingDays·NearStarvationRatio)은 환산의 기준으로 그대로 쓰인다.)
 
         /// <summary>
         /// 아사 (ADR-M10-3 개정 2026-07-24 — 舊 굶주림 이탈). 상태만 Dead(ADR-M6-3)로 바꾸고 지연
@@ -749,9 +828,9 @@ namespace AIVillage.M0
         /// </summary>
         private void StarveToDeath()
         {
-            Debug.LogWarning($"[VillagerAgent] {AgentId}: 아사 — 포만 {Satiety:F0} " +
+            Debug.LogWarning($"[VillagerAgent] {AgentId}: 아사 — 체력 0, 포만 {Satiety:F0} " +
                              $"(< {_cfg.StarvingBelowSatiety}) 지속 {_starvingDays:F2}일 " +
-                             $"(문턱 {_cfg.DepartAfterStarvingDays}일)");
+                             $"(감쇠 {_cfg.StarveHpPerDay:F0}/일 · 만복 기준 {DaysToStarveDeath(_cfg):F2}일)");
             _sim.RecordDeath(TileX, TileY, ShortName, (int)_sim.GameTime, AgentId); // 부상 사망과 같은 문 — 무덤·카운터 (원인만 이원)
             _sim.Chronicle.RecordExit(AgentId, _sim.GameTime, ExitCause.Starvation); // 명부 — 사유 이원화 유지 (ADR-M13-3)
             SnapshotRelationsForChronicle(); // C3 — ReleaseBy(OnDestroy)가 지우기 전에
@@ -770,7 +849,8 @@ namespace AIVillage.M0
         public void DebugKill()
         {
             if (State == AgentState.Dead) return;
-            StarveToDeath();
+            // M21-W1: 체력을 통째로 깎아 실제 아사 문(TakeDamage → StarveToDeath)을 그대로 탄다.
+            TakeDamage(_cfg.MaxHp, DamageCause.Starvation);
         }
 #endif
 

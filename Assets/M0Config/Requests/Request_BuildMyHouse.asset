@@ -18,6 +18,9 @@ MonoBehaviour:
   - Slot: 17
     Op: 0
     Value: 0
+  - Slot: 22
+    Op: 1
+    Value: 5
   RequesterTraits:
   - Trait: 1
     MinValue: -50

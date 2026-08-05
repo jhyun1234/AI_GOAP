@@ -21,6 +21,9 @@ MonoBehaviour:
   - Slot: 19
     Op: 1
     Value: 3
+  - Slot: 22
+    Op: 1
+    Value: 5
   GoalConditions: []
   DirectActionPool:
   - {fileID: 11400000, guid: ea8586d7e0ba44f699a9589a33378ef7, type: 2}

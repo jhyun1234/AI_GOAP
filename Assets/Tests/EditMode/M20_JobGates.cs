@@ -123,6 +123,62 @@ namespace AIVillage.Tests.EditMode
             Assert.AreEqual(2, flagged, "IsCookingWork가 켜진 액션은 정확히 2곳(CookMeal·CookMealScarce)");
         }
 
+        // ── T5: 집 사슬 순서 — 부탁이 자가 건축보다 위 (ADR-M20-6) ────────────
+
+        [Test]
+        public void M20_T5_HouseChain_AskOutranksSelfBuild()
+        {
+            var self = AssetDatabase.LoadAssetAtPath<GoalSO>("Assets/M0Config/Goals/Goal_BuildMyHouse.asset");
+            var ask  = AssetDatabase.LoadAssetAtPath<GoalSO>("Assets/M0Config/Goals/Goal_SeekCarpenter.asset");
+            Assert.IsNotNull(self, "Goal_BuildMyHouse 에셋 존재");
+            Assert.IsNotNull(ask, "Goal_SeekCarpenter 에셋 존재");
+
+            // 이 단언이 실패하는 구현 = M19가 만든 바로 그 상태(자가 34 > 부탁 17)다.
+            // 독점이 곧 필터였던 시절엔 무해했지만, 누구나 자가 건축을 할 수 있게 된 뒤로는
+            // 부탁 경로에 순번이 영영 오지 않는다 (2026-08-05 Play 관측). 회귀 감시선.
+            Assert.Less(self.Priority, ask.Priority,
+                "자가 건축은 부탁하러 가기보다 낮아야 한다 — 부탁이 기본, 자가가 폴백 (ADR-M20-6)");
+
+            // 다만 결정론이 아니라 편향이다: 성향 보정(±PriorityScale)이 개인을 가를 수 있도록
+            // 같은 대역에 둔다. 격차가 보정 진폭을 넘으면 성격 분화가 다시 덮인다.
+            Assert.LessOrEqual(ask.Priority - self.Priority, Mathf.RoundToInt(self.PriorityScale),
+                "격차가 성향 보정 진폭을 넘으면 '고집쟁이는 혼자, 순한 사람은 부탁'이 사라진다");
+        }
+
+        // ── T6: 지불 능력 정합 — 유상 부탁은 성립 조건에 대가를 건다 ──────────
+
+        [Test]
+        public void M20_T6_PaidRequest_RequiresMeansUpfront()
+        {
+            var req = AssetDatabase.LoadAssetAtPath<RequestSO>(
+                "Assets/M0Config/Requests/Request_BuildMyHouse.asset");
+            Assert.IsNotNull(req, "Request_BuildMyHouse 에셋 존재");
+            Assert.Greater(req.RewardCostAmount, 0, "집 부탁은 유상이다");
+
+            // 선불 요구 성격(AgentConfigSO.DemandsUpfront)이 존재하는 한, 지불 능력이 성립
+            // 조건에 없는 유상 부탁은 구조적 모순이다 — 빈손 의뢰인이 부탁을 걸고 거절당한다
+            // (2026-08-05 Play 관측: "선불 없이는 안 해"). M19가 돈 조건을 지우며 생긴 구멍.
+            Assert.IsTrue(HasMeansCondition(req.RequesterConditions, req),
+                $"의뢰인 성립 조건에 {req.RewardCostSlot} ≥ {req.RewardCostAmount}가 있어야 한다");
+
+            // 수단 없이 걸어가지도 않는다 — 같은 조건이 부탁하러 가기 트리거에도 있어야 한다
+            var seek = AssetDatabase.LoadAssetAtPath<GoalSO>("Assets/M0Config/Goals/Goal_SeekCarpenter.asset");
+            Assert.IsTrue(HasMeansCondition(seek.TriggerConditions, req),
+                "부탁하러 가는 트리거에도 같은 지불 능력 조건이 있어야 한다 (헛걸음 방지)");
+        }
+
+        /// <summary>대가 슬롯을 대가 수량 이상으로 요구하는 조건이 있는가 — 값 불일치는 red
+        /// (대사 "곡식 다섯 알"·RewardCostAmount·조건 Value 세 곳이 갈리면 말과 규칙이 어긋난다).</summary>
+        private static bool HasMeansCondition(SlotCondition[] conditions, RequestSO r)
+        {
+            if (conditions == null) return false;
+            foreach (SlotCondition c in conditions)
+                if (c.Slot == r.RewardCostSlot && c.Op == CompareOp.GreaterOrEqual
+                    && !c.CompareToSlot && c.Value == r.RewardCostAmount)
+                    return true;
+            return false;
+        }
+
         // ── T4: 자원별 배율 조회 ─────────────────────────────────────────────
 
         [Test]

@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Goal_BuildMyHouse
   m_EditorClassIdentifier:
   DisplayName: "내 집 짓기"
-  Priority: 34
+  Priority: 15
   TriggerConditions:
   - Slot: 17
     Op: 0

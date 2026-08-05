@@ -123,48 +123,49 @@ namespace AIVillage.Tests.EditMode
             Assert.AreEqual(2, flagged, "IsCookingWork가 켜진 액션은 정확히 2곳(CookMeal·CookMealScarce)");
         }
 
-        // ── T5: 집 사슬 순서 — 부탁이 자가 건축보다 위 (ADR-M20-6) ────────────
+        // ── T5: 집 부탁 사슬 휴면 (ADR-M20-7) ────────────────────────────────
 
         [Test]
-        public void M20_T5_HouseChain_AskOutranksSelfBuild()
+        public void M20_T5_HouseRequestChain_StaysDormant()
         {
-            var self = AssetDatabase.LoadAssetAtPath<GoalSO>("Assets/M0Config/Goals/Goal_BuildMyHouse.asset");
-            var ask  = AssetDatabase.LoadAssetAtPath<GoalSO>("Assets/M0Config/Goals/Goal_SeekCarpenter.asset");
-            Assert.IsNotNull(self, "Goal_BuildMyHouse 에셋 존재");
-            Assert.IsNotNull(ask, "Goal_SeekCarpenter 에셋 존재");
+            var world = AssetDatabase.LoadAssetAtPath<WorldConfigSO>("Assets/M0Config/WorldConfig.asset");
+            Assert.IsNotNull(world, "WorldConfig 에셋 존재");
+            var injected = AssetDatabase.LoadAssetAtPath<GoalSO>(
+                "Assets/M0Config/Goals/Goal_RequestHouse.asset");
+            Assert.IsNotNull(injected, "Goal_RequestHouse 에셋은 보존한다 (휴면 ≠ 삭제)");
 
-            // 이 단언이 실패하는 구현 = M19가 만든 바로 그 상태(자가 34 > 부탁 17)다.
-            // 독점이 곧 필터였던 시절엔 무해했지만, 누구나 자가 건축을 할 수 있게 된 뒤로는
-            // 부탁 경로에 순번이 영영 오지 않는다 (2026-08-05 Play 관측). 회귀 감시선.
-            Assert.Less(self.Priority, ask.Priority,
-                "자가 건축은 부탁하러 가기보다 낮아야 한다 — 부탁이 기본, 자가가 폴백 (ADR-M20-6)");
-
-            // 다만 결정론이 아니라 편향이다: 성향 보정(±PriorityScale)이 개인을 가를 수 있도록
-            // 같은 대역에 둔다. 격차가 보정 진폭을 넘으면 성격 분화가 다시 덮인다.
-            Assert.LessOrEqual(ask.Priority - self.Priority, Mathf.RoundToInt(self.PriorityScale),
-                "격차가 성향 보정 진폭을 넘으면 '고집쟁이는 혼자, 순한 사람은 부탁'이 사라진다");
+            // 집은 개인이 짓는다 (M19 독점 해제의 완결) — 부탁으로 남의 집을 짓는 경로는 없다.
+            // 이 단언이 실패하는 구현 = 집 부탁을 다시 등록한 상태. 되살리려면 ADR-M20-7의
+            // 개정 사유부터 쓴다 (두 번 패치하고도 맴돌기·경고 폭풍이 났던 사슬이다).
+            if (world.Requests == null) return;
+            foreach (RequestSO r in world.Requests)
+            {
+                if (r == null) continue;
+                Assert.AreNotSame(injected, r.InjectGoal,
+                    $"{r.name}: 집 짓기를 주입하는 부탁은 휴면이다 (ADR-M20-7)");
+            }
         }
 
-        // ── T6: 지불 능력 정합 — 유상 부탁은 성립 조건에 대가를 건다 ──────────
+        // ── T6: 지불 능력 정합 — 활성 유상 부탁은 성립 조건에 대가를 건다 ─────
 
         [Test]
-        public void M20_T6_PaidRequest_RequiresMeansUpfront()
+        public void M20_T6_ActivePaidRequests_RequireMeansUpfront()
         {
-            var req = AssetDatabase.LoadAssetAtPath<RequestSO>(
-                "Assets/M0Config/Requests/Request_BuildMyHouse.asset");
-            Assert.IsNotNull(req, "Request_BuildMyHouse 에셋 존재");
-            Assert.Greater(req.RewardCostAmount, 0, "집 부탁은 유상이다");
+            var world = AssetDatabase.LoadAssetAtPath<WorldConfigSO>("Assets/M0Config/WorldConfig.asset");
+            Assert.IsNotNull(world, "WorldConfig 에셋 존재");
+            if (world.Requests == null) return;
 
             // 선불 요구 성격(AgentConfigSO.DemandsUpfront)이 존재하는 한, 지불 능력이 성립
-            // 조건에 없는 유상 부탁은 구조적 모순이다 — 빈손 의뢰인이 부탁을 걸고 거절당한다
-            // (2026-08-05 Play 관측: "선불 없이는 안 해"). M19가 돈 조건을 지우며 생긴 구멍.
-            Assert.IsTrue(HasMeansCondition(req.RequesterConditions, req),
-                $"의뢰인 성립 조건에 {req.RewardCostSlot} ≥ {req.RewardCostAmount}가 있어야 한다");
-
-            // 수단 없이 걸어가지도 않는다 — 같은 조건이 부탁하러 가기 트리거에도 있어야 한다
-            var seek = AssetDatabase.LoadAssetAtPath<GoalSO>("Assets/M0Config/Goals/Goal_SeekCarpenter.asset");
-            Assert.IsTrue(HasMeansCondition(seek.TriggerConditions, req),
-                "부탁하러 가는 트리거에도 같은 지불 능력 조건이 있어야 한다 (헛걸음 방지)");
+            // 조건에 없는 **유상** 부탁은 구조적 모순이다 — 빈손 의뢰인이 부탁을 걸고 거절당한다
+            // (2026-08-05 Play 관측: "선불 없이는 안 해". M19가 돈 조건을 지우며 생긴 구멍).
+            // 현재 활성 부탁은 전부 무상이라 대상이 0건 = 통과 — 이건 **미래 방어선**이다.
+            foreach (RequestSO r in world.Requests)
+            {
+                if (r == null || r.RewardCostAmount <= 0) continue;
+                Assert.IsTrue(HasMeansCondition(r.RequesterConditions, r),
+                    $"{r.name}: 유상 부탁은 의뢰인 성립 조건에 " +
+                    $"{r.RewardCostSlot} ≥ {r.RewardCostAmount}를 걸어야 한다");
+            }
         }
 
         /// <summary>대가 슬롯을 대가 수량 이상으로 요구하는 조건이 있는가 — 값 불일치는 red

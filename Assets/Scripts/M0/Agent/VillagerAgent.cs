@@ -339,9 +339,6 @@ namespace AIVillage.M0
             // 개체 편차가 위에서 먼저 확정되므로 그 벡터를 그대로 넘긴다. 스폰 1회 고정 (세이브 대상, ADR-M5-5)
             Job = PresetOrRandom(_hasPreset, _presetJob,
                 () => _startJob != null ? _startJob : _sim.PickJobFor(MyTraits));
-            // 배정 완료 통보 — 어느 경로로 정해졌든 한 번씩 (목수 최소 보장의 카운터가 이걸 센다).
-            // ⚠️ PickJobFor 안에서 세면 씬 지정 주민이 카운트를 건너뛰어 보장이 영영 발동하지 않는다.
-            _sim.NotifyJobAssigned(Job);
             _multJitter = new[]
             {
                 Random.Range(0.9f, 1.1f), Random.Range(0.9f, 1.1f),

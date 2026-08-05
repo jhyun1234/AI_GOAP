@@ -1017,24 +1017,7 @@ namespace AIVillage.Tests.EditMode
             }
         }
 
-        [Test]
-        public void M12_T14_CarpenterGuarantee_FiresOnlyForTheLastStarter()
-        {
-            // 마지막 한 명에게만, 그리고 아직 없을 때만 발동한다.
-            Assert.IsTrue(M0SimulationLoop.MustForceGuaranteedJob(3, 4, false), "정원 4의 마지막(4번째)에서 발동");
-            Assert.IsFalse(M0SimulationLoop.MustForceGuaranteedJob(3, 4, true), "이미 목수가 있으면 발동 안 함");
-            Assert.IsFalse(M0SimulationLoop.MustForceGuaranteedJob(0, 4, false), "첫 주민을 강제하면 편향이 죽는다");
-            Assert.IsFalse(M0SimulationLoop.MustForceGuaranteedJob(2, 4, false), "중간 주민에게는 발동 안 함");
-            // 방랑자(정원 밖)는 보장 대상이 아니다 — 카운터가 이미 정원을 넘었다.
-            Assert.IsFalse(M0SimulationLoop.MustForceGuaranteedJob(9, 4, false), "정원 밖(방랑자)에는 발동 안 함");
-            Assert.IsFalse(M0SimulationLoop.MustForceGuaranteedJob(0, 0, false), "주민이 없으면 발동 안 함");
-
-            // 씬 배선 — 보장 직업이 실제로 목수여야 한다 (집이 목수 부탁 전용이라 이게 방어선).
-            JobSO carpenter = LoadAllJobs().First(j => j.name == "Job_Carpenter");
-            var request = AssetDatabase.LoadAssetAtPath<RequestSO>(
-                "Assets/M0Config/Requests/Request_BuildMyHouse.asset");
-            Assert.AreEqual(carpenter, request.TargetJob,
-                "집 부탁의 대상 직업이 곧 최소 보장 대상이어야 한다 (보장 대상이 어긋나면 방어선이 헛돈다)");
-        }
+        // M12_T14(목수 최소 보장)은 M20-W5에서 삭제 — 보장의 근거였던 "집은 목수 부탁 전용"이
+        // M19 독점 해제로 소멸했고, "목수 없는 판"의 존재 자체가 M20 헌장(ADR-M20-1)의 목적이 됐다.
     }
 }

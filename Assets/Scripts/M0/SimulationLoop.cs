@@ -46,11 +46,6 @@ namespace AIVillage.M0
         [Tooltip("직업 풀 (M5-A) — 스폰 시 랜덤 할당. 비우면 전원 무직(중립, M4 동작).")]
         [SerializeField] private JobSO[] _jobPool;
 
-        [Tooltip("최소 보장 직업 (M12-H) — 시작 주민 중 아무도 이 직업이 아니면 마지막 한 명을 " +
-                 "강제 배정한다. 목수를 넣을 것: 집은 목수 부탁 전용이라 목수 없는 판은 집이 아예 " +
-                 "서지 않고 M10 '규모 8 정체'(위협 티어 진행 정지)가 재현된다. 비우면 보장 없음(중립).")]
-        [SerializeField] private JobSO _guaranteedJob;
-
         [Tooltip("집들이 연출 (M11-F) — 새 집 소유 배정 순간 집주인+이웃 릴레이. 비우면 집들이 없음(중립). " +
                  "舊 농부 회의(M9-E)의 자리 — 개인 택지 시대엔 마을의 장면이 집들이다.")]
         [SerializeField] private ChatterSO _housewarmingChatter;
@@ -186,52 +181,22 @@ namespace AIVillage.M0
             => job == null ? 0f
              : Mathf.Max(MIN_JOB_WEIGHT, 1f + TraitVector.Bias(traits, job.PreferWeights) * strength);
 
-        // 목수 최소 보장 상태 (M12-H) — 시작 주민에 한한다. 세이브 대상 아님(배정은 스폰 1회).
-        private int _initialRoster;
-        private int _jobsAssigned;
-        private bool _guaranteedJobAssigned;
-
-        /// <summary>
-        /// 마지막 시작 주민에게 보장 직업을 강제해야 하는가 (순수 — 게이트 M12-T14).
-        /// 성향 편향은 목수가 **한 명도 안 나오는 판**을 만들 수 있는데, 집은 목수 부탁 전용이라
-        /// 그 판은 집이 아예 안 서고 M10의 "규모 8 정체"(위협 티어 진행까지 멈춤)가 재현된다.
-        /// 시작 드래프트 UI(백로그)가 나오기 전까지 이것이 유일한 방어선이다.
-        /// </summary>
-        public static bool MustForceGuaranteedJob(int assigned, int roster, bool alreadyAssigned)
-            => !alreadyAssigned && roster > 0 && assigned == roster - 1;
-
         /// <summary>
         /// 스폰 시 직업 배정 (M12-H) — 성격·직업 독립 랜덤을 폐기하고 성향으로 편향시킨다.
         /// 여기가 배정의 유일한 창구다.
-        /// ⚠️ 상태를 세지 않는다 — 카운트는 NotifyJobAssigned가 맡는다(아래 사유).
+        ///
+        /// M20-W5: 목수 최소 보장을 삭제했다. 보장의 근거는 "집은 목수 부탁 전용이라 목수 없는
+        /// 판은 집이 아예 안 선다"였는데, M19 독점 해제로 누구나 짓게 되면서 소멸했다.
+        /// 이제 **어떤 직업도 보장하지 않는다** — "목수 없는 판"이 존재할 수 있어야 직업이
+        /// "부재가 느껴지는 장치"가 된다 (ADR-M20-1).
         /// </summary>
         public JobSO PickJobFor(TraitValue[] traits) // M14-W3: 개체 편차 포함 벡터를 직접 받는다
         {
             if (_jobPool == null || _jobPool.Length == 0) return null; // 중립 — 전원 무직 (M5-S3)
 
-            if (_guaranteedJob != null
-                && MustForceGuaranteedJob(_jobsAssigned, _initialRoster, _guaranteedJobAssigned))
-            {
-                Debug.Log($"[M12-H] 최소 보장 — 마지막 시작 주민을 {_guaranteedJob.DisplayName}(으)로 " +
-                          "배정했습니다 (없으면 집이 아예 서지 않습니다)");
-                return _guaranteedJob;
-            }
-
             int idx = PickJobIndex(traits, _jobPool,
                                    _worldConfig != null ? _worldConfig.TraitRules : null, Random.value);
             return idx >= 0 ? _jobPool[idx] : null;
-        }
-
-        /// <summary>
-        /// 직업 배정 완료 통보 (M12-H) — 주민이 어느 경로로 직업을 얻었든 스폰 1회 호출한다.
-        /// ⚠️ 이 카운트를 PickJobFor 안에 두면 안 된다: 씬에서 직업을 지정한 주민·주입 스폰(방랑자)은
-        /// PickJobFor를 거치지 않아 카운터가 정원에 영영 못 닿고 **목수 보장이 발동하지 않는다.**
-        /// "무엇을 골랐나"가 아니라 "몇 명이 정해졌나"가 보장의 조건이므로 통보가 맞는 자리다.
-        /// </summary>
-        public void NotifyJobAssigned(JobSO job)
-        {
-            _jobsAssigned++;
-            if (job != null && job == _guaranteedJob) _guaranteedJobAssigned = true;
         }
 
         public void RegisterAgent(VillagerAgent agent)
@@ -638,11 +603,6 @@ namespace AIVillage.M0
                 return;
             }
             Instance = this;
-
-            // 시작 주민 정원 (M12-H) — Unity는 모든 Awake가 끝난 뒤에야 첫 Start를 부르므로,
-            // 여기서 센 수는 "직업을 배정받기 전의 전원"이다. 목수 최소 보장이 '마지막 한 명'을
-            // 알아야 하는데 초기 주민은 씬 배치라 스폰 루프가 없어서, 정원을 이 시점에 확정한다.
-            _initialRoster = FindObjectsByType<VillagerAgent>().Length;
 
             if (_worldConfig == null || _agentConfig == null || _catalog == null || _nodeSpawner == null)
             {

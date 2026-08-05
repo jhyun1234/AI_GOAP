@@ -61,8 +61,10 @@ namespace AIVillage.M0
             return Elapsed >= Action.DurationSec;
         }
 
-        /// <summary>배율 판 (M19 — 효율 전문화). 소비처는 BuildRunner뿐 — 다른 러너가 쓰기
-        /// 시작하면 "직업이 생존·소비 속도를 바꾸는" ADR-M5-3 위반 신호다.</summary>
+        /// <summary>배율 판 (M19 — 효율 전문화, M20에서 노동 전반으로 확대).
+        /// 소비처는 **노동 러너 4곳**뿐 — Build/Farm/Gather + Consume의 조리 플래그 분기.
+        /// ⚠️ 위반 기준은 러너 목록이 아니라 행동의 성질이다: **식사·휴식·간호에 곱기 시작하면**
+        /// "직업이 생존·소비 속도를 바꾸는" ADR-M5-3 위반 신호 (게이트 M20-T3이 조리 쪽을 감시).</summary>
         protected bool DurationElapsed(float dt, float durationMult)
         {
             Elapsed += dt;

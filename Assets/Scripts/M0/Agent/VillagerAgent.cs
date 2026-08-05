@@ -137,6 +137,19 @@ namespace AIVillage.M0
         public float BuildDurationMultOfJob()
             => Job != null ? Job.BuildDurationMult : 1f;
 
+        /// <summary>밭일 실행 시간 배율 (M20). 소비처는 FarmRunner뿐.</summary>
+        public float FarmDurationMultOfJob()
+            => Job != null ? Job.FarmDurationMult : 1f;
+
+        /// <summary>조리 실행 시간 배율 (M20). 소비처는 ConsumeRunner의 IsCookingWork 분기뿐 —
+        /// 식사·휴식에는 절대 닿지 않는다 (ADR-M5-3·ADR-M20-3).</summary>
+        public float CookDurationMultOfJob()
+            => Job != null ? Job.CookDurationMult : 1f;
+
+        /// <summary>자원별 채집 실행 시간 배율 (M20). 소비처는 GatherRunner뿐.</summary>
+        public float GatherDurationMultOfJob(ResourceType resource)
+            => Job != null ? Job.GatherDurationMultFor(resource) : 1f;
+
         // goal 실효 우선순위 보정 (M5-B 직업 + M6 후속 성격 합산, ADR-M5-1) — 스폰 1회 캐시.
         // 둘 다 null이면 null = Select가 기존과 완전 동일 경로 (중립 불변식).
         private System.Func<GoalSO, int> _goalBias;

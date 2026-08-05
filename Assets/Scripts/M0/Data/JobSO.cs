@@ -1,4 +1,5 @@
 using System;
+using AIVillage.Core;
 using UnityEngine;
 
 namespace AIVillage.M0
@@ -9,6 +10,18 @@ namespace AIVillage.M0
     {
         public GoalSO Goal;
         public int Boost;
+    }
+
+    /// <summary>
+    /// 자원별 채집 실행 시간 배율 항목 (M20 — ADR-M20-2. GoalBoost와 같은 {대상, 값} 패턴).
+    /// 자원별로 갈라야 나무꾼(나무)과 광부(돌)가 구분된다 — 단일 배율이면 벌목 전문가가
+    /// 채석도 빨라져 두 직업이 같은 사람이 된다.
+    /// </summary>
+    [Serializable]
+    public struct GatherDurationMult
+    {
+        public ResourceType Resource;
+        public float Mult;
     }
 
     /// <summary>
@@ -40,6 +53,23 @@ namespace AIVillage.M0
                  "적용 지점은 BuildRunner 하나 — 채집·농사에 곱지 않는다.")]
         public float BuildDurationMult = 1f;
 
+        [Tooltip("밭일(심기·수확) 실행 시간 배율 (M20 — ADR-M20-2). 1 = 현행(무직·일반 불변). " +
+                 "농부만 <1 = 솜씨 보너스 (Job_Farmer 0.5, 제안치).\n" +
+                 "적용 지점은 FarmRunner 하나 — Routine_TendFields(다른 SO)는 영향권 밖이다.")]
+        public float FarmDurationMult = 1f;
+
+        [Tooltip("조리 실행 시간 배율 (M20 — ADR-M20-3). 1 = 현행. 요리사만 <1 (Job_Cook 0.5, 제안치).\n" +
+                 "⚠️ 조리는 러너가 소비 계열(ConsumeRunner)이지만 성질은 노동이다. 그래서 " +
+                 "ConsumeActionSO.IsCookingWork가 켜진 액션에만 곱한다 — **식사·휴식은 전 직업 " +
+                 "영원히 중립**(ADR-M5-3 몸값 불가침). 게이트 M20-T3이 감시.")]
+        public float CookDurationMult = 1f;
+
+        [Tooltip("자원별 채집 실행 시간 배율 (M20 — ADR-M20-2). 비면 전 자원 1(중립). " +
+                 "나무꾼 = Wood 0.5, 광부 = Stone 0.5 (제안치).\n" +
+                 "미정의 자원은 1 — Iron 등 새 자원이 생겨도 기존 직업은 자동으로 중립이다 " +
+                 "(격퇴 축 M21+의 사냥·채광 확장이 이 배열에 얹힌다).")]
+        public GatherDurationMult[] GatherDurationMults;
+
         [Tooltip("할 일 없을 때의 일과 goal (개인 사다리 주입, ADR-M5-2). 비면 일과 없음")]
         public GoalSO RoutineGoal;
 
@@ -69,6 +99,16 @@ namespace AIVillage.M0
                 foreach (GoalBoost b in GoalBoosts)
                     if (b.Goal == goal) return b.Boost;
             return 0;
+        }
+
+        /// <summary>이 직업의 자원별 채집 배율. 미정의 = 1 (중립, M5-S3).
+        /// ResourceType은 값 신원이므로 enum 비교다 — 이름 문자열 비교가 아니다.</summary>
+        public float GatherDurationMultFor(ResourceType resource)
+        {
+            if (GatherDurationMults != null)
+                foreach (GatherDurationMult g in GatherDurationMults)
+                    if (g.Resource == resource) return g.Mult;
+            return 1f;
         }
     }
 }

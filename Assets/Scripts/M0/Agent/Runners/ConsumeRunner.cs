@@ -12,6 +12,9 @@ namespace AIVillage.M0
     {
         private readonly ConsumeActionSO _so;
 
+        // M20 — 조리 노동에만 직업 효율이 곱해진다 (ADR-M20-3). 식사는 영원히 1 (ADR-M5-3).
+        private float _durationMult = 1f;
+
         public ConsumeRunner(ConsumeActionSO so) : base(so)
         {
             _so = so;
@@ -19,6 +22,10 @@ namespace AIVillage.M0
 
         public override bool Prepare(VillagerAgent agent)
         {
+            // 조리 플래그가 꺼진 액션(식사·간식)은 배율 경로 자체를 타지 않는다 —
+            // 여기서 분기하지 않으면 요리사가 밥도 빨리 먹게 되어 몸값 불가침이 깨진다.
+            _durationMult = _so.IsCookingWork ? agent.CookDurationMultOfJob() : 1f;
+
             if (!_so.EatAtAnchor) return true; // 제자리 식사
 
             int cx, cy;
@@ -39,6 +46,6 @@ namespace AIVillage.M0
         }
 
         public override RunnerResult Tick(VillagerAgent agent, float dt)
-            => DurationElapsed(dt) ? RunnerResult.Succeeded : RunnerResult.Running;
+            => DurationElapsed(dt, _durationMult) ? RunnerResult.Succeeded : RunnerResult.Running;
     }
 }

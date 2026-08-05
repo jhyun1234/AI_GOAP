@@ -20,6 +20,13 @@ namespace AIVillage.M0
         [Tooltip("식사 위치 산개 반경(타일). 정확히 같은 타일을 노리면 타일 예약 충돌 + 불 위에 서게 된다.")]
         public int AnchorRadius = 1;
 
+        [Tooltip("조리 노동인가 (M20 — ADR-M20-3). true면 이 액션의 실행 시간에 직업의 " +
+                 "CookDurationMult가 곱해진다.\n" +
+                 "⚠️ 식사·휴식 액션은 절대 켜지 않는다 — 직업이 몸값(먹는 속도)을 바꾸면 " +
+                 "ADR-M5-3 위반이다. 켜도 되는 곳은 CookMeal·CookMealScarce 2곳뿐이며 " +
+                 "게이트 M20-T3이 그 밖을 red로 잡는다.")]
+        public bool IsCookingWork;
+
         public override IActionRunner CreateRunner(VillagerAgent agent) => new ConsumeRunner(this);
     }
 }

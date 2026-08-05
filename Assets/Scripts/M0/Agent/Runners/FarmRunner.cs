@@ -12,6 +12,7 @@ namespace AIVillage.M0
     {
         private readonly FarmActionSO _so;
         private FarmPlot _plot;
+        private float _durationMult = 1f; // M20 — 직업 효율 (Prepare에서 캐시, 기본 1 = 중립)
 
         public FarmRunner(FarmActionSO so) : base(so)
         {
@@ -39,13 +40,14 @@ namespace AIVillage.M0
                 _plot = null;
                 return false;
             }
+            _durationMult = agent.FarmDurationMultOfJob(); // M20 — 실행 시점 직업 기준 (중립 = 1)
             MoveTarget = _plot.Tile;
             return true;
         }
 
         public override RunnerResult Tick(VillagerAgent agent, float dt)
         {
-            if (!DurationElapsed(dt)) return RunnerResult.Running;
+            if (!DurationElapsed(dt, _durationMult)) return RunnerResult.Running;
 
             bool ok = _so.Kind == FarmActionKind.Plant
                 ? agent.Farm.TryPlant(_plot)

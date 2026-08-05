@@ -12,6 +12,7 @@ namespace AIVillage.M0
     {
         private readonly GatherActionSO _so;
         private ResourceNode _node;
+        private float _durationMult = 1f; // M20 — 직업 효율 (Prepare에서 캐시, 기본 1 = 중립)
 
         public GatherRunner(GatherActionSO so) : base(so)
         {
@@ -39,13 +40,16 @@ namespace AIVillage.M0
                 _node = null;
                 return false;
             }
+            // M20 — 자원별 효율. 나무꾼은 나무만, 광부는 돌만 빠르다 (자원별로 갈라야
+            // 두 직업이 구분된다 — ADR-M20-2).
+            _durationMult = agent.GatherDurationMultOfJob(_so.TargetResource);
             MoveTarget = new Vector2Int(_node.TileX, _node.TileY);
             return true;
         }
 
         public override RunnerResult Tick(VillagerAgent agent, float dt)
         {
-            if (!DurationElapsed(dt)) return RunnerResult.Running;
+            if (!DurationElapsed(dt, _durationMult)) return RunnerResult.Running;
 
             if (_node.CurrentAmount < 1f)
                 return Fail($"{_so.TargetResource} 노드 고갈");

@@ -77,13 +77,48 @@ jobs:
 
           if git merge-base --is-ancestor origin/main "origin/$BRANCH" ; then
             git merge --ff-only "origin/$BRANCH"
-            git push origin main
             echo "Fast-forwarded main to $BRANCH."
-            if [[ "$BRANCH" == claude/scene-* ]]; then
-              git push origin --delete "$BRANCH"
-              echo "Deleted script branch $BRANCH."
-            fi
           else
-            echo "::error::$BRANCH is not a fast-forward of main. Manual review needed."
-            exit 1
+            # 🔴 main 이 대본을 쓰는 사이 전진했다. 이건 사고가 아니라 **평상시**다 —
+            #    로컬 세션이 게임 코드를 main 에 올리는 날마다 반드시 이 갈래로 온다.
+            #    옛 코드는 여기서 --ff-only 하나만 보고 exit 1 했고, 2026-08-05 에
+            #    ep06s 대본이 31커밋 차이로 거부되어 그날 영상이 통째로 안 나왔다.
+            #    클라우드는 실패를 모르므로 다음 날 다음 회차를 쓰고, 버려진 대본은
+            #    아무도 안 보는 브랜치에 영원히 남는다. 조용히 잃는 구조였다.
+            #
+            #    위 ALLOW 검사가 "이 브랜치는 대본 파일만 건드린다"를 이미 증명했으니
+            #    그 커밋을 main 위로 옮겨 붙이는 것은 안전하다. 충돌하면 그때 멈춘다.
+            BASE=$(git merge-base origin/main "origin/$BRANCH")
+            echo "main moved on since $BASE - replaying script commits onto main."
+            git checkout -B _replay "origin/$BRANCH"
+            if ! git rebase --onto main "$BASE" ; then
+              git rebase --abort || true
+              git checkout main
+              echo "::error::Replaying $BRANCH onto main hit a conflict. Manual review needed."
+              exit 1
+            fi
+
+            # 옮겨 붙인 결과를 다시 검사한다. 위 ALLOW 는 rebase 이전의 브랜치를 본 것이라
+            # 여기서 한 번 더 봐야 "대본만 받는다"는 약속이 실제로 지켜진다.
+            REPLAYED=$(git diff --name-only main.._replay)
+            if [ -z "$REPLAYED" ]; then
+              git checkout main
+              echo "Nothing left after replay - main already has these changes."
+              exit 0
+            fi
+            if echo "$REPLAYED" | grep -qEv "$ALLOW" ; then
+              git checkout main
+              echo "::error::Replayed commits touch non-script paths - refusing. Manual review needed."
+              exit 1
+            fi
+
+            git checkout main
+            git merge --ff-only _replay
+            echo "Replayed $BRANCH onto main."
+          fi
+
+          git push origin main
+          if [[ "$BRANCH" == claude/scene-* ]]; then
+            git push origin --delete "$BRANCH"
+            echo "Deleted script branch $BRANCH."
           fi

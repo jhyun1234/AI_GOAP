@@ -82,11 +82,36 @@ REM The JSON copy is the one humans and the cloud routine read.
 REM ---------------------------------------------------------------------------
 set PERRUN=3
 
+REM ---------------------------------------------------------------------------
+REM WHY A :label SUBROUTINE AND NOT A for-BLOCK BODY  (fixed 2026-08-05)
+REM
+REM The loop used to inline the three commands inside the for-block parens.
+REM Two things went wrong at once and between them the log went blank:
+REM
+REM   1. The ")" in `echo (exit %ERRORLEVEL%)` closed the for-block early, so
+REM      the trailing `>> "%LOG%"` became a redirect on the WHOLE for command.
+REM      That is why the log said "(exit 0" with the paren shorn off.
+REM   2. cmd then had the outer for holding one append handle to the log while
+REM      the inner echo/node lines opened their own. The outer handle's file
+REM      position never advanced past what the inner ones wrote, so every inner
+REM      line was overwritten by the next outer line. The 2026-08-05 15:00 run
+REM      lost ALL of publish.mjs's output - three "(exit 0" lines were the only
+REM      survivors, and the pipeline looked silent when it was merely unlogged.
+REM
+REM A subroutine has no enclosing parens, so ")" is literal again and each
+REM redirect opens, writes, and closes on its own line. That is exactly how
+REM this worked before PERRUN was introduced on 2026-08-04.
+REM %ERRORLEVEL% also expands per-line here - inside a block it would need
+REM delayed expansion and would have read stale on every pass.
+REM ---------------------------------------------------------------------------
 echo.>> "%LOG%"
 echo ===== %DATE% %TIME% (up to %PERRUN% episodes) =====>> "%LOG%"
-for /L %%i in (1,1,%PERRUN%) do (
-  echo --- pass %%i of %PERRUN% --->> "%LOG%"
-  node "tools\scene-video\publish.mjs" --routine >> "%LOG%" 2>&1
-  echo (exit %ERRORLEVEL%)>> "%LOG%"
-)
+for /L %%i in (1,1,%PERRUN%) do call :pass %%i
 rmdir /s /q "%LOCK%" 2>nul
+exit /b 0
+
+:pass
+echo --- pass %1 of %PERRUN% >> "%LOG%"
+node "tools\scene-video\publish.mjs" --routine >> "%LOG%" 2>&1
+echo (exit %ERRORLEVEL%)>> "%LOG%"
+exit /b 0

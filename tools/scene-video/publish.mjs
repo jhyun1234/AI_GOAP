@@ -738,11 +738,46 @@ if (DRY) { console.log('\n--dry 라 여기서 멈춘다. 실제로 올리려면 
    비공개로 '잠그고' 스튜디오에서도 못 푼다. 다시 올리는 수밖에 없어서, 자동 업로드가
    오히려 일을 늘린다. 그래서 붙여넣을 것까지만 만들어 두고 마지막 한 걸음은 사람이 한다. */
 if (PREPARE) {
+  /* ── 영어 자막 블록 ────────────────────────────
+     영상은 하나다 — 더빙도 번인 자막도 한국어고, 영어권 시청자는 CC 를 켜서 본다
+     (명세 Docs/영상_영어권_확장_실행명세서.md). 그 재료는 대본 안에 산다:
+     줄마다 `en`, 그리고 `youtube.en{title,blurb}`.
+
+     🔴 번역이 없다고 **루틴을 멈추지 않는다.** 한국어 발행은 그것대로 나가야 하고,
+     번역은 사람이 나중에 채운다. 대신 **붙여넣기 파일에서 못 지나치게** 한다 —
+     사람이 업로드할 때 반드시 이 파일을 열기 때문에 여기가 유일하게 확실한 알림 자리다.
+     🔑 check.mjs 의 영어 게이트는 `en` 이 **하나도 없으면 건너뛴다**(옛 회차 때문).
+     그래서 "통째로 빠진 회차"는 게이트가 아니라 여기서만 드러난다. */
+  const allLines = scene.shots.flatMap(s => s.lines);
+  const enDone = allLines.filter(l => l.en?.trim()).length;
+  const srtPath = epBuild(EP, `${EP}.en.srt`);
+  let enBlock;
+
+  if (enDone === allLines.length && y.en?.title) {
+    const s = spawnSync(process.execPath, [path.join(ROOT, 'srt.mjs'), EP],
+      { encoding: 'utf8', cwd: path.dirname(ROOT) });
+    enBlock = s.status === 0 && fs.existsSync(srtPath)
+      ? ['── 영어 (자막/언어 → 번역 추가 → 영어(미국)) ──',
+        `제목: ${y.en.title}`, '',
+        y.en.blurb || '', '',
+        `자막 파일: ${path.relative(path.dirname(ROOT), srtPath)}`,
+        '  같은 화면의 "수동 자막 추가" 로 올린다.',
+        '⚠️ 태그는 언어별로 안 나뉜다 — 번역 탭에 태그 칸이 없다.']
+      : [`🔴 영어 자막 생성 실패 — node tools/scene-video/srt.mjs ${EP} 를 직접 돌려 봐라`,
+        (s.stderr || '').trim()];
+  } else {
+    enBlock = ['🔴 영어 자막 없음 — 이 회차는 한국어로만 나간다',
+      `  번역 ${enDone}/${allLines.length}줄` + (y.en?.title ? '' : ' · youtube.en 없음'),
+      `  채우려면: scene.json 의 lines[].en 과 youtube.en 을 쓰고`,
+      `           node tools/scene-video/srt.mjs ${EP}`];
+  }
+
   const txt = epBuild(EP, 'upload.txt');
   fs.writeFileSync(txt, [
     '── 제목 ────────────────────────────────', meta.snippet.title, '',
     '── 설명 ────────────────────────────────', meta.snippet.description, '',
     '── 태그 (쉼표로 붙여넣기) ───────────────', meta.snippet.tags.join(', '), '',
+    ...enBlock, '',
     '── 설정 ────────────────────────────────',
     '카테고리: 과학기술',
     '아동용 아님',
@@ -756,6 +791,10 @@ if (PREPARE) {
   console.log(`\n준비 완료`);
   console.log(`  영상   ${path.relative(path.dirname(ROOT), mp4)}`);
   console.log(`  붙여넣기 ${path.relative(path.dirname(ROOT), txt)}`);
+  // 무인 실행 로그에도 남긴다 — 사람이 upload.txt 를 열기 전에 알 수 있게
+  console.log(enDone === allLines.length && y.en?.title
+    ? `  영어자막 ${path.relative(path.dirname(ROOT), srtPath)}`
+    : `  영어자막 🔴 없음 (${enDone}/${allLines.length}줄) — 한국어로만 나간다`);
   console.log(`\n  스튜디오(https://studio.youtube.com)에 mp4 를 끌어다 놓고`);
   console.log(`  위 txt 내용을 붙여넣으면 끝이다.`);
   // 폴더를 열어 준다 — 스튜디오로 끌어다 놓기 좋게

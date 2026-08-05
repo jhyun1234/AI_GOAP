@@ -165,9 +165,11 @@ namespace AIVillage.Tests.EditMode
             List<GoalSO> goals = LoadAllGoals();
             var tagged = goals.Where(g => g.TraitWeights != null && g.TraitWeights.Length > 0).ToList();
 
-            // S1: 성향이 닿는 goal 수 — 착수 전 3개(WinterPrep·SaveForHome·StoreFood)에서 대폭 확대.
-            Assert.GreaterOrEqual(tagged.Count, 24,
-                $"성향이 닿는 goal이 {tagged.Count}개뿐 — 면제 대상(먹는 행동 3 + 명령 3)을 뺀 전부에 붙어야 한다 (S1)");
+            // S1: 성향이 닿는 goal 수 = 전체 − 면제 6. 고정 하한(24)은 M20-W12의 goal 2개
+            // 삭제(SeekCarpenter·RequestHouse — 둘 다 태그본)로 낡아서 파생식으로 교체 —
+            // 콘텐츠가 늘거나 줄어도 "면제 빼고 전부"라는 S1의 뜻 자체를 세는 식이다.
+            Assert.AreEqual(goals.Count - ExemptGoals.Length, tagged.Count,
+                $"성향이 닿는 goal이 {tagged.Count}개 — 면제 대상(먹는 행동 3 + 명령 3)을 뺀 전부에 붙어야 한다 (S1)");
 
             // 면제 대상은 반드시 비어 있어야 한다 (ADR-M12-4 ① 몸값 불가침)
             foreach (string name in ExemptGoals)

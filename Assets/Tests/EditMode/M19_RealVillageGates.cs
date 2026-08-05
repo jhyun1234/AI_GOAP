@@ -105,24 +105,11 @@ namespace AIVillage.Tests.EditMode
             }
         }
 
-        // ── T2: 실물 집 사슬 (W6) — 집 부탁의 대가는 실물·후불이다 (ADR-M19-2) ──
-
-        [Test]
-        public void M19_T2_HouseRequests_RealGoodsAndDeferred()
-        {
-            int houses = 0;
-            foreach (string guid in AssetDatabase.FindAssets("t:RequestSO", new[] { "Assets/M0Config" }))
-            {
-                var r = AssetDatabase.LoadAssetAtPath<RequestSO>(AssetDatabase.GUIDToAssetPath(guid));
-                if (r == null || !r.GrantOwnership || r.OwnershipSlot != SlotId.HouseCount) continue;
-                houses++;
-                Assert.IsTrue(SlotIds.IsPersonalStock(r.RewardCostSlot),
-                    $"{r.name}: 집 사례는 실물 개인 스톡이어야 한다 (ADR-M19-2)");
-                Assert.IsFalse(r.AlwaysUpfront,
-                    $"{r.name}: 실물 사례는 후불 원형 — 선불은 화폐 빚의 처방이었다 (ADR-M19-2)");
-            }
-            Assert.Greater(houses, 0, "집 부탁 에셋이 없다 — 스캔 조건이 낡았다");
-        }
+        // ── 舊 T2: 실물 집 사슬 (W6 — ADR-M19-2) — M20-W12에서 삭제 ─────────────
+        // 감시 대상(집 소유를 배정하는 부탁)이 설계상 소멸했다: ADR-M20-7 "집은 개인이
+        // 짓는다"로 집 부탁 사슬이 폐기됐고, M20_T5가 정반대("집 소유 배정 부탁 금지")를
+        // 같은 값-기반 스캔으로 감시한다. ADR-M19-2의 정신(대가는 실물)은 화폐 슬롯 잔존
+        // 감시(T1)가 계속 지킨다.
 
         // ── T4: 나눔 무상 (W6) — 나눔은 거래가 아니다 (ADR-M19-4) ──
 

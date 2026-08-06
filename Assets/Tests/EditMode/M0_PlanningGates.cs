@@ -3,6 +3,7 @@ using AIVillage.Core.GOAP;
 using AIVillage.M0;
 using NUnit.Framework;
 using UnityEditor;
+using UnityEngine;
 
 namespace AIVillage.Tests.EditMode
 {
@@ -203,6 +204,109 @@ namespace AIVillage.Tests.EditMode
             // 배고픔은 모든 것에 우선
             WorldSnapshot hungry = Snap((SlotId.MySatiety, 15), (SlotId.WoodStock, 5));
             Assert.AreEqual("Goal_P0_Hunger", selector.Select(hungry).name);
+        }
+
+        // ── M0-T2c: 탐색 폭발 회귀 (2026-08-06 Play 관측) ────────────────────
+        //
+        // 관측: `M0_Villager_F: NoSolutionFound (goal=Goal_P0_Fatigue, 노드 4096/4096)`.
+        // 해가 없는 게 아니라 **못 찾은** 것이었다 — 중립 배율로는 12노드에 풀린다.
+        //
+        // 기구: 절대 목표(피로 90→≤30)는 −20짜리 휴식 3번 = 실비용 36을 요구하는데
+        // 휴리스틱은 `steps × minActionCost(5) × 0.99 = 14.85`로 41%밖에 못 본다. 거기에
+        // 성격·직업 배율이 채집·농사·건설·탐험 비용을 `EffectiveCost`의 바닥값 5로 눌러붙이고,
+        // 중반 마을(집·모닥불·밭·부상자)이 그 액션들의 전제를 전부 열어 준다 →
+        // A*가 f<36 구간을 훑다가 4096을 소진한다. **성격×직업 조합에 따라 갈리므로
+        // 주민 한 명만 마비되고, 그 주민은 우선순위 1짜리 Goal_Leisure로도 못 내려간다**
+        // (SkipFailureCooldown=1이라 쿨다운조차 안 걸린다).
+        //
+        // 이 게이트가 지키는 것: **중립 스냅샷이 아니라 배율이 걸린 실제 조합에서** 계획이 서는가.
+        // 중립만 보는 스모크(M0-T2)는 이 결함을 통과시켰다 — 그게 이 게이트가 따로 있는 이유다.
+        [Test]
+        public void M0_T2c_FatigueGoal_NoSearchExplosion_AcrossPersonalityAndJob()
+        {
+            ActionCatalog catalog = LoadCatalog();
+            GoalSO fatigue = LoadGoal("Goal_P0_Fatigue");
+            var rules = AssetDatabase.LoadAssetAtPath<TraitRulesSO>("Assets/M0Config/TraitRules.asset");
+
+            Assert.IsTrue(fatigue.RelativeToCurrent,
+                "피로 goal은 증분 목표여야 한다 — 절대 목표(≤30)로 되돌리면 배율 걸린 조합 91/126이 " +
+                "4096노드를 소진하고 그 주민이 영구 마비된다 (2026-08-06 실측).");
+
+            // 중반 마을 주민: 자원 발견·전역/개인/집 스톡·집·모닥불·밭·부상자까지 전부 열린 상태.
+            // 적용 가능 액션이 넓어야 폭발이 재현된다 — 슬롯이 비면 분기가 좁아 그냥 통과한다.
+            WorldSnapshot rich = Snap(
+                (SlotId.MySatiety, 55), (SlotId.WoodStock, 30), (SlotId.RawFoodStock, 12),
+                (SlotId.StoneStock, 12), (SlotId.CookedFoodStock, 4),
+                (SlotId.MyRawFood, 3), (SlotId.MyCookedFood, 1),
+                (SlotId.NearDiscoveredWood, 1), (SlotId.NearDiscoveredFood, 1),
+                (SlotId.NearDiscoveredStone, 1),
+                (SlotId.MyHasHome, 1), (SlotId.HouseCount, 2),
+                (SlotId.MyHasCampfire, 1), (SlotId.CampfireCount, 1), (SlotId.CampfireBuilt, 1),
+                (SlotId.MyHomeRawFood, 4), (SlotId.MyHomeCookedFood, 2),
+                (SlotId.MyFarmPlotCount, 3), (SlotId.MyEmptyPlot, 2), (SlotId.MyRipeCrop, 1),
+                (SlotId.FarmPlotCount, 5), (SlotId.EmptyFarmPlot, 2), (SlotId.RipeCropAvailable, 1),
+                (SlotId.InjuredCount, 1), (SlotId.UntendedInjuredCount, 1),
+                (SlotId.MyFoodDaysLeft, 3), (SlotId.DaysToCrisis, 5));
+
+            PersonalitySO[] ps = LoadAllIn<PersonalitySO>("Assets/M0Config/Personalities");
+            JobSO[] jobs = LoadAllIn<JobSO>("Assets/M0Config/Jobs");
+            Assert.Greater(ps.Length, 0, "성격 에셋 없음");
+            Assert.Greater(jobs.Length, 0, "직업 에셋 없음");
+
+            // 절벽 바로 아래(3,688~4,004노드)에서 통과하던 조합들이 있었다 — 한계의 1/4을
+            // 넘으면 아직 안 터졌어도 실패로 본다. "통과했다"와 "여유가 있다"는 다르다.
+            int budget = PlanningConfig.MaxNodes / 4;
+            var gw = new PlannerGateway(catalog);
+            int worst = 0; string worstTag = "";
+
+            foreach (PersonalitySO p in ps)
+                foreach (JobSO j in jobs)
+                {
+                    float[] mult = PersonalityCost.Build(catalog, p, p.Traits, j, null, rules);
+                    foreach (int f in new[] { 90, 95, 100 })
+                    {
+                        // 런타임과 같은 해석 경로 (VillagerAgent.ResolveRelativeGoal의 산식)
+                        GoalSO resolved = Object.Instantiate(fatigue);
+                        resolved.RelativeToCurrent = false;
+                        resolved.GoalConditions[0].Value =
+                            VillagerAgent.ResolveRelativeTarget(f, fatigue.GoalConditions[0].Value, 0);
+
+                        WorldSnapshot snap = WithFatigue(rich, f);
+                        PlannerGateway.PendingPlan pending = gw.RequestPlan(snap, resolved, mult);
+                        gw.CompleteNow(pending);
+                        gw.TryGetResult(pending, out PlanStatus st, out ActionSO[] plan, out int nodes);
+                        Object.DestroyImmediate(resolved);
+
+                        string tag = $"{p.name}/{j.name}@피로{f}";
+                        Assert.AreNotEqual(PlanStatus.NoSolution, st,
+                            $"{tag}: 계획 실패 — 쉬는 방법이 있는데 못 찾았다 ({nodes}노드 소진)");
+                        Assert.IsNotNull(plan);
+                        Assert.Greater(plan.Length, 0, $"{tag}: 빈 플랜");
+                        if (nodes > worst) { worst = nodes; worstTag = tag; }
+                    }
+                }
+
+            Assert.LessOrEqual(worst, budget,
+                $"최악 {worst}노드 ({worstTag}) — 한계 {PlanningConfig.MaxNodes}의 1/4({budget})을 넘었다. " +
+                "아직 안 터졌어도 절벽에 붙은 것이다 (2026-08-06 관측: 3,949노드로 통과하던 조합이 있었다).");
+        }
+
+        /// <summary>피로만 바꾼 스냅샷 사본 (나머지 슬롯 보존).</summary>
+        private static WorldSnapshot WithFatigue(WorldSnapshot src, int fatigue)
+        {
+            var slots = new int[PlanningConfig.TotalSlots];
+            for (int s = 0; s < slots.Length; s++) slots[s] = src.Get((SlotId)s);
+            slots[(int)SlotId.MyFatigue] = fatigue;
+            return new WorldSnapshot(slots);
+        }
+
+        private static T[] LoadAllIn<T>(string dir) where T : Object
+        {
+            string[] guids = AssetDatabase.FindAssets($"t:{typeof(T).Name}", new[] { dir });
+            var list = new List<T>(guids.Length);
+            foreach (string g in guids)
+                list.Add(AssetDatabase.LoadAssetAtPath<T>(AssetDatabase.GUIDToAssetPath(g)));
+            return list.ToArray();
         }
     }
 }

@@ -21,6 +21,7 @@ MonoBehaviour:
   GoalConditions:
   - Slot: 3
     Op: 2
-    Value: 30
+    Value: -20
+  RelativeToCurrent: 1
   SkipFailureCooldown: 1
   AllowedWhenInjured: 1

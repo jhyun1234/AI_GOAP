@@ -1403,6 +1403,8 @@ namespace AIVillage.M0
         /// 상한으로 클램프하되 **진전을 요구할 때만** — 이미 상한이면 원래 목표(도달 불가)를 남겨
         /// 기존 '달성 불가 → 포기' 경로가 처리한다 (완료 경로를 새로 만들지 않는다, ADR-M0-3).
         /// cap ≤ 0 = 상한 없음(전역 스톡·미배선) = 기존 동작 그대로 (중립 불변식).
+        /// delta는 음수도 된다 — "지금보다 −20"(피로 goal, 2026-08-06). 낮추는 목표에는 상한이
+        /// 무의미하고 실제로 MyFatigue는 개인 스톡이 아니라 cap=0으로 들어온다.
         /// </summary>
         public static int ResolveRelativeTarget(int current, int delta, int cap)
         {

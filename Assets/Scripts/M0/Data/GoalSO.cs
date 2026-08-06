@@ -128,8 +128,11 @@ namespace AIVillage.M0
 
             if (TriggerConditions == null || GoalConditions == null) return;
             // 상대 goal은 검사 제외 — GoalConditions.Value가 절대 목표가 아니라 증분이라
-            // 발동 조건과 직접 비교하는 것이 범주 오류다 (해석은 ResolveRelativeGoal이 수행,
-            // 실효 목표 = 현재값 + 증분이므로 항상 현재값보다 높아 재발동 루프가 성립하지 않는다).
+            // 발동 조건과 직접 비교하는 것이 범주 오류다 (해석은 ResolveRelativeGoal이 수행).
+            // 루프가 안 서는 이유는 증분의 **부호가 발동 방향의 반대**이기 때문이다:
+            //   +증분(배고픔) → 실효 목표가 현재보다 높다 → 달성하면 트리거(≤N)에서 멀어진다
+            //   −증분(피로)   → 실효 목표가 현재보다 낮다 → 달성하면 트리거(≥N)에서 멀어진다
+            // (舊 주석은 "항상 현재값보다 높아"라고 +증분만 상정했다 — 피로가 첫 −증분 goal이다)
             if (RelativeToCurrent) return;
 
             foreach (SlotCondition g in GoalConditions)

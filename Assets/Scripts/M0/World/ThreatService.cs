@@ -21,7 +21,8 @@ namespace AIVillage.M0
     public sealed class ThreatService
     {
         private readonly ThreatSO[] _threats;
-        private readonly ZoneService _zones;
+        private readonly ZoneService _zones; // 미사용 (2026-08-06 밭 타깃 개정) — 시그니처 파급 회피용 보존.
+                                             // M22 구역 축이 위협-구역 관계를 다시 정의하면 그때 재사용/삭제 결정.
         private readonly ConstructionService _construction;
         private readonly IReadOnlyList<VillagerAgent> _agents;
         private readonly WorldConfigSO _config;
@@ -208,8 +209,15 @@ namespace AIVillage.M0
                       $"[{(targetsVillagers ? "주민" : "밭")} 타깃]");
         }
 
-        /// <summary>목표 타일: 주민 타격 = 진입점 최근접 생존 주민, 밭 타격 = 밭 구역 앵커.
-        /// 폴백(주민 0·구역 미확정)은 기지 — 위협은 항상 마을 심장부로 향한다.</summary>
+        /// <summary>목표 타일: 주민 타격 = 진입점 최근접 생존 주민, 밭 타격 = 진입점 최근접 **실제 밭 타일**.
+        /// 폴백(주민 0·밭 0)은 기지 — 위협은 항상 마을 심장부로 향한다.
+        ///
+        /// 밭 분기 개정 (2026-08-06 Play "진입 경로 없음" 반복 관측): 舊 분기는 밭 구역 앵커
+        /// (TryGetZone)였는데, M11-E(c1a097c)가 FarmPlot.ZoneRadius를 0으로 내린 뒤로 밭 구역은
+        /// 영영 등록되지 않아 **죽은 분기**였다 — 항상 기지 (0,0) 폴백으로 떨어졌고, 공용 집이
+        /// 기지 앵커(BuildRunner)에 서서 그 타일을 막으면(BlocksMovement) JPS가 목표 unwalkable
+        /// 즉시 Unreachable → 밭 타깃 출몰 전부 영구 생략. 실제 밭 타일은 통행 차단이 아니므로
+        /// 항상 도달 가능하고, 파괴 판정(ExecuteStrike)과 같은 원천(BuiltTilesOf)이라 어긋나지 않는다.</summary>
         private Vector2Int PickTargetTile(ThreatSO so, bool targetsVillagers, Vector2Int entry)
         {
             if (targetsVillagers)
@@ -221,9 +229,32 @@ namespace AIVillage.M0
                     if (idx >= 0) return new Vector2Int(_victimKeyBuf[idx].x, _victimKeyBuf[idx].y);
                 }
             }
-            else if (_zones.TryGetZone(SlotId.FarmPlotCount, out Vector2Int anchor, out _))
-                return anchor;
+            else
+            {
+                _plotBuf.Clear();
+                _plotBuf.AddRange(_construction.BuiltTilesOf(SlotId.FarmPlotCount));
+                int idx = PickNearestTileIndex(entry.x, entry.y, _plotBuf);
+                if (idx >= 0) return _plotBuf[idx];
+            }
             return new Vector2Int(_config.BaseTileX, _config.BaseTileY);
+        }
+
+        /// <summary>최근접 타일 선정 (순수·결정적 — 게이트 M10-T5). 동률은 목록 앞(= 완공 등록 순)이
+        /// 이긴다: 같은 판이면 같은 밭이 찍혀야 출몰이 확률이 아니다 (ADR-M10-1).
+        /// 목록이 비면 -1 — 호출처가 기지 폴백으로 넘어간다.</summary>
+        public static int PickNearestTileIndex(int fromX, int fromY, IReadOnlyList<Vector2Int> tiles)
+        {
+            int best = -1;
+            long bestD = long.MaxValue;
+            for (int i = 0; i < (tiles?.Count ?? 0); i++)
+            {
+                long dx = tiles[i].x - fromX, dy = tiles[i].y - fromY;
+                long d = dx * dx + dy * dy;
+                if (d >= bestD) continue; // >= 이므로 동률은 먼저 온 것이 남는다
+                bestD = d;
+                best = i;
+            }
+            return best;
         }
 
         /// <summary>

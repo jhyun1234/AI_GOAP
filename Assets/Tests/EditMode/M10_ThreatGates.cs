@@ -147,6 +147,41 @@ namespace AIVillage.Tests.EditMode
             Assert.AreEqual(0, result.Count, "count 0 = 없음");
         }
 
+        // ── M10-T5 밭 타깃 목적지 (2026-08-06 Play "진입 경로 없음" 반복 관측) ───
+        //
+        // 舊 밭 타깃은 목적지를 **밭 구역 앵커**(ZoneService)로 잡았는데, M11-E(c1a097c)가
+        // FarmPlot.ZoneRadius를 3→0으로 내린 뒤로 밭 구역이 영영 등록되지 않아 그 분기는
+        // 죽어 있었다. 항상 기지(0,0) 폴백으로 떨어졌고, 공용 집이 기지에 서서 그 타일을
+        // 막으면(House만 BlocksMovement=1) JPS가 "목표 unwalkable → 즉시 Unreachable"이라
+        // **밭 타깃 출몰이 전부 영구 생략**됐다. Tier1 늑대는 VillagerTargetChance=0이라
+        // 그 늑대의 모든 출몰이 사라진다 — 경고만 남고 위협은 한 번도 도착하지 않는다.
+        //
+        // 지금은 실제 밭 타일을 고른다(파괴 판정과 같은 원천). 이 게이트가 지키는 것은
+        // 그 선정이 **결정적**이라는 것 — 출몰은 확률이 아니다 (ADR-M10-1).
+        [Test]
+        public void M10_T5_PickNearestTileIndex_DeterministicTieAndEmpty()
+        {
+            var tiles = new List<Vector2Int>
+            {
+                new Vector2Int(5, 5),  // 거리² 50
+                new Vector2Int(0, 3),  // 거리² 9 — 동률, 먼저 등록
+                new Vector2Int(3, 0),  // 거리² 9 — 동률, 나중 등록
+                new Vector2Int(1, 1),  // 거리² 2 — 최근접
+            };
+
+            Assert.AreEqual(3, ThreatService.PickNearestTileIndex(0, 0, tiles), "최근접");
+            // 동률은 목록 앞(= 완공 등록 순)이 이긴다. 뒤가 이기면 같은 판이 다른 밭을 친다.
+            var tie = new List<Vector2Int> { new Vector2Int(0, 3), new Vector2Int(3, 0) };
+            Assert.AreEqual(0, ThreatService.PickNearestTileIndex(0, 0, tie), "동률은 등록 순 앞");
+
+            // 진입점이 바뀌면 선택도 바뀐다 (거리 판정이 실제로 도는가)
+            Assert.AreEqual(0, ThreatService.PickNearestTileIndex(6, 6, tiles), "먼 진입점에선 (5,5)");
+
+            // 밭 0개 = -1 → 호출처가 기지 폴백. 이 계약이 깨지면 빈 목록에서 인덱스 0을 읽는다.
+            Assert.AreEqual(-1, ThreatService.PickNearestTileIndex(0, 0, new List<Vector2Int>()), "밭 없음");
+            Assert.AreEqual(-1, ThreatService.PickNearestTileIndex(0, 0, null), "null 방어");
+        }
+
         // ── M10-T4 도망 (M10-D) ───────────────────────────────────────────────
 
         [Test]

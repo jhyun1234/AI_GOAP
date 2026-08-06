@@ -27,7 +27,7 @@ MonoBehaviour:
     Value: 1
   - Slot: 22
     Op: 1
-    Value: 5
+    Value: 3
   - Slot: 16
     Op: 0
     Value: 1

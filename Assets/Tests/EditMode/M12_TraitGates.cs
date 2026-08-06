@@ -772,8 +772,12 @@ namespace AIVillage.Tests.EditMode
             // M19-W2 개정 (ADR-M19-3): 목수 자가 건축 독점(Goal_BuildMyHouse)을 해제 —
             // 효율 전문화(BuildDurationMult)로 대체. 남은 예외 = 치료 1곳 (M20에서 재설계).
             ["RequiredJob"] = new[] { "Goal_TreatInjured" },
-            // ADR-M6-2 (게임건강 예외) — 식량 goal 3 + 명령 goal 3
+            // ADR-M6-2 (게임건강 예외) — 식량 goal 3 + 명령 goal 3 + 요리 goal 2
+            // 2026-08-06 개정: 요리 2종 추가 (ADR 본문 함께 개정 — Docs/겨울_채집봉쇄_실행명세서.md).
+            // 자격은 동일하다: 재료가 없어 못 만드는 것은 결함이 아니라 궁핍이다. 옛 목록은
+            // "먹는 것"만 봤는데 그 사이 "만드는 것"이 생겼고 궁핍의 성질은 같다.
             ["MayHaveNoSolution"] = new[] { "Goal_P0_Hunger", "Goal_Snack", "Goal_GatherFood",
+                                            "Goal_CookExtra", "Goal_CookAhead",
                                             "Order_ChopWood", "Order_HarvestBerries", "Order_MineStone" },
         };
 

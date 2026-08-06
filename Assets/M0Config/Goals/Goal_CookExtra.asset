@@ -28,6 +28,7 @@ MonoBehaviour:
   DirectActionPool: []
   RelativeToCurrent: 1
   SkipFailureCooldown: 0
+  MayHaveNoSolution: 1
   MaxWorkers: 1
   TraitWeights:
   - Trait: 2

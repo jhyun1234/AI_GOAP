@@ -30,6 +30,7 @@ MonoBehaviour:
     Value: 1
   DirectActionPool: []
   RelativeToCurrent: 1
+  MayHaveNoSolution: 1
   MaxWorkers: 1
   TraitWeights:
   - Trait: 1

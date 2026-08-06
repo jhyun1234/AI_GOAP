@@ -877,6 +877,17 @@ A~J 다수 항목 진행 중·미완결)은 그 다음 후보로 관찰 계속.
 
 1. **커버리지 갱신**: `state/blog_last_published_commit.md` 이력과 위 표를 대조 —
    새 발행분을 표에 추가하고, 다룬 커밋 구간을 git log로 확인해 기입.
+1-2. **게이트 재계산 — 🔴 `git rev-list --count` 를 쓰지 마라 (2026-08-06 개정)**.
+   그건 영상·블로그 트랙 커밋까지 세어 실제의 3배 가까이 부풀린다(실측: 283 vs 96).
+   `routine-prompt.md` Step 0 과 **같은 게임 커밋 계산식**을 쓴다:
+   ```bash
+   git log --oneline <LAST>..HEAD -- . \
+     ':(exclude)tools/' ':(exclude)youtube-editor/' ':(exclude).claude/' \
+     ':(exclude)devlog/' ':(exclude)Docs/영상_*' ':(exclude)Docs/블로그_*' \
+     | grep -cv "chore(blog)"
+   ```
+   이 파일의 08-06 이전 사전점검 이력에 적힌 "미소비 커밋 N개"는 **전부 구 계산식 값**이다
+   (기록 보존용이므로 고치지 않는다 — 그 숫자로 오늘의 게이트를 판정하지 마라).
 2. **미발행 구간 스캔**: `devlog/INDEX.md`의 밀스톤 타임라인 대비, 표에 없는 굵직한
    개발 구간(명세 확정·밀스톤 완결·대형 리팩터)이 있는가? 있으면 소재 가치 판단 후
    `state/blog_next_material_priority.md`에 STATUS: ACTIVE로 지정 (게이트 기준 D가 받아줌).

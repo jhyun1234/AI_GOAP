@@ -49,10 +49,16 @@ blog-master, blog-publisher). Agent 도구로 이 순서대로 호출.
    ```bash
    # 상태 파일 형식: - `latest_commit`: `b930365` (...) — 첫 항목이 최신
    LAST=$(grep -oP '`latest_commit`:\s*`\K[0-9a-f]+' tools/blog-automation/state/blog_last_published_commit.md | head -1)
-   # 소재 후보: 마지막 소비 커밋 이후, 파이프라인 자기 커밋(chore(blog)) 제외
-   COMMITS=$(git log --oneline "$LAST"..HEAD | grep -cv "chore(blog)")
-   BIG=$(git log --oneline "$LAST"..HEAD | grep -cE "^\w+ (spec|refactor)\(")
+   # 🔴 소재 후보 = 게임 개발 커밋만 (2026-08-06 개정, 아래 "왜" 참조)
+   #    자동화 트랙(tools/·youtube-editor/·.claude/)과 영상/블로그 문서, devlog 는 계수에서 제외.
+   GAMELOG=/tmp/blog-gate-gamelog.txt
+   git log --oneline "$LAST"..HEAD -- . \
+     ':(exclude)tools/' ':(exclude)youtube-editor/' ':(exclude).claude/' \
+     ':(exclude)devlog/' ':(exclude)Docs/영상_*' ':(exclude)Docs/블로그_*' > "$GAMELOG"
+   COMMITS=$(grep -cv "chore(blog)" "$GAMELOG")           # 파이프라인 자기 커밋 제외
+   BIG=$(grep -cE "^\w+ (spec|refactor)\(" "$GAMELOG")
    DAYS_SINCE=$(( ( $(date +%s) - $(git log -1 --format=%ct "$LAST") ) / 86400 ))
+   echo "GATE: game_commits=$COMMITS big=$BIG days=$DAYS_SINCE"
    # 무결성 가드 (2026-07-28 추가): 최신 항목이 DRAFT면 소재는 소비되지 않은 것이다
    DRAFTED_STATE=$(grep -oP '`publish_status`:\s*\**\K[A-Z]+' tools/blog-automation/state/blog_last_published_commit.md | head -1)
    ```
@@ -62,10 +68,23 @@ blog-master, blog-publisher). Agent 도구로 이 순서대로 호출.
    latest_commit을 갱신함 — 지시서 위반" 경보를 기록한 뒤, 기획팀에게 **직전 회차 소재는
    미소비이므로 재집필 후보로 계속 유효하다**고 전달한다. 조용히 건너뛰면 그 소재는 영구히
    사라진다 (2026-07-28 실제 발생).
-   **통과 기준 (하나라도 충족 시 Step 1 진행):**
-   - A. 미소비 커밋 ≥ 10 (활발한 개발 — 하루치 대형 세션)
-   - B. 대형 이벤트(spec/refactor 커밋) ≥ 1 이고 미소비 커밋 ≥ 5 (명세 확정·재설계 등 이야깃거리)
-   - C. 마지막 소비 후 5일 이상 경과 이고 미소비 커밋 ≥ 3 (블로그 공백 방지 백스톱)
+   **🔴 왜 게임 커밋만 세는가 (2026-08-06 개정)**: 구 계산식은 `chore(blog)`만 빼고 **모든**
+   커밋을 셌다. 그래서 `tools/scene-video/`(영상 트랙)만 돈 구간에도 커밋 수가 쌓여 기준 A가
+   통과했고, "게임 개발 커밋 없음"을 걸러내는 방어가 **blog-planner 하나뿐**이었다(소재 범위
+   규칙은 `blog-planner.md` 상단·`BLOG_COVERAGE.md` 서두). 게이트는 "양"을 재는 자리이므로
+   **양 자체를 게임 개발 기준으로 재도록** 고쳤다. 실측(2026-08-06, `LAST=c4bc93e` 기준):
+   구 계산식 283개 → 신 계산식 96개. `.claude/`를 뺀 이유는 `feat(video)` 커밋이 실제로
+   `.claude/agents/scene-*.md`를 건드려 게임 커밋으로 오계수됐기 때문이다(실측 확인).
+   **devlog 제외의 대가**: `docs(devlog): … 관측` 같은 **devlog 단독 커밋은 세지 않는다**
+   (devlog 세션 로그는 게임·영상 트랙이 한 파일에 섞여 있어 경로로 구분할 수 없다).
+   Play 관측만 있고 코드 커밋이 없는 밀스톤 마무리 구간은 기준 C(5일 백스톱)와
+   기준 D(ACTIVE 지정)가 받는다. 소재 자체는 기획팀이 devlog를 1차 소스로 읽으므로
+   **글의 내용에서 빠지는 것이 아니라 계수에서만 빠진다.**
+
+   **통과 기준 (하나라도 충족 시 Step 1 진행 — "커밋"은 모두 위에서 센 게임 커밋이다):**
+   - A. 미소비 게임 커밋 ≥ 10 (활발한 개발 — 하루치 대형 세션)
+   - B. 대형 이벤트(spec/refactor 커밋) ≥ 1 이고 미소비 게임 커밋 ≥ 5 (명세 확정·재설계 등 이야깃거리)
+   - C. 마지막 소비 후 5일 이상 경과 이고 미소비 게임 커밋 ≥ 3 (블로그 공백 방지 백스톱)
    - D. `state/blog_next_material_priority.md`의 **최상단 항목**이 **STATUS: ACTIVE**
      (사용자 지정 소재 대기 중 — 커밋 수와 무관하게 무조건 통과). 판정 대상은 최상단
      항목뿐이다 — 파일 아래쪽 이력 섹션의 옛 마커는 무시한다. 또한 **정의된 상태값은
@@ -73,7 +92,8 @@ blog-master, blog-publisher). Agent 도구로 이 순서대로 호출.
      `DRAFT_PENDING`)을 발견하면 새 상태값을 발명하지 말고, 소재가 실제로 공개 발행됐는지
      기준으로 `ACTIVE`(미발행) 또는 `CONSUMED`(발행 완료) 중 하나로 판정한 뒤 진행한다.
 
-   미달이면 즉시 종료: `PIPELINE_RESULT: SKIPPED (게이트 미달 — 커밋 N개, 대형 M개, 경과 D일)`
+   미달이면 즉시 종료: `PIPELINE_RESULT: SKIPPED (게이트 미달 — 게임 커밋 N개, 대형 M개, 경과 D일)`
+   **영상·블로그 트랙만 돈 구간은 여기서 SKIP 되는 것이 정상 동작이다** — 사고가 아니다.
    발행 상한은 cron이 일 1회이므로 자동으로 하루 최대 1편이다.
 
 1. **blog-planner** — 이번 회차 소재 선정. `skip: true`면 이번 사이클 조용히 종료.

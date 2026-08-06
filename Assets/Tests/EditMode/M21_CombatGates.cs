@@ -63,16 +63,18 @@ namespace AIVillage.Tests.EditMode
         }
 
         [Test]
-        public void M21_T1_InjuryEntryDamage_LandsExactlyOnInjuredLine()
+        public void M21_T1_FirstStrike_InjuresButDoesNotKill()
         {
             var c = NewCfg();
-            // 부상 진입 피해 = MaxHp − InjuredBelowHp. 이 등식이 깨지면 "다쳤다"와 체력이
-            // 어긋나 정보줄이 거짓말을 한다 (W2에서 위협 StrikeDamage가 이 자리를 받는다).
-            float entry = c.MaxHp - c.InjuredBelowHp;
-            float after = c.MaxHp - entry;
-            Assert.AreEqual(c.InjuredBelowHp, after, 1e-4f, "진입 피해는 부상선에 정확히 닿는다");
-            Assert.IsFalse(VillagerAgent.IsDead(after), "부상은 즉사가 아니다");
-            Assert.IsFalse(VillagerAgent.IsNearDeath(after, c), "부상 진입만으로 '죽을 뻔'은 아니다");
+            // W2에서 뒤집힌 자리: 부상은 이제 **피해의 결과**다 (舊 W1은 Injure가 진입 피해를 줬다).
+            // 위협 한 대(제안 34)가 부상선 아래로 내려보내되 즉사·'죽을 뻔'은 아니어야 한다 —
+            // 한 대에 죽으면 개입할 시간이 없고, 부상선에 못 닿으면 물려도 멀쩡하다.
+            const float STRIKE = 34f; // §4 제안치 (배포 에셋 대조는 M21_T6)
+            float after = c.MaxHp - STRIKE;
+            Assert.Less(after, c.InjuredBelowHp, "한 대면 부상선 아래 — 아니면 물려도 안 다친다");
+            Assert.IsFalse(VillagerAgent.IsDead(after), "한 대로 죽지 않는다 (개입 창)");
+            Assert.IsFalse(VillagerAgent.IsNearDeath(after, c), "한 대만으로 '죽을 뻔'은 아니다");
+            Assert.IsTrue(VillagerAgent.IsDead(c.MaxHp - STRIKE * 3f), "세 대면 죽는다 (§4 3대=사망)");
 
             Object.DestroyImmediate(c);
         }
@@ -127,6 +129,70 @@ namespace AIVillage.Tests.EditMode
             // (舊 규칙은 한 끼면 즉시 리셋이었다 — 대칭 이상이어야 그 의도가 보존된다).
             Assert.GreaterOrEqual(c.SatedHpRegen, c.StarveHpPerDay,
                 "회복률이 굶주림 감쇠보다 느리면 겨울에 조용한 전멸이 난다 (리뷰① 검산 지점)");
+        }
+
+        // ── M21-T4·T5: 체류 판정 (W2 DoD ①②) ────────────────────────────────
+
+        [Test]
+        public void M21_T4_ShouldRepeatStrike_PeriodBoundary()
+        {
+            // 주기 = 게임일. 경계에서 정확히 한 번 열려야 한다 — 미만이면 매 프레임 타격,
+            // 초과 조건으로만 열면 dt가 커진 프레임에서 한 박자씩 밀린다.
+            Assert.IsFalse(ThreatService.ShouldRepeatStrike(10f, 10.24f, 0.25f), "주기 직전엔 안 친다");
+            Assert.IsTrue(ThreatService.ShouldRepeatStrike(10f, 10.25f, 0.25f), "경계에서 친다");
+            Assert.IsTrue(ThreatService.ShouldRepeatStrike(10f, 12f, 0.25f), "밀린 틱도 친다");
+            // 에셋 사고 방어: 주기 0은 "쉬지 않고"가 아니라 "치지 않음"으로 닫는다
+            Assert.IsFalse(ThreatService.ShouldRepeatStrike(10f, 99f, 0f), "주기 0 = 매 프레임 타격 금지");
+            Assert.IsFalse(ThreatService.ShouldRepeatStrike(10f, 99f, -1f), "음수 주기도 닫는다");
+        }
+
+        [Test]
+        public void M21_T5_ShouldGiveUpStay_IsTerrainBoulderNotMercy()
+        {
+            // 상한은 자비가 아니라 지형 보루다 (닿을 수 없는 자리에 눌러앉은 개체 정리).
+            Assert.IsFalse(ThreatService.ShouldGiveUpStay(5f, 6.9f, 2f), "상한 전에는 안 물러난다");
+            Assert.IsTrue(ThreatService.ShouldGiveUpStay(5f, 7f, 2f), "상한에서 물러난다");
+            Assert.IsFalse(ThreatService.ShouldGiveUpStay(5f, 99f, 0f), "상한 0 = 도착 즉시 퇴장 금지");
+
+            // 상한이 재타격 주기보다 짧으면 위협이 한 대도 못 치고 나간다 (배포 검산은 T6)
+            Assert.IsTrue(ThreatService.ShouldGiveUpStay(0f, 0.25f, 0.2f),
+                "상한 < 주기면 첫 타격 뒤 곧바로 퇴장 — 에셋에서 이 조합을 만들면 위협이 사라진다");
+        }
+
+        // ── M21-T6: 배포 위협 에셋의 전투 수치 정합 (W2 DoD ⑤) ───────────────
+
+        [Test]
+        public void M21_T6_ShippedThreats_CombatNumbersAreCoherent()
+        {
+            var cfg = AssetDatabase.LoadAssetAtPath<AgentConfigSO>(CONFIG_PATH);
+            Assert.IsNotNull(cfg, "AgentConfig 로드");
+
+            string[] guids = AssetDatabase.FindAssets("t:ThreatSO");
+            Assert.Greater(guids.Length, 0, "배포 위협 에셋이 하나도 없다");
+
+            foreach (string guid in guids)
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guid);
+                var so = AssetDatabase.LoadAssetAtPath<ThreatSO>(path);
+                Assert.IsNotNull(so, $"{path} 로드");
+
+                Assert.Greater(so.MaxHp, 0f, $"{so.name}: 체력 0이면 태어나자마자 죽는다");
+                Assert.Greater(so.StrikeDamage, 0f, $"{so.name}: 피해 0이면 아무도 안 다친다");
+                Assert.Greater(so.RepeatStrikePeriodDays, 0f, $"{so.name}: 주기 0 = 매 프레임 타격");
+                Assert.Greater(so.MaxStayDays, 0f, $"{so.name}: 상한 0 = 도착 즉시 퇴장");
+                Assert.IsTrue(so.FleeBelowHpPct >= 0f && so.FleeBelowHpPct <= 1f,
+                    $"{so.name}: 도주선은 0~1 비율");
+
+                // 한 대 맞으면 다친다 — 이 선을 못 넘으면 체류형 위협이 "따라다니기만 하는 장식"이 된다
+                Assert.Less(cfg.MaxHp - so.StrikeDamage, cfg.InjuredBelowHp,
+                    $"{so.name}: 한 대로 부상선에 못 닿는다 (피해 {so.StrikeDamage} / 필요 {cfg.MaxHp - cfg.InjuredBelowHp})");
+                // 한 대로 죽지는 않는다 — 개입할 틈이 남아야 M13의 목적("제때 개입")이 성립한다
+                Assert.Less(so.StrikeDamage, cfg.MaxHp,
+                    $"{so.name}: 한 대에 즉사 — 플레이어가 개입할 창이 사라진다");
+                // 상한 안에 최소 한 번은 다시 칠 수 있어야 체류가 체류다
+                Assert.Greater(so.MaxStayDays, so.RepeatStrikePeriodDays,
+                    $"{so.name}: 체류 상한이 재타격 주기보다 짧으면 눌러앉는 의미가 없다");
+            }
         }
     }
 }

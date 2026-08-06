@@ -6,8 +6,10 @@ using UnityEngine;
 namespace AIVillage.M0
 {
     /// <summary>
-    /// 야생 위협 (M10-C) — 스케줄(예고→출몰)·타격 판정의 시뮬 서비스. 파괴·부상은 직접 하지 않고
-    /// 문(Construction.RemoveCountableAt / VillagerAgent.Injure)을 호출한다 (ADR-M9-3 사상).
+    /// 야생 위협 (M10-C) — 스케줄(예고→출몰)·타격 판정의 시뮬 서비스. 파괴·피해는 직접 하지 않고
+    /// 문(Construction.RemoveCountableAt / VillagerAgent.TakeDamage)을 호출한다 (ADR-M9-3 사상).
+    /// **수명 개정 (M21-W2)**: 도착은 퇴장이 아니라 **체류의 시작**이다 — NotifyArrived(첫 타격) 뒤
+    /// NotifyStrikeTick이 주기마다 다시 치고, 퇴장은 BeginExit 하나로만 열린다(도주·상한·대상 소멸).
     /// 확정 발동·확정 착탄 (ADR-M10-1): 스케줄·희생 선정에 확률 없음 — 주민 희생은 거리순
     /// (도망 행동과의 인과), 밭 희생은 StableHash 시드 셔플 (재해와 동일).
     /// 활성 밴드 = 게임일 UnlockDay 충족 중 최신 1개 (ADR-M10R-1 시간 래칫 — 사망해도 강등 없음).
@@ -29,6 +31,8 @@ namespace AIVillage.M0
         private float _lastStrikeDay;   // 마지막 발동 시각 (게임일). 세이브 대상 (ADR-M10-10)
         private int _strikeOrdinal;     // 발동 누적 서수 — 진입점·밭 희생 시드의 유일 키. 세이브 대상
         private ThreatSO _pending;      // 예고~발동 사이 고정 — 예고한 그 위협이 온다
+        private float _gameTime;        // 최근 틱의 게임일 (M21-W2) — 체류·재타격 판정의 시계.
+                                        // 개체는 Update(실시간)로 돌지만 주기는 게임일이라 여기서 받아 쓴다
 
         private readonly List<ThreatAgent> _active = new List<ThreatAgent>(2);
         private readonly List<VillagerAgent> _victimAgentBuf = new List<VillagerAgent>(8);
@@ -39,9 +43,9 @@ namespace AIVillage.M0
         /// <summary>예고 알림 (1회/발동) — HUD 경보 구독 (표현).</summary>
         public event Action<ThreatSO> OnForecast;
 
-        /// <summary>타격 알림 (위협, 주민타격 여부, 피해 수, 타격 타일, **실제 부상자**) — HUD·반응 대사 구독.
-        /// victims = 이번 타격으로 Injure된 주민 (밭 타격이면 빈 목록). 대사 화자를 "근처 아무나"가 아니라
-        /// 실제 부상자로 못박기 위한 것 — 상태와 표현이 어긋나면 "물렸다는데 아무도 안 다침"이 된다
+        /// <summary>타격 알림 (위협, 주민타격 여부, 피해 수, 타격 타일, **실제 피격자**) — HUD·반응 대사 구독.
+        /// victims = 이번 타격으로 체력이 깎인 주민 (밭 타격이면 빈 목록). 대사 화자를 "근처 아무나"가 아니라
+        /// 실제 피격자로 못박기 위한 것 — 상태와 표현이 어긋나면 "물렸다는데 아무도 안 다침"이 된다
         /// (2026-07-24 Play 관측). 버퍼 재사용이므로 구독자는 동기 소비만 할 것.</summary>
         public event Action<ThreatSO, bool, int, Vector2Int, IReadOnlyList<VillagerAgent>> OnStruck;
 
@@ -147,6 +151,8 @@ namespace AIVillage.M0
 
         public void Tick(float gameTime)
         {
+            _gameTime = gameTime; // 체류 개체의 시계 (M21-W2) — 아래 조기 반환보다 먼저 갱신할 것
+
             // 예고 진입 — 밴드는 예고 시점 게임일로 확정하고 발동까지 고정 (예고한 그놈이 온다)
             if (_pending == null)
             {
@@ -222,12 +228,15 @@ namespace AIVillage.M0
 
         /// <summary>
         /// 추격 대상 (M10-C 개정 2026-07-22: 고정 타깃 → 추격 — 고정 타깃은 도망이 구조적으로
-        /// 100% 이겨 부상이 착탄 불가, Day40+ 관측) — 최근접 비부상 생존 주민. 기부상자 제외:
-        /// 중복 부상이 무시되므로(CanInjure) 쫓아봐야 빈 타격이다. 없으면 false (빈 타격 후 퇴장).
+        /// 100% 이겨 부상이 착탄 불가, Day40+ 관측) — 최근접 생존 주민. 없으면 false (퇴장).
+        /// **부상자 제외 폐지 (M21-W2 재검사 A1)**: 舊 규칙은 "중복 부상은 무시되니 쫓아봐야
+        /// 빈 타격"이라는 1회 타격 시대의 판단이었다. 이제 타격은 체력을 깎으므로 부상자야말로
+        /// 죽는다 — 제외하면 위협이 누구도 직접 죽이지 못한다. 절뚝이는 사람이 먼저 잡히는 것이
+        /// 치사율의 실체이고, 플레이어의 개입 창이 열리는 자리다.
         /// </summary>
         public bool TryPickChaseTile(int fromX, int fromY, out Vector2Int tile)
         {
-            CollectVictimCandidates(new Vector2Int(fromX, fromY), int.MaxValue, excludeInjured: true);
+            CollectVictimCandidates(new Vector2Int(fromX, fromY), int.MaxValue, excludeInjured: false);
             int idx = M0SimulationLoop.PickNearestIndex(fromX, fromY, _victimKeyBuf);
             if (idx >= 0)
             {
@@ -238,22 +247,61 @@ namespace AIVillage.M0
             return false;
         }
 
-        /// <summary>타격 사거리 판정 (추격형 전용) — 개체 현 위치 기준 StrikeRadius 내 부상 가능
-        /// 주민 존재 여부. 판정은 서비스, 개체는 묻기만 한다 (명세 ⚠️③ 유지).</summary>
+        /// <summary>타격 사거리 판정 (추격형 전용) — 개체 현 위치 기준 StrikeRadius 내 생존 주민
+        /// 존재 여부. 판정은 서비스, 개체는 묻기만 한다 (명세 ⚠️③ 유지).
+        /// 부상자도 후보다 (M21-W2 A1 — TryPickChaseTile 주석 참조).</summary>
         public bool IsInStrikeRange(ThreatAgent agent)
         {
             CollectVictimCandidates(new Vector2Int(agent.TileX, agent.TileY),
-                                    agent.So.StrikeRadiusTiles, excludeInjured: true);
+                                    agent.So.StrikeRadiusTiles, excludeInjured: false);
             return _victimKeyBuf.Count > 0;
         }
 
-        /// <summary>타격 통지 (ThreatAgent 전용) — 타격 지점 = 개체 현 위치 (추격형은 잡은 자리,
-        /// 밭형은 도착 시 목표 타일과 동일). 타격 실행 후 퇴장 경로를 되돌려준다.</summary>
+        // ── 체류 (M21-W2 — 舊 "도착=타격=퇴장"의 개정) ────────────────────────
+
+        /// <summary>재타격 시점 판정 (순수 — 게이트 M21-T4): 마지막 타격에서 주기가 지났는가.
+        /// 주기가 0 이하면 매 프레임 타격이 되므로 아예 치지 않는다 (에셋 사고 방어).</summary>
+        public static bool ShouldRepeatStrike(float lastStrikeDay, float now, float periodDays)
+            => periodDays > 0f && now - lastStrikeDay >= periodDays;
+
+        /// <summary>체류 상한 판정 (순수 — 게이트 M21-T5): 자비가 아니라 지형 보루다.
+        /// 닿을 수 없는 자리에 눌러앉은 개체가 영영 남으면 다음 출몰 스케줄이 그 위에 쌓인다.</summary>
+        public static bool ShouldGiveUpStay(float arrivedDay, float now, float maxStayDays)
+            => maxStayDays > 0f && now - arrivedDay >= maxStayDays;
+
+        /// <summary>체류 시작 통지 (ThreatAgent 전용) — 도착 지점에 눌러앉고 첫 타격을 실행한다.
+        /// 舊 이름 그대로지만 의미가 바뀌었다: 더는 퇴장 경로를 주지 않는다 (퇴장은 BeginExit).</summary>
         public void NotifyArrived(ThreatAgent agent)
         {
-            var strikeTile = new Vector2Int(agent.TileX, agent.TileY);
-            ExecuteStrike(agent.So, agent.TargetsVillagers, strikeTile);
-            PathResult exit = _pathfinder().FindPath(strikeTile.x, strikeTile.y,
+            agent.MarkArrived(_gameTime);
+            ExecuteStrike(agent.So, agent.TargetsVillagers, new Vector2Int(agent.TileX, agent.TileY));
+            agent.MarkStruck(_gameTime);
+            Debug.Log($"[Threat] 체류 시작 — {agent.So.DisplayName} @ ({agent.TileX},{agent.TileY}) " +
+                      $"[재타격 {agent.So.RepeatStrikePeriodDays:0.##}일 · 상한 {agent.So.MaxStayDays:0.#}일]");
+        }
+
+        /// <summary>체류 틱 (ThreatAgent 전용) — 상한 도달이면 퇴장, 아니면 주기 충족 시 재타격.
+        /// 순서가 중요하다: 상한을 먼저 봐야 마지막 프레임에 한 대 더 치고 나가지 않는다.</summary>
+        public void NotifyStrikeTick(ThreatAgent agent)
+        {
+            if (agent.IsExiting) return;
+            if (ShouldGiveUpStay(agent.ArrivedDay, _gameTime, agent.So.MaxStayDays))
+            {
+                BeginExit(agent, $"체류 상한 {agent.So.MaxStayDays:0.#}일 — 닿지 못하고");
+                return;
+            }
+            if (!ShouldRepeatStrike(agent.LastStrikeDay, _gameTime, agent.So.RepeatStrikePeriodDays)) return;
+            ExecuteStrike(agent.So, agent.TargetsVillagers, new Vector2Int(agent.TileX, agent.TileY));
+            agent.MarkStruck(_gameTime);
+        }
+
+        /// <summary>퇴장 개시 (ThreatAgent·CombatService 공용) — 진입점으로 되돌아간다.
+        /// 퇴장 경로가 없으면 즉시 소멸. reason은 로그 문구 — 도주(격퇴)와 지형 보루를 구분한다.</summary>
+        public void BeginExit(ThreatAgent agent, string reason)
+        {
+            if (agent == null || agent.IsExiting) return;
+            Debug.Log($"[Threat] 퇴장 개시 — {agent.So.DisplayName}: {reason}");
+            PathResult exit = _pathfinder().FindPath(agent.TileX, agent.TileY,
                                                      agent.EntryTile.x, agent.EntryTile.y);
             if (exit.Kind == PathResultKind.PathFound) agent.SetExitPath(exit.Waypoints);
             else agent.DespawnNow(); // 퇴장 경로 없음·이미 가장자리 — 즉시 소멸
@@ -271,19 +319,23 @@ namespace AIVillage.M0
             int hit = 0;
             if (targetsVillagers)
             {
-                // 후보 = 타격 반경 내 생존·비부상 주민 (기존 부상자 제외 — 중복 부상 방지, 게이트)
-                CollectVictimCandidates(tile, so.StrikeRadiusTiles, excludeInjured: true);
+                // 후보 = 타격 반경 내 생존 주민. 부상자도 포함한다 (M21-W2 A1) — 체류형에서
+                // 제외를 유지하면 다친 사람이 무적이 되어 위협이 누구도 못 죽인다.
+                CollectVictimCandidates(tile, so.StrikeRadiusTiles, excludeInjured: false);
                 int loss = DisasterService.LossCount(_victimKeyBuf.Count,
                     so.BaseLossPct, so.PerTargetPct, so.MaxLossPct);
                 PickNearestVictims(tile.x, tile.y, _victimKeyBuf, loss, _victimIdxBuf);
                 _struckBuf.Clear();
                 foreach (int idx in _victimIdxBuf)
                 {
-                    _victimAgentBuf[idx].Injure(InjurySeverity.Light); // 부상의 유일한 문 (ADR-M10-2)
-                    _struckBuf.Add(_victimAgentBuf[idx]);              // 대사 화자 = 실제 부상자
+                    // 피해의 유일한 문 (ADR-M21-2). 부상 상태는 여기서 파생된다 —
+                    // 이미 부상 중이면 상태는 그대로 Light, 체력만 깎인다 (⚠️④).
+                    _victimAgentBuf[idx].TakeDamage(so.StrikeDamage, DamageCause.Combat);
+                    _struckBuf.Add(_victimAgentBuf[idx]);              // 대사 화자 = 실제 피격자
                     hit++;
                 }
-                Debug.Log($"[Threat] 발동 — {so.DisplayName}: 부상 {hit}/{_victimKeyBuf.Count}명 @ ({tile.x},{tile.y})");
+                Debug.Log($"[Threat] 타격 — {so.DisplayName}: {hit}/{_victimKeyBuf.Count}명 피격 " +
+                          $"(1인 {so.StrikeDamage:0.#}) @ ({tile.x},{tile.y})");
             }
             else
             {
@@ -297,14 +349,15 @@ namespace AIVillage.M0
                 foreach (int idx in _victimIdxBuf)
                     if (_construction.RemoveCountableAt(SlotId.FarmPlotCount,
                                                         _plotBuf[idx].x, _plotBuf[idx].y)) hit++;
-                Debug.Log($"[Threat] 발동 — {so.DisplayName}: 밭 {hit}/{_plotBuf.Count} 소실");
+                Debug.Log($"[Threat] 타격 — {so.DisplayName}: 밭 {hit}/{_plotBuf.Count} 소실");
             }
             OnStruck?.Invoke(so, targetsVillagers, hit, tile,
                              targetsVillagers ? (IReadOnlyList<VillagerAgent>)_struckBuf : EmptyVictims);
         }
 
-        /// <summary>부상 후보 수집 — 생존 주민 중 기준점 radius(맨해튼) 이내. excludeInjured면
-        /// 기존 부상자 제외 (Injure의 중복 무시와 이중 방어 — 게이트 M10-T3).</summary>
+        /// <summary>타격 후보 수집 — 생존 주민 중 기준점 radius(맨해튼) 이내. excludeInjured면
+        /// 기존 부상자 제외. **M21-W2 이후 호출처는 전부 false다** (A1 — 부상자 재타격 허용).
+        /// 인자는 남겨 둔다: 부상자를 빼야 하는 새 판정(예: 구조 대상 선정)이 오면 그 자리다.</summary>
         private void CollectVictimCandidates(Vector2Int from, int radius, bool excludeInjured)
         {
             _victimAgentBuf.Clear();

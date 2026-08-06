@@ -22,6 +22,11 @@ MonoBehaviour:
   BaseLossPct: 0.35
   PerTargetPct: 0.03
   MaxLossPct: 0.25
+  MaxHp: 150
+  FleeBelowHpPct: 0.4
+  StrikeDamage: 34
+  RepeatStrikePeriodDays: 0.25
+  MaxStayDays: 2
   MoveSpeed: 2.4
   BodyColor: {r: 0.45, g: 0.28, b: 0.15, a: 1}
   ForecastLines:

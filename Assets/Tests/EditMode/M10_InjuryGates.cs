@@ -52,9 +52,10 @@ namespace AIVillage.Tests.EditMode
             Assert.AreEqual(1.5f, VillagerAgent.DaysToBleedDeath(cfg), 1e-4f,
                 "부상 진입 체력이 출혈만으로 정확히 사망 문턱 일수 만에 0이 되어야 한다");
 
-            // 부상 진입 피해 = MaxHp − InjuredBelowHp: 다친 순간 체력이 부상선까지 내려온다
-            Assert.AreEqual(33f, cfg.MaxHp - cfg.InjuredBelowHp, 1e-4f, "진입 피해 = 만복 − 부상선");
+            // M21-W2 재보정: "진입 피해"라는 것은 더는 없다 — 체력을 깎는 것은 때린 쪽이고
+            // 부상은 그 결과로 파생된다. 여기서 지킬 것은 부상선의 성질뿐이다.
             Assert.IsFalse(VillagerAgent.IsDead(cfg.InjuredBelowHp), "부상은 즉사가 아니다");
+            Assert.Less(cfg.InjuredBelowHp, cfg.MaxHp, "부상선이 만복 이상이면 태어나자마자 부상이다");
 
             cfg.BleedHpLossPerDay = 67f;
             Assert.AreEqual(1f, VillagerAgent.DaysToBleedDeath(cfg), 1e-4f, "명시값 우선");

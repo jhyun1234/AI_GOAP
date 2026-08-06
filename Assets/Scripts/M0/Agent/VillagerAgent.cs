@@ -607,7 +607,15 @@ namespace AIVillage.M0
             // 굶주림 원인일 때만 기록 (M12-G 희소성 — DamageCause 주석 참조).
             // 여기가 MyWasStarved의 유일한 쓰기 지점이다 (舊 SimTick에서 이전).
             if (cause == DamageCause.Starvation && IsNearDeath(Hp, _cfg)) MyWasStarved = true;
-            if (!IsDead(Hp)) return;
+            if (!IsDead(Hp))
+            {
+                // 부상 파생 (M21-W2) — 전투 피해로 부상선 아래면 다친 것이다.
+                // 舊 구조는 정반대였다: Injure가 진입 피해를 줬다. 그래서 위협이 "얼마나 세게
+                // 쳤는가"를 말할 수 없었고 한 대든 열 대든 결과가 같았다 — 체류형에서는 그 구조가
+                // 곧 무적이다. 중복 진입은 CanInjure가 거르므로 이미 다친 사람은 체력만 깎인다.
+                if (cause == DamageCause.Combat && Hp < _cfg.InjuredBelowHp) Injure(InjurySeverity.Light);
+                return;
+            }
             if (cause == DamageCause.Starvation) StarveToDeath();
             else Die();
         }
@@ -639,7 +647,8 @@ namespace AIVillage.M0
             => state != AgentState.Dead && current == InjurySeverity.None;
 
         /// <summary>
-        /// 부상 진입의 유일한 문 (ADR-M10-2) — 호출처는 ThreatService.ExecuteStrike뿐 (M10-C).
+        /// 부상 진입의 유일한 문 (ADR-M10-2) — 호출처는 TakeDamage의 파생뿐 (M21-W2. 舊 M10-C에서는
+        /// ThreatService.ExecuteStrike가 직접 불렀다: 이제 위협은 피해만 주고 부상은 체력이 정한다).
         /// 하던 일은 중단 (실패 아님 — 쿨다운 없음), 이후 goal 후보는 AllowedWhenInjured로 좁혀진다.
         /// </summary>
         public void Injure(InjurySeverity severity)
@@ -669,10 +678,9 @@ namespace AIVillage.M0
             ShowTransient(Pick(_cfg.InjuredLines));
             Debug.LogWarning($"[Injury] {AgentId}: 부상 ({severity})");
             _sim.Hud?.Notify($"{ShortName}이(가) 다쳤습니다");
-            // 부상 진입 피해 (M21-W1) — 마지막에 둔다: 이 피해로 즉사해도 위의 기록(연대기·경험·
-            // 대사)이 먼저 남아야 "물려서 그 자리에서 숨졌다"가 이야기로 성립한다.
-            // ⚠️ W2에서 이 자리가 위협의 StrikeDamage로 바뀌고 진입 판정이 체력 쪽으로 뒤집힌다.
-            TakeDamage(Mathf.Max(0f, _cfg.MaxHp - _cfg.InjuredBelowHp), DamageCause.Combat);
+            // 진입 피해 없음 (M21-W2 — W1의 임시 구조를 여기서 뒤집었다): 체력을 깎는 것은
+            // 때린 쪽(ThreatSO.StrikeDamage)이고, 부상은 그 결과로 **파생**된다. 여기서 또 깎으면
+            // 한 대에 두 번 맞는다.
         }
 
         /// <summary>간호 표시 (TendRunner 전용, M11-I) — 유효 시간 동안 간호 인정. isHealer가

@@ -1,4 +1,18 @@
 @echo off
+REM ===========================================================================
+REM RETIRED 2026-08-06. The cron is gone; a human runs the pipeline by hand.
+REM   Docs/영상_25초_전환_실행명세서.md  W4 / ADR-V25-5
+REM
+REM schedule.json now has mode="manual", and publish.mjs exits immediately when
+REM called with --routine. This file is kept so the scheduled task, if it still
+REM exists, fails loudly-quietly instead of disappearing without a trace.
+REM
+REM HUMAN TODO (code cannot do these):
+REM   1. delete the claude.ai scheduled routine  (it pushes scripts on its own)
+REM   2. delete the Windows task made by register-task.cmd
+REM To bring it back: set schedule.json mode="auto" and re-register the task.
+REM ===========================================================================
+REM
 REM Scheduled entry point for the scene-video pipeline. Not meant to be run by hand.
 REM
 REM ASCII only on purpose: cmd.exe reads batch files in the OEM codepage (949 here),

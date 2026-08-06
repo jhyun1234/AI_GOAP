@@ -209,7 +209,13 @@ add(titleDigits.length > 0, '제목 후킹 (수치)',
    앞엣것은 명세서 §관측①(길이는 원인이 아니다)이 기각했고 W3(50초/30~45초)이 대신한다.
    뒤엣것은 §0 틀린 전제 ②("ep02s 는 도입부 빌드업이 길어 초반 이탈")가 실사로 기각된
    추측에 기대고 있었다. 근거 없는 규칙을 만들지 않는다(ADR-V-7). */
-const TEASER_MAX = 4.0;
+/* 🔴 2026-08-06 개정 4.0 → 1.0 (Docs/영상_25초_전환_실행명세서.md W2·ADR-V25-2).
+   편이 25초가 되면 3초 예고는 12% 다. 사용자 지시는 혼합안이다 —
+   ①1초 이하 「쇼트 훅」(찰나에 다음 편의 한 컷만 탁 보여주고 끝)으로 시작해
+   ②음성 예고를 아예 빼고 아웃트로 카드가 글자로 지는 형태로 이행한다.
+   **두 형태를 다 받는다.** 어느 쪽인지는 회차마다 작성팀이 고른다.
+   🔴 예고를 없애는 것이 아니다 — 예고 자체는 2026-07-30 사용자 요청이고 유효하다. */
+const TEASER_MAX = 1.0;
 /* 🔴 2026-08-04. 이 선언이 한때 사라져 check.mjs 가 통째로 죽었다. 명세서를 정본으로
    병합하며 "편당 길이 75/90" 블록을 버렸는데 CPS_REF 를 거기서 선언하고 있었고,
    아래 예고 길이 계산이 그걸 쓴다. teaserLines 가 비면 콜백이 안 불려 조용히 지나가지만,
@@ -221,16 +227,41 @@ const CPS_REF = 6.7;   // ep02s 실측: 발화 84.18초에 564자
 const lastShot = scene.shots.at(-1);
 const teaserRe = /다음\s*(편|회차|은|는)|이어서|(\d+)\s*부/;
 const teaserLines = lastShot.lines.filter(l => teaserRe.test(l.say ?? l.text));
-const teaserDur = teaserLines.reduce((a, l) =>
-  a + (l.say ?? l.text.replace(/\n/g, ' ')).length / CPS_REF + (l.pauseAfter ?? 0) / 1000, 0);
-add(teaserLines.length > 0, '다음 편 예고 있음',
-  teaserLines.length ? `${lastShot.id} 자막 ${teaserLines.length}줄` : `마지막 샷(${lastShot.id})에 예고가 없다`);
+/* 🔴 줄을 **위치(마지막 샷의 몇 번째 줄)** 로 기억한다. 내용으로 맞추면 안 된다 —
+   `timed.json` 의 줄에는 `text`·`say` 가 없어서(dur/pause 만 있다) 내용 대조가
+   전부 빗나가고, 아래 「자막 2초」 예외가 조용히 무효가 된다. 2026-08-06 fixture 로 잡았다. */
+const teaserIdx = new Set(
+  lastShot.lines.map((l, i) => (teaserRe.test(l.say ?? l.text) ? i : -1)).filter(i => i >= 0));
+const lastShotIdx = scene.shots.length - 1;
+/* 예고 길이 — `timed.json` 이 있으면 실측을, 없으면(클라우드) 글자수 산정을 쓴다.
+   🔴 상한이 1.0초로 내려가 산정 오차가 그만큼 크게 보인다. 실측이 있으면 실측이 정본이다. */
+const teaserTimed = timed?.shots?.[lastShotIdx]?.lines;
+const teaserDur = teaserTimed
+  ? [...teaserIdx].reduce((a, i) => a + ((teaserTimed[i]?.dur ?? 0) + (teaserTimed[i]?.pause ?? 0)) / 1000, 0)
+  : teaserLines.reduce((a, l) =>
+    a + (l.say ?? l.text.replace(/\n/g, ' ')).length / CPS_REF + (l.pauseAfter ?? 0) / 1000, 0);
+/* 2안 — 음성 예고가 0 이면 아웃트로 카드가 다음 편을 이름으로 져야 한다.
+   🔴 `outro.next` 는 `outro.siblings` 와 다르다. siblings 는 형제 편 목록이고
+   next 는 **다음 회차 하나**다. 둘을 같은 것으로 읽으면 분할 회차에서 조용히 통과한다. */
+const outroNext = String(scene.outro?.next ?? '').trim();
+add(teaserLines.length > 0 || outroNext.length > 0, '다음 편 예고 있음',
+  teaserLines.length
+    ? `${lastShot.id} 자막 ${teaserLines.length}줄 (음성 예고)`
+    : outroNext
+      ? `아웃트로 카드: 「${outroNext}」 (음성 0)`
+      : `🔴 마지막 샷(${lastShot.id})에 음성 예고가 없고 outro.next 도 비었다 — 다음 편을 아무도 모른다`);
 add(teaserLines.length === 0 || teaserDur <= TEASER_MAX, `예고 ${TEASER_MAX}초 이하`,
-  teaserLines.length ? `${teaserDur.toFixed(1)}초` : '예고 없음 — 위 항목 참조', 'warn');
+  teaserLines.length ? `${teaserDur.toFixed(1)}초` : '음성 예고 없음 — 아웃트로가 진다', 'warn');
 
 if (timed) {
-  const flat = timed.shots.flatMap((s, si) => s.lines.map((l, li) => ({ ...l, shot: scene.shots[si].id })));
-  const tooShort = flat.filter(l => (l.dur + (l.pause || 0)) < 2000);
+  const flat = timed.shots.flatMap((s, si) =>
+    s.lines.map((l, li) => ({ ...l, shot: scene.shots[si].id, si, li })));
+  /* 🔴 예고 줄은 뺀다 (2026-08-06, ADR-V25-3). 2초 규칙의 목적은 "읽을 시간을 준다"인데
+     쇼트 훅은 **읽히지 않는 게 설계**다 — 목적이 다른 줄에 같은 잣대를 대면 안 된다.
+     🔴 검사를 무르게 하는 것이 아니라 측정을 목적에 맞추는 것이다.
+     본문 줄은 2초 규칙 그대로다 — 여기서 통째로 끄면 아무도 못 읽는 자막이 샌다. */
+  const tooShort = flat.filter(l =>
+    (l.dur + (l.pause || 0)) < 2000 && !(l.si === lastShotIdx && teaserIdx.has(l.li)));
   add(tooShort.length === 0, '자막 2초 미만 없음',
     tooShort.length ? `${tooShort.length}줄 (${tooShort.map(l => `${l.shot}:${((l.dur + l.pause) / 1000).toFixed(1)}s`).join(', ')})` : '전부 2초 이상',
     'warn');
@@ -239,17 +270,32 @@ if (timed) {
   add(cps >= 6.0 && cps <= 7.2, '말 속도 6.0~7.2자/초', `${cps}자/초 (참고 영상 6.93)`, 'warn');
 
   /* ── 총 길이 ────────────────────────────────────────
-     실측 절대 시청 시간이 16~27초인데 영상이 80~122초였다
-     (Docs/영상_이탈률_개선_실행명세서.md §관측①). 70~80% 를 아무도 안 본다.
-     🔴 30~45 는 제안치다. 이 파이프라인에 길이 상한이 있었던 적이 없어 기존 값이 없다.
+     🔴 2026-08-06 개정: 50 / 30~45 → **25 / 20~25**
+     (Docs/영상_25초_전환_실행명세서.md W1·ADR-V25-1, 사용자 지시로 실험 없이 전면 전환).
 
-     상한(50)과 권장대역(45)을 나눈 이유: 상한은 페널티의 천장이고 권장은 목표다.
-     둘을 같은 값으로 합치면 46초짜리가 반려되어 무인 되돌리기 루프가 헛돈다. */
+     🔴 **이유를 오해하지 마라 — "짧으면 안 넘긴다"가 아니다.** 길이와 Stayed to watch 는
+     무상관이다(ρ=0.071, 15편 실측. ep01s 는 105.5초인데 체류 2위이고 ep05s-1 은 43.2초인데
+     꼴찌다). 노리는 것은 **완주와 루프**, 그리고 편수를 늘려 피드 노출 기회를 늘리는 것이다.
+     🔴 **조회율이 오르는 것은 성과가 아니라 산수다**(조회율 = 시청시간 ÷ 길이).
+     실제로 117→37초로 줄였을 때 조회율은 17%→40% 로 올랐지만 절대 시청 시간은
+     20초 → 15초로 **떨어졌다**. 판정은 명세서 §1 대로 **절대 시청 시간 15초 유지**로 한다.
+
+     상한(25)과 권장대역(20~25)을 나눈 이유는 기존과 같다 — 상한은 페널티의 천장이고
+     권장은 목표다. 합치면 25.4초짜리가 반려되어 되돌림 루프가 헛돈다.
+     🔴 25 는 사용자 지정값이고 **20 은 제안치**다(하한이 없으면 본문이 얇은 조각이 통과한다). */
   const totalSec = timed.shots.flatMap(s => s.lines)
     .reduce((a, l) => a + l.dur + (l.pause || 0), 0) / 1000;
-  add(totalSec <= 50, '총 길이 50초 이하', `${totalSec.toFixed(1)}초 (목표 30~45초)`);
-  add(totalSec >= 30 && totalSec <= 45, '총 길이 30~45초 권장대역',
+  add(totalSec <= 25, '총 길이 25초 이하', `${totalSec.toFixed(1)}초 (목표 20~25초)`);
+  add(totalSec >= 20 && totalSec <= 25, '총 길이 20~25초 권장대역',
     `${totalSec.toFixed(1)}초`, 'warn');
+
+  /* ── 본문 하한 — 오버헤드가 사건을 잡아먹지 않게 (2026-08-06 신설) ──
+     25 − 예고 1.0 − 아웃트로 2.6 = 21.4. 본문이 그보다 얇으면 ①어긋난 상태 ②뒤집힘
+     ③남는 한 줄이 안 들어간다(ADR-V-1). 🔴 21 은 그 계산에서 나온 **제안치**다.
+     🔴 이게 걸리면 편을 더 쪼갤 신호가 아니라 **곁가지를 덜어낼 신호**다(ADR-V25-4). */
+  const bodySec = totalSec - teaserDur - 2.6;   // 2.6 = engine.js 의 OUTRO_MS
+  add(bodySec >= 21, '본문 21초 이상',
+    `본문 ${bodySec.toFixed(1)}초 (예고 ${teaserDur.toFixed(1)} + 아웃트로 2.6 제외)`, 'warn');
 } else {
   add(false, '실측 타임라인 존재', `episodes/${EP}/build/timed.json 이 없다 — tts.mjs 를 먼저 돌려라`);
 

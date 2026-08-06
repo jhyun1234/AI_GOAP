@@ -209,6 +209,13 @@ function buildDom() {
     sibs.appendChild(li);
   }
   sibs.hidden = !(o.siblings || []).length;
+  /* 다음 편 (2026-08-06, 25초 전환 W2·ADR-V25-2). 음성 예고를 1초 이하로 줄이거나
+     아예 빼는 대신, 안 뺀 쪽을 이 카드가 글자로 진다.
+     🔴 없으면 안 그린다 — 옛 회차는 이 필드가 없고 그대로 돌아야 한다.
+     🔑 `siblings` 와 다르다. siblings 는 형제 편 목록이고 이건 **다음 회차 하나**다. */
+  const ocNext = String(o.next ?? '').trim();
+  $('ocNext').textContent = ocNext ? `다음 편 · ${ocNext}` : '';
+  $('ocNext').hidden = !ocNext;
   $('ocAi').textContent = scene.hud.aiHook || '';
 
   const vis = $('vis'); vis.innerHTML = '';

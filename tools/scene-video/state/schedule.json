@@ -23,7 +23,9 @@
     "ep06s",
     "ep07s-1",
     "ep07s-2",
-    "ep08s",
+    "ep08s-1",
+    "ep08s-2",
+    "ep08s-3",
     "ep09s",
     "ep10s",
     "ep11s",
@@ -76,7 +78,9 @@
     },
     "ep08s": {
       "local": "2026-07-19-unity-goap-m6-season-winter-crisis.html",
-      "url": "https://gamedevclaude.blogspot.com/2026/07/claude-code-unity-0.html"
+      "url": "https://gamedevclaude.blogspot.com/2026/07/claude-code-unity-0.html",
+      "split": 3,
+      "note": "🔴 2026-08-06 사건 단위로 3편 분할(기획팀 브리프 .staging/01_planner_brief.md). order 는 ep08s-1·-2·-3 이고 sources 는 글 단위로 이 키 하나만 둔다(명세서 §1) — 그래야 nextId() 가 본편 번호를 정확히 세고 claimed 가 글 파일을 문다. 1편 = 30분을 지켜봤는데 아무도 안 굶었다, 겨울 수지를 세어 보니 필요 562 대 보유 1,110 이었던 이야기 / 2편 = 주민 다섯이 같은 순간에 배고파진 진짜 이유가 '이름'이었던 이야기 / 3편 = 겨울 예고가 뜨자 전원이 동시에 비축에 뛰어들어 '너무 AI스럽다'는 지적을 받고 성격이 위기 대응을 가르게 만든 이야기. 🔑 편 수는 25초 전환과 무관하다(ADR-V25-4) — 원문에 든 사건이 셋이라 셋이다."
     },
     "ep09s": {
       "local": "2026-07-20-unity-goap-m7-chatter-visibility.html",

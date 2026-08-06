@@ -125,6 +125,12 @@ body{background:#000;color:var(--ink);font-family:var(--mono);
 .oc-sibs li{font-family:var(--mono);font-size:11px;line-height:1.4;color:var(--sub);
   border-left:3px solid var(--track);padding:3px 0 3px 9px}
 .oc-sibs li.me{color:var(--ink);border-left-color:var(--accent)}
+/* 다음 편 (2026-08-06, 25초 전환 W2). 음성 예고를 뺀 회차에서 이 줄이 예고를 진다 —
+   그러니 형제 목록보다 크고 강조색이다. `siblings` 와 나란히 서면 안 된다. */
+.oc-next{font-family:var(--disp);font-weight:800;font-size:14px;line-height:1.3;
+  letter-spacing:-.02em;color:var(--accent);border-left:3px solid var(--accent);
+  padding:3px 0 3px 9px}
+.oc-next[hidden]{display:none}
 .oc-ai{margin-top:4px;font-family:var(--mono);font-size:11px;letter-spacing:.02em;
   color:var(--accent);font-weight:800}
 

@@ -39,6 +39,7 @@ namespace AIVillage.M0
         private readonly List<VillagerAgent> _victimAgentBuf = new List<VillagerAgent>(8);
         private readonly List<(string id, int x, int y)> _victimKeyBuf = new List<(string, int, int)>(8);
         private readonly List<Vector2Int> _plotBuf = new List<Vector2Int>(16);
+        private readonly List<Vector2Int> _approachBuf = new List<Vector2Int>(4);
         private readonly List<int> _victimIdxBuf = new List<int>(16);
 
         /// <summary>예고 알림 (1회/발동) — HUD 경보 구독 (표현).</summary>
@@ -234,9 +235,54 @@ namespace AIVillage.M0
                 _plotBuf.Clear();
                 _plotBuf.AddRange(_construction.BuiltTilesOf(SlotId.FarmPlotCount));
                 int idx = PickNearestTileIndex(entry.x, entry.y, _plotBuf);
-                if (idx >= 0) return _plotBuf[idx];
+                if (idx >= 0) return ApproachTileOf(_plotBuf[idx], entry);
             }
             return new Vector2Int(_config.BaseTileX, _config.BaseTileY);
+        }
+
+        /// <summary>밭 곁 접근 타일 — 사방이 다 막혔으면 밭 자체 (밭은 통행 가능하므로 출몰이
+        /// 생략되는 일은 없다. 2026-08-06 b51c631이 고친 실패 모드를 다시 열지 않기 위한 보루).</summary>
+        private Vector2Int ApproachTileOf(Vector2Int plot, Vector2Int entry)
+        {
+            MapBounds.Get(out int minX, out int maxX, out int minY, out int maxY);
+            ApproachCandidates(plot, entry, _approachBuf);
+            foreach (Vector2Int c in _approachBuf)
+            {
+                if (c.x < minX || c.x > maxX || c.y < minY || c.y > maxY) continue; // 맵 밖은 조회 안 함(경고 소음 방지)
+                if (_pathfinder().FindPath(entry.x, entry.y, c.x, c.y).Kind != PathResultKind.Unreachable)
+                    return c;
+            }
+            return plot;
+        }
+
+        /// <summary>
+        /// 접근 타일 후보 (순수·결정적 — 게이트 M10-T6): 밭의 4방 이웃을 진입점에 가까운 순으로.
+        /// 동률은 좌표순 — 같은 판이면 같은 자리에 선다 (ADR-M10-1).
+        ///
+        /// 왜 밭 위가 아니라 곁인가 (2026-08-06 Play): 밭 타일을 목적지로 삼으니 개체 마커가
+        /// 밭 스프라이트를 덮어(sortingOrder 11) **밭이 안 보였다**. 타격 반경이 3~4타일이라
+        /// 밭 위에 설 이유도 없다. 진입점 쪽 이웃부터 보는 것은 돌아 들어가지 않게 하려는 것.
+        /// </summary>
+        public static void ApproachCandidates(Vector2Int plot, Vector2Int entry, List<Vector2Int> result)
+        {
+            result.Clear();
+            result.Add(new Vector2Int(plot.x - 1, plot.y));
+            result.Add(new Vector2Int(plot.x + 1, plot.y));
+            result.Add(new Vector2Int(plot.x, plot.y - 1));
+            result.Add(new Vector2Int(plot.x, plot.y + 1));
+            result.Sort((a, b) =>
+            {
+                long da = Dist2Tile(a, entry), db = Dist2Tile(b, entry);
+                if (da != db) return da.CompareTo(db);
+                if (a.x != b.x) return a.x.CompareTo(b.x);
+                return a.y.CompareTo(b.y);
+            });
+        }
+
+        private static long Dist2Tile(Vector2Int t, Vector2Int from)
+        {
+            long dx = t.x - from.x, dy = t.y - from.y;
+            return dx * dx + dy * dy;
         }
 
         /// <summary>최근접 타일 선정 (순수·결정적 — 게이트 M10-T5). 동률은 목록 앞(= 완공 등록 순)이
@@ -370,9 +416,16 @@ namespace AIVillage.M0
             }
             else
             {
-                // 대상 스냅샷 (재해 Strike 패턴 — 파괴 중 무효화 방지 복사본)
+                // 대상 스냅샷 (재해 Strike 패턴 — 파괴 중 무효화 방지 복사본).
+                // **타격 반경 안만** (2026-08-06 Play): 舊 코드는 맵 전체 밭에서 시드 셔플로 골랐다.
+                // 홍수라면 옳지만(재해에서 물려받은 산식), 특정 밭까지 걸어와 눌러앉은 늑대에게는
+                // "여기 서 있는데 저쪽 밭이 사라진다"가 된다. W2 체류가 이 어긋남을 처음 보이게 했다 —
+                // 예전엔 개체가 스치듯 지나가 아무도 대조할 수 없었다. 주민 타격과 같은 규칙
+                // (CollectVictimCandidates의 맨해튼 반경)으로 맞춘다.
                 _plotBuf.Clear();
-                _plotBuf.AddRange(_construction.BuiltTilesOf(SlotId.FarmPlotCount));
+                foreach (Vector2Int t in _construction.BuiltTilesOf(SlotId.FarmPlotCount))
+                    if (Mathf.Abs(t.x - tile.x) + Mathf.Abs(t.y - tile.y) <= so.StrikeRadiusTiles)
+                        _plotBuf.Add(t);
                 int loss = DisasterService.LossCount(_plotBuf.Count,
                     so.BaseLossPct, so.PerTargetPct, so.MaxLossPct);
                 uint seed = StableHash.Fnv1a(_strikeOrdinal.ToString(), so.DisplayName);

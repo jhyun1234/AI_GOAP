@@ -182,6 +182,33 @@ namespace AIVillage.Tests.EditMode
             Assert.AreEqual(-1, ThreatService.PickNearestTileIndex(0, 0, null), "null 방어");
         }
 
+        /// <summary>접근 타일 — 밭 위가 아니라 곁에 선다 (2026-08-06 Play: 개체 마커가 밭
+        /// 스프라이트를 덮어 밭이 안 보였다). 진입점 쪽 이웃이 먼저, 동률은 좌표순 — 같은 판이면
+        /// 같은 자리에 서야 출몰이 확률이 아니다 (ADR-M10-1).</summary>
+        [Test]
+        public void M10_T6_ApproachCandidates_NearEntryFirstAndDeterministic()
+        {
+            var plot = new Vector2Int(10, 10);
+            var result = new List<Vector2Int>();
+
+            // 서쪽에서 들어오면 서쪽 이웃(9,10)이 첫 후보
+            ThreatService.ApproachCandidates(plot, new Vector2Int(0, 10), result);
+            Assert.AreEqual(4, result.Count, "4방 이웃");
+            Assert.AreEqual(new Vector2Int(9, 10), result[0], "서쪽 진입 → 서쪽 이웃 먼저");
+            CollectionAssert.DoesNotContain(result, plot, "밭 자체는 후보가 아니다");
+
+            // 진입 방향이 바뀌면 순서도 바뀐다 (거리 판정이 실제로 도는가)
+            ThreatService.ApproachCandidates(plot, new Vector2Int(20, 10), result);
+            Assert.AreEqual(new Vector2Int(11, 10), result[0], "동쪽 진입 → 동쪽 이웃 먼저");
+
+            // 대각 동률(네 이웃 중 둘이 같은 거리)에서도 순서가 결정적이어야 한다
+            ThreatService.ApproachCandidates(plot, new Vector2Int(0, 0), result);
+            var again = new List<Vector2Int>();
+            ThreatService.ApproachCandidates(plot, new Vector2Int(0, 0), again);
+            CollectionAssert.AreEqual(result, again, "같은 입력 = 같은 순서 (ADR-M10-1)");
+            Assert.AreEqual(new Vector2Int(9, 10), result[0], "동률은 좌표순 — x 작은 쪽");
+        }
+
         // ── M10-T4 도망 (M10-D) ───────────────────────────────────────────────
 
         [Test]

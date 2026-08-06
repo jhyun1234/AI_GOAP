@@ -51,7 +51,29 @@ namespace AIVillage.M0
             bool ok = _so.Kind == FarmActionKind.Plant
                 ? agent.Farm.TryPlant(_plot)
                 : agent.Farm.TryHarvest(_plot);
-            return ok ? RunnerResult.Succeeded : Fail("밭 상태 불일치 — 점유 중 외부 전이 (버그 의심)");
+            return ok ? RunnerResult.Succeeded : Fail(DescribeMismatch(agent));
+        }
+
+        /// <summary>
+        /// 실패 사유를 스스로 진단한다 (2026-08-06 — 舊 문구는 "점유 중 외부 전이 (버그 의심)"
+        /// 한 줄이라 재현 안 되면 영영 못 밝힌다. 실제로 한 번 놓쳤다).
+        ///
+        /// 점유(TryClaim)는 1인이라 주민 경합은 불가능하고, 점유 중 상태를 바꿀 수 있는 문은
+        /// 둘뿐이다 — BlightCrop(재해·작물 소실)과 RemovePlot(위협·밭 시설 파괴). **둘 다 설계된
+        /// 경로이므로 "버그 의심"은 대개 오진이다**: 수확하러 간 사이 홍수가 작물을 쓸어간 것은
+        /// 이야기이지 결함이 아니다. 그래서 문구에서 그 딱지를 떼고, 남은 상태로 원인을 가른다.
+        /// </summary>
+        private string DescribeMismatch(VillagerAgent agent)
+        {
+            bool registered = false;
+            foreach (FarmPlot p in agent.Farm.Plots)
+                if (p == _plot) { registered = true; break; }
+
+            string want = _so.Kind == FarmActionKind.Plant ? "Empty" : "Ripe";
+            if (!registered)
+                return $"밭이 사라졌다 @({_plot.Tile.x},{_plot.Tile.y}) — 시설 파괴(위협·재해) 중 {want} 작업";
+            return $"밭 상태가 바뀌었다 @({_plot.Tile.x},{_plot.Tile.y}) {want} 기대 → 실제 {_plot.State}" +
+                   $" — 작물 소실(재해)이면 정상, 아니면 전이 문 점검 (BlightCrop/RemovePlot 외 경로 없음)";
         }
 
         public override void Cleanup(VillagerAgent agent)

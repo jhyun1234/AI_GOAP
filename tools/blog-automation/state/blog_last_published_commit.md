@@ -15,6 +15,48 @@ metadata:
 
 ## 최신 사용 커밋
 
+- `latest_commit`: `c4bc93e` (전체 해시 `c4bc93edfbf5f921de035a45993f0856c52c31bf`,
+  2026-07-31 16:07:44 +0900, `docs(devlog): M14 방치 완주 1판 관측 — 죽음의 축 이동,
+  치료사 부재 적재` — 기획팀 브리프(`.staging/01_planner_brief.md`)의 `verify_at`이자
+  마스터 Step 6 2차 판정서(`06_verdict.md`)가 재확인한 commit_refs 중 타임스탬프 기준
+  가장 최신 커밋. M13 회차와 달리 이번엔 `verify_at`과 최고위험 인용(회상 테스트 문장)의
+  근거 커밋이 동일해 별도 치환이 필요 없었다.)
+- `selected_commits_range`: `9c352cc`(docs(spec) M14 "가을과 겨울" 실행명세서) ~
+  `c4bc93e`(docs(devlog) M14 방치 완주 1판 관측) — M14 "가을과 겨울" 전 항목(W1~W4)
+  완결 + 세션 로그 + 실전 방치 관측까지 8커밋: `9c352cc`(spec(m14) "가을과 겨울"
+  실행명세서 — 계절 대비 축 + 최소 기록, 07-31 12:59) · `92e5479`(feat(goap) M14-W1
+  계절 방아쇠 기반 — DaysToFreeze 파생값 + 슬롯 2종 + 게이트) · `2e22378`(feat(goap)
+  M14-W2 방아쇠 재배선 — 가을이 기회를 열고 성격이 판정한다) · `fae3c57`(feat(goap)
+  M14-W3 개인 성향 지터 — 확정사의 확률화, 개인의 탄생) · `3a6d753`(feat(goap) M14-W4
+  최소 기록 — 경주의 자(연차·겨울 결산·역대 최고 파일·겨울 경보)) · `9100281`
+  (docs(devlog) 2026-07-31 M14 세션 — 브레인스토밍(북극성 확정)→명세→W1~W4 구현 완주) ·
+  `67d57e5`(fix(hud) 좌상단 HUD 수직 스택 리플로우 — M14 검증 Play 중 발견) ·
+  `c4bc93e`(docs(devlog) M14 방치 완주 1판 관측 — 죽음의 축 이동, 치료사 부재 적재,
+  **latest_commit**). 기획팀 브리프(`.staging/01_planner_brief.md`) commit_refs 전체
+  반영 — 같은 구간에 interleave된 `tools/scene-video/` 커밋 4개(`1696186`·`900eeca`·
+  `78c3853`·`14ded6c`)는 게임 개발 소재 범위 밖이라 기획팀이 의도적으로 제외했다.
+- `cycle_date`: 2026-08-06 (마스터 Step 6 2차 APPROVED, 반려 0회 — 정상 승인 경로 완주.
+  게시팀 Step 7이 `.staging/05_final.md`의 title/meta_description/labels/html_content를
+  수정 없이 그대로 정식 공개 발행.)
+- `publish_status`: PUBLISHED (Blogger published: 2026-08-05T22:19:41-07:00, status: LIVE)
+- `blogger_post_id`: 8259513125902654061
+- `blog_url`: https://gamedevclaude.blogspot.com/2026/08/unity-goap-claude-code-ai-3-day-44.html
+- `title`: Unity GOAP 인디게임 개발일지 (Claude Code 게임 개발 AI 페어 프로그래밍 후기) —
+  겨울 3번을 넘기고 Day 44에 쓰러졌다, 계절이 기회를 열고 성격이 판정하게 만들다
+- `labels`: Unity GOAP, Claude Code 게임 개발, AI 페어 프로그래밍, 인디게임 개발일지
+- `local_archive`: tools/blog-automation/published/2026-08-06-unity-goap-m14-autumn-winter.html
+  (게시 직후 Blogger POST 응답 JSON의 `content` 필드를 게시 직전 임시 파일
+  `_tmp_content.html`과 파이썬 `==` 문자열 비교 및 md5 대조해 완전 일치함을 직접
+  확인(byte-identical, md5 `5b604f852c028b257af6b51777c49119` 동일, 12,343자, U+FFFD
+  0건). `title`·`labels`(4개, 집합 일치) 필드도 일치 확인.)
+- `content_note`: 이 회차는 blog-editor(Step 5)·blog-master(Step 6)를 정상 경유했다
+  (반려 0회). 마스터 Step 6 2차 판정서(`06_verdict.md`)가 Step 4 승인 스냅샷과
+  `05_final.md`를 기계 diff로 대조해 의미 변경이 없음을 확인했고(표 설명 문장 1건 지시
+  이행, H1→title 이동, 회상 인용 따옴표 제거 등은 전부 무해 판정), 게시팀은 그 승인분을
+  수정 없이 그대로 게시했다.
+
+## 이전 사용 커밋 (2026-08-04, M13 사건과 흔적)
+
 - `latest_commit`: `b105360` (전체 해시 `b105360ddc0f0029479cab3657d5029129d0d383`,
   2026-07-30 23:54:24 +0900, `docs(devlog): S9 회상 테스트 결과 — 첫 통과 신호,
   준비된 자의 아사 수수께끼` — 마스터 Step 6 2차 판정서(`06_verdict.md`) handoff_notes

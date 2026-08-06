@@ -812,6 +812,55 @@ namespace AIVillage.Tests.EditMode
             }
         }
 
+        /// <summary>
+        /// ADR-M0-12 감사 — **수치형 슬롯에 절대 목표를 쓰는 goal**의 화이트리스트.
+        ///
+        /// 규칙은 "목표는 한 걸음(RelativeToCurrent), 정지는 트리거가 맡는다"이고, 절대 목표는
+        /// 최악 결손이 5단계를 넘지 않을 때만 허용된다. 넘으면 휴리스틱이 재료 사슬을 못 봐서
+        /// 노드가 지수적으로 늘고 NoSolutionFound(해는 있는데 못 찾음)가 난다.
+        ///
+        /// ⚠️ **이 감사는 "검토했는가"를 강제할 뿐 폭발을 탐지하지 못한다.** 탐지하려면 상태
+        /// 공간까지 훑어야 하고(방법론 M20), 그 게이트 일반화는 이월 항목이다. 목록에 새 이름을
+        /// 추가하려면 **5단계 기준으로 판정한 근거를 커밋에 남길 것** — 목록만 늘리면 규칙이
+        /// 장식이 된다 (MayHaveNoSolution 감사와 같은 사상).
+        ///
+        /// 논리형(0/1) 슬롯 목표는 본래 1단계라 제외한다.
+        /// </summary>
+        private static readonly string[] AbsoluteNumericGoals =
+        {
+            // 건설 계열 — 결손이 1~2로 작고, 자재는 별도 goal이 채운다
+            "Goal_BuildFarm", "Goal_BuildHouse", "Goal_ExpandFarm",
+            // 채집·수확 계열 — 한 번의 채집이 큰 폭을 채워 단계가 짧다
+            "Goal_GatherFood", "Goal_GatherWood", "Goal_HarvestCrop",
+            // 먹기·저장 — 한 끼/한 번으로 닿는다
+            "Goal_Snack", "Goal_StoreFood",
+            // 간호 계열 — 부상자 1명당 1단계. 🟠 부상 6명이면 3,567노드(한계의 87%)로
+            // 절벽에 붙는다. 증분 전환 이월 항목 (2026-08-06 실측).
+            "Goal_TendInjured", "Goal_TreatInjured",
+        };
+
+        [Test]
+        public void M12_T5_AbsoluteNumericGoals_MatchADR_M0_12()
+        {
+            List<GoalSO> goals = LoadAllGoals();
+
+            var actual = goals
+                .Where(g => !g.RelativeToCurrent && g.GoalConditions != null
+                            && g.GoalConditions.Any(c => SlotIds.IsNumeric(c.Slot)))
+                .Select(g => g.name).OrderBy(n => n).ToArray();
+            var expected = AbsoluteNumericGoals.OrderBy(n => n).ToArray();
+
+            CollectionAssert.AreEqual(expected, actual,
+                "수치형 슬롯에 **절대 목표**를 쓰는 goal 목록이 ADR-M0-12 문언과 어긋난다.\n" +
+                $"  문언: [{string.Join(", ", expected)}]\n" +
+                $"  실제: [{string.Join(", ", actual)}]\n" +
+                "→ 새 goal이라면: 최악 결손이 몇 단계인지 세어 보고, 5단계를 넘으면 " +
+                "RelativeToCurrent 증분 + 트리거 정지로 바꿀 것. 5 이하라 허용한다면 " +
+                "그 판정 근거를 커밋에 남기고 목록에 추가할 것.\n" +
+                "→ 증분으로 바꿨다면: 정지 조건을 트리거로 승계했는지 확인할 것 " +
+                "(상대 goal은 '이미 달성' 스킵이 면제라 트리거가 없으면 영구 펌프가 된다).");
+        }
+
         [Test]
         public void M12_T3_Willfulness_SplitsCommunalAndPersonalGoals()
         {

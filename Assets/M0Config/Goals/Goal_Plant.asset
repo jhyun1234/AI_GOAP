@@ -23,10 +23,10 @@ MonoBehaviour:
     Value: 1
   GoalConditions:
   - Slot: 28
-    Op: 0
-    Value: 0
+    Op: 2
+    Value: -1
   DirectActionPool: []
-  RelativeToCurrent: 0
+  RelativeToCurrent: 1
   TraitWeights:
   - Trait: 0
     Weight: 0.5

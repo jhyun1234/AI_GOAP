@@ -14,11 +14,15 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   DisplayName: "석재 수집"
   Priority: 8
-  TriggerConditions: []
+  TriggerConditions:
+  - Slot: 8
+    Op: 3
+    Value: 30
   GoalConditions:
   - Slot: 8
     Op: 1
-    Value: 30
+    Value: 10
+  RelativeToCurrent: 1
   TraitWeights:
   - Trait: 0
     Weight: 0.6

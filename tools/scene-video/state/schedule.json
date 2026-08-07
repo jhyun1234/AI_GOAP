@@ -28,7 +28,9 @@
     "ep08s-3",
     "ep09s-1",
     "ep09s-2",
-    "ep10s",
+    "ep10s-1",
+    "ep10s-2",
+    "ep10s-3",
     "ep11s",
     "ep12s",
     "ep13s"
@@ -91,7 +93,9 @@
     },
     "ep10s": {
       "local": "2026-07-21-unity-goap-m8-relationship-ownership-request.html",
-      "url": "https://gamedevclaude.blogspot.com/2026/07/claude-code-ai-goap-ai-m8.html"
+      "url": "https://gamedevclaude.blogspot.com/2026/07/claude-code-ai-goap-ai-m8.html",
+      "split": 3,
+      "note": "🔴 2026-08-07 사건 단위로 3편 분할(기획팀 브리프 .staging/01_planner_brief.md · episodes/ep10s/notes/planner.md). order 는 ep10s-1·-2·-3 이고 sources 는 글 단위로 이 키 하나만 둔다(명세서 §1). 1편 = 대화가 흔적을 안 남겨 어제 잔소리한 주민을 오늘 처음 보는 사이로 취급했고, 방향 있는 관계(듣는 쪽 원한이 더 크게)와 정보줄 단짝·원한 한 명씩으로 사이가 쌓이게 만든 이야기 / 2편 = 목수에게 재료 선검사와 자원 예약을 시키려던 부탁 설계가 GOAP과 정면으로 어긋나서 다 걷어내고 '수락' 신호만 얹었더니 AI가 나무하러 가는 것부터 스스로 계획했고, 두 번째 부탁은 코드 0줄로 붙은 이야기(소유=내 집은 이 편의 전제 한 줄) / 3편 = 완료 선언까지 해 놓고 실측해 보니 자율 건설·자동 배정이라는 편의 기능이 방금 만든 부탁 시스템의 존재 이유를 갉아먹고 있어서, 편의를 포기하고 집은 오직 목수에게 부탁해야만 지어지도록 되돌린 이야기. 🔑 편 수는 25초 규격과 무관하다(ADR-V25-4) — 원문에 든 사건이 셋이라 셋이다(소유 M8-C 는 세 조각이 다 있으나 본문 20초가 얇고 훅이 약해 2편의 전제로 흡수했고, 무언 거절 금지·성격별 보상 태도·혼잣말 억제는 곁가지로 넘겼다)."
     },
     "ep11s": {
       "local": "2026-07-22-unity-goap-debt-settlement-pathfinder-boundary.html",

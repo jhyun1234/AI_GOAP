@@ -16,7 +16,7 @@ MonoBehaviour:
   UnlockDay: 0
   PeriodDays: 6
   WarnDays: 1
-  VillagerTargetChance: 0
+  VillagerTargetChance: 0.25
   StrikeRadiusTiles: 3
   DangerRadiusTiles: 6
   BaseLossPct: 0.25
@@ -26,14 +26,20 @@ MonoBehaviour:
   FleeBelowHpPct: 0.4
   StrikeDamage: 34
   RepeatStrikePeriodDays: 0.25
-  MaxStayDays: 2
+  MaxStayDays: 0.75
+  WanderRadiusTiles: 5
+  HungrySeasonChanceMult: 2
+  HungrySeasonStayMult: 2
   MoveSpeed: 2.5
   BodyColor: {r: 0.75, g: 0.3, b: 0.2, a: 1}
   ForecastLines:
   - "숲에서 늑대 울음이 들려…"
   - "요즘 밭 근처에 짐승 발자국이 있어."
   - "밤에 뭔가 어슬렁거리는 걸 봤어."
-  StrikeLinesVillager: []
+  StrikeLinesVillager:
+  - "한 마리야! 혼자 있을 때를 노렸어…!"
+  - "아악! 팔을… 이 녀석이 안 놓아!"
+  - "늑대가 나를 물었어! 누가 좀…!"
   StrikeLinesFarm:
   - "늑대다! 밭이 엉망이 됐어!"
   - "저 짐승이 밭을 파헤쳤어…"

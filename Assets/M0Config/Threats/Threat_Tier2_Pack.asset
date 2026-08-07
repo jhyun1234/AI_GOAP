@@ -26,7 +26,10 @@ MonoBehaviour:
   FleeBelowHpPct: 0.4
   StrikeDamage: 34
   RepeatStrikePeriodDays: 0.25
-  MaxStayDays: 2
+  MaxStayDays: 0.75
+  WanderRadiusTiles: 5
+  HungrySeasonChanceMult: 2
+  HungrySeasonStayMult: 2
   MoveSpeed: 2.5
   BodyColor: {r: 0.85, g: 0.15, b: 0.15, a: 1}
   ForecastLines:

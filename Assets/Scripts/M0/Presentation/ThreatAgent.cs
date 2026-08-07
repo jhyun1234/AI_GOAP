@@ -17,11 +17,18 @@ namespace AIVillage.M0
     ///   절뚝이는 도망자가 먼저 잡힌다. 기브업 상한은 도달 불가 지형의 안전장치일 뿐.
     ///
     /// **수명 개정 (M21-W2)**: 舊 수명은 "도착 = 타격 = 퇴장"이었다 — 한 대 치고 사라지니
-    /// 주민이 맞설 대상 자체가 존재하지 않았다(격퇴 불가의 실제 정체). 이제 도착하면 **눌러앉아**
+    /// 주민이 맞설 대상 자체가 존재하지 않았다(격퇴 불가의 실제 정체). 이제 도착하면 머무르며
     /// RepeatStrikePeriodDays마다 다시 친다. 퇴장 경로는 세 가지로만 열린다:
     ///   ① 도주 (BeginFlee — 체력이 도주선 아래, 판정은 CombatService)
     ///   ② 체류 상한 도달 (MaxStayDays — 자비가 아니라 지형 보루)
-    ///   ③ 칠 대상 소멸 (전멸·전원 이탈)
+    ///   ③ 칠 대상 소멸 (주민형은 전멸·전원 이탈, 밭형은 사거리 내 밭 소진)
+    ///
+    /// **배회 개정 (M21-W2R)**: W2의 체류는 **정지**였고, 화면에 나온 것은 "원 하나가 밭 위에
+    /// 서서 콘솔에만 로그를 뿜는 것"이었다 (2026-08-06 사용자 판정 — 게이트 320개가 green인 채로).
+    /// 이제 도착 지점을 앵커로 WanderRadiusTiles 안을 돈다. 우선순위는 **추격 > 배회**다:
+    /// 주민형은 사거리 밖이면 추격이 경로를 덮고, 배회는 사거리 안에 있을 때의 기본 행동이다
+    /// (뒤집으면 주민을 못 잡는다 — 명세 ⚠️ 오해 위험 3).
+    ///
     /// 체력(Hp)은 여기 있지만 **깎는 판정은 CombatService**다 (ADR-M21-8) — 개체는 문만 연다.
     /// 세이브 대상 아님 (ADR-M10-10 — 로드 후 다음 스케줄에서 재출몰).
     /// </summary>
@@ -31,6 +38,12 @@ namespace AIVillage.M0
         private const float ARRIVE_EPSILON_SQR = 0.0001f; // 도착 판정 (알고리즘 상수)
         private const float RETARGET_SEC = 1f;            // 추격 재타겟 주기 (알고리즘 상수)
         private const float CHASE_GIVEUP_SEC = 90f;       // 추격 안전 상한 — 속도 우위라 정상 케이스 미도달
+
+        /// <summary>배회 목적지 재선정 최소 간격 (실시간 초, 알고리즘 상수 — 밸런스 아님).
+        /// 경로탐색 예산 보호가 목적이다: 뽑힌 타일이 현재 타일이면 경로가 즉시 소진되고,
+        /// 간격이 없으면 매 프레임 재선정 = 제자리 떨림 + JPS 호출 폭증이 된다
+        /// (Docs/ADR_경로탐색_확장경계.md, 명세 ⚠️ 오해 위험 2).</summary>
+        private const float WANDER_REPICK_SEC = 0.5f;
 
         public ThreatSO So { get; private set; }
         public Vector2Int EntryTile { get; private set; }
@@ -60,15 +73,20 @@ namespace AIVillage.M0
         /// <summary>마지막 타격 시각 (게임일) — 재타격 주기 판정의 원본. 쓰기는 MarkStruck.</summary>
         public float LastStrikeDay { get; private set; }
 
+        /// <summary>배회 앵커 (M21-W2R) — 도착 지점. 배회는 이 타일 반경 안에서만 돈다.
+        /// 앵커를 현재 위치로 갱신하면 늑대가 맵을 가로질러 표류한다 (배회가 아니라 유랑이 된다).</summary>
+        public Vector2Int WanderAnchor { get; private set; }
+
         private ThreatService _svc;
         private IPathfinder _pathfinder;
         private List<Vector2Int> _path; // null·소진 = 목적지 도달 (모드별 해석)
         private int _wp;
         private bool _exiting;
-        private bool _arrived;          // 체류 시작 — 이후 이동은 재추격뿐, 퇴장은 3경로만 (M21-W2)
+        private bool _arrived;          // 체류 시작 — 이후 이동은 배회·재추격, 퇴장은 3경로만 (M21-W2R)
         private float _nextRetargetAt;
         private float _chaseGiveUpAt;
         private Vector2Int _lastChaseTile;
+        private float _nextWanderAt;    // 배회 재선정 쿨다운 (WANDER_REPICK_SEC)
 
         public void Init(ThreatSO so, ThreatService svc, Vector2Int entry, Vector2Int target,
                          List<Vector2Int> waypoints, IPathfinder pathfinder, bool targetsVillagers)
@@ -117,7 +135,10 @@ namespace AIVillage.M0
             {
                 if (_exiting) { DespawnNow(); return; }               // 퇴장 경로 소진 = 가장자리 도달
                 if (!TargetsVillagers && !_arrived) { Arrive(); return; } // 밭형: 고정 목표 도착 = 체류 시작
-                return; // 경로 소진 = 제자리 — 체류 틱·재타겟 틱이 잇는다
+                // 체류 중 목적지 도달 = 다음 배회 지점 (M21-W2R). ⚠️ 목적지에 **도착했을 때만**
+                // 재선정한다 — 매 프레임이면 제자리 떨림 + 경로탐색 폭증 (명세 ⚠️ 오해 위험 2).
+                if (_arrived) RepickWander();
+                return; // 미도착 주민형은 제자리 — 재타겟 틱이 잇는다
             }
 
             var target = new Vector3(_path[_wp].x, _path[_wp].y, 0f); // ADR-M0-9 — X-Y 평면
@@ -160,17 +181,42 @@ namespace AIVillage.M0
             // Unreachable: 기존 경로 유지, 다음 틱 재시도 — 기브업 상한이 무한 추격을 막는다
         }
 
-        /// <summary>체류 진입의 유일한 지점 (M21-W2) — 그 자리에 눌러앉고 서비스가 첫 타격을 실행한다.</summary>
+        /// <summary>체류 진입의 유일한 지점 (M21-W2R) — 도착 지점을 배회 앵커로 삼고 서비스가 첫 타격을
+        /// 실행한 뒤, **곧바로 배회를 시작한다**.
+        ///
+        /// W2에서 여기가 `_path = null`로 굳혔고 그것이 화면에 "원 하나가 밭 위에 서 있는 것"으로
+        /// 나왔다 (2026-08-06 사용자 판정). 체류가 틀린 게 아니라 **정지**가 틀렸다 — 머무르되
+        /// 움직인다.</summary>
         private void Arrive()
         {
             if (_arrived || _exiting) return;
             _arrived = true;
-            _path = null; // 이동 정지 — 이후 이동은 재추격이 다시 깐다
+            _path = null;
             _wp = 0;
+            WanderAnchor = new Vector2Int(TileX, TileY); // 배회의 중심 — 이후 갱신하지 않는다(표류 방지)
             // 추격 기억을 지운다: 남겨 두면 도망친 주민이 마지막으로 있던 타일로 되돌아왔을 때
             // "이미 그 타일로 가는 중"이라 판단해 경로를 안 깔고, 경로는 null이라 영영 굳는다.
             _lastChaseTile = new Vector2Int(int.MinValue, int.MinValue);
             _svc.NotifyArrived(this);
+            if (_exiting) return;  // 칠 대상 없음 → 서비스가 즉시 퇴장시켰다 (W2 결함 Y)
+            RepickWander();
+        }
+
+        /// <summary>다음 배회 목적지를 깐다 (M21-W2R). 쿨다운은 경로탐색 예산 보호다 —
+        /// 뽑힌 타일이 현재 타일이면 경로가 즉시 소진되므로, 간격이 없으면 매 프레임 재선정이 된다.
+        /// 목적지 선정 자체는 서비스가(통행 배열을 아는 쪽) 수행한다 — 개체는 표현+이동만 (M10-C ⚠️③).</summary>
+        private void RepickWander()
+        {
+            if (_exiting || Time.time < _nextWanderAt) return;
+            _nextWanderAt = Time.time + WANDER_REPICK_SEC;
+
+            Vector2Int dest = _svc.PickWanderTile(this);
+            if (dest.x == TileX && dest.y == TileY) return; // 제자리 — 다음 쿨다운에 다시 뽑는다
+
+            PathResult p = _pathfinder.FindPath(TileX, TileY, dest.x, dest.y);
+            if (p.Kind != PathResultKind.PathFound) return; // 못 가면 그대로 — 다음 쿨다운에 재시도
+            _path = p.Waypoints;
+            _wp = 0;
         }
 
         /// <summary>피해 적용의 문 (CombatService 전용, ADR-M21-8) — 차감만 한다.

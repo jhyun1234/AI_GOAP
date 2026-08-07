@@ -10,6 +10,10 @@ namespace AIVillage.M0
     /// 문(Construction.RemoveCountableAt / VillagerAgent.TakeDamage)을 호출한다 (ADR-M9-3 사상).
     /// **수명 개정 (M21-W2)**: 도착은 퇴장이 아니라 **체류의 시작**이다 — NotifyArrived(첫 타격) 뒤
     /// NotifyStrikeTick이 주기마다 다시 치고, 퇴장은 BeginExit 하나로만 열린다(도주·상한·대상 소멸).
+    /// **배회·계절 개정 (M21-W2R)**: 체류는 정지가 아니라 배회다(PickWanderTile) — 목적지 선정은
+    /// 통행 배열을 아는 이쪽이 하고 개체는 걷기만 한다. 계절이 **타깃 확률과 체류 상한 둘**을
+    /// 바꾼다(ADR-M21-9, 판정은 ForageFrozen 하나 — IsCrisis 아님). 밭 타깃의 "칠 대상 소멸" 퇴장이
+    /// 여기서 신설됐다: 주민형에만 있던 경로라 밭형은 `밭 0/0 소실`을 상한까지 반복했다.
     /// 확정 발동·확정 착탄 (ADR-M10-1): 스케줄·희생 선정에 확률 없음 — 주민 희생은 거리순
     /// (도망 행동과의 인과), 밭 희생은 StableHash 시드 셔플 (재해와 동일).
     /// 활성 밴드 = 게임일 UnlockDay 충족 중 최신 1개 (ADR-M10R-1 시간 래칫 — 사망해도 강등 없음).
@@ -21,12 +25,15 @@ namespace AIVillage.M0
     public sealed class ThreatService
     {
         private readonly ThreatSO[] _threats;
-        private readonly ZoneService _zones; // 미사용 (2026-08-06 밭 타깃 개정) — 시그니처 파급 회피용 보존.
-                                             // M22 구역 축이 위협-구역 관계를 다시 정의하면 그때 재사용/삭제 결정.
+        // 계절 (M21-W2R) — 舊 ZoneService 슬롯의 교체. 구역 참조는 b51c631(FarmPlot.ZoneRadius=0)
+        // 이후 죽은 코드였고, 밭 타깃은 실제 밭 타일을 직접 본다 — 빼는 것이 실상을 코드에 맞추는 것이다.
+        // null = 계절 없는 판 (중립: 야수는 굶지 않는다).
+        private readonly SeasonService _season;
         private readonly ConstructionService _construction;
         private readonly IReadOnlyList<VillagerAgent> _agents;
         private readonly WorldConfigSO _config;
         private readonly Func<IPathfinder> _pathfinder; // Awake 조립 순서 무관하게 지연 조회
+        private readonly Func<int, int, bool> _isWalkable; // 배회 목적지 필터 (VillagerAgent.IsWalkable 패턴)
         private readonly Transform _parent;
 
         private float _lastStrikeDay;   // 마지막 발동 시각 (게임일). 세이브 대상 (ADR-M10-10)
@@ -63,16 +70,18 @@ namespace AIVillage.M0
         public float DaysToStrike(float gameTime)
             => _pending == null ? -1f : _lastStrikeDay + _pending.PeriodDays - gameTime;
 
-        public ThreatService(ThreatSO[] threats, ZoneService zones,
+        public ThreatService(ThreatSO[] threats, SeasonService season,
                              ConstructionService construction, IReadOnlyList<VillagerAgent> agents,
-                             WorldConfigSO config, Func<IPathfinder> pathfinder, Transform parent)
+                             WorldConfigSO config, Func<IPathfinder> pathfinder,
+                             Func<int, int, bool> isWalkable, Transform parent)
         {
             _threats = threats ?? Array.Empty<ThreatSO>();
-            _zones = zones;
+            _season = season;
             _construction = construction;
             _agents = agents;
             _config = config;
             _pathfinder = pathfinder;
+            _isWalkable = isWalkable;
             _parent = parent;
         }
 
@@ -99,15 +108,42 @@ namespace AIVillage.M0
 
         /// <summary>이번 출몰이 주민을 노리는가 (순수·결정적, ADR-M10R-2·3): 출몰 서수 시드로 [0,1) 분수를
         /// 만들어 chance와 비교. 진입점 시드와 다른 솔트("|tgt")로 상관 차단 (동쪽=항상 주민 같은 편향 방지).
-        /// 0=항상 밭, 1=항상 주민. 매 출몰 1회만 롤한다 (ADR-M10R-4 — 재타겟은 종류를 안 바꾼다).</summary>
+        /// 0=항상 밭, 1=항상 주민. 매 출몰 1회만 롤한다 (ADR-M10R-4 — 재타겟은 종류를 안 바꾼다).
+        /// 에셋 기저 확률판 — 계절 보정 없는 호출자·게이트용.</summary>
         public static bool RollTargetsVillagers(ThreatSO so, int ordinal)
+            => RollTargetsVillagers(so, ordinal, so.VillagerTargetChance);
+
+        /// <summary>계절 보정 확률로 롤하는 판 (M21-W2R). **시드는 그대로다** — 계절이 바꾸는 것은
+        /// 확률값뿐이고 난수원이 아니다 (ADR-M10R-2 결정성 불변: 같은 판 같은 서수 = 같은 결과).
+        /// ADR-M21-10 경계의 판정 쪽: "무엇을 노리는가"는 끝까지 결정적이다.</summary>
+        public static bool RollTargetsVillagers(ThreatSO so, int ordinal, float chance)
         {
-            if (so.VillagerTargetChance <= 0f) return false;
-            if (so.VillagerTargetChance >= 1f) return true;
+            if (chance <= 0f) return false;
+            if (chance >= 1f) return true;
             uint h = StableHash.Fnv1a(ordinal.ToString(), so.DisplayName + "|tgt");
             float r = (h & 0xFFFFFFu) / (float)0x1000000; // [0,1)
-            return r < so.VillagerTargetChance;
+            return r < chance;
         }
+
+        // ── 계절 연동 (M21-W2R — ADR-M21-9) ──────────────────────────────────
+
+        /// <summary>이 계절에 야수가 굶는가 (순수 — 게이트 M21-T7). 야생 먹이가 어는 계절이면 늑대도 굶는다.
+        /// 🔴 IsCrisis가 **아니다**: Season_Summer도 IsCrisis:1 이라 그걸 쓰면 여름 늑대가 사나워진다.
+        /// 겨울만 참인 것은 ForageFrozen이고, 의미도 정확히 겹치므로 새 필드를 만들지 않는다 (기존 통로 우선).
+        /// ⚠️ 갈라지는 조건: "채집은 막히는데 야수는 안 굶는" 계절이 생기면 그때 전용 필드로 분리한다.</summary>
+        public static bool IsPredatorHungry(SeasonSO s) => s != null && s.ForageFrozen;
+
+        /// <summary>계절 반영 주민 타깃 확률 (순수 — 게이트 M21-T7). 클램프 [0,1].
+        /// 배율 1 미만은 무시한다 — 배고픈 계절이 오히려 순해지는 방향은 이 축의 뜻이 아니다.</summary>
+        public static float EffectiveVillagerChance(float baseChance, bool hungry, float mult)
+            => Mathf.Clamp01(hungry ? baseChance * Mathf.Max(1f, mult) : baseChance);
+
+        /// <summary>계절 반영 체류 상한 (순수 — 게이트 M21-T7). 배율 1 미만은 무시 (위와 같은 이유).</summary>
+        public static float EffectiveStayDays(float baseDays, bool hungry, float mult)
+            => hungry ? baseDays * Mathf.Max(1f, mult) : baseDays;
+
+        /// <summary>지금이 배고픈 계절인가 — 인스턴스 창구. 계절 서비스가 없는 판은 false (중립).</summary>
+        private bool PredatorHungryNow => IsPredatorHungry(_season != null ? _season.Current : null);
 
         /// <summary>가장자리 진입점 (순수·결정적): 시드로 4변 중 택1, 변 중앙. 같은 시드 = 같은 지점.</summary>
         public static Vector2Int EntryPoint(uint seed, int minX, int maxX, int minY, int maxY)
@@ -184,7 +220,11 @@ namespace AIVillage.M0
         private void Spawn(ThreatSO so)
         {
             _strikeOrdinal++;
-            bool targetsVillagers = RollTargetsVillagers(so, _strikeOrdinal); // 출몰 시 1회 확정 (ADR-M10R-4)
+            // 타깃 종류는 출몰 시 1회 확정 (ADR-M10R-4). 확률만 계절 보정을 받는다 (M21-W2R) —
+            // 겨울엔 늑대가 굶어 주민 쪽으로 기운다. 시드는 그대로라 결정성은 유지된다.
+            bool hungry = PredatorHungryNow;
+            float chance = EffectiveVillagerChance(so.VillagerTargetChance, hungry, so.HungrySeasonChanceMult);
+            bool targetsVillagers = RollTargetsVillagers(so, _strikeOrdinal, chance);
             MapBounds.Get(out int minX, out int maxX, out int minY, out int maxY);
             uint seed = StableHash.Fnv1a(_strikeOrdinal.ToString(), so.DisplayName);
             Vector2Int entry = EntryPoint(seed, minX, maxX, minY, maxY);
@@ -207,7 +247,7 @@ namespace AIVillage.M0
                        _pathfinder(), targetsVillagers); // 추격 재경로용 + 이번 출몰 타깃 종류 (M10R)
             _active.Add(agent);
             Debug.Log($"[Threat] 출몰 — {so.DisplayName} @ ({entry.x},{entry.y}) → ({target.x},{target.y}) " +
-                      $"[{(targetsVillagers ? "주민" : "밭")} 타깃]");
+                      $"[{(targetsVillagers ? "주민" : "밭")} 타깃]{(hungry ? " · 배고픈 계절" : "")}");
         }
 
         /// <summary>목표 타일: 주민 타격 = 진입점 최근접 생존 주민, 밭 타격 = 진입점 최근접 **실제 밭 타일**.
@@ -346,30 +386,98 @@ namespace AIVillage.M0
         public static bool ShouldGiveUpStay(float arrivedDay, float now, float maxStayDays)
             => maxStayDays > 0f && now - arrivedDay >= maxStayDays;
 
-        /// <summary>체류 시작 통지 (ThreatAgent 전용) — 도착 지점에 눌러앉고 첫 타격을 실행한다.
-        /// 舊 이름 그대로지만 의미가 바뀌었다: 더는 퇴장 경로를 주지 않는다 (퇴장은 BeginExit).</summary>
+        /// <summary>이번 개체의 실효 체류 상한 — 배고픈 계절이면 배율이 걸린다 (M21-W2R).
+        /// 로그·판정이 같은 값을 읽도록 창구를 하나로 둔다 (겨울에 "상한 0.8일"이라 찍고
+        /// 실제로는 1.5일 머무르면 관측이 거짓말이 된다).</summary>
+        private float StayLimitOf(ThreatAgent agent)
+            => EffectiveStayDays(agent.So.MaxStayDays, PredatorHungryNow, agent.So.HungrySeasonStayMult);
+
+        /// <summary>체류 시작 통지 (ThreatAgent 전용) — 도착 지점을 배회 앵커로 삼고 첫 타격을 실행한다.
+        /// M21-W2R: 더는 "눌러앉지" 않는다 — 여기서 시작되는 것은 정지가 아니라 배회다 (퇴장은 BeginExit).
+        /// 밭 타깃인데 사거리 안에 밭이 하나도 없으면 치지 않고 곧바로 물러난다 (W2 결함 Y).</summary>
         public void NotifyArrived(ThreatAgent agent)
         {
             agent.MarkArrived(_gameTime);
-            ExecuteStrike(agent.So, agent.TargetsVillagers, new Vector2Int(agent.TileX, agent.TileY));
+            var here = new Vector2Int(agent.TileX, agent.TileY);
+            if (!agent.TargetsVillagers && !HasFarmTargetsNear(agent.So, here))
+            {
+                BeginExit(agent, "칠 대상이 없다");
+                return;
+            }
+            ExecuteStrike(agent.So, agent.TargetsVillagers, here);
             agent.MarkStruck(_gameTime);
-            Debug.Log($"[Threat] 체류 시작 — {agent.So.DisplayName} @ ({agent.TileX},{agent.TileY}) " +
-                      $"[재타격 {agent.So.RepeatStrikePeriodDays:0.##}일 · 상한 {agent.So.MaxStayDays:0.#}일]");
+            float limit = StayLimitOf(agent);
+            Debug.Log($"[Threat] 체류 시작 — {agent.So.DisplayName} @ ({here.x},{here.y}) " +
+                      $"[재타격 {agent.So.RepeatStrikePeriodDays:0.##}일 · 상한 {limit:0.##}일 · " +
+                      $"배회 반경 {agent.So.WanderRadiusTiles}]");
         }
 
         /// <summary>체류 틱 (ThreatAgent 전용) — 상한 도달이면 퇴장, 아니면 주기 충족 시 재타격.
-        /// 순서가 중요하다: 상한을 먼저 봐야 마지막 프레임에 한 대 더 치고 나가지 않는다.</summary>
+        /// 순서가 중요하다: 상한을 먼저 봐야 마지막 프레임에 한 대 더 치고 나가지 않는다.
+        ///
+        /// 대상 소멸 판정 (M21-W2R — W2 결함 Y): **밭형에만** 건다. 밭이 다 사라져도 상한까지
+        /// `밭 0/0 소실`을 주기마다 찍으며 남아 있던 것이 결함이었다 (시설은 도망가지 않으므로
+        /// "사거리에 없다" = "없다"가 성립한다).
+        ///
+        /// 🔴 주민형에 같은 판정을 걸면 안 된다 (2026-08-07 Play에서 실측으로 잡혔다 — 걸었더니
+        /// 상한 전에 전부 퇴장했다): 주민은 **도망친다**. 사거리 밖에 있는 것은 대상이 없다는 뜻이
+        /// 아니라 아직 못 잡았다는 뜻이고, 그래서 추격이 있다. 주민형의 "칠 대상이 없다"는
+        /// ThreatAgent.TickChase가 소유한다 — 조건은 사거리가 아니라 **생존 주민 0명**이다.
+        /// 대신 사거리에 아무도 없는 순간의 타격은 그냥 거른다 (빈 타격 로그·알림 방지).
+        /// 시각을 기록하지 않으므로 주민이 다시 들어오면 곧바로 문다.</summary>
         public void NotifyStrikeTick(ThreatAgent agent)
         {
             if (agent.IsExiting) return;
-            if (ShouldGiveUpStay(agent.ArrivedDay, _gameTime, agent.So.MaxStayDays))
+            float limit = StayLimitOf(agent);
+            if (ShouldGiveUpStay(agent.ArrivedDay, _gameTime, limit))
             {
-                BeginExit(agent, $"체류 상한 {agent.So.MaxStayDays:0.#}일 — 닿지 못하고");
+                BeginExit(agent, $"체류 상한 {limit:0.##}일");
                 return;
             }
             if (!ShouldRepeatStrike(agent.LastStrikeDay, _gameTime, agent.So.RepeatStrikePeriodDays)) return;
-            ExecuteStrike(agent.So, agent.TargetsVillagers, new Vector2Int(agent.TileX, agent.TileY));
+
+            var here = new Vector2Int(agent.TileX, agent.TileY);
+            if (!agent.TargetsVillagers)
+            {
+                if (!HasFarmTargetsNear(agent.So, here))
+                {
+                    BeginExit(agent, "칠 대상이 없다");
+                    return;
+                }
+            }
+            else if (!HasVillagerTargetsNear(agent.So, here)) return; // 사거리 밖 = 아직 못 잡았다 (추격이 잇는다)
+
+            ExecuteStrike(agent.So, agent.TargetsVillagers, here);
             agent.MarkStruck(_gameTime);
+        }
+
+        /// <summary>사거리 안에 밭이 있는가 (M21-W2R). 반경 규칙은 ExecuteStrike의 후보 수집과
+        /// **같은 맨해튼 반경**이다: 여기서 "있다"고 했는데 저기서 0개를 고르면 로그가 서로를 부정한다.</summary>
+        private bool HasFarmTargetsNear(ThreatSO so, Vector2Int tile)
+        {
+            foreach (Vector2Int t in _construction.BuiltTilesOf(SlotId.FarmPlotCount))
+                if (Mathf.Abs(t.x - tile.x) + Mathf.Abs(t.y - tile.y) <= so.StrikeRadiusTiles)
+                    return true;
+            return false;
+        }
+
+        /// <summary>사거리 안에 생존 주민이 있는가 — 빈 타격 거르기 전용 (퇴장 판정 아님).</summary>
+        private bool HasVillagerTargetsNear(ThreatSO so, Vector2Int tile)
+        {
+            CollectVictimCandidates(tile, so.StrikeRadiusTiles, excludeInjured: false);
+            return _victimKeyBuf.Count > 0;
+        }
+
+        /// <summary>다음 배회 목적지 (ThreatAgent 전용, M21-W2R) — 앵커 반경 내 통행 가능 타일.
+        /// 🔴 여기가 ADR-M21-10의 확률 쪽이다: **동선은 표현이라 난수를 허용한다**
+        /// (같은 판에서 늑대가 매번 같은 길로 걸으면 그게 더 이상하다). 타깃 종류·출몰 스케줄·
+        /// 희생 선정은 여전히 시드 롤이다 — 그쪽에 난수를 넣으면 ADR-M10-1 위반이다.
+        /// isWalkable 미배선이면 앵커 그대로 (배회 없음 = 舊 정지 동작, 중립 폴백).</summary>
+        public Vector2Int PickWanderTile(ThreatAgent agent)
+        {
+            Vector2Int anchor = agent.WanderAnchor;
+            if (_isWalkable == null || agent.So.WanderRadiusTiles <= 0) return anchor;
+            return MapBounds.PickWalkableNear(_isWalkable, anchor.x, anchor.y, agent.So.WanderRadiusTiles);
         }
 
         /// <summary>퇴장 개시 (ThreatAgent·CombatService 공용) — 진입점으로 되돌아간다.

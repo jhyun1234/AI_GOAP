@@ -756,8 +756,14 @@ namespace AIVillage.M0
             // 부상·파괴는 문(Injure/RemoveCountableAt)을 지난다 — 서비스가 상태를 직접 쓰지 않는다.
             if (_worldConfig.Threats != null && _worldConfig.Threats.Length > 0)
             {
-                Threats = new ThreatService(_worldConfig.Threats, Zones, Construction,
-                                            _agents, _worldConfig, () => Pathfinder, transform);
+                // M21-W2R: 인자 2번이 Zones → Season으로 교체됐다. 구역 참조는 b51c631 이후
+                // 죽은 코드였고(FarmPlot.ZoneRadius=0이라 등록 자체가 안 된다), 그 자리에 계절이
+                // 들어와 "겨울엔 늑대가 굶는다"를 만든다. isWalkable은 배회 목적지 필터.
+                Threats = new ThreatService(_worldConfig.Threats, Season, Construction,
+                                            _agents, _worldConfig, () => Pathfinder,
+                                            (x, y) => MapBounds.ToArrayIndex(x, y, out int ax, out int ay)
+                                                      && Walkable[ax, ay],
+                                            transform);
                 Threats.OnForecast += t =>
                     Hud?.Notify($"{t.DisplayName}이(가) 다가옵니다 — {t.WarnDays:0.#}일 뒤");
                 Threats.OnStruck += (t, struckVillagers, n, tile, victims) =>

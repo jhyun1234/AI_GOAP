@@ -194,5 +194,150 @@ namespace AIVillage.Tests.EditMode
                     $"{so.name}: 체류 상한이 재타격 주기보다 짧으면 눌러앉는 의미가 없다");
             }
         }
+
+        // ── M21-T7: 배회 + 계절 연동 (W2R DoD ③④⑥) ──────────────────────────
+
+        private static SeasonSO NewSeason(string name, bool isCrisis, bool forageFrozen)
+        {
+            var s = ScriptableObject.CreateInstance<SeasonSO>();
+            s.DisplayName = name;
+            s.IsCrisis = isCrisis;
+            s.ForageFrozen = forageFrozen;
+            return s;
+        }
+
+        [Test]
+        public void M21_T7_IsPredatorHungry_IsForageFrozen_NotIsCrisis()
+        {
+            // 🔴 이 게이트가 존재하는 이유 (명세 실사 R): "겨울"을 IsCrisis로 판정하면
+            // Season_Summer도 IsCrisis:1 이라 **여름 늑대가 사나워진다**.
+            Assert.IsTrue(ThreatService.IsPredatorHungry(NewSeason("겨울", true, true)),
+                "겨울 = 채집 봉쇄 = 야수도 굶는다");
+            Assert.IsFalse(ThreatService.IsPredatorHungry(NewSeason("여름", true, false)),
+                "여름은 위기지만 봉쇄가 아니다 — 배율이 걸리면 안 된다 (ADR-M21-9)");
+            Assert.IsFalse(ThreatService.IsPredatorHungry(NewSeason("평온", false, false)));
+            Assert.IsFalse(ThreatService.IsPredatorHungry(null), "계절 없는 판 = 중립");
+        }
+
+        [Test]
+        public void M21_T7_ShippedSeasons_OnlyWinterFeedsTheTrap()
+        {
+            // 배포 에셋 대조 — 순수 함수가 옳아도 에셋이 바뀌면 뜻이 달라진다.
+            // 특히 "IsCrisis인데 ForageFrozen이 아닌" 계절이 실재함을 고정한다 (그 존재가 함정의 근거).
+            string[] guids = AssetDatabase.FindAssets("t:SeasonSO");
+            Assert.Greater(guids.Length, 0, "배포 계절 에셋이 하나도 없다");
+
+            int hungry = 0, crisisButNotFrozen = 0;
+            foreach (string guid in guids)
+            {
+                var s = AssetDatabase.LoadAssetAtPath<SeasonSO>(AssetDatabase.GUIDToAssetPath(guid));
+                if (ThreatService.IsPredatorHungry(s)) hungry++;
+                if (s.IsCrisis && !s.ForageFrozen) crisisButNotFrozen++;
+            }
+            Assert.AreEqual(1, hungry, "배고픈 계절은 정확히 하나(겨울)여야 한다");
+            Assert.Greater(crisisButNotFrozen, 0,
+                "IsCrisis인데 봉쇄가 아닌 계절이 사라졌다 — IsCrisis로 갈아타도 게이트가 안 잡게 된다");
+        }
+
+        [Test]
+        public void M21_T7_SeasonMultipliers_ClampAndIgnoreWeakening()
+        {
+            // 확률: 배고픈 계절에만 곱하고 [0,1] 클램프
+            Assert.AreEqual(0.25f, ThreatService.EffectiveVillagerChance(0.25f, false, 2f), 1e-5f,
+                "평시엔 기저 확률 그대로");
+            Assert.AreEqual(0.5f, ThreatService.EffectiveVillagerChance(0.25f, true, 2f), 1e-5f,
+                "겨울엔 ×2");
+            Assert.AreEqual(1f, ThreatService.EffectiveVillagerChance(0.75f, true, 2f), 1e-5f,
+                "1 초과는 클램프 — 곰·무리는 겨울에 반드시 주민을 노린다");
+            Assert.AreEqual(0f, ThreatService.EffectiveVillagerChance(0f, true, 2f), 1e-5f,
+                "기저 0은 겨울에도 0 — 배율은 없는 것을 만들지 않는다");
+            Assert.AreEqual(0.25f, ThreatService.EffectiveVillagerChance(0.25f, true, 0.5f), 1e-5f,
+                "1 미만 배율은 무시 — 배고픈 계절이 더 순해질 수는 없다");
+
+            // 체류 상한: 같은 규약
+            Assert.AreEqual(0.75f, ThreatService.EffectiveStayDays(0.75f, false, 2f), 1e-5f);
+            Assert.AreEqual(1.5f, ThreatService.EffectiveStayDays(0.75f, true, 2f), 1e-5f,
+                "겨울 체류 0.75 → 1.5일 (최대 6회 타격)");
+            Assert.AreEqual(0.75f, ThreatService.EffectiveStayDays(0.75f, true, 0.5f), 1e-5f,
+                "1 미만 배율은 무시");
+        }
+
+        [Test]
+        public void M21_T7_SeasonedRoll_StaysDeterministic()
+        {
+            // ADR-M21-10 판정 쪽: 계절이 바꾸는 것은 확률값이지 난수원이 아니다.
+            var so = ScriptableObject.CreateInstance<ThreatSO>();
+            so.DisplayName = "외로운 늑대";
+            so.VillagerTargetChance = 0.25f;
+
+            for (int ord = 1; ord <= 50; ord++)
+                Assert.AreEqual(ThreatService.RollTargetsVillagers(so, ord, 0.5f),
+                                ThreatService.RollTargetsVillagers(so, ord, 0.5f),
+                                $"서수 {ord} 재현 — 같은 판이면 같은 결과");
+
+            // 인자 없는 판 = 에셋 기저 확률판 (기존 호출자·M10 게이트 호환)
+            for (int ord = 1; ord <= 50; ord++)
+                Assert.AreEqual(ThreatService.RollTargetsVillagers(so, ord),
+                                ThreatService.RollTargetsVillagers(so, ord, so.VillagerTargetChance),
+                                $"서수 {ord}: 2인자판 = 기저 확률 3인자판");
+
+            // 확률을 올리면 주민 타깃이 늘어난다 (단조) — 겨울 보정이 실제로 기울이는가
+            int plain = 0, winter = 0;
+            for (int ord = 1; ord <= 200; ord++)
+            {
+                if (ThreatService.RollTargetsVillagers(so, ord, 0.25f)) plain++;
+                if (ThreatService.RollTargetsVillagers(so, ord, 0.5f)) winter++;
+            }
+            Assert.Greater(winter, plain, "겨울 확률이 높은데 주민 타깃이 늘지 않았다");
+        }
+
+        [Test]
+        public void M21_T7_Tier1Wolf_TargetsVillagersInPlainSeasons()
+        {
+            // W2R DoD ④ — Tier1이 **평시에도** 주민을 노리는 출몰이 존재해야 한다.
+            // M10 시절 VillagerTargetChance:0("밭 전용")의 개정이고, 0으로 되돌아가면 여기서 잡힌다.
+            var wolf = AssetDatabase.LoadAssetAtPath<ThreatSO>(
+                "Assets/M0Config/Threats/Threat_Tier1_Wolf.asset");
+            Assert.IsNotNull(wolf, "Tier1 늑대 에셋 로드");
+            Assert.Greater(wolf.VillagerTargetChance, 0f,
+                "늑대가 다시 밭 전용이 됐다 — 평시 주민 타깃이 영영 안 온다");
+
+            int villagerRolls = 0;
+            for (int ord = 1; ord <= 100; ord++)
+                if (ThreatService.RollTargetsVillagers(wolf, ord)) villagerRolls++;
+            Assert.Greater(villagerRolls, 0,
+                "100번의 출몰 서수 중 주민 타깃이 한 번도 없다 (결정적 시드 — 확률이 너무 낮다)");
+
+            // 주민을 노리는데 할 말이 없으면 화면에서 아무 일도 안 일어난다.
+            // W2R 합의 한 줄이 요구하는 것은 동선 **과 주민의 반응** 둘 다다.
+            Assert.IsNotNull(wolf.StrikeLinesVillager, "주민 피격 대사 미배선");
+            Assert.Greater(wolf.StrikeLinesVillager.Length, 0,
+                "주민을 노리는 위협에 피격 대사가 없다 — 물렸는데 아무도 말이 없다");
+        }
+
+        [Test]
+        public void M21_T7_ShippedThreats_WanderIsVisible()
+        {
+            // W2R DoD ⑥ — 배회가 실제로 화면에서 움직임으로 보이는 값인가.
+            foreach (string guid in AssetDatabase.FindAssets("t:ThreatSO"))
+            {
+                var so = AssetDatabase.LoadAssetAtPath<ThreatSO>(AssetDatabase.GUIDToAssetPath(guid));
+                Assert.Greater(so.WanderRadiusTiles, 0,
+                    $"{so.name}: 배회 반경 0 = 도착 지점 정지 = W2R 이전 동작으로 회귀");
+                Assert.Greater(so.WanderRadiusTiles, so.StrikeRadiusTiles,
+                    $"{so.name}: 배회 반경({so.WanderRadiusTiles}) ≤ 타격 반경({so.StrikeRadiusTiles}) — " +
+                    "사거리 밖으로 안 나가 '돌다가 다가온다'가 안 보인다");
+                Assert.GreaterOrEqual(so.HungrySeasonChanceMult, 1f,
+                    $"{so.name}: 배고픈 계절 확률 배율이 1 미만 — 겨울에 오히려 순해진다");
+                Assert.GreaterOrEqual(so.HungrySeasonStayMult, 1f,
+                    $"{so.name}: 배고픈 계절 체류 배율이 1 미만");
+
+                // 겨울 상한(×배율)에서도 재타격이 최소 한 번은 더 들어가야 "더 집요하다"가 성립
+                float winterStay = ThreatService.EffectiveStayDays(
+                    so.MaxStayDays, true, so.HungrySeasonStayMult);
+                Assert.Greater(winterStay, so.MaxStayDays,
+                    $"{so.name}: 겨울 체류가 평시와 같다 — 계절 연동이 값에서 사라졌다");
+            }
+        }
     }
 }

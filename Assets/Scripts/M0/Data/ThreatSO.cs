@@ -66,8 +66,27 @@ namespace AIVillage.M0
         public float RepeatStrikePeriodDays = 0.25f;
 
         [Tooltip("체류 안전 상한 (게임일) — 이 시간이 지나면 스스로 물러난다. 자비가 아니라 " +
-                 "**지형 보루**다: 닿을 수 없는 자리에 눌러앉은 개체가 영영 남는 것을 막는다.")]
-        public float MaxStayDays = 2f;
+                 "**지형 보루**다: 닿을 수 없는 자리에 눌러앉은 개체가 영영 남는 것을 막는다.\n" +
+                 "M21-W2R에서 2 → 0.75로 축소: 재타격 주기 0.25일과 짝지어 최대 3회 타격 " +
+                 "(체류 자체가 아니라 그 길이가 W2의 불만이었다).")]
+        public float MaxStayDays = 0.75f;
+
+        [Header("배회 (M21-W2R — 정지의 폐기, ADR-M21-10: 동선은 표현이라 난수 허용)")]
+        [Tooltip("배회 반경 (타일) — 도착 지점을 앵커로 이 반경 안의 통행 가능 타일을 오간다. " +
+                 "주민 여가 배회(RestByCampfire.WanderRadius 4)보다 한 칸 크게 = 짐승이 더 넓게 돈다. " +
+                 "타격 반경(3~4)보다 커야 '돌다가 다가온다'가 성립한다. 0 이하면 배회하지 않는다(정지 회귀).")]
+        public int WanderRadiusTiles = 5;
+
+        [Tooltip("배고픈 계절(SeasonSO.ForageFrozen)의 주민 타깃 확률 배율 — 겨울엔 타깃이 주민 쪽으로 " +
+                 "기운다. 결과는 [0,1] 클램프. 1 미만은 무시된다(배고픈 계절이 더 순해질 수는 없다).\n" +
+                 "⚠️ 판정은 IsCrisis가 아니라 ForageFrozen이다 (ADR-M21-9) — 여름도 IsCrisis라 " +
+                 "그걸 쓰면 여름 늑대가 사나워진다.")]
+        public float HungrySeasonChanceMult = 2f;
+
+        [Tooltip("배고픈 계절의 체류 상한 배율 — 겨울엔 더 집요하게 머문다. 0.75 × 2 = 1.5일(최대 6회 타격). " +
+                 "1 미만은 무시된다. 계절이 바꾸는 것은 타깃 확률과 이 둘뿐이고, 출몰 빈도·피해량은 " +
+                 "게임일 래칫(ADR-M10R-1)이 그대로 소유한다.")]
+        public float HungrySeasonStayMult = 2f;
 
         [Header("표현")]
         [Tooltip("개체 이동 속도 (타일/초, 실시간). 주민 기본 2.0보다 약간 빠르게 — 제안 2.5.")]
@@ -106,6 +125,16 @@ namespace AIVillage.M0
                 Debug.LogWarning($"[ThreatSO] {name}: RepeatStrikePeriodDays({RepeatStrikePeriodDays})는 양수여야 합니다 — 매 프레임 타격하게 됩니다.", this);
             if (MaxStayDays <= 0f)
                 Debug.LogWarning($"[ThreatSO] {name}: MaxStayDays({MaxStayDays})는 양수여야 합니다 — 도착 즉시 물러납니다.", this);
+            if (WanderRadiusTiles <= 0)
+                Debug.LogWarning($"[ThreatSO] {name}: WanderRadiusTiles({WanderRadiusTiles}) ≤ 0 — 도착 지점에 정지합니다 (M21-W2R 이전 동작).", this);
+            else if (WanderRadiusTiles <= StrikeRadiusTiles)
+                Debug.LogWarning($"[ThreatSO] {name}: WanderRadiusTiles({WanderRadiusTiles}) ≤ StrikeRadiusTiles({StrikeRadiusTiles}) — " +
+                                 "배회해도 사거리 밖으로 안 나가 '돌다가 다가온다'가 보이지 않습니다.", this);
+            if (HungrySeasonChanceMult < 1f)
+                Debug.LogWarning($"[ThreatSO] {name}: HungrySeasonChanceMult({HungrySeasonChanceMult}) < 1 — 무시됩니다 " +
+                                 "(배고픈 계절이 더 순해질 수는 없습니다). 1 = 계절 무관.", this);
+            if (HungrySeasonStayMult < 1f)
+                Debug.LogWarning($"[ThreatSO] {name}: HungrySeasonStayMult({HungrySeasonStayMult}) < 1 — 무시됩니다. 1 = 계절 무관.", this);
         }
     }
 }

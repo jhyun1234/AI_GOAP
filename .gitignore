@@ -134,3 +134,9 @@ InitTestScene*.unity*
 
 # macOS zip 잔해 (Windows 에서 압축 해제할 때 딸려 나온다)
 /__MACOSX/
+
+# MCP for Unity — 관측용 스크린샷 (2026-08-07). 산출물이지 소스가 아니다.
+/[Aa]ssets/Screenshots/
+/[Aa]ssets/Screenshots.meta
+/[Aa]ssets/mcp.log
+/[Aa]ssets/mcp.log.meta

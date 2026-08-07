@@ -339,5 +339,80 @@ namespace AIVillage.Tests.EditMode
                     $"{so.name}: 겨울 체류가 평시와 같다 — 계절 연동이 값에서 사라졌다");
             }
         }
+
+        // ── M21-T8: 전투 판정 순수 함수 (W3 DoD ②) ───────────────────────────
+
+        [Test]
+        public void M21_T8_ShouldFlee_IsStrictlyBelowTheLine()
+        {
+            // 경계에서 **아직 버틴다** — 0.4 도주선에 정확히 40%면 한 대 더 맞아야 물러난다.
+            // 이하로 열면 "몰아붙였다"는 감각이 한 타 일찍 끊긴다.
+            // 🔴 이 줄이 실제로 red 였다 (2026-08-07): 60f*0.4f = 24.0000003 이라 24 < 24.0000003 이
+            // 참이 되어 규약이 반대로 뒤집혔다. 가상의 경계가 아니다 — 체력 60·피해 12면
+            // 60→48→36→24 로 **정확히** 닿는다. CombatService.HP_EPSILON 이 이걸 막는다.
+            Assert.IsFalse(CombatService.ShouldFlee(24f, 60f, 0.4f), "정확히 40% = 아직 버틴다");
+            Assert.IsFalse(CombatService.ShouldFlee(60f, 150f, 0.4f), "곰(150)에서도 경계는 버틴다");
+            Assert.IsTrue(CombatService.ShouldFlee(23f, 60f, 0.4f), "40% 미만 = 물러난다");
+            Assert.IsTrue(CombatService.ShouldFlee(0f, 60f, 0.4f), "체력 0도 참 (사망 판정이 먼저 가로챈다)");
+
+            // 에셋 사고 방어
+            Assert.IsFalse(CombatService.ShouldFlee(30f, 60f, 0f), "도주선 0 = 끝까지 싸운다");
+            Assert.IsFalse(CombatService.ShouldFlee(30f, 0f, 0.4f), "최대 체력 0 = 판정 불가, 도주 없음");
+            Assert.IsTrue(CombatService.ShouldFlee(59f, 60f, 1f), "도주선 1 = 첫 피격에 물러난다");
+        }
+
+        [Test]
+        public void M21_T8_ShouldRout_NeedsASurvivingGroup()
+        {
+            // 이중 도주선의 바깥쪽 — 개체는 자기 체력, 무리는 잔존율.
+            Assert.IsTrue(CombatService.ShouldRout(2, 5, 0.5f), "5마리 중 2마리 = 40% < 50% → 무너진다");
+            Assert.IsFalse(CombatService.ShouldRout(3, 5, 0.5f), "60%면 아직 싸운다");
+            Assert.IsFalse(CombatService.ShouldRout(1, 2, 0.5f), "정확히 50% = 경계는 버틴다");
+
+            // 🔴 전멸에 "무리 도주"를 겹쳐 부르지 않는다 — 사건이 두 번 세어진다
+            Assert.IsFalse(CombatService.ShouldRout(0, 5, 0.5f), "잔존 0 = 판정할 무리가 없다");
+            Assert.IsFalse(CombatService.ShouldRout(1, 0, 0.5f), "스폰 0 = 무리가 아니다");
+            // 마릿수 확장(W6) 전 실제 상태 — 1마리 출몰에서는 절대 발동하지 않아야 한다
+            Assert.IsFalse(CombatService.ShouldRout(1, 1, 0.5f), "1마리 출몰 = 무리 도주 없음 (W6 전 현재 상태)");
+        }
+
+        [Test]
+        public void M21_T8_HitInterval_MultipliersCombineAndClamp()
+        {
+            const float BASE = 4f; // §4 제안치
+
+            Assert.AreEqual(4f, CombatService.HitInterval(BASE, 1f, false, 0.5f), 1e-4f,
+                "맨손·무직 = 기본 간격 (무기 배율은 무기가 없으면 안 걸린다)");
+            Assert.AreEqual(2f, CombatService.HitInterval(BASE, 1f, true, 0.5f), 1e-4f,
+                "무기 = 2배 빠름");
+            Assert.AreEqual(2f, CombatService.HitInterval(BASE, 0.5f, false, 0.5f), 1e-4f,
+                "사냥꾼 맨손 = 2배 빠름");
+            Assert.AreEqual(1f, CombatService.HitInterval(BASE, 0.5f, true, 0.5f), 1e-4f,
+                "무장 사냥꾼 = 곱 결합으로 4배 (M20 배율 문법)");
+
+            // 에셋 사고 방어 — 배율 0/음수는 무시하고 1로 본다 (0이면 간격 0 = 매 프레임 타격)
+            Assert.AreEqual(4f, CombatService.HitInterval(BASE, 0f, true, 0f), 1e-4f,
+                "배율 0 = 무시하고 1 (프레임 타격 금지)");
+            Assert.AreEqual(4f, CombatService.HitInterval(BASE, -1f, false, 1f), 1e-4f, "음수 배율도 무시");
+            Assert.GreaterOrEqual(CombatService.HitInterval(0f, 1f, false, 1f), 0.01f,
+                "기본 간격 0이어도 최소 0.01초 — 어떤 조합에서도 매 프레임 타격은 없다");
+        }
+
+        [Test]
+        public void M21_T8_ShippedThreats_CanBeRepelledBeforeDying()
+        {
+            // 도주선이 체력보다 위에 있으면 격퇴가 사냥보다 먼저 온다 = "이겨도 안 죽일 수 있다".
+            // 이게 무너지면 ADR-M21-1("격퇴하며 버티는")이 "몰살하며 버티는"이 된다.
+            foreach (string guid in AssetDatabase.FindAssets("t:ThreatSO"))
+            {
+                var so = AssetDatabase.LoadAssetAtPath<ThreatSO>(AssetDatabase.GUIDToAssetPath(guid));
+                Assert.Greater(so.FleeBelowHpPct, 0f,
+                    $"{so.name}: 도주선 0 = 죽여야만 끝난다 (격퇴 축이 사라진다)");
+                Assert.Less(so.FleeBelowHpPct, 1f,
+                    $"{so.name}: 도주선 1 = 첫 피격에 도주 (교전이 성립하지 않는다)");
+                Assert.GreaterOrEqual(so.MeatDrop, 0,
+                    $"{so.name}: 드랍이 음수 — 사냥이 창고를 깎는다");
+            }
+        }
     }
 }

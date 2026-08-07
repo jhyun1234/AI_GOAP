@@ -90,6 +90,10 @@ namespace AIVillage.M0
         /// <summary>야생 위협 (M10-C). Threats가 비면 서비스 null = 위협 없음 (중립 불변식, M9 동작).</summary>
         public ThreatService Threats { get; private set; }
 
+        /// <summary>전투 판정 (M21-W3, ADR-M21-3). **Threats와 생사를 같이 한다** — 때릴 위협이
+        /// 없는 판에 전투 판정만 살아 있으면 그게 더 이상하다 (중립 불변식).</summary>
+        public CombatService Combat { get; private set; }
+
         /// <summary>방랑자 (M10-E). WandererIntervalDays ≤ 0이면 서비스 null = 방랑자 없음 (중립 불변식).</summary>
         public WandererService Wanderers { get; private set; }
         public PlannerGateway Planner { get; private set; }
@@ -780,6 +784,15 @@ namespace AIVillage.M0
                     if (struckVillagers) ShowVictimStrikeLines(t, victims); // 화자 = 실제 부상자
                     else                 ShowFarmStrikeLines(t, tile);      // 화자 = 근처 주민
                 };
+
+                // 전투 판정 (M21-W3) — Threats 분기 **안**에 둔다: 때릴 위협이 없는 판에
+                // 전투 판정만 살아 있으면 중립 불변식이 깨진다. 표현 배선은 여기, 판정은 서비스.
+                Combat = new CombatService(World, () => GameTime);
+                Combat.OnRepelled += (t, attackerId, day) =>
+                    Hud?.Notify($"{t.DisplayName}을(를) 물리쳤습니다");
+                Combat.OnHunted += (t, attackerId, drop, day) =>
+                    Hud?.Notify(drop > 0 ? $"{t.DisplayName} 사냥 성공 — 고기 {drop} 확보"
+                                         : $"{t.DisplayName} 사냥 성공");
             }
 
             // 방랑자 (M10-E) — 주기 ≤ 0이면 서비스 null (중립 불변식). 표현 배선은 전부 여기 —

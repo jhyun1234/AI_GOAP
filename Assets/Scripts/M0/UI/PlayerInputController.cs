@@ -31,6 +31,13 @@ namespace AIVillage.M0
         [Tooltip("Shift+우클릭 명령에 거는 보상 (M6-E — 설득 수단 1호). 비면 보상 명령 불가.")]
         [SerializeField] private RewardSO _rewardOnOrder;
 
+        [Tooltip("「싸워라」 명령 goal (M21-W4 — Goal_Fight). 선택 주민에게 F 키로 하달한다. " +
+                 "비면 명령 불가(중립 불변식 — 위협 축이 없는 판에서도 조용하다).\n" +
+                 "⚠️ 완전 징집이 아니다: JudgeOrder 를 그대로 지나므로 배고프거나 지친 주민은 거부한다 " +
+                 "(ADR-M21-7 · 정체성 C '협상'). 새 거부 사유는 만들지 않는다 — 용기는 성향이 " +
+                 "goal 순위에서 이미 말한다.")]
+        [SerializeField] private GoalSO _orderFight;
+
         [Tooltip("주민 선택 픽킹 반경 (타일). 2026-08-07 0.8 → 1.5 — 0.8은 스프라이트보다 좁아 " +
                  "'분명히 눌렀는데 안 잡히는' 클릭이 잦았다. 노드 반경과 같은 값으로 통일.")]
         [SerializeField] private float _villagerPickRadius = 1.5f;
@@ -116,6 +123,18 @@ namespace AIVillage.M0
                 for (int i = 0; i < _speedSteps.Length && i < 9; i++)
                     if (Input.GetKeyDown((KeyCode)((int)KeyCode.Alpha1 + i)))
                         SetSpeed(Mathf.Max(0.1f, _speedSteps[i]));
+
+            // 「싸워라」 명령 (F키, M21-W4) — 선택한 주민에게 교전 goal 하달.
+            // 우클릭이 아니라 키인 이유: 대상은 "지목한 위협"이 아니라 **최근접 위협**이다
+            // (러너가 고른다). 우클릭으로 특정 늑대를 찍게 하면 개체 지목 문법이 새로 생기는데,
+            // 그건 명세에 없는 축이다 — 명령은 "가서 싸워라"까지고 누구와인지는 주민이 정한다.
+            if (Input.GetKeyDown(KeyCode.F) && _selected != null && _orderFight != null)
+            {
+                VillagerAgent.OrderResult r = _selected.TryGiveOrder(_orderFight);
+                if (r == VillagerAgent.OrderResult.Accepted)
+                    M0SimulationLoop.Instance.Hud?.Notify($"{_selected.ShortName}에게 맞서라고 명령했습니다");
+                // 거부는 주민의 말풍선·로그가 이미 말한다 (기존 명령 통로와 같은 규약)
+            }
 
             // 일시정지 토글 (0키, 2026-08-07 개입 인프라) — 개입은 "무엇을 할지 정하는 시간"을
             // 필요로 하는데, 최저 배속이 1×면 판을 멈추고 생각할 방법이 없었다. 다시 0을 누르면

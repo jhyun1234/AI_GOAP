@@ -1,3 +1,4 @@
+using System.Linq;
 using AIVillage.M0;
 using NUnit.Framework;
 using UnityEditor;
@@ -413,6 +414,129 @@ namespace AIVillage.Tests.EditMode
                 Assert.GreaterOrEqual(so.MeatDrop, 0,
                     $"{so.name}: 드랍이 음수 — 사냥이 창고를 깎는다");
             }
+        }
+
+        // ── M21-T9: 교전 goal — 피신과의 대칭 (W4 DoD ①③⑤) ─────────────────
+
+        private static GoalSO LoadGoal(string n)
+        {
+            var g = AssetDatabase.LoadAssetAtPath<GoalSO>($"Assets/M0Config/Goals/{n}.asset");
+            Assert.IsNotNull(g, $"{n} 에셋 로드");
+            return g;
+        }
+
+        private static WorldSnapshot SnapThreat(int threatNear)
+        {
+            var slots = new int[PlanningConfig.TotalSlots];
+            slots[(int)SlotId.ThreatNear] = threatNear;
+            return new WorldSnapshot(slots);
+        }
+
+        [Test]
+        public void M21_T9_FightAndFlee_AreTheSameTriggerOppositeNerve()
+        {
+            GoalSO fight = LoadGoal("Goal_Fight"), flee = LoadGoal("Goal_Flee");
+
+            // 🔑 설계의 핵심 — 동률 + 부호 대칭. 높이면 겁쟁이도 싸우고, 낮추면 아무도 안 싸운다
+            // (명세 ⚠️ 오해 위험 ①). 승부는 우선순위가 아니라 성향이 가른다.
+            Assert.AreEqual(flee.Priority, fight.Priority,
+                "교전과 피신은 동률이어야 한다 — 우선순위로 이기면 성향 대칭이 무의미해진다");
+
+            float fightCaution = fight.TraitWeights.First(w => w.Trait == TraitId.Caution).Weight;
+            float fleeCaution  = flee.TraitWeights.First(w => w.Trait == TraitId.Caution).Weight;
+            Assert.Less(fightCaution, 0f, "교전은 겁에 **음의** 가중치 (담대할수록 싸운다)");
+            Assert.Greater(fleeCaution, 0f, "피신은 겁에 **양의** 가중치 (조심할수록 도망친다)");
+            Assert.AreEqual(-fleeCaution, fightCaution, 1e-4f, "부호만 반대이고 크기는 같아야 대칭이다");
+
+            // 같은 트리거 — 같은 세계 상태가 둘을 함께 켠다 (ADR-M12-4 ③ⓐ 논증의 근거)
+            Assert.AreEqual(flee.TriggerConditions.Length, fight.TriggerConditions.Length);
+            Assert.AreEqual(flee.TriggerConditions[0].Slot, fight.TriggerConditions[0].Slot,
+                "교전과 피신은 같은 트리거 슬롯(ThreatNear)을 본다");
+        }
+
+        [Test]
+        public void M21_T9_TraitDecidesWhoFightsAndWhoRuns()
+        {
+            // W4 DoD ① — 같은 판, 같은 위협, 갈리는 행동. 성향만 다르다.
+            GoalSO fight = LoadGoal("Goal_Fight"), flee = LoadGoal("Goal_Flee");
+            var selector = new GoalSelector(new[] { fight, flee });
+            WorldSnapshot threatNear = SnapThreat(1);
+
+            var timid = new[] { new TraitValue { Trait = TraitId.Caution, Value = 100 } };
+            var brave = new[] { new TraitValue { Trait = TraitId.Caution, Value = -100 } };
+
+            System.Func<GoalSO, int> Bias(TraitValue[] t) => g => g.TraitBoost(t);
+
+            Assert.AreSame(flee, selector.Select(threatNear, null, null, Bias(timid)),
+                "겁 많은 주민은 피신한다");
+            Assert.AreSame(fight, selector.Select(threatNear, null, null, Bias(brave)),
+                "담대한 주민은 맞선다");
+
+            // 중립 성격은 동률 — 배열 순서(피신 우선)가 가른다. 갈라지는 것 자체가 요점이라
+            // 중립의 승자는 고정하지 않고 "둘 중 하나"만 확인한다.
+            GoalSO neutral = selector.Select(threatNear, null, null, null);
+            Assert.IsTrue(neutral == fight || neutral == flee, "중립도 둘 중 하나는 고른다");
+
+            // 위협이 없으면 둘 다 안 뜬다 (트리거 = 세계 상태, ADR-M12-4 ③ⓑ 자기 종료)
+            Assert.IsNull(selector.Select(SnapThreat(0), null, null, Bias(brave)),
+                "위협이 사라지면 교전 goal도 함께 꺼진다");
+        }
+
+        [Test]
+        public void M21_T9_OrderedFight_BypassesTriggerButAutonomyDoesNot()
+        {
+            // W4 DoD ⑤ / 재검사 B1 — 원정은 **플레이어 개입의 값**이다.
+            // 자율에 열면 전 맵 주민이 밭 늑대 한 마리로 몰려간다 (명세 ⚠️ 오해 위험 ④).
+            GoalSO fight = LoadGoal("Goal_Fight");
+            var selector = new GoalSelector(new[] { fight });
+            WorldSnapshot far = SnapThreat(0); // 위협이 멀다 = 트리거 미발동
+
+            Assert.IsNull(selector.Select(far), "자율: 위협이 멀면 교전 goal이 뜨지 않는다");
+            Assert.AreSame(fight, selector.Select(far, null, fight),
+                "명령: 트리거를 우회해 원정한다 (빈 플랜 즉시 완료 0건의 근거)");
+
+            Assert.IsTrue(fight.OrderedIgnoresTrigger, "특례 플래그가 꺼지면 명령이 공수표가 된다");
+        }
+
+        [Test]
+        public void M21_T9_FightAsset_IsDirectPoolAndInjuryFiltered()
+        {
+            GoalSO fight = LoadGoal("Goal_Fight");
+
+            // DirectActionPool 필수 — 도망 액션과 효과(ThreatNear→0)가 같아서 플래너에 맡기면
+            // "싸우라"는 goal이 도망을 고를 수 있다 (M12_T4 목록의 사유와 짝).
+            Assert.IsTrue(fight.DirectActionPool != null && fight.DirectActionPool.Length > 0,
+                "교전은 플래너를 거치지 않는다 — 도망 액션과 효과가 같아 모호하다");
+            Assert.IsTrue(fight.GoalConditions == null || fight.GoalConditions.Length == 0,
+                "DirectActionPool goal은 GoalConditions를 비운다 ('항상 미달성' 특례)");
+            Assert.IsInstanceOf<FightActionSO>(fight.DirectActionPool[0], "풀의 액션은 교전 액션이어야 한다");
+
+            // W4 DoD ③ — 부상자는 후보에서 빠진다 (교전 **중** 부상이 러너를 끊지 않는 것은
+            // 별개다: 그건 재검사 A2이고 러너 쪽 규약이다)
+            Assert.IsFalse(fight.AllowedWhenInjured,
+                "절뚝이며 늑대에게 달려들면 안 된다 — 부상자는 참전 선발에서 빠진다");
+        }
+
+        [Test]
+        public void M21_T9_ShippedFightAction_NumbersMatchTheThreatItFights()
+        {
+            // M17 수치의 짝 — 한쪽만 바꾸면 "맨손 솔로는 아프다"는 검산이 조용히 무너진다.
+            var act = AssetDatabase.LoadAssetAtPath<FightActionSO>(
+                "Assets/M0Config/Actions/Action_Fight.asset");
+            Assert.IsNotNull(act, "Action_Fight 에셋 로드");
+            var wolf = AssetDatabase.LoadAssetAtPath<ThreatSO>(
+                "Assets/M0Config/Threats/Threat_Tier1_Wolf.asset");
+
+            Assert.Greater(act.HitDamage, 0f, "피해 0 = 때려도 아무 일이 없다");
+            Assert.Greater(act.BaseHitSec, 0f, "간격 0 = 매 프레임 타격");
+            Assert.Less(act.StrikeRangeTiles, wolf.StrikeRadiusTiles,
+                "주민 사거리가 위협보다 넓으면 늑대가 닿기 전에 맞는다 — 파고들어야 '맞으면서 때린다'");
+
+            // 늑대를 도주선까지 몰아붙이는 데 필요한 타격 수 — 유한해야 교전이 성립한다
+            float toFlee = wolf.MaxHp - wolf.MaxHp * wolf.FleeBelowHpPct;
+            int hits = Mathf.CeilToInt(toFlee / act.HitDamage);
+            Assert.Less(hits, 12, $"늑대 격퇴에 {hits}대 필요 — 너무 길면 맨손 교전이 자살이 된다");
+            Assert.Greater(hits, 1, "한 대에 격퇴되면 위협이 장식이 된다");
         }
     }
 }

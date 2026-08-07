@@ -586,6 +586,27 @@ namespace AIVillage.M0
             return best != int.MaxValue;
         }
 
+        /// <summary>최근접 **교전 가능** 위협 개체 (M21-W4 — FightRunner 전용). 맨해튼 최근접.
+        /// 🔴 도주·퇴장 중인 개체는 제외한다: 이미 물러나는 것을 새 교전 대상으로 삼으면 러너가
+        /// 마을 밖까지 따라간다 (§W4 DoD ④ "무한 추격 0"). 격퇴는 그 자체로 이김이라
+        /// 쫓아갈 이유가 없다 — 도망가는 짐승을 잡는 것은 사냥꾼(W8)의 몫이다.
+        /// TryGetNearestThreatPos(도피 방향용)와 목록은 같지만 **필터가 다르다**: 도망칠 때는
+        /// 물러나는 늑대도 무섭다.</summary>
+        public bool TryGetNearestFightable(int x, int y, out ThreatAgent threat)
+        {
+            threat = null;
+            int best = int.MaxValue;
+            foreach (ThreatAgent t in _active)
+            {
+                if (t == null || t.IsFleeing || t.IsExiting) continue;
+                int d = Mathf.Abs(x - t.TileX) + Mathf.Abs(y - t.TileY);
+                if (d >= best) continue;
+                best = d;
+                threat = t;
+            }
+            return threat != null;
+        }
+
         /// <summary>내 근처에 활성 위협이 있는가 (M10-D ThreatNear 슬롯의 유일한 원천).
         /// personalRadiusMult = 성격 감지 배율 (고집쟁이 0.6 = 늦게 알아챈다).</summary>
         public bool IsNearThreat(int x, int y, float personalRadiusMult)

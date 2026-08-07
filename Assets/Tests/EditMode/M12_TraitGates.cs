@@ -209,8 +209,10 @@ namespace AIVillage.Tests.EditMode
                 Assert.LessOrEqual(Mathf.Abs(down), 30, $"{g.name}: 유도값 {down}이 상한 30 초과 (ADR-M12-7)");
 
                 // P0 보호: 어떤 성격도 배고픔보다 '일'을 앞세우지 못한다.
-                // 피신은 유일한 예외 — 아래에서 따로 검사한다 (ADR-M12-8).
-                if (g == hunger || g == flee) continue;
+                // 예외는 승인 목록(MayOutrankHunger)뿐 — 아래에서 따로 검사한다 (ADR-M12-8).
+                // ⚠️ 목록을 여기서 다시 손으로 적지 않는다: 두 벌이면 언젠가 갈리고, 그때
+                // "승인했는데 이 게이트가 막는다"가 되어 승인 절차 자체가 우회된다 (M21-W4).
+                if (g == hunger || MayOutrankHunger.Contains(g.name)) continue;
                 Assert.Less(g.Priority + Mathf.Max(up, down), hunger.Priority,
                     $"{g.name}: 극단 성격에서 실효 우선순위가 배고픔({hunger.Priority})을 넘는다 " +
                     "— 굶으면서 다른 일을 하러 간다 (ADR-M12-4 ②③의 수치적 보증)");
@@ -221,8 +223,20 @@ namespace AIVillage.Tests.EditMode
         /// P0 배고픔보다 높이 설 수 있는 goal의 사전 승인 목록 (ADR-M12-8).
         /// 여기 추가하려면 ADR-M12-4 ③의 3조건을 논증해야 한다 —
         /// ⓐ외부 세계 상태가 발동 ⓑ그 상태가 사라지면 자기 종료 ⓒ굶주림보다 빠른 치사.
+        ///
+        /// **Goal_Fight 논증 (M21-W4)** — 피신과 **같은 위험에 대한 반대 반응**이므로 자격도 같다:
+        ///   ⓐ 발동 = `ThreatNear==1` — 피신과 **완전히 같은 트리거**다. 내 상태가 아니라
+        ///      늑대가 왔다는 세계의 사실이 켠다.
+        ///   ⓑ 자기 종료 = 위협이 죽거나 물러나면 FightRunner가 완료하고 ThreatNear가 0으로
+        ///      돌아가 재발동하지 않는다 (러너가 도주·퇴장 개체를 대상에서 뺀다 — 무한 추격 0).
+        ///   ⓒ 치사 속도 = 위협 타격 34 × 3대 > 주민 체력 100, 재타격 주기 0.25일이면 **0.5일에
+        ///      사망**한다. 굶주림은 포만 70 → 10까지 내려가는 데만 2.4일(감쇠 25/일)이고 그 뒤
+        ///      다시 아사 시계가 돈다. 즉사급이 시간급 위에 서는 ADR-M12-4 ②의 두 번째 사례다.
+        /// 🔑 피신과 **동률(105)**인 것이 설계의 핵심이다 — 높이면 겁쟁이도 싸우고, 낮추면
+        /// 아무도 안 싸운다. 승부는 우선순위가 아니라 겁 성향의 **부호 대칭**(Flee +0.8 / Fight −0.8)이
+        /// 가른다 (명세 ⚠️ 오해 위험 ①).
         /// </summary>
-        private static readonly string[] MayOutrankHunger = { "Goal_Flee" };
+        private static readonly string[] MayOutrankHunger = { "Goal_Flee", "Goal_Fight" };
 
         [Test]
         public void M12_T3_OnlyApprovedGoalsMayOutrankHunger()
@@ -766,8 +780,17 @@ namespace AIVillage.Tests.EditMode
             ["SkipFailureCooldown"] = new[] { "Goal_P0_Hunger", "Goal_P0_Fatigue", "Goal_Flee" },
             // GoalSO.DirectActionPool 툴팁의 자격 3조건
             // (M20-W12: Goal_SeekCarpenter는 집 부탁 사슬 삭제(ADR-M20-7)와 함께 목록에서 제거)
-            ["DirectActionPool"] = new[] { "Goal_Leisure", "Goal_ReportDone", "Goal_Routine_Explorer",
-                                           "Goal_Routine_Farmer" },
+            // M21-W4 개정: Goal_Fight 추가 — 자격 ⓐ의 두 번째 종류("끝이 슬롯 밖에 있는 것")다.
+            //   교전의 끝은 "위협이 죽거나 물러남" = ThreatAgent의 상태이고, ThreatNear는 파생
+            //   슬롯이라 "내가 이겼는가"를 적을 수 없다. ⓑ 풀은 1개. ⓒ 타격은 전역 스톡을 안
+            //   건드린다(드랍은 액션 효과가 아니라 CombatService가 넣는다).
+            //   ⚠️ 부수 효과가 아니라 **필요**이기도 하다: FleeToSafety와 효과(ThreatNear→0)가
+            //   같아서 플래너에 맡기면 "싸우라"는 goal이 도망 액션을 고를 수 있다.
+            ["DirectActionPool"] = new[] { "Goal_Fight", "Goal_Leisure", "Goal_ReportDone",
+                                           "Goal_Routine_Explorer", "Goal_Routine_Farmer" },
+            // M21-W4 B1 (명령 원정 특례) — 자율에 열면 전 맵 주민이 밭 늑대로 몰려간다.
+            // 원정은 플레이어 개입의 값이므로 명령 경로에만 연다. 두 번째 용도 = 규칙 재검토 신호.
+            ["OrderedIgnoresTrigger"] = new[] { "Goal_Fight" },
             // ADR-M5-4 (폴백 불변식) — "세 번째 용도 = 규칙 재검토 신호"라는 자폭 트리거 내장.
             // M19-W2 개정 (ADR-M19-3): 목수 자가 건축 독점(Goal_BuildMyHouse)을 해제 —
             // 효율 전문화(BuildDurationMult)로 대체. 남은 예외 = 치료 1곳 (M20에서 재설계).
@@ -794,6 +817,7 @@ namespace AIVillage.Tests.EditMode
                     case "DirectActionPool":    return g.DirectActionPool != null && g.DirectActionPool.Length > 0;
                     case "RequiredJob":         return g.RequiredJob != null;
                     case "MayHaveNoSolution":   return g.MayHaveNoSolution;
+                    case "OrderedIgnoresTrigger": return g.OrderedIgnoresTrigger;
                     default: throw new System.ArgumentException($"미등록 플래그 {flag}");
                 }
             }

@@ -78,6 +78,7 @@ namespace AIVillage.M0
         public HomeStorageService HomeStorage => _sim.HomeStorage; // 집 저장 (M11-A — EffectApplier 창구)
         public RequestService Requests => _sim.Requests; // 부탁 (M11-F — 택지의 의뢰인 조회)
         public ThreatService Threats => _sim.Threats;   // 위협 (M11-G — 노숙 도피 방향). null = 위협 없음
+        public CombatService Combat => _sim.Combat;     // 전투 판정 (M21-W4 FightRunner). null = 위협 없는 판
         public OwnershipService Ownership => _sim.Ownership; // 소유 (M11-I — 목수 자가 건축 배정)
         public WorldConfigSO WorldConfig => _sim.WorldConfig;
         public AgentConfigSO AgentConfig => _cfg; // 러너용 읽기 창구 (M10-B — TendLines 등 대사 에셋)
@@ -1079,6 +1080,19 @@ namespace AIVillage.M0
             if (_planIndex >= _plan.Count)
             {
                 if (!_directGoal) Debug.Log($"[VillagerAgent] {AgentId}: {_goal.DisplayName} 플랜 완료");
+                // 🔴 조건 없는 명령의 완수 지점 (M21-W4, 2026-08-07 Play에서 잡았다).
+                // TickIdle의 완수 판정은 `_order.GoalConditions`가 **있을 때만** 돈다. 그런데
+                // DirectActionPool goal은 규약상 그 배열이 비어 있어("항상 미달성" 특례), 명령으로
+                // 주면 완수 판정이 통째로 건너뛰어져 **명령이 영영 안 비워진다** — 실측: 늑대가 다
+                // 물러난 뒤에도 D가 「싸워라」를 쥔 채 노동으로 돌아갔고, 쿨다운이 풀릴 때마다 다시
+                // 교전 goal을 집었다. 이런 goal에서는 **플랜 완료가 곧 완수**다 (끝이 슬롯 밖에
+                // 있으니 슬롯으로 판정할 수가 없다 — DirectActionPool 자격 ⓐ의 귀결).
+                if (_goal == _order && (_order.GoalConditions == null || _order.GoalConditions.Length == 0))
+                {
+                    Debug.Log($"[VillagerAgent] {AgentId}: 명령 완수 — {_order.DisplayName}");
+                    PayReward();          // 약속 이행 (M6-E) — 반환 경로와 배타 (ADR-M6-5)
+                    ClearOrderInstance(); // 소멸의 유일한 경로
+                }
                 ToIdle(0f); // 여가는 로그 없이 조용히 반복 (스팸 방지)
                 return;
             }

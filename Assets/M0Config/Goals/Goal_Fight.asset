@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 33fdfa0cd09f4e98b5f035ae8ed6614b, type: 3}
+  m_Name: Goal_Fight
+  m_EditorClassIdentifier:
+  DisplayName: "맞서 싸우기"
+  Priority: 105
+  TriggerConditions:
+  - Slot: 21
+    Op: 0
+    Value: 1
+  GoalConditions: []
+  DirectActionPool:
+  - {fileID: 11400000, guid: 3c9e17b04a2d4f8ea6b5d13c78e029f4, type: 2}
+  AllowedWhenInjured: 0
+  OrderedIgnoresTrigger: 1
+  TraitWeights:
+  - Trait: 5
+    Weight: -0.8
+  PriorityScale: 20

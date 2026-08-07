@@ -176,9 +176,12 @@ namespace AIVillage.UI
             // 두 입력이 합산된 경우 키보드 속도 기준 (키보드 우선)
             float speed = (inputX != 0f || inputY != 0f) ? _keyMoveSpeed : _edgeMoveSpeed;
 
+            // unscaledDeltaTime (2026-08-07 일시정지 도입) — 카메라는 시뮬레이션이 아니라
+            // 플레이어의 눈이다. Time.deltaTime이면 timeScale 0에서 화면이 얼어붙어,
+            // "멈추고 상황을 살펴본다"는 일시정지의 목적 자체가 성립하지 않는다.
             Vector3 pos = _camera.transform.position;
-            pos.x += moveDir.x * speed * Time.deltaTime;
-            pos.y += moveDir.y * speed * Time.deltaTime;
+            pos.x += moveDir.x * speed * Time.unscaledDeltaTime;
+            pos.y += moveDir.y * speed * Time.unscaledDeltaTime;
 
             // ── 맵 경계 클램핑 ──────────────────────────────────────────────
             // 카메라 뷰포트가 맵 밖으로 나가지 않도록 orthographic half-size를 감안하여 클램핑한다.
@@ -224,7 +227,8 @@ namespace AIVillage.UI
         {
             if (_followTarget == null) return; // Unity 파괴 비교 포함 — 사망 주민 자동 해제
 
-            float t = 1f - Mathf.Exp(-_followLerpSpeed * Time.deltaTime);
+            // unscaledDeltaTime — 이동과 같은 이유 (일시정지 중에도 추적이 대상에 정착해야 한다).
+            float t = 1f - Mathf.Exp(-_followLerpSpeed * Time.unscaledDeltaTime);
             Vector3 pos = _camera.transform.position;
             pos.x = Mathf.Lerp(pos.x, _followTarget.position.x, t);
             pos.y = Mathf.Lerp(pos.y, _followTarget.position.y, t);

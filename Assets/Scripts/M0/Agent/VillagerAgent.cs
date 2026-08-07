@@ -825,6 +825,36 @@ namespace AIVillage.M0
         //  더는 죽음과의 거리를 말하지 못한다: 이미 다친 사람은 그 문턱에 닿기 전에 죽는다.
         //  에셋 값(DepartAfterStarvingDays·NearStarvationRatio)은 환산의 기준으로 그대로 쓰인다.)
 
+        /// <summary>상태 경보 등급 (M13-B 개정 2026-08-07). 저장 식량이 아니라 **몸 상태**다.</summary>
+        public enum HungerLevel
+        {
+            None = 0,     // 평시 — 경보 없음
+            Hungry = 1,   // 배고픔 — 명령을 거부하기 시작하는 구간. 아직 손쓸 시간이 있다
+            Starving = 2, // 굶주림 — _starvingDays 시계가 돌고 체력이 깎이는 중
+        }
+
+        /// <summary>
+        /// 상태 경보 판정 (순수 — 게이트 M13-T6). 기준이 "저장 식량 0일치"에서 실제 굶주림으로
+        /// 옮겨졌다 (2026-08-07 Play 관측): 시작 시점엔 아무도 비축이 없어 Day 0 화면이 빨간 줄
+        /// 8개로 시작했다. 전원이 항상 빨간 경보는 경보가 아니라 배경이고, 배경은 개입을 못 만든다.
+        ///
+        /// 문턱은 둘 다 기존 에셋 값 그대로 재사용한다 (새 수치 발명 금지 — ADR-M0-2):
+        ///   Hungry   = OrderRefuseSatiety   — 이 밑에선 명령이 거부된다. 촌장이 알아야 할 첫 지점
+        ///   Starving = StarvingBelowSatiety — 이 밑에선 체력이 깎인다 (NextStarvingDays와 같은 문턱)
+        /// ⚠️ Starving 판정을 _starvingDays > 0 으로 쓰지 않은 이유: 같은 조건의 두 번째 사본이 된다.
+        /// 여기는 문턱 비교 하나뿐이고, 시계는 SimTick이 돌린다 (판정 이원화 금지).
+        /// </summary>
+        public static HungerLevel JudgeHunger(float satiety, AgentConfigSO cfg)
+        {
+            if (cfg == null) return HungerLevel.None; // 미배선 = 중립 (경보 없음)
+            if (satiety < cfg.StarvingBelowSatiety) return HungerLevel.Starving;
+            if (satiety < cfg.OrderRefuseSatiety) return HungerLevel.Hungry;
+            return HungerLevel.None;
+        }
+
+        /// <summary>내 상태 경보 등급 — 위 순수 판정의 인스턴스 창구 (HUD 열거용).</summary>
+        public HungerLevel MyHunger => JudgeHunger(Satiety, _cfg);
+
         /// <summary>
         /// 아사 (ADR-M10-3 개정 2026-07-24 — 舊 굶주림 이탈). 상태만 Dead(ADR-M6-3)로 바꾸고 지연
         /// 파괴한다. 클레임·타일·플래너·명령·보상 정리는 전부 OnDestroy 단일 경로 — 여기서 직접

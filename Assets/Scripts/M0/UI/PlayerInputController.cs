@@ -31,15 +31,22 @@ namespace AIVillage.M0
         [Tooltip("Shift+우클릭 명령에 거는 보상 (M6-E — 설득 수단 1호). 비면 보상 명령 불가.")]
         [SerializeField] private RewardSO _rewardOnOrder;
 
-        [Tooltip("주민 선택 픽킹 반경 (타일)")]
-        [SerializeField] private float _villagerPickRadius = 0.8f;
+        [Tooltip("주민 선택 픽킹 반경 (타일). 2026-08-07 0.8 → 1.5 — 0.8은 스프라이트보다 좁아 " +
+                 "'분명히 눌렀는데 안 잡히는' 클릭이 잦았다. 노드 반경과 같은 값으로 통일.")]
+        [SerializeField] private float _villagerPickRadius = 1.5f;
 
         [Tooltip("노드 명령 픽킹 반경 (타일)")]
         [SerializeField] private float _nodePickRadius = 1.5f;
 
         [Tooltip("배속 단계 (관측·테스트용 빨리 감기) — 숫자키 1부터 순서대로 Time.timeScale 적용. " +
-                 "전역 배속이라 시뮬·이동·대사·쿨다운이 같은 비율로 일관 (게임 로직 무수정).")]
+                 "전역 배속이라 시뮬·이동·대사·쿨다운이 같은 비율로 일관 (게임 로직 무수정). " +
+                 "일시정지(0)는 이 배열이 아니라 0키 토글이 맡는다 — 1=1× 손버릇을 밀어내지 않기 위해.")]
         [SerializeField] private float[] _speedSteps = { 1f, 2f, 4f, 8f };
+
+        // 배속 소유권은 이 클래스 하나 (개입 인프라, 2026-08-07). 일시정지 해제·프롬프트 자동
+        // 실시간이 전부 SetSpeed를 통과하므로 "지금 몇 배속인가"의 판정이 갈리지 않는다.
+        private float _resumeSpeed = 1f;    // 일시정지 직전 배속 — 0키 재입력 시 복귀 대상
+        private bool _prevPendingOffer;     // 방랑자 프롬프트 열림 감지 (에지 1회)
 
         private VillagerAgent _selected;
         private GameObject _ring;
@@ -108,19 +115,38 @@ namespace AIVillage.M0
             if (_speedSteps != null)
                 for (int i = 0; i < _speedSteps.Length && i < 9; i++)
                     if (Input.GetKeyDown((KeyCode)((int)KeyCode.Alpha1 + i)))
-                    {
-                        Time.timeScale = Mathf.Max(0.1f, _speedSteps[i]);
-                        M0SimulationLoop.Instance.Hud?.Notify($"배속 ×{Time.timeScale:0.#}");
-                        Debug.Log($"[PlayerInput] 배속 ×{Time.timeScale:0.#}");
-                    }
+                        SetSpeed(Mathf.Max(0.1f, _speedSteps[i]));
+
+            // 일시정지 토글 (0키, 2026-08-07 개입 인프라) — 개입은 "무엇을 할지 정하는 시간"을
+            // 필요로 하는데, 최저 배속이 1×면 판을 멈추고 생각할 방법이 없었다. 다시 0을 누르면
+            // 정지 직전 배속으로 복귀한다 (8배속으로 관찰하다 멈춘 사람을 1×에 떨구지 않는다).
+            // ⚠️ timeScale 0에서도 이 Update는 돈다 — 해제 입력이 막히지 않는다.
+            //    카메라 이동·추적은 unscaledDeltaTime으로 옮겨 정지 중에도 둘러볼 수 있다.
+            if (Input.GetKeyDown(KeyCode.Alpha0))
+                SetSpeed(Time.timeScale > 0f ? 0f : _resumeSpeed);
 
             // 방랑자 수락/거절 (M10-E, ADR-M10-7 — 판정 입력은 이 키뿐. 술렁임은 표현 전용).
             // 프롬프트 활성 중에만 판독 (⚠️③ — 다른 단축키와 충돌 방지). 이중 입력은 서비스가 차단.
             WandererService wanderers = M0SimulationLoop.Instance.Wanderers;
-            if (wanderers != null && wanderers.HasPendingOffer)
+            if (wanderers != null)
             {
-                if (Input.GetKeyDown(KeyCode.Y)) wanderers.Resolve(true);
-                else if (Input.GetKeyDown(KeyCode.N)) wanderers.Resolve(false);
+                // 프롬프트가 **열리는 순간** 실시간 보장 (2026-08-07 개입 인프라). 8배속에서는
+                // 수락 대기(WandererWaitDays)가 실시간 몇 초로 압축돼 판단하기 전에 방랑자가
+                // 떠났다 — 결정을 요구하는 화면은 결정할 시간과 함께 떠야 한다.
+                // 에지 1회만 = 프롬프트를 띄워 둔 채 플레이어가 다시 배속을 올리는 건 허용한다.
+                bool pending = wanderers.HasPendingOffer;
+                if (pending && !_prevPendingOffer && !Mathf.Approximately(Time.timeScale, 1f))
+                {
+                    SetSpeed(1f);
+                    M0SimulationLoop.Instance.Hud?.Notify("방랑자 도착 — 1배속으로 전환");
+                }
+                _prevPendingOffer = pending;
+
+                if (pending)
+                {
+                    if (Input.GetKeyDown(KeyCode.Y)) wanderers.Resolve(true);
+                    else if (Input.GetKeyDown(KeyCode.N)) wanderers.Resolve(false);
+                }
             }
 
             if (Input.GetMouseButtonDown(0))
@@ -217,6 +243,17 @@ namespace AIVillage.M0
                     M0SimulationLoop.Instance.Hud?.Notify($"보상을 걸 {reward.DisplayName} 재고가 부족합니다");
                 }
             }
+        }
+
+        /// <summary>배속 설정의 유일한 쓰기 지점 (2026-08-07) — 배속·일시정지·자동 실시간이
+        /// 전부 여기를 통과한다. 0(정지)은 복귀 대상으로 기억하지 않는다.</summary>
+        private void SetSpeed(float scale)
+        {
+            if (scale > 0f) _resumeSpeed = scale;
+            Time.timeScale = scale;
+            string label = scale > 0f ? $"배속 ×{scale:0.#}" : "일시정지 — [0] 해제";
+            M0SimulationLoop.Instance.Hud?.Notify(label);
+            Debug.Log($"[PlayerInput] {label}");
         }
 
         private Vector2 MouseWorld()

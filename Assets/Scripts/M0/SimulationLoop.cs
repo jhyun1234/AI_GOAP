@@ -231,7 +231,17 @@ namespace AIVillage.M0
         // 굶는 주민 열거 버퍼 (M13-B) — 프레임 재사용, 할당 0 (부상자 버퍼 패턴).
         // 정렬 비교자는 정적 캐시 — 틱마다 람다 할당 방지. 급한 순, 동률은 이름 순 (결정적).
         // (M19-W4: M16의 지갑 병기 3튜플·병렬 리스트는 화폐와 함께 철거 — 2튜플 원형 복귀)
-        private readonly List<(string name, int days)> _starvingBuf = new List<(string, int)>(8);
+        // (2026-08-07: 판정 기준이 저장 식량 → 몸 상태로 바뀌며 포만·등급이 튜플에 들어왔다.
+        //  식량 일수는 판정에서 빠지고 표시용 참고 수치로만 남는다 — ComposeStatus 주석 참조.)
+        private readonly List<(string name, int satiety, int foodDays, bool critical)> _starvingBuf =
+            new List<(string, int, int, bool)>(8);
+        // 급한 순 = 포만 낮은 순 (굶주림 등급이 곧 포만 순서라 별도 키가 필요 없다).
+        private static readonly System.Comparison<(string name, int satiety, int foodDays, bool critical)>
+            ByHungerUrgency = (a, b) => a.satiety != b.satiety
+                ? a.satiety.CompareTo(b.satiety) : string.CompareOrdinal(a.name, b.name);
+
+        // 겨울 미대비 버퍼 전용 (M14-W4) — 이쪽은 여전히 **저장 식량**이 판정 기준이다.
+        // 겨울 대비는 몸 상태가 아니라 비축의 문제이므로 기준이 갈리는 것이 옳다 (판정 이원화 아님).
         private static readonly System.Comparison<(string name, int days)> ByFoodUrgency =
             (a, b) => a.days != b.days ? a.days.CompareTo(b.days) : string.CompareOrdinal(a.name, b.name);
 
@@ -892,15 +902,21 @@ namespace AIVillage.M0
                 // 상태 알림 줄 (M13-B, 2026-07-30 개정 — 舊 M11-D 마을 최솟값 요약을 개인 열거로).
                 // 관측 대상은 마을 평균이 아니라 낙오자 — 그 정신의 완성형은 "낙오자의 이름"이다.
                 // "누구인지 모르는 정보"는 개입을 못 만든다 (사용자 Play 피드백). N명이면 N줄.
+                // 🔴 2026-08-07: 판정 기준을 **저장 식량 → 실제 굶주림(포만)** 으로 옮겼다.
+                // 舊 기준(EstimateMyFoodDays ≤ FOOD_ALERT_DAYS)은 비축이 0인 Day 0에 전원 참이라
+                // 시작 화면이 빨간 줄 8개였다 — 항상 켜진 경보는 개입 신호가 아니라 배경이다.
+                // 식량 일수는 판정에서 빠지고 표시용 참고 수치로만 따라간다.
                 _starvingBuf.Clear();
                 for (int i = 0; i < _agents.Count; i++)
                 {
                     VillagerAgent a = _agents[i];
                     if (a == null || a.State == AgentState.Dead) continue;
-                    int d = a.EstimateMyFoodDays();
-                    if (d <= SeasonHud.FOOD_ALERT_DAYS) _starvingBuf.Add((a.ShortName, d));
+                    VillagerAgent.HungerLevel lv = a.MyHunger;
+                    if (lv == VillagerAgent.HungerLevel.None) continue;
+                    _starvingBuf.Add((a.ShortName, Mathf.RoundToInt(a.Satiety), a.EstimateMyFoodDays(),
+                                      lv == VillagerAgent.HungerLevel.Starving));
                 }
-                _starvingBuf.Sort(ByFoodUrgency); // 급한 순 — 순서가 곧 분류(triage)
+                _starvingBuf.Sort(ByHungerUrgency); // 급한 순 — 순서가 곧 분류(triage)
 
                 int threatDaysLeft = -1;
                 string threatName = null;

@@ -8,12 +8,13 @@ namespace AIVillage.Tests.EditMode
     /// M13-B 상태 알림 게이트 (M13-T2) — 상태 줄의 3대 보장:
     /// 조건이 없으면 완전히 빈다(중립 — 평온한 마을에 경보 금지),
     /// 굶는 주민은 이름과 함께 개인 단위 N줄(2026-07-30 개정 — "누구인지 모르는 정보"는
-    /// 개입을 못 만든다), 식량 문턱은 FOOD_ALERT_DAYS 단일 출처.
+    /// 개입을 못 만든다), 그리고 **판정 기준은 저장 식량이 아니라 몸 상태**(2026-08-07 개정,
+    /// M13-T6 — Day 0 빨간 줄 8개 재발 방지).
     /// </summary>
     public class M13_StatusGates
     {
-        private static List<(string, int)> Starving(params (string, int)[] s)
-            => new List<(string, int)>(s);
+        private static List<(string, int, int, bool)> Starving(params (string, int, int, bool)[] s)
+            => new List<(string, int, int, bool)>(s);
 
         [Test]
         public void M13_T2_ComposeStatus_EmptyWhenAllClear()
@@ -31,20 +32,96 @@ namespace AIVillage.Tests.EditMode
         public void M13_T2_ComposeStatus_StarvingListedByName_OnePerLine()
         {
             // 2026-07-30 개정의 핵심 — N명이면 N줄, 각 줄에 이름
-            string s = SeasonHud.ComposeStatus(Starving(("A", 0), ("C", 2)), 0, -1, null);
-            StringAssert.Contains("굶는 주민 A — 식량 0일치", s);
-            StringAssert.Contains("굶는 주민 C — 식량 2일치", s);
+            string s = SeasonHud.ComposeStatus(Starving(("A", 5, 0, true), ("C", 30, 2, false)), 0, -1, null);
+            StringAssert.Contains("굶주리는 주민 A — 포만 5, 체력이 깎이는 중 · 식량 0일치", s);
+            StringAssert.Contains("배고픈 주민 C — 포만 30 · 식량 2일치", s);
             Assert.AreEqual(2, s.Split('\n').Length, "2명 = 2줄 (끝 개행 없음)");
+        }
+
+        [Test]
+        public void M13_T2_ComposeStatus_SeverityIsGraded()
+        {
+            // 2026-08-07 — 두 등급이 문구·색으로 갈린다 ("절벽이 아니라 계단").
+            string crit = SeasonHud.ComposeStatus(Starving(("A", 5, 0, true)), 0, -1, null);
+            string warn = SeasonHud.ComposeStatus(Starving(("A", 30, 0, false)), 0, -1, null);
+            StringAssert.Contains("#FF6B6B", crit, "굶주림 = 빨강");
+            StringAssert.Contains("#FFB74D", warn, "배고픔 = 주황 (빨강 아님)");
+            StringAssert.DoesNotContain("체력이 깎이는 중", warn, "배고픔 단계에선 체력이 안 깎인다");
+        }
+
+        [Test]
+        public void M13_T2_ComposeStatus_NeutralFoodDaysOmitted()
+        {
+            // 식량 일수는 참고 수치 — 99(중립·미배선)면 줄에서 빠진다 (ComposeReason과 같은 규약).
+            string s = SeasonHud.ComposeStatus(
+                Starving(("A", 30, WorldModel.NO_ESTIMATE, false)), 0, -1, null);
+            StringAssert.Contains("배고픈 주민 A — 포만 30", s);
+            StringAssert.DoesNotContain("식량", s, "99 = 식량 표기 없음");
         }
 
         [Test]
         public void M13_T2_ComposeStatus_ThreeConditionsStack()
         {
-            string s = SeasonHud.ComposeStatus(Starving(("B", 1)), 2, 3, "늑대");
-            StringAssert.Contains("굶는 주민 B — 식량 1일치", s);
+            string s = SeasonHud.ComposeStatus(Starving(("B", 8, 1, true)), 2, 3, "늑대");
+            StringAssert.Contains("굶주리는 주민 B", s);
             StringAssert.Contains("부상자 2명", s);
             StringAssert.Contains("늑대 — 3일 뒤", s);
             Assert.AreEqual(3, s.Split('\n').Length, "3조건 = 3줄");
+        }
+
+        // ── M13-T6: 상태 경보 판정 기준 (2026-08-07 개정) ────────────────────
+
+        [Test]
+        public void M13_T6_JudgeHunger_ThresholdsComeFromAssetNotFoodStock()
+        {
+            var cfg = UnityEngine.ScriptableObject.CreateInstance<AgentConfigSO>();
+            cfg.OrderRefuseSatiety = 35f;
+            cfg.StarvingBelowSatiety = 10f;
+
+            Assert.AreEqual(VillagerAgent.HungerLevel.None,
+                VillagerAgent.JudgeHunger(35f, cfg), "문턱 값 자체는 평시 (미만이어야 경보)");
+            Assert.AreEqual(VillagerAgent.HungerLevel.None,
+                VillagerAgent.JudgeHunger(70f, cfg), "초기 포만(70) = 평시");
+            Assert.AreEqual(VillagerAgent.HungerLevel.Hungry,
+                VillagerAgent.JudgeHunger(34f, cfg), "명령 거부 문턱 아래 = 배고픔");
+            Assert.AreEqual(VillagerAgent.HungerLevel.Starving,
+                VillagerAgent.JudgeHunger(9f, cfg), "굶주림 문턱 아래 = 굶주림");
+            Assert.AreEqual(VillagerAgent.HungerLevel.None,
+                VillagerAgent.JudgeHunger(0f, null), "미배선 = 중립 (경보 없음)");
+        }
+
+        [Test]
+        public void M13_T6_JudgeHunger_MatchesOrderRefusal()
+        {
+            // 경보와 명령 거부가 같은 문턱을 쓴다 — 화면이 조용한데 명령이 거부되면
+            // (또는 그 반대면) 촌장은 무엇을 믿어야 할지 모른다 (ADR-M1-2 정신).
+            var cfg = UnityEngine.ScriptableObject.CreateInstance<AgentConfigSO>();
+            cfg.OrderRefuseSatiety = 35f;
+            cfg.StarvingBelowSatiety = 10f;
+            cfg.OrderRefuseFatigue = 70f;
+
+            Assert.AreEqual(VillagerAgent.OrderResult.RefusedHungry,
+                VillagerAgent.JudgeOrder(34f, 0f, cfg), "경보가 뜨는 첫 지점 = 명령 거부 첫 지점");
+            Assert.AreEqual(VillagerAgent.OrderResult.Accepted,
+                VillagerAgent.JudgeOrder(35f, 0f, cfg), "경보 없는 지점 = 명령 수락");
+        }
+
+        [Test]
+        public void M13_T6_Day0_AllVillagersWithNoStock_ProduceNoAlert()
+        {
+            // 🔴 회귀 방지 — 이 게이트가 존재하는 이유. 舊 기준(저장 식량 ≤ 2일치)에서는
+            // 시작 시점의 주민 8명 전원이 참이라 Day 0 화면이 빨간 줄 8개로 시작했다.
+            // 새 기준은 몸 상태만 본다: 초기 포만 70±15 = 전원 평시.
+            var cfg = UnityEngine.ScriptableObject.CreateInstance<AgentConfigSO>();
+            cfg.OrderRefuseSatiety = 35f;
+            cfg.StarvingBelowSatiety = 10f;
+            cfg.InitialSatiety = 70f;
+            cfg.InitialSatietyVariance = 15f;
+
+            float lowest = cfg.InitialSatiety - cfg.InitialSatietyVariance; // 개인 편차 최악값
+            Assert.AreEqual(VillagerAgent.HungerLevel.None,
+                VillagerAgent.JudgeHunger(lowest, cfg),
+                "초기 편차 최악(55)도 평시 — 비축 0으로 시작해도 경보가 뜨면 안 된다");
         }
 
         [Test]

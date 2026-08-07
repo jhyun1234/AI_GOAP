@@ -938,17 +938,24 @@ namespace AIVillage.M0
         /// 상태 알림 조립 (M13-B, 순수 — 게이트 M13-T2). **해소되면 빈 문자열** = 줄이 사라진다.
         /// 조건이 하나도 없으면 "" — 평온한 마을에 경보가 떠 있으면 잡음이지 알림이 아니다 (중립 불변식).
         /// 굶는 주민은 **개인 단위로 한 줄씩** (2026-07-30 사용자 피드백 — "누구인지 모르는 정보"는
-        /// 개입을 못 만든다. N명이면 N줄). 목록은 호출자가 FOOD_ALERT_DAYS로 걸러 넘긴다 —
-        /// 여기는 표시만 한다. 위협색은 달력 예고와 같은 주황 (#FF8A65).
+        /// 개입을 못 만든다. N명이면 N줄). 위협색은 달력 예고와 같은 주황 (#FF8A65).
+        ///
+        /// 🔴 2026-08-07 개정 — 굶주림 줄의 **판정 기준이 저장 식량에서 몸 상태로** 옮겨졌다
+        /// (VillagerAgent.JudgeHunger). 舊 기준(식량 ≤ FOOD_ALERT_DAYS)은 비축이 0인 Day 0에
+        /// 전원 참이라 화면이 빨간 줄 8개로 시작했다 — 항상 켜진 경보는 배경이지 경보가 아니다.
+        /// 저장 식량 일수는 판정에서 빠지고 **참고 수치로만** 남는다 (개입 판단에 여전히 쓸모 있다:
+        /// 포만이 낮은데 식량도 0이면 명령이 필요하고, 식량이 있으면 곧 알아서 먹는다).
+        /// 두 등급(배고픔 주황 / 굶주림 빨강)은 "절벽이 아니라 계단"(StarvingBelowSatiety 규약)의 표현.
         ///
         /// ⚠️ 확장 규칙: 새 상태 종류(추위·수면 부족 등)는 인자 + Append 블록을 **굶는 주민 줄
         /// 뒤에** 추가한다. 클릭 매핑(SimulationLoop.FindStarvingVillagerAt)이 "굶는 줄 =
         /// 맨 앞 0..N-1"을 전제하므로, 앞에 끼우면 클릭이 엉뚱한 주민을 집는다.
         /// </summary>
-        public static string ComposeStatus(IReadOnlyList<(string name, int days)> starving,
-                                           int untendedInjured, int threatDaysLeft, string threatName,
-                                           int freezeDaysLeft = -1,
-                                           IReadOnlyList<(string name, int days)> unprepared = null)
+        public static string ComposeStatus(
+            IReadOnlyList<(string name, int satiety, int foodDays, bool critical)> starving,
+            int untendedInjured, int threatDaysLeft, string threatName,
+            int freezeDaysLeft = -1,
+            IReadOnlyList<(string name, int days)> unprepared = null)
         {
             bool threat = threatDaysLeft >= 0 && !string.IsNullOrEmpty(threatName);
             bool anyStarving = starving != null && starving.Count > 0;
@@ -960,9 +967,15 @@ namespace AIVillage.M0
             var sb = new System.Text.StringBuilder(96);
             if (anyStarving)
                 for (int i = 0; i < starving.Count; i++)
+                {
                     // (M19-W4: 지갑 병기 철거 — 굶주림 구제는 나눔 부탁이 맡는다)
-                    sb.Append($"<color=#FF6B6B>■ 굶는 주민 {starving[i].name} — " +
-                              $"식량 {starving[i].days}일치</color>\n");
+                    (string name, int satiety, int foodDays, bool critical) s = starving[i];
+                    // 식량 일수는 참고 수치 — 99(중립·미배선)면 생략한다 (ComposeReason과 같은 규약).
+                    string food = s.foodDays < WorldModel.NO_ESTIMATE ? $" · 식량 {s.foodDays}일치" : "";
+                    sb.Append(s.critical
+                        ? $"<color=#FF6B6B>■ 굶주리는 주민 {s.name} — 포만 {s.satiety}, 체력이 깎이는 중{food}</color>\n"
+                        : $"<color=#FFB74D>■ 배고픈 주민 {s.name} — 포만 {s.satiety}{food}</color>\n");
+                }
             if (untendedInjured > 0)
                 sb.Append($"<color=#FF6B6B>■ 치료가 필요한 부상자 {untendedInjured}명</color>\n");
             if (threat)

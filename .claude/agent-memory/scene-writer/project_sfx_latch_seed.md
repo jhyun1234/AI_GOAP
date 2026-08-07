@@ -34,7 +34,11 @@ metadata:
   은 **기본 옵션의 값**이다. `tick(0.048/1380)` = **0.062**, `latch(0.115)` = **0.068**,
   `latch(0.175/seed67)` = **0.0770**. 표를 베껴 적으면 틀린 근거가 되고 다음 회차가 또 베낀다.
   필요하면 재라 — `synth(kind, {…opts, gain}, 48000)` 의 피크로 `0.46 / (peak/gain)`.
-- `thud` 는 `seed` 를 안 받는다. 거기서는 **같은 `freq` 를 두 번 쓰지 않는 것**이 유일한 규율이다.
+- 🔑 **`seed` 를 받는 것은 `latch` 와 `sweep` 둘뿐이다**(`sfx.mjs` 의 KIT — 둘만 `rng()` 를 쓴다).
+  나머지 넷은 결정론적 파형이라 손잡이가 다음뿐이다:
+  `tick(dur, freq)` · `thud(dur, freq)` · `riser(dur, from, to)` · `drop(dur, from, to)`.
+  거기서는 **같은 조합을 두 번 쓰지 않는 것**이 유일한 규율이다(`thud` 는 freq, `tick` 은 freq+dur).
+  `sweep` 은 잡음 기반이라 latch 만큼은 아니어도 **seed 가 성격을 실제로 가른다** — 새 값을 잡아라.
 
 ## 🔴 전수는 인용하는 그 시점에 다시 세라
 

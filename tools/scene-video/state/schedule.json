@@ -26,7 +26,8 @@
     "ep08s-1",
     "ep08s-2",
     "ep08s-3",
-    "ep09s",
+    "ep09s-1",
+    "ep09s-2",
     "ep10s",
     "ep11s",
     "ep12s",
@@ -84,7 +85,9 @@
     },
     "ep09s": {
       "local": "2026-07-20-unity-goap-m7-chatter-visibility.html",
-      "url": "https://gamedevclaude.blogspot.com/2026/07/claude-code-ai-goap-ai-m7.html"
+      "url": "https://gamedevclaude.blogspot.com/2026/07/claude-code-ai-goap-ai-m7.html",
+      "split": 2,
+      "note": "🔴 2026-08-07 사건 단위로 2편 분할(기획팀 브리프 .staging/01_planner_brief.md · episodes/ep09s/notes/planner.md). order 는 ep09s-1·-2 이고 sources 는 글 단위로 이 키 하나만 둔다(명세서 §1) — 그래야 nextId() 가 본편 번호를 정확히 세고 claimed 가 글 파일을 문다. 1편 = 성격과 직업을 다 갈라 놨는데 화면에서는 다 똑같은 점이라 아무도 그 다름을 볼 수 없었고, 이름표와 정보줄 한 줄로 점이 사람이 된 이야기 / 2편 = 주민끼리 말을 걸게 했더니 스치듯 지나가며 아무 데서나 떠들어 대화로 안 보였고, 반경 4타일→2타일·멈춰 마주보기·말풍선 우선순위로 말을 '장면'으로 만든 이야기. 🔑 편 수는 25초 규격과 무관하다(ADR-V25-4) — 원문에 든 사건이 둘이라 둘이다(모닥불 몰림 버그는 본문 20초가 안 나와 편으로 세우지 않고 2편의 곁가지로 넘겼다)."
     },
     "ep10s": {
       "local": "2026-07-21-unity-goap-m8-relationship-ownership-request.html",

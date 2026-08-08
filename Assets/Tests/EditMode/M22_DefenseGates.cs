@@ -257,25 +257,38 @@ namespace AIVillage.Tests.EditMode
         }
 
         [Test]
-        public void M22_T3c_PlayerZone_OncePerSlot_AndSnapshotWiring()
+        public void M22_T3c_RectPlan_OncePerRun_WoodMath_AndSnapshotWiring()
         {
-            // 플레이어 구역 등록 문 (ZoneService.EstablishPlayerZone) — 판당 1개 불변 (ADR-M22-4)
-            var zones = new ZoneService();
-            int fired = 0;
-            zones.OnZoneEstablished += (slot, anchor, radius) => fired++;
-            Assert.IsTrue(zones.EstablishPlayerZone(SlotId.FenceCount, new Vector2Int(3, 3), 5));
-            Assert.IsFalse(zones.EstablishPlayerZone(SlotId.FenceCount, new Vector2Int(9, 9), 4),
-                "이미 확정된 슬롯은 거부 — 방어 구역은 판당 하나");
-            Assert.AreEqual(1, fired, "확정 이벤트는 정확히 1회");
-            Assert.IsTrue(zones.TryGetZone(SlotId.FenceCount, out Vector2Int a, out int r));
-            Assert.AreEqual(new Vector2Int(3, 3), a);
-            Assert.AreEqual(5, r);
+            // 드래그 사각형 계획 (ADR-M22-4 개정) — 7×5 사각의 둘레 = 2(7+5)−4 = 20타일
+            var rect = DefenseService.PerimeterTilesRect(new Vector2Int(-3, 0), new Vector2Int(3, 4));
+            Assert.AreEqual(20, rect.Count, "7×5 둘레 = 20타일");
+            foreach (Vector2Int t in rect)
+                Assert.IsTrue(t.x == -3 || t.x == 3 || t.y == 0 || t.y == 4, "둘레 타일만 (안쪽 오염 없음)");
 
-            // 스냅샷 배선 (provider 패턴, InjuredCount 동형) — DefensePlannedCount가 실린다
+            // 필요 나무 산식 (초록/빨강 판정의 원천) — 울타리 19칸×1 + 문 1칸×3 = 22
+            Assert.AreEqual(22, DefenseService.RequiredWood(20, 1, 3), "울타리 (N−1)×비용 + 문 비용");
+            Assert.AreEqual(0, DefenseService.RequiredWood(0, 1, 3), "빈 둘레 = 0");
+
+            // 판당 1회 (HasPlan이 강제) + 확정 이벤트 1회
+            var d = new DefenseService();
+            int fired = 0;
+            d.OnPlanEstablished += (min, max) => fired++;
+            d.EstablishPlanRect(new Vector2Int(0, 0), new Vector2Int(6, 4), new Vector2Int(0, -10), null);
+            Assert.IsTrue(d.HasPlan);
+            Assert.AreEqual(new Vector2Int(0, 0), d.PlanMin);
+            Assert.AreEqual(new Vector2Int(6, 4), d.PlanMax);
+            d.EstablishPlanRect(new Vector2Int(20, 20), new Vector2Int(30, 30), Vector2Int.zero, null);
+            Assert.AreEqual(new Vector2Int(6, 4), d.PlanMax, "이미 확정된 판은 거부 — 방어 구역은 판당 하나");
+            Assert.AreEqual(1, fired, "확정 이벤트는 정확히 1회");
+
+            // 스냅샷 배선 (provider 패턴, InjuredCount 동형) — 방어 파생 슬롯 2종이 실린다
             var cfg = ScriptableObject.CreateInstance<WorldConfigSO>();
-            var world = new WorldModel(new DiscoveryService(), cfg, defensePlannedCount: () => 7);
+            var world = new WorldModel(new DiscoveryService(), cfg,
+                defensePlannedCount: () => 7, defenseDamagedCount: () => 2);
             Assert.AreEqual(7, world.BuildSnapshot(50, 50).Get(SlotId.DefensePlannedCount),
                 "방어 계획 잔여가 스냅샷에 실린다 (Goal_BuildDefense 트리거의 전제)");
+            Assert.AreEqual(2, world.BuildSnapshot(50, 50).Get(SlotId.DefenseDamagedCount),
+                "손상 수가 스냅샷에 실린다 (Goal_RepairDefense 트리거의 전제, W5)");
             var neutral = new WorldModel(new DiscoveryService(), cfg);
             Assert.AreEqual(0, neutral.BuildSnapshot(50, 50).Get(SlotId.DefensePlannedCount),
                 "미배선 = 0 (중립 불변식)");

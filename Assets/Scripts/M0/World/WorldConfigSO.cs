@@ -85,15 +85,10 @@ namespace AIVillage.M0
                  "격퇴 보상은 지연 없이 마릿수만 깎는다 (§4 — 이김에는 숨돌릴 틈이 필요 없다). 제안 2.")]
         public float ThreatReliefDelayDays = 2f;
 
-        [Header("방어 구역 (M22-W3 — 전부 제안치, 리뷰⓪·①에서 조정)")]
-        [Tooltip("지정 모드 스크롤 조절의 반경 하한 (체비쇼프). 제안 3 — 7×7 미만은 지킬 것이 안 들어간다.")]
-        public int DefenseZoneRadiusMin = 3;
-
-        [Tooltip("반경 상한. 제안 8 — 17×17 둘레 64칸 = Wood 60+ (자재가 상한을 함께 누른다).")]
-        public int DefenseZoneRadiusMax = 8;
-
-        [Tooltip("지정 모드 진입 시 기본 반경. 제안 5 — 11×11 둘레 40칸 ≈ Wood 42 = 집 2채 값.")]
-        public int DefenseZoneRadiusDefault = 5;
+        [Header("방어 구역 (M22-W3R 드래그 사각형 — 전부 제안치, 리뷰⓪·①에서 조정)")]
+        [Tooltip("드래그 사각형의 최소 변 길이 (타일). 제안 7 — 이보다 작으면 지킬 것이 안 들어가 " +
+                 "프리뷰가 빨강(설치 불가)이 된다. 상한은 없다 — 나무 재고가 자연 상한이다 (ADR-M22-4 개정).")]
+        public int DefenseZoneMinSide = 7;
 
         [Header("방랑자 (M10-E — 상실의 회복. 전부 제안치)")]
         [Tooltip("방랑자 도착 주기 (게임일). 위협 주기 6과 어긋난 5 — 회복이 상실 직후 오지 않는 위상차. " +
@@ -171,10 +166,9 @@ namespace AIVillage.M0
 
         private void OnValidate()
         {
-            // 방어 구역 반경 대역 정합 (M22-W3) — Min ≤ Default ≤ Max가 깨지면 스크롤 조절이 갇힌다
-            if (DefenseZoneRadiusMin > DefenseZoneRadiusDefault || DefenseZoneRadiusDefault > DefenseZoneRadiusMax)
-                Debug.LogWarning($"[WorldConfigSO] {name}: 방어 구역 반경은 Min({DefenseZoneRadiusMin}) ≤ " +
-                                 $"Default({DefenseZoneRadiusDefault}) ≤ Max({DefenseZoneRadiusMax})여야 합니다.", this);
+            // 방어 구역 최소 변 (M22-W3R) — 3 미만이면 둘레가 문 하나로도 못 두른다
+            if (DefenseZoneMinSide < 3)
+                Debug.LogWarning($"[WorldConfigSO] {name}: DefenseZoneMinSide({DefenseZoneMinSide})는 3 이상이어야 합니다.", this);
         }
     }
 

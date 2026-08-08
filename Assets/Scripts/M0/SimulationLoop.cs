@@ -125,6 +125,45 @@ namespace AIVillage.M0
         /// <summary>방어 계획·내구도 (M22) — 구역 확정 시 둘레 계획, W5부터 내구도 소유 (ADR-M22-3).</summary>
         public DefenseService Defense { get; private set; }
 
+        private int _fenceWoodCost = -1, _gateWoodCost = -1; // 카탈로그 파생 캐시 (−1 = 미계산)
+
+        /// <summary>방어 설치 필요 나무 (M22-W3R) — 지정 프리뷰 초록/빨강 판정의 원천.
+        /// 비용은 카탈로그의 방어 건설 액션(BuildActionSO.Building.Costs)에서 파생 — 이중 기입 금지.</summary>
+        public int DefenseWoodRequired(int perimeterTileCount)
+        {
+            if (_fenceWoodCost < 0)
+            {
+                _fenceWoodCost = 0;
+                _gateWoodCost = 0;
+                if (_catalog != null && _catalog.Actions != null)
+                    foreach (ActionSO a in _catalog.Actions)
+                    {
+                        if (!(a is BuildActionSO b) || b.Building == null || !b.Building.PlaceOnDefensePlan)
+                            continue;
+                        int wood = 0;
+                        if (b.Building.Costs != null)
+                            foreach (ResourceCost c in b.Building.Costs)
+                                if (c.StockSlot == SlotId.WoodStock) wood += c.Amount;
+                        if (b.Building.CountSlot == SlotId.GateCount) _gateWoodCost = wood;
+                        else _fenceWoodCost = wood;
+                    }
+            }
+            return DefenseService.RequiredWood(perimeterTileCount, _fenceWoodCost, _gateWoodCost);
+        }
+
+        /// <summary>방어 구역 확정의 유일한 창구 (PlayerInput 전용, M22-W3R — ADR-M22-4 개정).
+        /// 판당 1회 (Defense.HasPlan이 강제). 필터 = 맵 안 + 빈 타일 + 노드 없음 + 통행 가능.</summary>
+        public bool TryEstablishDefenseZone(Vector2Int min, Vector2Int max)
+        {
+            if (Defense == null || Defense.HasPlan) return false;
+            Defense.EstablishPlanRect(min, max,
+                new Vector2Int(_worldConfig.BaseTileX, _worldConfig.BaseTileY),
+                (x, y) => MapBounds.ToArrayIndex(x, y, out int ax, out int ay)
+                          && Walkable[ax, ay] && !Construction.HasBuildingAt(x, y)
+                          && !Discovery.HasNodeAt(x, y));
+            return Defense.HasPlan;
+        }
+
         /// <summary>이 건물이 주민 통행을 막는가 (ADR-M22-1 순수 규칙 — 게이트가 씬 없이 검산).</summary>
         public static bool BlocksVillagerPassage(BuildingSO b) => b.BlocksMovement;
 
@@ -742,19 +781,8 @@ namespace AIVillage.M0
             };
             // 구역 확정 = 첫 완공 (M9-A, ADR-M9-2) — NotifyBuilt가 첫 완공만 앵커로 잡는다
             Construction.OnCompleted += (b, x, y, _) => Zones.NotifyBuilt(b, x, y);
-            // 방어 구역 확정 → 둘레 계획 수립 (M22-W3). 필터 = 맵 안 + 빈 타일 + 통행 가능
-            // (기존 건물·통행 불가 자리는 계획에서 제외 — 명세 §W3).
-            Zones.OnZoneEstablished += (slot, anchor, radius) =>
-            {
-                if (slot != SlotId.FenceCount) return; // 방어 구역 키만 — 밭 구역(휴면)과 무관
-                // 필터에 자원 노드 포함 (M5 자가 재검토 🔴) — 노드 칸을 계획에 남기면 BuildRunner의
-                // Occupied(HasNodeAt)가 영영 거부해 DefensePlannedCount가 바닥나지 않는다 (goal 공회전)
-                Defense.EstablishPlan(anchor, radius,
-                    new Vector2Int(_worldConfig.BaseTileX, _worldConfig.BaseTileY),
-                    (x, y) => MapBounds.ToArrayIndex(x, y, out int ax, out int ay)
-                              && Walkable[ax, ay] && !Construction.HasBuildingAt(x, y)
-                              && !Discovery.HasNodeAt(x, y));
-            };
+            // (M22-W3R: 방어 구역은 ZoneService 이벤트가 아니라 TryEstablishDefenseZone 창구로 —
+            //  드래그 사각형이 (앵커,반경) 그릇에 안 맞아 소유가 DefenseService로 이동, ADR-M22-4 개정)
             // 방어 시설 완공 → 계획 차감 + 내구도 등록 (M22-W3·W5) — 완공 자체는 Complete()만 (ADR-M0-3)
             Construction.OnCompleted += (b, x, y, _) => Defense.NotifyBuilt(b, x, y);
             // 시설 소실 → 통행 복구 + 내구도 정리 + 계획 복귀 (M22-W5, ADR-M22-6 — 제거와 복구는 원자).
@@ -771,6 +799,8 @@ namespace AIVillage.M0
             // 구역 테두리 (표현 전용) — 확정 순간 앵커 둘레에 외곽선
             _zoneBorderView = new ZoneBorderView(transform);
             Zones.OnZoneEstablished += (slot, anchor, radius) => _zoneBorderView.Draw(slot, anchor, radius);
+            // 방어 구역 테두리 (M22-W3R) — 계획 확정 순간 사각 외곽선 (표현 전용)
+            Defense.OnPlanEstablished += (min, max) => _zoneBorderView.DrawRect(SlotId.FenceCount, min, max);
             // 舊 농부 회의 배선(OnZoneEstablished → ShowFarmMeeting)은 M11-F에서 제거됐다.
             // 개인 택지 시대의 장면은 집들이다 — 소유 배정 이벤트로 옮겨졌다(아래 Ownership.OnAssigned).
             // ZoneService는 휴면 보존 (테두리 뷰·재해 대사 앵커가 여전히 읽는다, ⚠️②).

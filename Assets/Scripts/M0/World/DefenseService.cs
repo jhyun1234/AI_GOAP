@@ -160,22 +160,48 @@ namespace AIVillage.M0
             }
         }
 
+        /// <summary>확정된 사각 영역 (표현·세이브용). HasPlan일 때만 유효.</summary>
+        public Vector2Int PlanMin { get; private set; }
+        public Vector2Int PlanMax { get; private set; }
+
+        /// <summary>계획 확정 알림 (min, max) — 테두리 뷰 구독 (표현 전용).</summary>
+        public event Action<Vector2Int, Vector2Int> OnPlanEstablished;
+
         /// <summary>
-        /// 체비쇼프 사각(anchor ± radius)의 경계 타일 — 결정적 순서 (아랫변 좌→우, 오른변 아래→위,
-        /// 윗변 우→좌, 왼변 위→아래). 같은 앵커·반경이면 언제나 같은 목록 (순수, 게이트 대상).
-        /// radius ≥ 1이면 타일 수 = 8 × radius.
+        /// 사각형(min~max)의 경계 타일 — 결정적 순서 (아랫변 좌→우, 오른변 아래→위,
+        /// 윗변 우→좌, 왼변 위→아래). 같은 입력이면 언제나 같은 목록 (순수, 게이트 대상).
+        /// 가로 W × 세로 H 사각의 타일 수 = 2(W+H) − 4 (W,H ≥ 2).
         /// </summary>
-        public static List<Vector2Int> PerimeterTiles(Vector2Int anchor, int radius)
+        public static List<Vector2Int> PerimeterTilesRect(Vector2Int min, Vector2Int max)
         {
-            var tiles = new List<Vector2Int>(Mathf.Max(1, 8 * radius));
-            if (radius <= 0) { tiles.Add(anchor); return tiles; }
-            int minX = anchor.x - radius, maxX = anchor.x + radius;
-            int minY = anchor.y - radius, maxY = anchor.y + radius;
+            int minX = Mathf.Min(min.x, max.x), maxX = Mathf.Max(min.x, max.x);
+            int minY = Mathf.Min(min.y, max.y), maxY = Mathf.Max(min.y, max.y);
+            var tiles = new List<Vector2Int>(2 * (maxX - minX + maxY - minY) + 4);
+            if (minX == maxX && minY == maxY) { tiles.Add(new Vector2Int(minX, minY)); return tiles; }
             for (int x = minX; x <= maxX; x++) tiles.Add(new Vector2Int(x, minY));          // 아랫변
             for (int y = minY + 1; y <= maxY; y++) tiles.Add(new Vector2Int(maxX, y));      // 오른변
-            for (int x = maxX - 1; x >= minX; x--) tiles.Add(new Vector2Int(x, maxY));      // 윗변
-            for (int y = maxY - 1; y >= minY + 1; y--) tiles.Add(new Vector2Int(minX, y));  // 왼변
+            if (maxY > minY)
+                for (int x = maxX - 1; x >= minX; x--) tiles.Add(new Vector2Int(x, maxY)); // 윗변
+            if (maxX > minX)
+                for (int y = maxY - 1; y >= minY + 1; y--) tiles.Add(new Vector2Int(minX, y)); // 왼변
             return tiles;
+        }
+
+        /// <summary>정사각 편의 오버로드 (기존 게이트·호출부 호환) — anchor ± radius.</summary>
+        public static List<Vector2Int> PerimeterTiles(Vector2Int anchor, int radius)
+        {
+            if (radius <= 0) return new List<Vector2Int> { anchor };
+            return PerimeterTilesRect(new Vector2Int(anchor.x - radius, anchor.y - radius),
+                                      new Vector2Int(anchor.x + radius, anchor.y + radius));
+        }
+
+        /// <summary>설치에 필요한 나무 (순수 — 지정 프리뷰의 초록/빨강 판정 원천, ADR-M22-4 개정).
+        /// 둘레 = 울타리 (N−1)칸 + 문 1칸. 비용 인자는 에셋에서 파생해 넘긴다 (이중 기입 금지).</summary>
+        public static int RequiredWood(int perimeterTileCount, int fenceWoodCost, int gateWoodCost)
+        {
+            if (perimeterTileCount <= 0) return 0;
+            return Mathf.Max(0, perimeterTileCount - 1) * Mathf.Max(0, fenceWoodCost)
+                 + Mathf.Max(0, gateWoodCost);
         }
 
         /// <summary>문 자리 = 기지 최근접(맨해튼) 둘레 타일 (순수, 결정적 — 동률이면 목록 앞 우선).
@@ -194,21 +220,21 @@ namespace AIVillage.M0
 
         /// <summary>
         /// 구역 확정 → 계획 수립 (1회 — 이미 있으면 무시, ADR-M22-4). tileBuildable 필터(맵 밖·
-        /// 기존 건물·통행 불가 제외)는 조립 배선이 주입한다 — 서비스는 맵을 모른다.
+        /// 기존 건물·노드·통행 불가 제외)는 조립 배선이 주입한다 — 서비스는 맵을 모른다.
         /// 문은 필터를 통과한 둘레에서 고른다 (막힌 자리에 문을 계획하면 영원히 못 짓는다).
         /// </summary>
-        public void EstablishPlan(Vector2Int anchor, int radius, Vector2Int baseTile,
-                                  Func<int, int, bool> tileBuildable)
+        public void EstablishPlanRect(Vector2Int min, Vector2Int max, Vector2Int baseTile,
+                                      Func<int, int, bool> tileBuildable)
         {
             if (HasPlan) return;
-            List<Vector2Int> perimeter = PerimeterTiles(anchor, radius);
+            List<Vector2Int> perimeter = PerimeterTilesRect(min, max);
             var buildable = new List<Vector2Int>(perimeter.Count);
             foreach (Vector2Int t in perimeter)
                 if (tileBuildable == null || tileBuildable(t.x, t.y))
                     buildable.Add(t);
             if (buildable.Count == 0)
             {
-                Debug.LogWarning($"[Defense] 방어 구역 @ ({anchor.x},{anchor.y}) r={radius} — " +
+                Debug.LogWarning($"[Defense] 방어 구역 ({min.x},{min.y})~({max.x},{max.y}) — " +
                                  "지을 수 있는 둘레 타일이 0개라 계획 없음.");
                 return;
             }
@@ -218,10 +244,20 @@ namespace AIVillage.M0
             _plannedFences.Clear();
             foreach (Vector2Int t in buildable)
                 if (t != gate) _plannedFences.Add(t);
+            PlanMin = Vector2Int.Min(min, max);
+            PlanMax = Vector2Int.Max(min, max);
             HasPlan = true;
             Debug.Log($"[Defense] 방어 계획 수립 — 울타리 {_plannedFences.Count} + 문 1 " +
-                      $"(제외 {perimeter.Count - buildable.Count}) @ ({anchor.x},{anchor.y}) r={radius}");
+                      $"(제외 {perimeter.Count - buildable.Count}) ({PlanMin.x},{PlanMin.y})~({PlanMax.x},{PlanMax.y})");
+            OnPlanEstablished?.Invoke(PlanMin, PlanMax);
         }
+
+        /// <summary>정사각 편의 오버로드 (기존 게이트 호환) — anchor ± radius.</summary>
+        public void EstablishPlan(Vector2Int anchor, int radius, Vector2Int baseTile,
+                                  Func<int, int, bool> tileBuildable)
+            => EstablishPlanRect(new Vector2Int(anchor.x - radius, anchor.y - radius),
+                                 new Vector2Int(anchor.x + radius, anchor.y + radius),
+                                 baseTile, tileBuildable);
 
         /// <summary>
         /// 다음 시공 자리 (M22-W4) — 문 에셋(GateCount)은 문 자리, 울타리는 from 최근접(맨해튼)

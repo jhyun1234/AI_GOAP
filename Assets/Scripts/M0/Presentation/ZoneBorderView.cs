@@ -17,6 +17,29 @@ namespace AIVillage.M0
             _parent = parent;
         }
 
+        /// <summary>사각 영역 테두리 (M22 방어 구역 — ADR-M22-4 개정: 드래그 임의 사각형).</summary>
+        public void DrawRect(SlotId countSlot, Vector2Int min, Vector2Int max)
+        {
+            var go = new GameObject($"ZoneBorder_{countSlot}");
+            go.transform.SetParent(_parent, worldPositionStays: false);
+            var lr = go.AddComponent<LineRenderer>();
+            lr.useWorldSpace = true;
+            lr.loop = true;
+            lr.positionCount = 4;
+            lr.widthMultiplier = 0.12f;
+            lr.numCornerVertices = 0;
+            lr.material = new Material(Shader.Find("Sprites/Default"));
+            lr.startColor = lr.endColor = FarmZoneColor;
+            lr.sortingOrder = 1;
+            lr.SetPositions(new[]
+            {
+                new Vector3(min.x - 0.5f, min.y - 0.5f, 0f),
+                new Vector3(max.x + 0.5f, min.y - 0.5f, 0f),
+                new Vector3(max.x + 0.5f, max.y + 0.5f, 0f),
+                new Vector3(min.x - 0.5f, max.y + 0.5f, 0f),
+            });
+        }
+
         public void Draw(SlotId countSlot, Vector2Int anchor, int radius)
         {
             var go = new GameObject($"ZoneBorder_{countSlot}");

@@ -248,17 +248,12 @@ namespace AIVillage.UI
             return pos;
         }
 
-        /// <summary>스크롤 줌 일시 억제 (M22-W3 최소 절제 수정 — 방어 구역 지정 모드 중 스크롤이
-        /// 반경 조절과 줌에 이중 반응하는 것을 막는다. 켠 쪽(PlayerInputController)이 끄는 것까지 책임).</summary>
-        public bool SuppressZoom { get; set; }
-
         /// <summary>
         /// 마우스 스크롤 휠로 카메라 Orthographic Size를 조절한다.
         /// 줌 인/아웃은 _minZoom ~ _maxZoom 사이로 클램핑된다.
         /// </summary>
         private void HandleZoom()
         {
-            if (SuppressZoom) return; // 구역 지정 모드 중 스크롤은 반경의 것 (M22-W3)
             float scroll = Input.GetAxis("Mouse ScrollWheel");
             if (Mathf.Abs(scroll) < 0.001f) return;
 

@@ -691,6 +691,77 @@ namespace AIVillage.Tests.EditMode
             }
         }
 
+        // ── M21-T12: 래칫 양방향 완충 (W7 DoD ②③④) ─────────────────────────
+
+        private static ThreatSO NewTier(float unlockDay, float periodDays, float warnDays)
+        {
+            var so = ScriptableObject.CreateInstance<ThreatSO>();
+            so.DisplayName = "시험 늑대";
+            so.UnlockDay = unlockDay;
+            so.PeriodDays = periodDays;
+            so.WarnDays = warnDays;
+            return so;
+        }
+
+        [Test]
+        public void M21_T12_ReliefStacks_CapBothAxes()
+        {
+            var cfg = ScriptableObject.CreateInstance<WorldConfigSO>(); // 기본값 3 · 2일
+            var svc = new ThreatService(null, null, null, null, cfg, null, null, null);
+
+            Assert.AreEqual(0, svc.ReliefStacks, "초기 스택 0");
+            Assert.AreEqual(0f, svc.DelayDays, 1e-4f, "초기 지연 0");
+
+            for (int i = 0; i < 4; i++) svc.NotifyVillagerDeath(); // 4번째는 상한에 흡수
+            Assert.AreEqual(3, svc.ReliefStacks, "스택 상한 3 — 연속 상실이 위협을 0으로 만들 수 없다 (DoD ③)");
+            Assert.AreEqual(6f, svc.DelayDays, 1e-4f,
+                "지연도 같은 상한에 묶인다 (3×2일) — 스택만 막고 지연이 새면 무한 유예가 된다");
+
+            Object.DestroyImmediate(cfg);
+        }
+
+        [Test]
+        public void M21_T12_DeathDelay_PushesForecastAndStrike()
+        {
+            // W7 DoD ② 기구 — 사망 후 다음 발동(과 예고)이 +2일 늦다. 예고 시각으로 검산한다:
+            // 예고와 발동은 한 시계(Tick)라 예고가 밀리면 발동도 민다 (Spawn까지 가면 경로탐색이
+            // 필요해 순수 검산이 안 된다 — 예고가 관측 가능한 가장 이른 지점).
+            var cfg = ScriptableObject.CreateInstance<WorldConfigSO>();
+            var tier = NewTier(0f, 6f, 1f); // 예고 = 발동 1일 전 = Day 5
+
+            var plain = new ThreatService(new[] { tier }, null, null, null, cfg, null, null, null);
+            plain.Tick(4.9f);
+            Assert.IsNull(plain.Forecasting, "기준선: Day 4.9 는 아직 예고 전");
+            plain.Tick(5.0f);
+            Assert.IsNotNull(plain.Forecasting, "기준선: Day 5.0 예고 (6 − 1)");
+
+            var grieving = new ThreatService(new[] { tier }, null, null, null, cfg, null, null, null);
+            grieving.NotifyVillagerDeath(); // +2일
+            grieving.Tick(5.0f);
+            Assert.IsNull(grieving.Forecasting, "사망 후엔 Day 5 에 예고가 없다 — 발동이 밀렸다");
+            grieving.Tick(6.9f);
+            Assert.IsNull(grieving.Forecasting, "Day 6.9 도 아직 (6 + 2 − 1 = 7)");
+            grieving.Tick(7.0f);
+            Assert.IsNotNull(grieving.Forecasting, "Day 7.0 예고 — 정확히 +2일 (DoD ②)");
+
+            // HUD 카운트다운도 같은 시계를 읽는다 — 판정과 표시가 갈리면 "1일 후"가 거짓말이 된다
+            Assert.AreEqual(1f, grieving.DaysToStrike(7.0f), 1e-3f, "예고 시점 잔여 = WarnDays");
+
+            Object.DestroyImmediate(tier);
+            Object.DestroyImmediate(cfg);
+        }
+
+        [Test]
+        public void M21_T12_ShippedConfig_ReliefIsOn()
+        {
+            var cfg = AssetDatabase.LoadAssetAtPath<WorldConfigSO>("Assets/M0Config/WorldConfig.asset");
+            Assert.IsNotNull(cfg, "WorldConfig 로드");
+            Assert.GreaterOrEqual(cfg.ThreatReliefStackMax, 1,
+                "완충 상한 0 = W7 축 전체가 꺼진다 (끄려면 명세 개정이 먼저)");
+            Assert.Greater(cfg.ThreatReliefDelayDays, 0f,
+                "사망 지연 0 = 상실이 리듬을 만들지 못한다 (자비 축 소멸)");
+        }
+
         private static WorldSnapshot Snap(params (SlotId slot, int value)[] pairs)
         {
             var slots = new int[PlanningConfig.TotalSlots];

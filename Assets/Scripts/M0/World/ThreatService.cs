@@ -19,8 +19,8 @@ namespace AIVillage.M0
     /// 활성 밴드 = 게임일 UnlockDay 충족 중 최신 1개 (ADR-M10R-1 시간 래칫 — 사망해도 강등 없음).
     /// 타깃 종류(밭/주민)는 밴드 고정이 아니라 출몰별 시드 롤 (ADR-M10R-3 — 곰도 밭을 칠 수 있다).
     /// Threats가 비면 SimulationLoop이 서비스 자체를 null로 둔다 (중립 불변식, DisasterService 패턴).
-    /// 세이브 대상 = _lastStrikeDay·_strikeOrdinal (ADR-M10-10). 진행 중 개체·예고 상태는 저장 안 함
-    /// (로드 후 다음 스케줄에서 재출몰).
+    /// 세이브 대상 = _lastStrikeDay·_strikeOrdinal·**_reliefStacks·_delayDays**(M21-W7) (ADR-M10-10).
+    /// 진행 중 개체·예고 상태는 저장 안 함 (로드 후 다음 스케줄에서 재출몰).
     /// </summary>
     public sealed class ThreatService
     {
@@ -48,6 +48,23 @@ namespace AIVillage.M0
         // 무리 전원 소멸 시 NotifyDespawn이 지운다. 세이브 대상 아님 (진행 중 개체와 운명 공유).
         private readonly Dictionary<int, int> _groupSpawned = new Dictionary<int, int>(2);
         private readonly List<ThreatAgent> _routBuf = new List<ThreatAgent>(4);
+        // 무리별 전투 퇴장 수 (M21-W7) — 격퇴 성공("무리 전체가 전투로 물러남") 판정의 분자.
+        private readonly Dictionary<int, int> _groupCombatExits = new Dictionary<int, int>(2);
+
+        // ── 래칫 양방향 완충 (M21-W7, ADR-M21-4) — 티어는 불가침, 완충은 규모·간격만 ──
+        // 🔴 M10R가 막은 루프의 재발이 아니다: 옛 루프는 *마을 규모* 축이 사망으로 줄며 티어가
+        // 강등되는 **영구** 하향이었고, 이것은 1회 소모·클램프·티어 불변의 **한시** 완충이다.
+        private int _reliefStacks;   // 다음 출몰 마릿수 감산 (상한 = 에셋). 세이브 대상 (ADR-M0-10)
+        private float _delayDays;    // 다음 발동 지연 (게임일, 사망만 쌓는다). 세이브 대상
+
+        /// <summary>현재 완충 스택 (읽기 전용 — 게이트·HUD). 쓰기는 사망·격퇴 성공·스폰 소모 3곳뿐.</summary>
+        public int ReliefStacks => _reliefStacks;
+
+        /// <summary>현재 발동 지연 (읽기 전용 — 게이트·HUD).</summary>
+        public float DelayDays => _delayDays;
+
+        private int ReliefStackMax => _config != null ? Mathf.Max(0, _config.ThreatReliefStackMax) : 3;
+        private float ReliefDelayPerDeath => _config != null ? Mathf.Max(0f, _config.ThreatReliefDelayDays) : 2f;
         private readonly List<VillagerAgent> _victimAgentBuf = new List<VillagerAgent>(8);
         private readonly List<(string id, int x, int y)> _victimKeyBuf = new List<(string, int, int)>(8);
         private readonly List<Vector2Int> _plotBuf = new List<Vector2Int>(16);
@@ -73,7 +90,8 @@ namespace AIVillage.M0
         /// 쓰기 없음, 예고·발동 판정은 Tick이 그대로 소유한다 (ADR-M0-3 상태 쓰기 단일 지점).
         /// 기존 예고 알림(WarnDays 상수 1회)과 달리 매일 줄어드는 카운트다운의 원천.</summary>
         public float DaysToStrike(float gameTime)
-            => _pending == null ? -1f : _lastStrikeDay + _pending.PeriodDays - gameTime;
+            => _pending == null ? -1f
+                                : _lastStrikeDay + _pending.PeriodDays + _delayDays - gameTime; // 지연 포함 (M21-W7) — 판정(Tick)과 같은 시계
 
         public ThreatService(ThreatSO[] threats, SeasonService season,
                              ConstructionService construction, IReadOnlyList<VillagerAgent> agents,
@@ -208,12 +226,14 @@ namespace AIVillage.M0
         {
             _gameTime = gameTime; // 체류 개체의 시계 (M21-W2) — 아래 조기 반환보다 먼저 갱신할 것
 
-            // 예고 진입 — 밴드는 예고 시점 게임일로 확정하고 발동까지 고정 (예고한 그놈이 온다)
+            // 예고 진입 — 밴드는 예고 시점 게임일로 확정하고 발동까지 고정 (예고한 그놈이 온다).
+            // 지연(_delayDays, M21-W7)은 예고·발동 **둘 다**에 얹는다 — 예고만 제때 나가고 발동이
+            // 늦으면 "1일 후"가 거짓말이 된다 (예고 문구와 실제 간격은 한 값이어야 한다).
             if (_pending == null)
             {
                 ThreatSO tier = PickTier(_threats, gameTime); // 규모 아님 — 시간 래칫 (ADR-M10R-1)
                 if (tier == null) return; // 전 밴드 미달 — 위협 없음 (스케줄도 흐르지 않는다)
-                if (gameTime >= _lastStrikeDay + tier.PeriodDays - tier.WarnDays)
+                if (gameTime >= _lastStrikeDay + tier.PeriodDays + _delayDays - tier.WarnDays)
                 {
                     _pending = tier;
                     Debug.Log($"[Threat] 예고 — {tier.DisplayName} ({tier.WarnDays:0.#}일 후)");
@@ -223,7 +243,7 @@ namespace AIVillage.M0
             }
 
             // 발동
-            if (gameTime >= _lastStrikeDay + _pending.PeriodDays)
+            if (gameTime >= _lastStrikeDay + _pending.PeriodDays + _delayDays)
             {
                 _lastStrikeDay = gameTime;
                 ThreatSO striking = _pending;
@@ -256,10 +276,14 @@ namespace AIVillage.M0
                 return;
             }
 
-            // 마릿수 (M21-W6, ADR-M21-6) — 완충 0 은 W7 의 자리. 예고는 마릿수를 말하지 않았다
-            // (DoD ④ — 정찰 재탄생의 여지): 몇 마리인지는 여기 도착해서야 드러난다.
+            // 마릿수 (M21-W6, ADR-M21-6) — 완충(M21-W7)은 여기서 전부 소모된다 (1회성):
+            // 스택은 마릿수 감산으로, 지연은 이미 발동 시각에 반영됐다. 예고는 마릿수를 말하지
+            // 않았다 (DoD ④ — 정찰 재탄생의 여지): 몇 마리인지는 여기 도착해서야 드러난다.
+            int relief = _reliefStacks;
+            _reliefStacks = 0;
+            _delayDays = 0f;
             int count = SpawnCount(so.SpawnCountBase, so.UnlockDay, _gameTime,
-                                   so.CountGrowthEveryDays, so.SpawnCountMax, 0);
+                                   so.CountGrowthEveryDays, so.SpawnCountMax, relief);
             int spawned = 0;
             for (int i = 0; i < count; i++)
             {
@@ -291,7 +315,8 @@ namespace AIVillage.M0
             _groupSpawned[_strikeOrdinal] = spawned; // 무리 도주선의 분모 = 실제 태어난 수
             Debug.Log($"[Threat] 출몰 — {so.DisplayName}{(spawned > 1 ? $" ×{spawned}" : "")} " +
                       $"@ ({entry.x},{entry.y}) → ({target.x},{target.y}) " +
-                      $"[{(targetsVillagers ? "주민" : "밭")} 타깃]{(hungry ? " · 배고픈 계절" : "")}");
+                      $"[{(targetsVillagers ? "주민" : "밭")} 타깃]{(hungry ? " · 배고픈 계절" : "")}" +
+                      $"{(relief > 0 ? $" · 완충 −{relief}" : "")}");
         }
 
         /// <summary>목표 타일: 주민 타격 = 진입점 최근접 생존 주민, 밭 타격 = 진입점 최근접 **실제 밭 타일**.
@@ -537,15 +562,59 @@ namespace AIVillage.M0
         }
 
         /// <summary>소멸 통지 (ThreatAgent 전용) — 활성 목록 정리 + 퇴장 로그.
-        /// 무리의 마지막 개체가 사라지면 등록부도 지운다 (M21-W6 — 등록부 무한 성장 방지).</summary>
+        /// 무리의 마지막 개체가 사라지면 등록부도 지운다 (M21-W6 — 등록부 무한 성장 방지).
+        ///
+        /// 격퇴 성공 판정 (M21-W7)이 여기 있는 이유: 전투 퇴장의 두 얼굴(도주 = IsFleeing,
+        /// 사냥 = 체력 0)이 전부 이 문을 지나므로 CombatService에 별도 통지 통로를 팔 필요가
+        /// 없다 (명세 대상의 "CombatService 격퇴 통지"를 소멸 문 하나로 갈음 — 문이 적을수록
+        /// 어긋날 자리도 적다). 성공 = **무리 전원이 전투로 물러남** — 한 마리라도 체류 상한·
+        /// 대상 소멸로 나갔으면 이긴 것이 아니다.</summary>
         public void NotifyDespawn(ThreatAgent agent)
         {
             _active.Remove(agent);
+            bool combatExit = agent.IsFleeing || agent.Hp <= 0f; // 도주 전환·사냥 — 둘 다 전투의 결과
+            if (combatExit)
+            {
+                _groupCombatExits.TryGetValue(agent.GroupKey, out int exits);
+                _groupCombatExits[agent.GroupKey] = exits + 1;
+            }
+
             bool groupRemains = false;
             foreach (ThreatAgent t in _active)
                 if (t != null && t.GroupKey == agent.GroupKey) { groupRemains = true; break; }
-            if (!groupRemains) _groupSpawned.Remove(agent.GroupKey);
+            if (!groupRemains)
+            {
+                if (_groupSpawned.TryGetValue(agent.GroupKey, out int spawnedCount)
+                    && _groupCombatExits.TryGetValue(agent.GroupKey, out int combatExits)
+                    && combatExits >= spawnedCount)
+                    RegisterRepelRelief(agent.So);
+                _groupSpawned.Remove(agent.GroupKey);
+                _groupCombatExits.Remove(agent.GroupKey);
+            }
             Debug.Log($"[Threat] 퇴장 — {agent.So.DisplayName}");
+        }
+
+        /// <summary>격퇴 성공의 완충 (M21-W7) — 이김의 보상: 다음 출몰 마릿수만 깎는다
+        /// (지연 없음 — 이김에는 숨돌릴 틈이 필요 없다, §4).</summary>
+        private void RegisterRepelRelief(ThreatSO so)
+        {
+            if (_reliefStacks >= ReliefStackMax) return; // 상한 — 누적이 위협을 0으로 만들 수는 없다
+            _reliefStacks++;
+            Debug.Log($"[Threat] 완충 — 격퇴의 보상: 다음 출몰 −{_reliefStacks}마리 " +
+                      $"(스택 {_reliefStacks}/{ReliefStackMax}) — {so.DisplayName} 무리를 물리쳤다");
+        }
+
+        /// <summary>주민 사망의 완충 (M21-W7) — 자비: 손실이 마모가 아니라 리듬이 되게
+        /// (림월드 adaptation의 이중 축). 원인 무관 — 아사도 마을의 상실이다.
+        /// 호출처는 SimulationLoop.RecordDeath 하나 (사망의 공통 문 — Die/StarveToDeath 합류점).</summary>
+        public void NotifyVillagerDeath()
+        {
+            if (_reliefStacks >= ReliefStackMax) return; // 지연도 같은 상한에 묶는다 — 무한 지연 금지
+            _reliefStacks++;
+            _delayDays += ReliefDelayPerDeath;
+            Debug.Log($"[Threat] 완충 — 상실의 자비: 다음 출몰 −{_reliefStacks}마리 · " +
+                      $"발동 +{ReliefDelayPerDeath:0.#}일 (스택 {_reliefStacks}/{ReliefStackMax} · " +
+                      $"지연 누적 {_delayDays:0.#}일)");
         }
 
         // ── 무리 도주선 (M21-W6 — 판정은 CombatService, 여기는 등록부·집계·집행) ──

@@ -34,6 +34,8 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 22b1c9a2b5fd402ea23bf012b009eb24, type: 2}
   - {fileID: 11400000, guid: daf79a622561409fab29e42cea86fdc7, type: 2}
   - {fileID: 11400000, guid: abd1b30eab534736883b5719f51d005a, type: 2}
+  ThreatReliefStackMax: 3
+  ThreatReliefDelayDays: 2
   WandererIntervalDays: 5
   WandererWaitDays: 0.7
   FoodSources:

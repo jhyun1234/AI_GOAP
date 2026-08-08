@@ -500,6 +500,9 @@ namespace AIVillage.M0
         public void RecordDeath(int tileX, int tileY, string shortName, int day, string agentId)
         {
             DeathCount++;
+            // 래칫 완충 (M21-W7) — 사망의 공통 문(Die·StarveToDeath 합류점)이라 여기 한 줄이면
+            // 원인 무관 전 사망을 덮는다. 위협 없는 판은 null이라 자연히 무효 (중립 불변식).
+            Threats?.NotifyVillagerDeath();
             _graves.Add((new Vector2Int(tileX, tileY), agentId)); // 무덤 조사 등록부 (M13 — 클릭 → 생전 기록)
             var grave = new GameObject($"Grave_{shortName}_{tileX}_{tileY}");
             grave.transform.SetParent(transform, worldPositionStays: false);

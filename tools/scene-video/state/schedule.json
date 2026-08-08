@@ -32,7 +32,9 @@
     "ep10s-2",
     "ep10s-3",
     "ep11s",
-    "ep12s",
+    "ep12s-1",
+    "ep12s-2",
+    "ep12s-3",
     "ep13s"
   ],
   "sources": {
@@ -103,7 +105,9 @@
     },
     "ep12s": {
       "local": "2026-07-26-unity-goap-m9-zone-disaster-flood.html",
-      "url": "https://gamedevclaude.blogspot.com/2026/07/unity-goap-ai-claude-code-ai.html"
+      "url": "https://gamedevclaude.blogspot.com/2026/07/unity-goap-ai-claude-code-ai.html",
+      "split": 3,
+      "note": "M9 공간과 재해. 사건 셋 — ①겨울 대비 목표 「조리식 20개」가 주민 10명 시절 숫자였다 → 「며칠 버티나」(FoodDaysLeft) ②1년 돌려보니 겨울 잔량 40(기준 30) → 네 군데를 조이고 위기 계절 레시피를 비싸게 → 그 짝인 요리 목표 발동 조건이 어긋났다 ③코드 0줄로 넣은 홍수가 「작물 0개 소실」 → 원인은 재해가 아니라 바로 앞에서 넣은 재파종 잠금 → 홍수를 밭 시설을 부수는 재해로 전환. 🔑 원문이 스스로 요약한 「결과물 셋(구역·재해·식량 N일치)」과 사건 셋은 다르다 — 구역(ZoneService)·재해 선반(DisasterSO)은 어긋난 상태가 없어(만든 이야기) 편으로 세우지 않았고, 이탈 오탐·관개수로 목표 끄기는 곁가지로 넘겼다."
     },
     "ep13s": {
       "local": "2026-07-28-unity-goap-m10-wolf-injury-wanderer.html",

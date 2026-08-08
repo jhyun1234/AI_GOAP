@@ -762,6 +762,59 @@ namespace AIVillage.Tests.EditMode
                 "사망 지연 0 = 상실이 리듬을 만들지 못한다 (자비 축 소멸)");
         }
 
+        // ── M21-T13: 사냥꾼·정찰 (W8 DoD ①②④) ──────────────────────────────
+
+        [Test]
+        public void M21_T13_ScoutBonus_IsMaxNotSum()
+        {
+            var scout = ScriptableObject.CreateInstance<JobSO>();
+            scout.WarnBonusDays = 1f;
+            var scout2 = ScriptableObject.CreateInstance<JobSO>();
+            scout2.WarnBonusDays = 1f;
+            var farmer = ScriptableObject.CreateInstance<JobSO>();
+
+            Assert.AreEqual(0f, ThreatService.MaxWarnBonus(null), 1e-4f, "미배선 = 중립");
+            Assert.AreEqual(0f, ThreatService.MaxWarnBonus(new[] { farmer }), 1e-4f,
+                "정찰 없는 판 = 연장 0 (기존 예고 그대로)");
+            Assert.AreEqual(1f, ThreatService.MaxWarnBonus(new[] { farmer, scout }), 1e-4f,
+                "정찰 1명 = +1일");
+            // ⚠️① 인원 비례 금지 — 정찰꾼 몰빵이 예고를 무한정 늘리면 안 된다
+            Assert.AreEqual(1f, ThreatService.MaxWarnBonus(new[] { scout, scout2 }), 1e-4f,
+                "정찰 2명도 +1일 — 최댓값이지 합산이 아니다 (1명이면 족하다)");
+
+            Object.DestroyImmediate(scout);
+            Object.DestroyImmediate(scout2);
+            Object.DestroyImmediate(farmer);
+        }
+
+        [Test]
+        public void M21_T13_ShippedJobs_HunterFightsOthersNeutral()
+        {
+            var hunter = AssetDatabase.LoadAssetAtPath<JobSO>("Assets/M0Config/Jobs/Job_Hunter.asset");
+            Assert.IsNotNull(hunter, "Job_Hunter 에셋 로드");
+            Assert.Greater(hunter.CombatDurationMult, 0f, "배율 0 = HitInterval이 무시해 사냥꾼이 침묵");
+            Assert.Less(hunter.CombatDurationMult, 1f, "1 이상이면 사냥꾼의 부재 시나리오가 사라진다");
+            GoalSO fight = LoadGoal("Goal_Fight");
+            Assert.Greater(hunter.BoostFor(fight), 0, "사냥꾼은 교전을 선점해야 한다 (GoalBoost)");
+
+            var explorer = AssetDatabase.LoadAssetAtPath<JobSO>("Assets/M0Config/Jobs/Job_Explorer.asset");
+            Assert.IsNotNull(explorer, "Job_Explorer 에셋 로드");
+            Assert.GreaterOrEqual(explorer.WarnBonusDays, 1f,
+                "정찰 연장 0 = 재탄생이 껍데기다 (부재 시나리오 소멸)");
+
+            // DoD ④ 중립 불변식 — 사냥꾼 외 전 직업의 전투 간격·비사냥 직업의 정찰 연장 불변
+            foreach (string guid in AssetDatabase.FindAssets("t:JobSO"))
+            {
+                var job = AssetDatabase.LoadAssetAtPath<JobSO>(AssetDatabase.GUIDToAssetPath(guid));
+                if (job != hunter)
+                    Assert.AreEqual(1f, job.CombatDurationMult, 1e-4f,
+                        $"{job.name}: 전투 배율이 1이 아니다 — 사냥꾼만의 축이 흐려진다 (중립 불변식)");
+                if (job != explorer)
+                    Assert.AreEqual(0f, job.WarnBonusDays, 1e-4f,
+                        $"{job.name}: 정찰 연장은 탐험가(정찰)만의 축이다");
+            }
+        }
+
         private static WorldSnapshot Snap(params (SlotId slot, int value)[] pairs)
         {
             var slots = new int[PlanningConfig.TotalSlots];

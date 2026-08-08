@@ -239,6 +239,8 @@ namespace AIVillage.M0
         //  식량 일수는 판정에서 빠지고 표시용 참고 수치로만 남는다 — ComposeStatus 주석 참조.)
         private readonly List<(string name, int satiety, int foodDays, bool critical)> _starvingBuf =
             new List<(string, int, int, bool)>(8);
+        // 적습 상시 프롬프트의 현재 문구 (M21-W8) — null = 미표시. 방랑자 제안에 슬롯을 양보한다.
+        private string _raidPrompt;
         // 급한 순 = 포만 낮은 순 (굶주림 등급이 곧 포만 순서라 별도 키가 필요 없다).
         private static readonly System.Comparison<(string name, int satiety, int foodDays, bool critical)>
             ByHungerUrgency = (a, b) => a.satiety != b.satiety
@@ -772,7 +774,9 @@ namespace AIVillage.M0
                                                       && Walkable[ax, ay],
                                             transform);
                 Threats.OnForecast += t =>
-                    Hud?.Notify($"{t.DisplayName}이(가) 다가옵니다 — {t.WarnDays:0.#}일 뒤");
+                    // 잔여 일수는 실제 스케줄에서 읽는다 (M21-W8) — 정찰 연장 시 WarnDays 상수로
+                    // 표기하면 "1일 뒤"가 거짓말이 된다 (판정과 표시는 한 시계).
+                    Hud?.Notify($"{t.DisplayName}이(가) 다가옵니다 — {Threats.DaysToStrike(GameTime):0.#}일 뒤");
                 Threats.OnStruck += (t, struckVillagers, n, tile, victims) =>
                 {
                     // 빈 타격(0명·0개)은 "아무 일도 없었다" — 알림도 대사도 내지 않는다.
@@ -973,6 +977,29 @@ namespace AIVillage.M0
                 Hud?.TickStatus(SeasonHud.ComposeStatus(_starvingBuf, CountUntendedInjured(),
                                                         threatDaysLeft, threatName,
                                                         freezeDaysLeft, _unpreparedBuf));
+
+                // 적습 상시 프롬프트 (M21-W8, ADR-M21-7 — 개입 시점은 화면이 알려준다).
+                // 방랑자 제안이 떠 있으면 양보한다 (프롬프트 슬롯은 하나 — 결정 요구가 관측보다
+                // 급하다). 제안이 해소되면 다음 틱에 자동 복원 (_raidPrompt 비교가 재설정을 연다).
+                bool wandererPending = Wanderers != null && Wanderers.HasPendingOffer;
+                ThreatSO raidSo = null;
+                int raidCount = 0;
+                bool raidActive = Threats != null && Threats.TryGetActiveRaid(out raidSo, out raidCount);
+                if (raidActive && !wandererPending)
+                {
+                    string p = $"⚔ {raidSo.DisplayName}{(raidCount > 1 ? $" {raidCount}마리" : "")} — " +
+                               "마을 습격 중 (주민 선택 후 F = 맞서라)";
+                    if (p != _raidPrompt)
+                    {
+                        _raidPrompt = p;
+                        Hud?.SetPrompt(p);
+                    }
+                }
+                else if (_raidPrompt != null)
+                {
+                    _raidPrompt = null;
+                    if (!wandererPending) Hud?.ClearPrompt(); // 방랑자가 슬롯을 차지했으면 놔둔다
+                }
 
                 // 에이전트 틱 (W4) — 역순 순회: SimTick 중 파괴/해제로 리스트가 줄어도 안전
                 for (int i = _agents.Count - 1; i >= 0; i--)

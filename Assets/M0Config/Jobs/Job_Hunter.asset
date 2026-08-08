@@ -10,18 +10,26 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 1a6b22a3a704487dbcc02ad35b8eb83e, type: 3}
-  m_Name: Job_Explorer
+  m_Name: Job_Hunter
   m_EditorClassIdentifier:
-  DisplayName: "탐험가"
-  GoalBoosts: []
+  DisplayName: "사냥꾼"
+  GoalBoosts:
+  - Goal: {fileID: 11400000, guid: 5a2f8d61c7b34e09a4d1e6f2b930c85d, type: 2}
+    Boost: 15
   GatherCostMult: 1
   FarmCostMult: 1
   BuildCostMult: 1
-  ExploreCostMult: 0.6
-  WarnBonusDays: 1
-  RoutineGoal: {fileID: 11400000, guid: 519bd4c62b75468e9ebe843e585d370b, type: 2}
+  ExploreCostMult: 1
+  BuildDurationMult: 1
+  FarmDurationMult: 1
+  CookDurationMult: 1
+  GatherDurationMults: []
+  RoutineGoal: {fileID: 0}
+  TendRecoveryMult: 1
+  CanTreatInjury: 0
+  HomePreferredDist: 0
+  CombatDurationMult: 0.5
+  WarnBonusDays: 0
   PreferWeights:
-  - Trait: 3
-    Weight: 0.8
   - Trait: 5
-    Weight: -0.3
+    Weight: -0.6

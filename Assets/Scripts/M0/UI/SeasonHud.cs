@@ -214,6 +214,8 @@ namespace AIVillage.M0
                 $"{a.ShortName} — 성격 {(a.Personality != null ? a.Personality.DisplayName : "없음")}" +
                 $" · 직업 {(a.Job != null ? a.Job.DisplayName : "무직")}" +
                 $" · 포만 {Mathf.RoundToInt(a.Satiety)} · 피로 {Mathf.RoundToInt(a.Fatigue)}" +
+                // 체력 (M21-W8 — 헌장 표현 조항: 판정이 읽는 값은 화면에도 자리가 있어야 한다)
+                $" · 체력 {Mathf.RoundToInt(a.Hp)}/{Mathf.RoundToInt(a.AgentConfig.MaxHp)}" +
                 // 소지 식량 표기 (M11-A 관측 — 보상 차감·저장 이동을 콘솔 없이 화면에서 확인)
                 $" · 소지 생{a.MyRaw}·조{a.MyCooked}" + // (M19-W4: 지갑 표기 철거)
                 // 부상 표기 (M10-A) — 붉은 강조. None이면 표기 없음 (중립 — M9 표시와 동일)

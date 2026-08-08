@@ -40,11 +40,11 @@ namespace AIVillage.M0
             _so = so;
         }
 
-        /// <summary>이번 타격 간격 — 무기 배율은 W5가 배선했다 (`MyHasWeapon` × 에셋 배율).
-        /// 직업 배율(`JobSO.CombatDurationMult`)은 W8 몫 — 그때 두 번째 인자만 갈아 끼운다.
+        /// <summary>이번 타격 간격 — 무기 배율은 W5, 직업 배율은 W8이 배선했다 (무장 사냥꾼 = 4배).
         /// ⚠️ 배율을 여기서 발명하지 않는다 — 곱 결합·클램프는 전부 HitInterval(순수, 게이트 T8)이 한다.</summary>
         private float Interval(VillagerAgent agent)
-            => CombatService.HitInterval(_so.BaseHitSec, 1f, agent.MyHasWeapon, _so.WeaponHitSecMult);
+            => CombatService.HitInterval(_so.BaseHitSec, agent.CombatDurationMultOfJob(),
+                                         agent.MyHasWeapon, _so.WeaponHitSecMult);
 
         private static int Dist(VillagerAgent a, ThreatAgent t)
             => Mathf.Abs(a.TileX - t.TileX) + Mathf.Abs(a.TileY - t.TileY);

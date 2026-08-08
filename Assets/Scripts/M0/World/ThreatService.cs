@@ -168,6 +168,32 @@ namespace AIVillage.M0
         /// <summary>지금이 배고픈 계절인가 — 인스턴스 창구. 계절 서비스가 없는 판은 false (중립).</summary>
         private bool PredatorHungryNow => IsPredatorHungry(_season != null ? _season.Current : null);
 
+        // ── 정찰 연장 (M21-W8) ────────────────────────────────────────────────
+
+        /// <summary>정찰 예고 연장 (순수 — 게이트 M21-T13): 직업들의 WarnBonusDays **최댓값**.
+        /// ⚠️ 합산 금지 (인원 비례 = 정찰꾼 몰빵 메타 — 명세 W8 ⚠️①). 1명이면 족하다.</summary>
+        public static float MaxWarnBonus(IEnumerable<JobSO> jobs)
+        {
+            float best = 0f;
+            if (jobs != null)
+                foreach (JobSO j in jobs)
+                    if (j != null && j.WarnBonusDays > best) best = j.WarnBonusDays;
+            return best;
+        }
+
+        /// <summary>생존 주민 기준 정찰 연장 — 미배선(테스트 등)이면 0 (중립: 기존 예고 그대로).</summary>
+        private float ScoutWarnBonus()
+        {
+            if (_agents == null) return 0f;
+            float best = 0f;
+            foreach (VillagerAgent a in _agents)
+            {
+                if (a == null || a.State == AgentState.Dead || a.Job == null) continue;
+                if (a.Job.WarnBonusDays > best) best = a.Job.WarnBonusDays;
+            }
+            return best;
+        }
+
         /// <summary>스폰 마릿수 산식 (순수 — 게이트 M21-T11, §4): 기본 + 밴드가 열린 뒤 흐른
         /// 시간의 성장 − 완충, [1, Max] 클램프. 성장 주기 0 이하 = 성장 없음 (에셋 사고 방어).
         /// mitigation 은 W7 래칫 완충의 자리 — W6 은 항상 0 을 넣는다 (자리만 먼저 판다:
@@ -233,10 +259,15 @@ namespace AIVillage.M0
             {
                 ThreatSO tier = PickTier(_threats, gameTime); // 규모 아님 — 시간 래칫 (ADR-M10R-1)
                 if (tier == null) return; // 전 밴드 미달 — 위협 없음 (스케줄도 흐르지 않는다)
-                if (gameTime >= _lastStrikeDay + tier.PeriodDays + _delayDays - tier.WarnDays)
+                // 정찰 연장 (M21-W8) — 생존 정찰꾼이 있으면 예고가 이르다. 발동 시각은 불변 —
+                // 정찰이 바꾸는 것은 "언제 오는가"가 아니라 **"언제 아는가"**다.
+                float warn = tier.WarnDays + ScoutWarnBonus();
+                if (gameTime >= _lastStrikeDay + tier.PeriodDays + _delayDays - warn)
                 {
                     _pending = tier;
-                    Debug.Log($"[Threat] 예고 — {tier.DisplayName} ({tier.WarnDays:0.#}일 후)");
+                    float lead = _lastStrikeDay + tier.PeriodDays + _delayDays - gameTime;
+                    Debug.Log($"[Threat] 예고 — {tier.DisplayName} ({lead:0.#}일 후" +
+                              $"{(warn > tier.WarnDays ? " · 정찰 연장" : "")})");
                     OnForecast?.Invoke(tier);
                 }
                 return;
@@ -752,6 +783,22 @@ namespace AIVillage.M0
                 threat = t;
             }
             return threat != null;
+        }
+
+        /// <summary>진행 중 습격 요약 (M21-W8 — HUD 상시 프롬프트 전용, ADR-M21-7 "명령을 쓸
+        /// 시점은 화면이 알려준다"). 체류 중(도착~퇴장 전) 개체가 있으면 true — 접근 중·퇴장 중은
+        /// 습격이 아니다 (프롬프트가 일찍 뜨면 "습격 중"이 거짓말이 된다). 대표 SO = 첫 체류 개체.</summary>
+        public bool TryGetActiveRaid(out ThreatSO so, out int stayingCount)
+        {
+            so = null;
+            stayingCount = 0;
+            foreach (ThreatAgent t in _active)
+            {
+                if (t == null || !t.Staying) continue;
+                if (so == null) so = t.So;
+                if (t.So == so) stayingCount++;
+            }
+            return so != null;
         }
 
         /// <summary>내 근처에 활성 위협이 있는가 (M10-D ThreatNear 슬롯의 유일한 원천).

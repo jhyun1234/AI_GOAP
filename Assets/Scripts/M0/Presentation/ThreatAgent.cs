@@ -71,6 +71,9 @@ namespace AIVillage.M0
         /// <summary>퇴장 진행 중 — 서비스가 중복 퇴장 지시를 거르는 판독점.</summary>
         public bool IsExiting => _exiting;
 
+        /// <summary>체류 중 (M21-W8 — HUD 습격 프롬프트 판독점). 도착~퇴장 전 = "습격 중".</summary>
+        public bool Staying => _arrived && !_exiting;
+
         /// <summary>체류 시작 시각 (게임일) — MaxStayDays 판정의 원본. 쓰기는 MarkArrived.</summary>
         public float ArrivedDay { get; private set; }
 

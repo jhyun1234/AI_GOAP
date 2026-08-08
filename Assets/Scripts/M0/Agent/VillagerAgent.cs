@@ -169,6 +169,11 @@ namespace AIVillage.M0
         public float GatherDurationMultOfJob(ResourceType resource)
             => Job != null ? Job.GatherDurationMultFor(resource) : 1f;
 
+        /// <summary>전투 타격 간격 배율 (M21-W8). 소비처는 FightRunner.Interval뿐 —
+        /// 곱 결합·클램프는 CombatService.HitInterval(순수)이 한다. 무직 = 1 (중립).</summary>
+        public float CombatDurationMultOfJob()
+            => Job != null ? Job.CombatDurationMult : 1f;
+
         // goal 실효 우선순위 보정 (M5-B 직업 + M6 후속 성격 합산, ADR-M5-1) — 스폰 1회 캐시.
         // 둘 다 null이면 null = Select가 기존과 완전 동일 경로 (중립 불변식).
         private System.Func<GoalSO, int> _goalBias;

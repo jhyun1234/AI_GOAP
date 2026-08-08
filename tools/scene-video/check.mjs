@@ -87,27 +87,37 @@ add(bigPauses.length <= 2, '큰 쉼 회차당 2회 이하',
    사용자 지시가 문안까지 고정했으므로 기계가 볼 수 있다 — 셋 다 fail/warn 로 잰다.
    🔴 이 게이트는 신규 회차용이다. 옛 회차(ep11s 이전)에 돌리면 전부 red 가 나는 것이
    옳다 — 그 회차들은 이 구조 이전의 규격으로 승인됐다. */
+/* 🔑 구형 예외 — 4단 구조(2026-08-08) **이전에 승인·완주한** 회차를 제목 개정 등으로
+   다시 구울 때만 쓴다. `scene.legacyFormat` 에 사유를 적으면 구조 게이트 셋을 사유와
+   함께 통과시킨다(예외 = 값이 곧 사유, checks 와 같은 원칙).
+   🔴 신규 회차가 이 필드를 들고 오면 그 자체가 반려 사유다 — 검수팀이 본다.
+   첫 사용처: ep10s-3·ep11s (제목 도치형 개정 재렌더, 2026-08-08). */
+const legacy = String(scene.legacyFormat ?? '').trim();
+
 const introShot = scene.shots[0];
 const introSayAll = (introShot?.lines ?? []).map(l => l.say ?? l.text).join(' ');
-add(introShot?.kind === 'intro' && /개발\s*일지/.test(introSayAll), '인트로 있음',
-  introShot?.kind === 'intro'
-    ? `${introShot.id} (kind=intro) — 「${introSayAll.slice(0, 28)}…」`
-    : `🔴 shots[0].kind 가 intro 가 아니다(${introShot?.kind}) — 고정 인트로가 없다`);
+add(legacy ? true : (introShot?.kind === 'intro' && /개발\s*일지/.test(introSayAll)), '인트로 있음',
+  legacy ? `구형 예외 — ${legacy}`
+    : introShot?.kind === 'intro'
+      ? `${introShot.id} (kind=intro) — 「${introSayAll.slice(0, 28)}…」`
+      : `🔴 shots[0].kind 가 intro 가 아니다(${introShot?.kind}) — 고정 인트로가 없다`);
 
 const hookLine = scene.shots[1]?.lines?.[0];
 const hookSay = hookLine ? (hookLine.say ?? hookLine.text) : '';
-add(/^오늘\s*개발\s*일지/.test(hookSay), '훅 시작 문구',
-  /^오늘\s*개발\s*일지/.test(hookSay)
-    ? `「${hookSay.slice(0, 30)}…」`
-    : `🔴 shots[1] 첫 줄이 「오늘 개발 일지 내용은」으로 시작하지 않는다 — 「${hookSay.slice(0, 30)}」`);
+add(legacy ? true : /^오늘\s*개발\s*일지/.test(hookSay), '훅 시작 문구',
+  legacy ? `구형 예외 — ${legacy}`
+    : /^오늘\s*개발\s*일지/.test(hookSay)
+      ? `「${hookSay.slice(0, 30)}…」`
+      : `🔴 shots[1] 첫 줄이 「오늘 개발 일지 내용은」으로 시작하지 않는다 — 「${hookSay.slice(0, 30)}」`);
 
 /* 아웃트로 소개 — 마지막 샷에 시리즈 소개로 맺는 줄이 있어야 한다(ADR-V25-10).
    문안은 회차 재량이라 낱말만 본다. 뜻은 검수팀 몫. */
 const lastLines = (scene.shots.at(-1)?.lines ?? []).map(l => l.say ?? l.text);
-add(lastLines.some(s => /개발\s*일지|다음\s*편에서/.test(s)), '아웃트로 소개 있음',
-  lastLines.some(s => /개발\s*일지|다음\s*편에서/.test(s))
-    ? `「${lastLines.at(-1)?.slice(0, 30)}…」`
-    : `🟡 마지막 샷에 소개 마무리 줄(「…개발일지」·「다음 편에서…」)이 없다`, 'warn');
+add(legacy ? true : lastLines.some(s => /개발\s*일지|다음\s*편에서/.test(s)), '아웃트로 소개 있음',
+  legacy ? `구형 예외 — ${legacy}`
+    : lastLines.some(s => /개발\s*일지|다음\s*편에서/.test(s))
+      ? `「${lastLines.at(-1)?.slice(0, 30)}…」`
+      : `🟡 마지막 샷에 소개 마무리 줄(「…개발일지」·「다음 편에서…」)이 없다`, 'warn');
 
 /* ── 영어 자막 (CC 로 나가는 트랙) ──────────────────
    영상은 하나다 — 더빙도 번인 자막도 한국어고, 영어권 시청자는 CC 를 켜서 본다.

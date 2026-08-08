@@ -14,7 +14,7 @@
   "hud": {
     "title": "11편 · 60초를 쫓아다녔는데 품삯이 사라졌다",
     "aiHook": "Claude Code로 만든 유니티 GOAP AI",
-    "outro": "gamedevclaude.blogspot.com"
+    "outro": "Claude Code로만 만드는 GOAP AI 마을 게임 개발일지"
   },
   "hook": "4막 · 잃을 수 있는 마을 — 처음 잃은 건 품삯이다",
   "outro": {
@@ -24,7 +24,7 @@
     "siblings": []
   },
   "youtube": {
-    "title": "집을 다 짓고 60초를 쫓아다녔는데 품삯이 사라졌어요 · 유니티 GOAP 개발일지 11편 #shorts",
+    "title": "이 품삯은 어디로 사라졌을까요? 집을 다 짓고 60초를 쫓아다녔거든요. · 유니티 GOAP 개발일지 11편 #shorts",
     "blurb": "혼자 만드는 유니티 마을 시뮬레이션에 「집 좀 지어줄래?」라는 부탁 시스템이 있습니다. 목수가 의뢰인의 집을 다 지으면 다 됐다고 알리러 의뢰인에게 걸어가요. 그런데 의뢰인이 가만히 서 있질 않습니다. 배가 고프면 밥을 먹으러 가고, 심심하면 어딘가로 걸어가죠. 그러면 목수는 그 뒤를 쫓아갑니다.\n\n문제는 둘의 걷는 속도가 똑같다는 것이었어요. 앞서 걷는 사람을 같은 속도로 쫓으면 간격은 영원히 좁혀지지 않습니다. 그렇게 60초가 지나면 보고 심부름은 타임아웃으로 취소됐고, 그 순간 목수가 받아야 할 보상이 그냥 사라졌습니다. 열심히 집을 다 지어놓고 품삯이 증발하는 겁니다.\n\n처음엔 이걸 길찾기 문제로 접근했습니다. 걷는 중에 목표 위치를 다시 조준하는 기능을 붙여서 풀어보려고 했는데, 실제로 게임에 넣고 돌려보니 안 됐어요. 당연했습니다. 같은 속도로 도망가는 대상은 알고리즘을 아무리 정교하게 만들어도 수렴하지 않으니까요. 제가 고치려던 건 알고리즘이었는데, 진짜 원인은 한 겹 아래에 있었습니다. \"보상을 주려면 상대를 쫓아가서 직접 건네야 한다\"는 설계 전제 자체가 틀렸던 겁니다.\n\n그래서 쫓아가기를 버렸습니다. 목수는 일을 끝내면 \"이 사람에게 보상을 줘야 한다\"는 빚만 기록해 두고, 둘이 마을을 돌아다니다 자연스럽게 가까워지는 순간 바로 그 자리에서 정산됩니다. 가장 큰 장점은 끝내 못 만나더라도 빚은 사라지지 않는다는 점이에요. 예전처럼 60초 지났다고 품삯이 증발하지 않습니다. 실패한 재조준 코드는 전부 되돌렸고, 안 쓰는 길은 지웠습니다.\n\n안 되는 건 더 열심히 해서 되는 게 아니라, 애초에 방향이 틀린 경우가 많습니다.",
     "tags": [
       "유니티",
@@ -42,7 +42,7 @@
     "privacy": "private",
     "en": {
       "_": "스튜디오 → 자막/언어 → 번역 추가 → 영어(미국). 태그는 언어별로 안 나뉘므로 없다.",
-      "title": "The house was done, 60 seconds later the pay was gone · Unity GOAP Devlog #11 #shorts",
+      "title": "Where did the pay go? A 60-second chase after finishing the house. · Unity GOAP Devlog #11 #shorts",
       "blurb": "My solo Unity village sim has a request system: you can ask a carpenter to build you a house. When the carpenter finishes, he walks over to the client to report it. The trouble is that the client does not stand still — he wanders off to eat, or just wanders. So the carpenter follows him.\n\nAnd both of them walk at exactly the same speed. Chase someone at their own pace and the gap never closes. After 60 seconds the errand timed out, and the moment it did, the reward the carpenter had earned simply disappeared. He built the whole house and the pay evaporated.\n\nI first treated this as a pathfinding problem. I added re-targeting mid-walk — recompute the path and the nearest walkable tile whenever the target moves. Then I ran it in-game and it did not work. Of course it didn't. A target fleeing at your own speed never converges, no matter how clever the algorithm gets. I was fixing the algorithm, but the real cause sat one layer below: the design premise that \"to pay someone, you must chase them down and hand it over\" was simply wrong.\n\nSo I dropped the chase. The carpenter now just records a debt — \"I owe this person a reward\" — and when the two happen to drift close to each other in the village, it settles right there on the spot. The best part is that even if they never meet, the debt does not disappear. No more pay evaporating at the 60-second mark. The failed re-targeting code was reverted in full.\n\nWhen something refuses to work, trying harder is usually not the answer — the direction was wrong to begin with.\n\nFull write-up (in Korean):\nhttps://gamedevclaude.blogspot.com/2026/07/claude-code-ai-unity-goap-ai.html\n\nSeries: Act 4 · A village you can lose · Episode 11\nA devlog about building a Unity GOAP village sim with Claude Code.\n\n#Unity #gamedev #devlog #GOAP #gameai #indiedev #pathfinding #ClaudeCode #unity3d"
     }
   },
@@ -228,5 +228,6 @@
     "말투": "🟡 검수 지적 — 7줄 중 6줄이 「~요」 평서, 담화표지 1개(그래서)로 앞 4편보다 얇다(3연속 위반은 아니라 권고). 🔴 **한 줄만 고쳤다: S2[0] 「안 됐어요」 → 「안 되더라고요」**(voice.json rules 1 의 권장 어미). 어미 분포가 ~요 4 · ~더라고요 1 · ~죠 1 이 된다.\n더 손대지 않은 이유는 **길이 천장**이다. 이 회차는 1차 실측에서 상한을 0.8초 넘겼고, 3차본은 예고 교체(+142ms)와 이 어미(+259ms)를 더해 27.2초 예상으로 상한까지 0.8초밖에 안 남는다. 담화표지를 한 개 더 넣으면(예: 「정작 틀린 건…」 +3자 ≈ +0.4초) 남는 여유가 0.4초가 되는데, 이 회차는 이미 산정치가 6.5초 빗나간 전력이 있어 그 폭을 예측에 걸 수 없다. 🔑 **첫 두 줄에는 손대지 않았다** — 담화표지를 넣을 자리로 가장 싼 곳이지만(「근데 둘 다…」는 「걷는」을 빼면 자수가 같다) 제목 이행 겹침 4건과 훅이 걸린 자리라 길이·말투를 이유로 건드리지 않는다.",
     "영어 자막": "`text` 를 옮겼고 `say` 는 안 봤다(`say` 는 TTS 용이라 60을 '육십'으로 푼다). 직역을 피해 영어권 개발자가 쓰는 말로 끊었다 — 예: 「틀린 건 알고리즘이 아니라 전제였죠」를 `What was wrong was not the algorithm` 같은 한국어 어순으로 옮기지 않고 `It was never the algorithm. / It was the premise.` 로 **같은 구문을 두 번 세워** 대비를 만들었다(한국어 원문의 「~이 아니라 ~였죠」와 같은 일을 영어의 반복 구문이 한다). 등장인물은 고유명사가 아니라 직업이라 the carpenter · the client 로 옮겼다(로마자 표기 대상이 아니다). 🔴 원문이 완료형인 것(품삯이 사라졌다)만 완료형으로 옮겼고, 지금도 도는 규칙(마주치면 정산된다 · 빚은 남는다)은 현재형으로 뒀다.",
     "sfx": "23초에 1~2개 기준으로 **2개**다(4샷 중 2샷 무음). 🔴 **`sweep` 과 `latch` 를 일부러 안 썼다.** 그 둘은 `rng(seed)` 잡음을 쓰고 컷오프·포락선만 `k = i/n` 이라 seed 가 같으면 `dur` 을 바꿔도 파형이 안 갈리는데(직전 회차가 그 지뢰로 반려됐고 실측 상관 0.977), 나는 이 환경에서 node 를 못 돌려 **파형 상관을 직접 잴 수가 없다.** 재지 못하는 근거를 적는 대신 **잴 필요가 없는 kind** 를 골랐다 — `KIT.drop` 도 `KIT.tick` 도 `rng` 를 아예 안 부르므로 (dur, from, to) · (dur, freq) 가 파형을 완전히 결정하고, 파라미터 대조가 곧 파형 대조다. 전수는 `_archive` 를 포함해 71건을 다시 셌고 세는 명령을 각 `why` 에 적어 뒀다.\n🟢 **2026-08-08 — `delayMs` 두 값을 1차 실측 `rel` 로 다시 풀었다(drop 2,700 → 3,150 · tick 1,500 → 1,720).** `kind`·`gain`·`dur`·`freq`·`from`·`to` 는 하나도 안 바꿨다. 🔴 **drop 은 자막이 안 바뀌므로 확정이고, tick 은 걸린 줄(S4[0])의 자막도 안 바뀌었지만 재실측으로 한 번 더 확인한다.** 초안의 회귀 모형은 drop 자리에서 453ms(30fps 13.6프레임) 빗나갔다 — 산정치로 소리를 확정하면 안 된다."
-  }
+  },
+  "legacyFormat": "2026-08-07 승인·완주본(3단 구조) — 2026-08-08 제목 도치형 개정만 반영해 재렌더. 4단 구조 소급 개조는 하지 않는다(카드 2.6→3.0초 승계는 페이오프 검산 완료)"
 }

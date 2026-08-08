@@ -14,24 +14,24 @@
   "hud": {
     "title": "10-3편 · 편한 기능을 일부러 지웠다",
     "aiHook": "Claude Code로 만든 유니티 GOAP AI",
-    "outro": "gamedevclaude.blogspot.com"
+    "outro": "Claude Code로만 만드는 GOAP AI 마을 게임 개발일지"
   },
   "hook": "만드는 이야기는 여기까지, 다음은 잃는 이야기다",
   "outro": {
     "source": "M8 관계·소유·부탁",
     "part": "3편 중 3편",
-    "next": "11편 · 집을 다 짓고도 품삯을 놓쳐요",
+    "next": "11편 · 이 품삯은 어디로 사라졌을까요?",
     "siblings": [
       "10-1편 · 어제 잔소리한 사이인지 3초 만에 보이게 했어요",
       "10-2편 · AI가 알아서 할 수 있을까요? 목수한테 시킨 재료 검사를 전부 지워봤을 때요.",
       {
-        "label": "10-3편 · 편한 기능을 일부러 지웠어요, 완료라고 써 놓고 3군데나 되돌아갔거든요",
+        "label": "10-3편 · 이 편한 기능, 왜 일부러 지웠을까요? 부탁 안 해도 집이 알아서 지어졌거든요.",
         "me": true
       }
     ]
   },
   "youtube": {
-    "title": "편한 기능을 일부러 지웠어요, 완료라고 써 놓고 3군데나 되돌아갔거든요 · 유니티 GOAP 개발일지 10-3편 #shorts",
+    "title": "이 편한 기능, 왜 일부러 지웠을까요? 부탁 안 해도 집이 알아서 지어졌거든요. · 유니티 GOAP 개발일지 10-3편 #shorts",
     "blurb": "혼자 만드는 유니티 마을 시뮬레이션에 「주민이 주민에게 부탁한다」는 구조를 얹고 밀스톤 완료를 선언했습니다. 그런데 실제로 게임을 돌려 보니, 명세서만 봐서는 안 보이던 게 튀어나왔어요.\n\n집이 부족하면 목수가 알아서 집을 짓고, 빈집이 생기면 무주택 주민에게 자동으로 배정되는 기능이 그대로 남아 있었습니다. 편리했죠. 그런데 어차피 집이 알아서 지어지고 알아서 배정되면, 누가 \"집 좀 지어줄래?\"라고 부탁할 이유가 없습니다. 그 편리함이 방금 만든 부탁 시스템의 존재 이유를 통째로 갉아먹고 있었어요.\n\n그래서 편의성을 포기했습니다. 자율 건설과 자동 배정을 아예 폐기하고, 집은 오직 목수에게 부탁해서만 짓도록 되돌렸습니다. 아픈 트레이드오프였지만 방금 만든 시스템이 살아남으려면 필요한 선택이었어요. 완료 선언을 취소하지 않고 되돌아가 다듬은 곳이 이렇게 3군데였습니다.\n\n이 결정을 안 했다면 M8은 \"돌아가지만 아무 이유가 없는\" 시스템으로 끝났을 겁니다. 「완료」라는 선언이 얼마나 미덥지 못한지를 다시 확인한 작업이었습니다.\n\n같은 글에서 나온 3편 중 3편입니다. 어제 잔소리한 사이인지 3초 만에 보이게 한 이야기는 10-1편, 목수한테 시킨 재료 검사를 지웠더니 2번째 부탁은 코드 0줄이었다는 이야기는 10-2편에 있습니다.",
     "tags": [
       "유니티",
@@ -49,7 +49,7 @@
     "privacy": "private",
     "en": {
       "_": "스튜디오 → 자막/언어 → 번역 추가 → 영어(미국). 태그는 언어별로 안 나뉘므로 없다.",
-      "title": "I deleted a handy feature on purpose — one of 3 things I undid · Unity GOAP Devlog #10-3 #shorts",
+      "title": "Why delete this handy feature? Houses built themselves, unasked. · Unity GOAP Devlog #10-3 #shorts",
       "blurb": "I added a request system to my solo Unity village sim — villagers asking other villagers for things — and declared the milestone done. Then I actually played it, and something the spec could never have shown me came out.\n\nThe old convenience code was still there: if housing ran short the carpenter would build on his own, and any empty house got auto-assigned to a homeless villager. Very convenient. But if houses go up by themselves and get handed out by themselves, nobody ever has a reason to say \"could you build me a house?\" That convenience was eating away the entire point of the system I had just built.\n\nSo I gave the convenience up. Auto-building and auto-assignment were scrapped outright, and a house now only goes up if you ask the carpenter. It was a painful trade, but the new system could not survive otherwise. I never retracted the \"done\" declaration — I just walked back into 3 spots and fixed them.\n\nWithout that one cut, M8 would have ended up as a system that runs fine and means nothing. A good reminder of how little the word \"done\" is worth.\n\nThis is the 3rd of 3 episodes cut from the same post. Episode 10-1 is about making it readable in 3 seconds whether two villagers nagged each other yesterday; episode 10-2 is about deleting the material pre-check I had given the carpenter, after which the 2nd request type cost 0 lines of code.\n\nFull write-up (in Korean):\nhttps://gamedevclaude.blogspot.com/2026/07/claude-code-ai-goap-ai-m8.html\n\nSeries: Act 3 · Rebuilding · Part 3 of 3\nA devlog about building a Unity GOAP village sim with Claude Code.\n\n#Unity #gamedev #devlog #GOAP #gameai #indiedev #NPC #ClaudeCode #unity3d"
     }
   },
@@ -231,5 +231,6 @@
     "효과음": "🔴 둘뿐이다(S3 sweep · S3 latch). 네 샷 중 셋(S1·S2·S4)에는 하나도 안 달았고, 둘 다 나레이션이 실제로 부르는 사건에 붙어 있다. **23초에 1~2개** 기준 안이다(2026-08-06 개정).\n🔑 **이 회차의 소리 설계는 한 문장이다 — 하나를 지우고, 남은 하나를 잠근다.** 그래서 소리가 **한 샷에 몰려 있다.** 이 편의 사건이 「지운 것」과 「그래서 유일해진 것」 둘뿐이고 그 둘이 같은 샷의 두 자막이기 때문이다. 앞엣것이 값을 치른 소리이고 뒤엣것이 그 값으로 얻은 소리다.\n🔴 **S1·S2·S4 는 일부러 무음이다.** ⓐS1 의 요청 캡슐은 **되풀이해서** 부풀었다 꺼진다 — 여기에 소리를 달면 회차당 대여섯 번이 나서 규칙 2(절제)를 정면으로 어긴다. 게다가 **꺼지는 것에 소리를 주면 그것이 사건처럼 들리는데**, 이 샷의 뜻은 정반대다(아무 일도 안 일어난다). ⓑS2 의 파먹힘은 열넷이 차례로 떨어지는 **지속 과정**이라 소리 하나로 집을 순간이 없다. ⓒS4 는 판정과 예고라 소리가 아니라 그림이 져야 하고, 마지막 2.6초는 카드가 덮는다.\n🔴 설정값은 작성 시점에 `episodes/*/scene.json` 의 `shots[].sfx[]` 를 **다시 훑어** 겹치지 않는 값을 골랐다(sweep dur 0.60 · seed 101 / latch dur 0.145 · seed 103). 🔑 그 전수 목록을 여기 표로 옮겨 적지 않는다 — 옛 값을 베끼면 지워진 회차를 현역으로 세거나 새 회차를 빠뜨린다. 필요하면 **그 시점에 다시 세라.** 각 `why` 에 그때 센 목록을 적어 뒀다.\n🔴 **latch 는 `dur` 로 안 갈린다**(몸통이 340/680Hz 고정) — 반드시 고유 `seed` 를 준다. **103** 은 현역 어디에도 없다.\n🟡 **형제 편 `ep10s-1` 도 `sweep` 을 「지워짐」으로 쓴다**(gain 0.066 · dur 0.58 · seed 43 · delayMs 70). 같은 kind 가 **같은 뜻으로 한 글의 두 편에** 나오는 것이라 숨기지 않고 적는다(2026-08-08 검수 지적).\n· **갈라내는 값**: dur 0.58 ↔ **0.60** · seed **43 ↔ 101** · gain 0.066 ↔ 0.062. sweep 은 잡음 기반이라 **seed 가 성격을 실제로 가른다**(latch 만큼 예민하지는 않지만 같은 이유가 적용된다). 붙는 자리도 다르다 — 저쪽은 자막 시작 **+70ms**(말과 거의 동시)이고 이쪽은 **+1,240ms**(어절 한복판)다.\n· 🔴 **대안 kind 가 없다.** 6종 중 「넓게 지나가며 지운다」를 뜻하는 것은 `sweep` 하나뿐이고, `tick`(점이 앉음)·`latch`(잠김)·`thud`(막힘)·`drop`(낙하)·`riser`(쌓임)는 전부 다른 사건을 가리킨다. **뜻이 맞는 소리를 피하려고 틀린 소리를 고르지 않았다** — 돌려막기 금지는 「같은 소리를 아무 데나 쓰지 마라」이지 「같은 kind 를 두 번 쓰지 마라」가 아니다.\n🔴 gain 둘 다 0.062 로 기본값(0.060) 근처이고 각 kind 의 기본 옵션 상한 아래다. ⚠️ 상한은 kind 가 아니라 kind + 옵션이 정한다 — 정확한 값이 필요하면 각 `why` 에 적은 식으로 다시 재라.\n🟢 **`delayMs` 둘은 2026-08-07 실측으로 다시 냈다**(sweep 1,260 → **1,240** · latch 2,050 → **2,030**). 각 `why` 에 draw 의 어느 식에서 나왔는지 · 실측 `rel` 을 어떻게 넣었는지 · 어절 검산까지 적어 뒀다.\n🔑 **여기서 남길 관측 둘.** ⓐ**cue 창은 `dur` 이 아니라 `rel`(= dur + `pauseAfter`)로 잰다**(engine.js:163·169·292). 반면 **어절 배분은 `dur` 로 잰다** — pause 는 말이 끝난 뒤의 침묵이라 어절 안에 안 들어간다. **두 값을 한 식 안에서 섞으면 `pauseAfter`(130~250ms)만큼 통째로 밀린다.** ⓑ초안의 0.182초/자 모형이 두 줄 다 **실측보다 길게**(+101ms · +40ms) 나왔고, 그래서 `delayMs` 도 둘 다 **늦는 쪽**으로 20ms 씩 일관되게 빗나갔다 — 창이 길게 잡히면 같은 진행률의 절대 시각이 뒤로 간다. **모형이 무너진 게 아니라 0.6~0.7프레임 좁게 빗나간 것이고, 확정은 실측으로 한다.**",
     "hook": "scene.hook = '만드는 이야기는 여기까지, 다음은 잃는 이야기다'.\n🔴 **이 편의 판정이 아니라 막 전환을 실었다.** 이 편은 **3막의 마지막 편**이고 다음이 4막(잃을 수 있는 마을)이라, 기획팀이 §8-C 에서 「다른 두 편보다 한 급 크게 쓰라」고 못박았다. 아웃트로 카드에서 `.oc-hook` 은 19px·900 으로 가장 크게 뜨는 자리이므로 **막 전환을 지기에 이보다 큰 자리가 없다.** 문구는 구성안 4막 소개(「지금까지가 \"만드는 이야기\"였다면 여기부터는 \"잃는 이야기\"다」)를 한 줄로 줄인 것이라 지어낸 문장이 아니다.\n🔴 **마지막 자막과 일부러 다른 것을 골랐다.** 자막은 「안 지웠으면 …아무 이유가 없었을 거예요」(이 편의 판정)이고 훅은 막 전환이다 — 카드가 자막을 되풀이하면 마지막 2.6초가 낭비된다.\n🔑 **음성 예고 · `outro.next` · 훅 셋이 같은 방향을 가리키되 층이 다르다.** 음성과 카드는 **다음 편 하나**(집을 다 짓고도 품삯을 놓친다)를 가리키고, 훅은 **그 편부터 시작되는 막**을 가리킨다. 셋이 어긋나지 않는다 — 품삯을 놓치는 것이 곧 「잃는 이야기」의 첫 사건이다.\n문형도 앞 회차들과 겹치지 않는다(ep07s-1 정의문 · ep07s-2 인과문 · ep08s-1 존재 조건문 · ep08s-3 명사구 · ep09s-2 대조문 · 여기는 **전환 선언문**이다).\n🔴 캔버스에는 안 그린다(2026-08-04 폐기 규약 — 카드가 `.vis` 를 픽셀 동일 좌표로 덮는다).",
     "다음_편_예고": "🔴 **ADR-V25-2 의 ①안 — 음성 예고 1줄 + `outro.next`** 를 골랐다. 이 편은 **막 전환을 여는 편**이라 예고를 카드에만 맡길 수 없었다.\n**음성**: 「다음 편, 짓고도 품삯을 놓쳐요.」 (spoken 12자 · `pauseAfter` 0 · check.mjs 산정 경로로 18/6.7 = **2.7초** — 상한 3.0 아래다. 실측은 이보다 짧게 나오는 편이라 여유가 더 있다.)\n**카드**: `outro.next` = 「11편 · 집을 다 짓고도 품삯을 놓쳐요」\n**훅**: `scene.hook` = 「만드는 이야기는 여기까지, 다음은 잃는 이야기다」 (막 전환 — notes.hook 참조)\n🔴 **음성과 카드가 같은 것을 가리킨다.** ep08s-2 가 음성은 「다 같이」인데 카드는 「너무 AI스럽다」여서 다음 편을 부르는 이름이 둘이었던 사고를 피하려고, 음성과 카드가 **같은 동사(놓친다)와 같은 목적어(품삯)** 를 쓴다. 음성에서 뺀 「집을 다」를 카드가 보충하는 구조라 둘이 합쳐져야 문장이 완성되지도 않는다 — **각각으로도 뜻이 통한다.**\n**판정 문장 — 그 한 줄만 읽고 다음 편이 뭔지 알 수 있는가**: 「다음 편, 짓고도 품삯을 놓쳐요」 → 집은 다 지었는데 삯을 못 받는 이야기다. **알 수 있다.** 🔑 이 편의 결말과 다리도 붙어 있다 — 이 편이 「집은 이제 부탁해야만 지어진다」로 끝나므로, 부탁을 들어준 대가가 어떻게 되는지가 자연히 다음 질문이다.\n🔴 **trace 의 예고 그림이 그 사실을 함께 진다** — 삯 캡슐과 목수 표식이 **같은 위상으로 움직여 간격이 한 번도 안 좁혀진다.** ep11s 원문의 사건(둘의 걷는 속도가 똑같아 간격이 영원히 안 좁혀졌다)이 그것이고, 해결(빚으로 적어두기)은 안 그린다.\n🔴 정본은 `Docs/영상_시리즈_구성안.md` 「한눈에 보기」 11행(영상 11 · **4막 · 잃을 수 있는 마을** · 원본 11편 · M8 후속 + M9 예고)과 `state/schedule.json` 의 order 다. **원문 마지막의 「다음 이야기 예고」 문단(공동 밭 · 재해 · 터전)을 근거로 삼지 않았다** — 그건 영상 12편(M9)이고, 그 습관이 ep02s 사고를 냈다(excluded 참조).\n🟢 **`outro.siblings` 는 초고에서 빈 배열로 두었고, 세 편의 제목이 확정된 뒤 코디네이터가 채웠다**(규약: `siblings[].label` = 그 편의 `youtube.title` 에서 「· 유니티 GOAP 개발일지 N편 #shorts」 꼬리만 뗀 것). 지금 값은 10-1편 · 10-2편 · 10-3편(`me: true`) 셋이다. 🔑 작성 시점에 미리 지어냈다면 같은 편을 부르는 이름이 하나 더 늘었을 것이라, **비워 두는 것이 그 자체로 처리였다.**\n🟢 두 `blurb` 도 형제 둘을 가리킨다 — 카드가 형제 제목을 띄우지만 검색·추천으로 들어온 시청자는 카드를 못 볼 수 있어서다. **문구는 `outro.siblings` 의 라벨에서 그대로 가져왔고 새로 짓지 않았다.**"
-  }
+  },
+  "legacyFormat": "2026-08-07 승인·완주본(3단 구조) — 2026-08-08 제목 도치형 개정만 반영해 재렌더. 4단 구조 소급 개조는 하지 않는다(카드 2.6→3.0초 승계는 페이오프 검산 완료)"
 }

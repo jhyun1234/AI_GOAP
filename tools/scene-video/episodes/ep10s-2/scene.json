@@ -27,7 +27,7 @@
         "label": "10-2편 · AI가 알아서 할 수 있을까요? 목수한테 시킨 재료 검사를 전부 지워봤을 때요.",
         "me": true
       },
-      "10-3편 · 편한 기능을 일부러 지웠어요, 완료라고 써 놓고 3군데나 되돌아갔거든요"
+      "10-3편 · 이 편한 기능, 왜 일부러 지웠을까요? 부탁 안 해도 집이 알아서 지어졌거든요."
     ]
   },
   "youtube": {
@@ -49,7 +49,7 @@
     "privacy": "private",
     "en": {
       "_": "스튜디오 → 자막/언어 → 번역 추가 → 영어(미국). 태그는 언어별로 안 나뉘므로 없다.",
-      "title": "Can the AI handle it alone? I deleted every pre-check I gave the carpenter. · Unity GOAP Devlog #10-2 #shorts",
+      "title": "Can the AI handle it alone? I deleted every pre-check I gave him. · Unity GOAP Devlog #10-2 #shorts",
       "blurb": "I added a request system to my solo Unity village sim. When a villager with no house walks past the carpenter, a speech bubble pops up: \"Could you build me a house?\"\n\nAt first I was going to do it differently. On accepting a request, the carpenter would check whether the materials were there and reserve the resources up front. But that ran head-on into GOAP, the planner this game already runs on. If the carpenter simply accepts, working out that he has to go chop wood first is exactly what GOAP is for. So I ripped out the pre-check and the reservation, and pushed a single \"accept\" flag onto the carpenter's goal list. The AI handled the rest.\n\nTo see whether it had really become a shelf, I added a second request as a test — a hungry villager asking the cook for a meal. The result: 0 lines of code changed, just a few data files. That is the fifth time this pattern has repeated in this project.\n\nThe right answer wasn't building something for the AI. It was getting out of its way.\n\n(Part 2 of 3 from the same write-up — #10-1 is how conversations started leaving a trace, so you can now tell in 3 seconds who nagged whom yesterday; #10-3 is how I deliberately deleted a convenient feature after calling the work done.)\n\nFull write-up (in Korean):\nhttps://gamedevclaude.blogspot.com/2026/07/claude-code-ai-goap-ai-m8.html\n\nSeries: Act 3 · Rebuilding · Part 2 of 3\nA devlog about building a Unity GOAP village sim with Claude Code.\n\n#Unity #gamedev #devlog #GOAP #gameai #indiedev #NPC #ClaudeCode #unity3d"
     }
   },

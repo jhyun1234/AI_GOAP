@@ -787,12 +787,15 @@ namespace AIVillage.M0
 
                 // 전투 판정 (M21-W3) — Threats 분기 **안**에 둔다: 때릴 위협이 없는 판에
                 // 전투 판정만 살아 있으면 중립 불변식이 깨진다. 표현 배선은 여기, 판정은 서비스.
-                Combat = new CombatService(World, () => GameTime);
+                // Threats 를 넘기는 것은 무리 도주선(M21-W6) — 판정은 Combat, 등록부·집행은 Threats.
+                Combat = new CombatService(World, () => GameTime, Threats);
                 Combat.OnRepelled += (t, attackerId, day) =>
                     Hud?.Notify($"{t.DisplayName}을(를) 물리쳤습니다");
                 Combat.OnHunted += (t, attackerId, drop, day) =>
                     Hud?.Notify(drop > 0 ? $"{t.DisplayName} 사냥 성공 — 고기 {drop} 확보"
                                          : $"{t.DisplayName} 사냥 성공");
+                Combat.OnRouted += (t, attackerId, day) =>
+                    Hud?.Notify($"{t.DisplayName} 적습을 물리쳤습니다 — 무리가 달아납니다");
             }
 
             // 방랑자 (M10-E) — 주기 ≤ 0이면 서비스 null (중립 불변식). 표현 배선은 전부 여기 —

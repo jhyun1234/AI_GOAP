@@ -78,6 +78,23 @@ namespace AIVillage.M0
                  "일어나지 않아 '사냥 사건'이 반쪽이 된다.")]
         public int MeatDrop = 2;
 
+        [Header("대규모 적습 (M21-W6 — 마릿수 확장형, ADR-M21-6: 마릿수는 에셋이 정의한다)")]
+        [Tooltip("기본 스폰 마릿수. 1 = 단독 출몰 (기존 동작과 동일 — 중립). " +
+                 "산식: clamp(Base + ⌊(day − UnlockDay) / GrowthEveryDays⌋ − 완충, 1, Max).")]
+        public int SpawnCountBase = 1;
+
+        [Tooltip("마릿수가 1 늘어나는 데 걸리는 게임일. 0 = 성장 없음. 기준일은 UnlockDay — " +
+                 "밴드가 열린 뒤 흐른 시간만 센다 (게임일 래칫과 같은 축, ADR-M10R-1).")]
+        public float CountGrowthEveryDays = 0f;
+
+        [Tooltip("마릿수 클램프 상한 — 성장이 무한히 쌓이지 않게. Base 미만이면 Base가 사실상 상한이 된다.")]
+        public int SpawnCountMax = 1;
+
+        [Tooltip("무리 도주선 (이중 도주선의 바깥쪽) — 같은 출몰의 **아직 싸우는 개체 비율**이 이 값 " +
+                 "미만이면 무리 전체가 무너져 전원 도주한다. 판정은 CombatService.ShouldRout (경계는 " +
+                 "버틴다 — 정확히 이 비율이면 아직 싸운다). 개체 도주선(FleeBelowHpPct)과 별개.")]
+        [Range(0f, 1f)] public float RoutBelowPct = 0.5f;
+
         [Header("배회 (M21-W2R — 정지의 폐기, ADR-M21-10: 동선은 표현이라 난수 허용)")]
         [Tooltip("배회 반경 (타일) — 도착 지점을 앵커로 이 반경 안의 통행 가능 타일을 오간다. " +
                  "주민 여가 배회(RestByCampfire.WanderRadius 4)보다 한 칸 크게 = 짐승이 더 넓게 돈다. " +
@@ -142,6 +159,12 @@ namespace AIVillage.M0
                                  "(배고픈 계절이 더 순해질 수는 없습니다). 1 = 계절 무관.", this);
             if (HungrySeasonStayMult < 1f)
                 Debug.LogWarning($"[ThreatSO] {name}: HungrySeasonStayMult({HungrySeasonStayMult}) < 1 — 무시됩니다. 1 = 계절 무관.", this);
+            if (SpawnCountBase < 1)
+                Debug.LogWarning($"[ThreatSO] {name}: SpawnCountBase({SpawnCountBase}) < 1 — 출몰이 비게 됩니다 (산식이 1로 클램프).", this);
+            if (SpawnCountMax < SpawnCountBase)
+                Debug.LogWarning($"[ThreatSO] {name}: SpawnCountMax({SpawnCountMax}) < SpawnCountBase({SpawnCountBase}) — 상한이 기본값을 깎습니다.", this);
+            if (CountGrowthEveryDays < 0f)
+                Debug.LogWarning($"[ThreatSO] {name}: CountGrowthEveryDays({CountGrowthEveryDays})는 음수일 수 없습니다 — 0(성장 없음)으로 취급됩니다.", this);
         }
     }
 }

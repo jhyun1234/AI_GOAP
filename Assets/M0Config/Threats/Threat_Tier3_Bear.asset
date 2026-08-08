@@ -27,6 +27,10 @@ MonoBehaviour:
   StrikeDamage: 34
   RepeatStrikePeriodDays: 0.25
   MaxStayDays: 0.75
+  SpawnCountBase: 1
+  CountGrowthEveryDays: 20
+  SpawnCountMax: 2
+  RoutBelowPct: 0.5
   WanderRadiusTiles: 5
   HungrySeasonChanceMult: 2
   HungrySeasonStayMult: 2

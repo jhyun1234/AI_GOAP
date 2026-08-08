@@ -43,6 +43,11 @@ namespace AIVillage.M0
                                         // 개체는 Update(실시간)로 돌지만 주기는 게임일이라 여기서 받아 쓴다
 
         private readonly List<ThreatAgent> _active = new List<ThreatAgent>(2);
+        // 출몰 무리 등록부 (M21-W6) — 키 = 출몰 서수, 값 = 실제 생성 마릿수 (경로 없어 생략된
+        // 개체는 안 센다 — 태어난 적 없는 개체가 분모에 남으면 무리 도주선이 영영 안 열린다).
+        // 무리 전원 소멸 시 NotifyDespawn이 지운다. 세이브 대상 아님 (진행 중 개체와 운명 공유).
+        private readonly Dictionary<int, int> _groupSpawned = new Dictionary<int, int>(2);
+        private readonly List<ThreatAgent> _routBuf = new List<ThreatAgent>(4);
         private readonly List<VillagerAgent> _victimAgentBuf = new List<VillagerAgent>(8);
         private readonly List<(string id, int x, int y)> _victimKeyBuf = new List<(string, int, int)>(8);
         private readonly List<Vector2Int> _plotBuf = new List<Vector2Int>(16);
@@ -145,6 +150,18 @@ namespace AIVillage.M0
         /// <summary>지금이 배고픈 계절인가 — 인스턴스 창구. 계절 서비스가 없는 판은 false (중립).</summary>
         private bool PredatorHungryNow => IsPredatorHungry(_season != null ? _season.Current : null);
 
+        /// <summary>스폰 마릿수 산식 (순수 — 게이트 M21-T11, §4): 기본 + 밴드가 열린 뒤 흐른
+        /// 시간의 성장 − 완충, [1, Max] 클램프. 성장 주기 0 이하 = 성장 없음 (에셋 사고 방어).
+        /// mitigation 은 W7 래칫 완충의 자리 — W6 은 항상 0 을 넣는다 (자리만 먼저 판다:
+        /// W7 이 인자만 갈아 끼우면 되게. FightRunner 의 배율 인자와 같은 수법).</summary>
+        public static int SpawnCount(int baseCount, float unlockDay, float day,
+                                     float growthEveryDays, int maxCount, int mitigation)
+        {
+            int grown = growthEveryDays > 0f
+                ? Mathf.FloorToInt(Mathf.Max(0f, day - unlockDay) / growthEveryDays) : 0;
+            return Mathf.Clamp(baseCount + grown - mitigation, 1, Mathf.Max(1, maxCount));
+        }
+
         /// <summary>가장자리 진입점 (순수·결정적): 시드로 4변 중 택1, 변 중앙. 같은 시드 = 같은 지점.</summary>
         public static Vector2Int EntryPoint(uint seed, int minX, int maxX, int minY, int maxY)
         {
@@ -234,19 +251,46 @@ namespace AIVillage.M0
             if (path.Kind == PathResultKind.Unreachable)
             {
                 // 이번 발동은 건너뛴다 (무한 재시도 금지 — 명세 ⚠️④). 다음 주기에 재출몰.
+                // 대표 경로(진입점→목표)가 없으면 인접 산개 지점도 못 간다고 보고 무리 전체를 접는다.
                 Debug.LogWarning($"[Threat] {so.DisplayName}: 진입 경로 없음 ({entry.x},{entry.y})→({target.x},{target.y}) — 이번 출몰 생략");
                 return;
             }
 
-            var go = new GameObject($"Threat_{so.name}_{_strikeOrdinal}");
-            go.transform.SetParent(_parent, worldPositionStays: false);
-            go.transform.position = new Vector3(entry.x, entry.y, 0f); // ADR-M0-9 — X-Y 평면
-            ThreatAgent agent = go.AddComponent<ThreatAgent>();
-            agent.Init(so, this, entry, target,
-                       path.Kind == PathResultKind.PathFound ? path.Waypoints : null,
-                       _pathfinder(), targetsVillagers); // 추격 재경로용 + 이번 출몰 타깃 종류 (M10R)
-            _active.Add(agent);
-            Debug.Log($"[Threat] 출몰 — {so.DisplayName} @ ({entry.x},{entry.y}) → ({target.x},{target.y}) " +
+            // 마릿수 (M21-W6, ADR-M21-6) — 완충 0 은 W7 의 자리. 예고는 마릿수를 말하지 않았다
+            // (DoD ④ — 정찰 재탄생의 여지): 몇 마리인지는 여기 도착해서야 드러난다.
+            int count = SpawnCount(so.SpawnCountBase, so.UnlockDay, _gameTime,
+                                   so.CountGrowthEveryDays, so.SpawnCountMax, 0);
+            int spawned = 0;
+            for (int i = 0; i < count; i++)
+            {
+                // 첫 마리 = 진입점 그대로 (count=1 이면 기존과 완전 동일 — 중립 불변식, DoD ③).
+                // 나머지 = 진입점 곁 산개 (겹침 방지 오프셋 — 표현이므로 난수 허용, ADR-M21-10).
+                Vector2Int at = i == 0 || _isWalkable == null
+                    ? entry : MapBounds.PickWalkableNear(_isWalkable, entry.x, entry.y, 2);
+                PathResult p = at == entry
+                    ? path : _pathfinder().FindPath(at.x, at.y, target.x, target.y);
+                if (p.Kind == PathResultKind.Unreachable)
+                {
+                    // 이 마리만 생략 (⚠️③ — Unreachable 생략 규약을 마리 단위로). 분모에도 안 센다.
+                    Debug.LogWarning($"[Threat] {so.DisplayName}: 산개 지점 ({at.x},{at.y}) 경로 없음 — 개체 1 생략");
+                    continue;
+                }
+
+                var go = new GameObject($"Threat_{so.name}_{_strikeOrdinal}_{i}");
+                go.transform.SetParent(_parent, worldPositionStays: false);
+                go.transform.position = new Vector3(at.x, at.y, 0f); // ADR-M0-9 — X-Y 평면
+                ThreatAgent agent = go.AddComponent<ThreatAgent>();
+                agent.Init(so, this, at, target,
+                           p.Kind == PathResultKind.PathFound ? p.Waypoints : null,
+                           _pathfinder(), targetsVillagers, // 추격 재경로용 + 이번 출몰 타깃 종류 (M10R)
+                           _strikeOrdinal);                 // 무리 키 (M21-W6)
+                _active.Add(agent);
+                spawned++;
+            }
+            if (spawned == 0) return; // 전 개체 생략 — 위의 개별 경고가 이미 말했다
+            _groupSpawned[_strikeOrdinal] = spawned; // 무리 도주선의 분모 = 실제 태어난 수
+            Debug.Log($"[Threat] 출몰 — {so.DisplayName}{(spawned > 1 ? $" ×{spawned}" : "")} " +
+                      $"@ ({entry.x},{entry.y}) → ({target.x},{target.y}) " +
                       $"[{(targetsVillagers ? "주민" : "밭")} 타깃]{(hungry ? " · 배고픈 계절" : "")}");
         }
 
@@ -492,11 +536,45 @@ namespace AIVillage.M0
             else agent.DespawnNow(); // 퇴장 경로 없음·이미 가장자리 — 즉시 소멸
         }
 
-        /// <summary>소멸 통지 (ThreatAgent 전용) — 활성 목록 정리 + 퇴장 로그.</summary>
+        /// <summary>소멸 통지 (ThreatAgent 전용) — 활성 목록 정리 + 퇴장 로그.
+        /// 무리의 마지막 개체가 사라지면 등록부도 지운다 (M21-W6 — 등록부 무한 성장 방지).</summary>
         public void NotifyDespawn(ThreatAgent agent)
         {
             _active.Remove(agent);
+            bool groupRemains = false;
+            foreach (ThreatAgent t in _active)
+                if (t != null && t.GroupKey == agent.GroupKey) { groupRemains = true; break; }
+            if (!groupRemains) _groupSpawned.Remove(agent.GroupKey);
             Debug.Log($"[Threat] 퇴장 — {agent.So.DisplayName}");
+        }
+
+        // ── 무리 도주선 (M21-W6 — 판정은 CombatService, 여기는 등록부·집계·집행) ──
+
+        /// <summary>이 무리가 처음 몇 마리로 태어났는가 (CombatService 전용). 미등록이면 false —
+        /// 판정 불가 = 무리 도주 없음 (ShouldRout 의 "스폰 0 = 무리가 아니다"와 같은 방향).</summary>
+        public bool TryGetGroupSpawned(int groupKey, out int spawned)
+            => _groupSpawned.TryGetValue(groupKey, out spawned);
+
+        /// <summary>아직 싸우는 개체 수 (CombatService 전용) — 도주·퇴장·사망(체력 0) 제외.</summary>
+        public int CountFighting(int groupKey)
+        {
+            int n = 0;
+            foreach (ThreatAgent t in _active)
+                if (t != null && t.GroupKey == groupKey
+                    && !t.IsFleeing && !t.IsExiting && t.Hp > 0f) n++;
+            return n;
+        }
+
+        /// <summary>무리 붕괴 집행 (CombatService 전용) — 잔여 전원 도주 전환. 판정은 호출자가
+        /// 이미 끝냈다 (ShouldRout — ADR-M21-3: 판정은 서비스 한 곳). 스냅샷 순회인 이유:
+        /// BeginFlee → BeginExit 가 퇴장 경로 없는 개체를 즉시 소멸시켜 _active 를 수정한다.</summary>
+        public void RoutGroup(int groupKey)
+        {
+            _routBuf.Clear();
+            foreach (ThreatAgent t in _active)
+                if (t != null && t.GroupKey == groupKey
+                    && !t.IsFleeing && !t.IsExiting && t.Hp > 0f) _routBuf.Add(t);
+            foreach (ThreatAgent t in _routBuf) t.BeginFlee();
         }
 
         private void ExecuteStrike(ThreatSO so, bool targetsVillagers, Vector2Int tile)

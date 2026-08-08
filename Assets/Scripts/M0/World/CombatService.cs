@@ -35,6 +35,9 @@ namespace AIVillage.M0
     {
         private readonly WorldModel _world;
         private readonly Func<float> _gameTime;
+        // 무리 등록부·집행의 창구 (M21-W6) — 판정(ShouldRout)은 여기, 분모·집계·도주 전환은
+        // ThreatService. null = 무리 축 없는 조립(테스트 등) — 무리 도주선만 조용히 꺼진다.
+        private readonly ThreatService _threats;
 
         /// <summary>격퇴 성립 (위협, 타격자 ID, 게임일) — 연대기(W9)·완충(W7)·HUD 구독 지점.
         /// 여기서 직접 기록하지 않는 이유: 이 서비스는 판정만 한다 (ADR-M13-4 읽기 전용 축 정신).</summary>
@@ -43,10 +46,15 @@ namespace AIVillage.M0
         /// <summary>사냥 성립 (위협, 타격자 ID, 드랍 수량, 게임일) — 같은 구독 지점.</summary>
         public event Action<ThreatSO, string, int, float> OnHunted;
 
-        public CombatService(WorldModel world, Func<float> gameTime)
+        /// <summary>적습 격퇴 성립 (M21-W6 — 무리 도주선 붕괴, 무리당 1회). 개체 격퇴(OnRepelled)와
+        /// 별개 사건이다 — W7 래칫 완충("무리 격퇴 1회 → 다음 출몰 −1마리")의 구독 지점.</summary>
+        public event Action<ThreatSO, string, float> OnRouted;
+
+        public CombatService(WorldModel world, Func<float> gameTime, ThreatService threats = null)
         {
             _world = world;
             _gameTime = gameTime;
+            _threats = threats;
         }
 
         // ── 순수 판정 (게이트 M21-T8 — 인스턴스·씬 의존 0) ────────────────────
@@ -130,7 +138,9 @@ namespace AIVillage.M0
                 Debug.Log($"[Combat] 사냥 — {attackerId}이(가) {so.DisplayName}을(를) 잡았다" +
                           (drop > 0 ? $" (고기 {drop} → 창고)" : ""));
                 OnHunted?.Invoke(so, attackerId, drop, day);
-                target.DespawnNow();
+                int groupKey = target.GroupKey;
+                target.DespawnNow(); // 활성 목록에서 즉시 빠진다 — 잔존 집계에 이 개체는 없다
+                EvaluateRout(so, groupKey, attackerId, day);
                 return HitOutcome.Killed;
             }
 
@@ -141,10 +151,28 @@ namespace AIVillage.M0
                           $"(체력 {remain:0}/{so.MaxHp:0} < 도주선 {so.FleeBelowHpPct:P0})");
                 OnRepelled?.Invoke(so, attackerId, day);
                 target.BeginFlee(); // 도주 전환의 문 — 퇴장 경로는 ThreatService가 부여한다
+                EvaluateRout(so, target.GroupKey, attackerId, day);
                 return HitOutcome.Repelled;
             }
 
             return HitOutcome.Damaged;
+        }
+
+        /// <summary>무리 도주선 판정 (M21-W6) — 사냥·격퇴로 무리가 줄어든 직후에만 부른다
+        /// (체류 상한·대상 소멸 퇴장은 교전 결과가 아니라 여기 안 온다). 잔존 비율이 무리
+        /// 도주선 미만이면 잔여 전원 도주 — 사건은 무리당 1회다 (붕괴 시 잔여가 전부
+        /// IsFleeing이 되어 다음 타격은 이 판정에 닿기 전에 Fighting 0 → ShouldRout false).</summary>
+        private void EvaluateRout(ThreatSO so, int groupKey, string attackerId, float day)
+        {
+            if (_threats == null) return;
+            if (!_threats.TryGetGroupSpawned(groupKey, out int spawnedCount)) return;
+            int fighting = _threats.CountFighting(groupKey);
+            if (!ShouldRout(fighting, spawnedCount, so.RoutBelowPct)) return;
+
+            Debug.Log($"[Combat] 적습 격퇴 — {so.DisplayName} 무리가 무너진다 " +
+                      $"(잔존 {fighting}/{spawnedCount} < 무리 도주선 {so.RoutBelowPct:P0}) — 전원 도주");
+            OnRouted?.Invoke(so, attackerId, day);
+            _threats.RoutGroup(groupKey);
         }
     }
 }

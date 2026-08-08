@@ -639,6 +639,58 @@ namespace AIVillage.Tests.EditMode
                 "Set MyHasWeapon 1 픽션이 없으면 플래너가 이 액션으로 무장을 세울 수 없다");
         }
 
+        // ── M21-T11: 대규모 적습 — 마릿수 산식 (W6 DoD ①③) ──────────────────
+
+        [Test]
+        public void M21_T11_SpawnCount_GrowsClampsAndNeverEmpties()
+        {
+            // §4 산식: clamp(base + ⌊(day − unlock)/growth⌋ − 완충, 1, max)
+            Assert.AreEqual(2, ThreatService.SpawnCount(2, 12f, 12f, 10f, 5, 0), "밴드 개막일 = 기본값");
+            Assert.AreEqual(2, ThreatService.SpawnCount(2, 12f, 21.9f, 10f, 5, 0), "성장 직전엔 그대로");
+            Assert.AreEqual(3, ThreatService.SpawnCount(2, 12f, 22f, 10f, 5, 0), "DoD ①: Day22 = 2 + ⌊10/10⌋ = 3");
+            Assert.AreEqual(5, ThreatService.SpawnCount(2, 12f, 99f, 10f, 5, 0), "상한 클램프 — 무한 성장 금지");
+
+            Assert.AreEqual(1, ThreatService.SpawnCount(1, 0f, 50f, 0f, 1, 0), "성장 주기 0 = 성장 없음 (늑대 중립)");
+            Assert.AreEqual(1, ThreatService.SpawnCount(1, 0f, 50f, -1f, 1, 0), "음수 주기도 성장 없음 (에셋 사고 방어)");
+            Assert.AreEqual(2, ThreatService.SpawnCount(2, 30f, 10f, 10f, 5, 0), "개막 전 날짜 = 음수 성장 금지");
+
+            // 완충(W7 자리) — 아무리 깎여도 1마리는 온다 (위협 0 금지, ADR-M21-4 클램프)
+            Assert.AreEqual(2, ThreatService.SpawnCount(2, 12f, 22f, 10f, 5, 1), "완충 1 = 한 마리 덜 온다");
+            Assert.AreEqual(1, ThreatService.SpawnCount(2, 12f, 22f, 10f, 5, 99), "완충 과다 = 최소 1 클램프");
+            Assert.AreEqual(1, ThreatService.SpawnCount(1, 0f, 0f, 0f, 0, 0), "상한 0 에셋 사고 = 1로 방어");
+        }
+
+        [Test]
+        public void M21_T11_ShippedThreats_CountBandsAreCoherent()
+        {
+            // DoD ①: Pack 밴드 Day22 에서 3마리 (배포 에셋 검산 — UnlockDay 12 · 기본 2 · 성장 10일)
+            var pack = AssetDatabase.LoadAssetAtPath<ThreatSO>(
+                "Assets/M0Config/Threats/Threat_Tier2_Pack.asset");
+            Assert.IsNotNull(pack, "Pack 에셋 로드");
+            Assert.AreEqual(3, ThreatService.SpawnCount(pack.SpawnCountBase, pack.UnlockDay, 22f,
+                                pack.CountGrowthEveryDays, pack.SpawnCountMax, 0),
+                "Pack Day22 = 3마리 (DoD ①의 산식 검산)");
+            Assert.Greater(pack.SpawnCountBase, 1, "무리인데 기본 1마리면 이름이 거짓말이 된다");
+
+            // DoD ③: Wolf 는 count=1 고정 — 기존과 완전 동일 동작 (중립 불변식)
+            var wolf = AssetDatabase.LoadAssetAtPath<ThreatSO>(
+                "Assets/M0Config/Threats/Threat_Tier1_Wolf.asset");
+            Assert.AreEqual(1, wolf.SpawnCountBase, "외로운 늑대는 혼자 온다");
+            Assert.AreEqual(1, wolf.SpawnCountMax, "외로운 늑대가 무리가 되면 Tier2 와 구분이 사라진다");
+
+            foreach (string guid in AssetDatabase.FindAssets("t:ThreatSO"))
+            {
+                var so = AssetDatabase.LoadAssetAtPath<ThreatSO>(AssetDatabase.GUIDToAssetPath(guid));
+                Assert.GreaterOrEqual(so.SpawnCountBase, 1, $"{so.name}: 기본 마릿수 0 = 빈 출몰");
+                Assert.GreaterOrEqual(so.SpawnCountMax, so.SpawnCountBase,
+                    $"{so.name}: 상한이 기본값보다 작다 — 상한이 기본을 조용히 깎는다");
+                Assert.Greater(so.RoutBelowPct, 0f,
+                    $"{so.name}: 무리 도주선 0 = 전멸해야만 끝난다 (격퇴 축 소멸)");
+                Assert.Less(so.RoutBelowPct, 1f,
+                    $"{so.name}: 무리 도주선 1 = 한 마리만 빠져도 전원 도주 (무리가 장식이 된다)");
+            }
+        }
+
         private static WorldSnapshot Snap(params (SlotId slot, int value)[] pairs)
         {
             var slots = new int[PlanningConfig.TotalSlots];

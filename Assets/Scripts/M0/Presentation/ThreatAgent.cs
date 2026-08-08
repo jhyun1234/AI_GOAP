@@ -53,6 +53,10 @@ namespace AIVillage.M0
         /// 이동 모드(추격/고정)·타격·HUD 분기가 모두 이 값을 읽는다. 밴드 고정 아님.</summary>
         public bool TargetsVillagers { get; private set; }
 
+        /// <summary>출몰 무리 키 (M21-W6) = 출몰 서수. 같은 발동으로 태어난 개체들이 같은 값을 갖고,
+        /// 무리 도주선(잔존율) 판정이 이 키로 무리를 센다 (등록·집계는 ThreatService).</summary>
+        public int GroupKey { get; private set; }
+
         /// <summary>현재 논리 타일 — IsNearThreat(감지)·사거리·타격 지점의 기준 (표현 위치의 반올림).</summary>
         public int TileX => Mathf.RoundToInt(transform.position.x);
         public int TileY => Mathf.RoundToInt(transform.position.y);
@@ -89,13 +93,15 @@ namespace AIVillage.M0
         private float _nextWanderAt;    // 배회 재선정 쿨다운 (WANDER_REPICK_SEC)
 
         public void Init(ThreatSO so, ThreatService svc, Vector2Int entry, Vector2Int target,
-                         List<Vector2Int> waypoints, IPathfinder pathfinder, bool targetsVillagers)
+                         List<Vector2Int> waypoints, IPathfinder pathfinder, bool targetsVillagers,
+                         int groupKey)
         {
             So = so;
             _svc = svc;
             EntryTile = entry;
             TargetTile = target;
             TargetsVillagers = targetsVillagers;
+            GroupKey = groupKey;
             _path = waypoints; // null = 이미 목표 (AlreadyThere)
             _wp = 0;
             _pathfinder = pathfinder;

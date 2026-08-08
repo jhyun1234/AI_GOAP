@@ -499,6 +499,24 @@ namespace AIVillage.Tests.EditMode
         }
 
         [Test]
+        public void M21_T9_OrderedFight_TraitBiasDoesNotDemoteTheOrder()
+        {
+            // 리뷰① 관측 (2026-08-08): 겁 많은 주민에게 「싸워라」를 내렸는데 휴식·딴 일을 했다 —
+            // 명령에도 성향 보정이 걸려 105 − 24 ≈ 81 로 깎여 피로(90)에 밀린 것.
+            // 명령의 무게는 촌장이 정하지 기질이 깎지 않는다 (거부는 수락 시점 JudgeOrder 몫).
+            GoalSO fight = LoadGoal("Goal_Fight"), fatigue = LoadGoal("Goal_P0_Fatigue");
+            var selector = new GoalSelector(new[] { fight, fatigue });
+
+            var slots = new int[PlanningConfig.TotalSlots];
+            slots[(int)SlotId.MyFatigue] = 100; // 피로 트리거(≥90) 발동 — 경쟁자 세우기
+            var snap = new WorldSnapshot(slots); // ThreatNear 0 — 명령 원정 특례(B1)로만 후보
+
+            var timid = new[] { new TraitValue { Trait = TraitId.Caution, Value = 100 } };
+            Assert.AreSame(fight, selector.Select(snap, null, fight, g => g.TraitBoost(timid)),
+                "겁쟁이도 수락한 명령은 수행한다 — 성향 보정이 명령을 피로(90) 아래로 깎으면 안 된다");
+        }
+
+        [Test]
         public void M21_T9_FightAsset_IsDirectPoolAndInjuryFiltered()
         {
             GoalSO fight = LoadGoal("Goal_Fight");

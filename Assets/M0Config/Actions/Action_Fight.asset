@@ -24,7 +24,7 @@ MonoBehaviour:
   - Slot: 21
     Op: 0
     Value: 0
-  StrikeRangeTiles: 1
+  StrikeRangeTiles: 2
   BaseHitSec: 4
   HitDamage: 10
   WeaponHitSecMult: 0.5

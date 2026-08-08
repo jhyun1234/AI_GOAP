@@ -57,7 +57,12 @@ namespace AIVillage.M0
             void Consider(GoalSO g, bool ordered = false)
             {
                 if (g == null || !Passes(g, snap, skip, ordered)) return;
-                int b = bias != null ? bias(g) : 0;
+                // 명령은 보정 없이 원래 Priority (리뷰① 2026-08-08 — "명령의 무게는 촌장이 정하지
+                // 기질이 깎지 않는다"). 겁 많은 주민의 「싸워라」(105)가 성향 보정으로 81까지 깎여
+                // 피로(90)·배고픔(100)에 밀리는 것이 Play에서 관측됐다 — 수락한 명령이 기질에
+                // 밀리면 소극적 거부가 된다. 거부는 수락 시점의 JudgeOrder(욕구 2축)가 전담한다
+                // (ADR-M1-2 — 성향은 자율 goal 순위에서만 말한다).
+                int b = ordered ? 0 : (bias != null ? bias(g) : 0);
                 // 경험 우회 (M20-W11): 조건 성립 시 음수 보정(기질 페널티)만 지운다 — 경험 > 기질.
                 // 양수는 불변이라 실효 상한이 안 오르고(명령 대역 60 불침범), 빈 배열 = 현행(중립).
                 if (b < 0 && g.ExperienceOverrideWhen != null && g.ExperienceOverrideWhen.Length > 0

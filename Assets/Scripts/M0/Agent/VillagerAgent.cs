@@ -205,9 +205,12 @@ namespace AIVillage.M0
         private GoalSO _routine;
 
         /// <summary>실효 우선순위 = 에셋 Priority + 직업 보정. 선택(Select)과 전환 비교가
-        /// 같은 진리를 쓰기 위한 유일한 계산 지점 (ADR-M5-6).</summary>
+        /// 같은 진리를 쓰기 위한 유일한 계산 지점 (ADR-M5-6).
+        /// 명령은 보정 없음 (리뷰① 2026-08-08 — GoalSelector.Consider의 ordered 규약과 짝:
+        /// 선택은 무보정인데 전환 비교만 보정이면, 뽑힌 명령이 다음 재선택 검사에서
+        /// 즉시 하위 goal에 밀려나는 어긋남이 생긴다).</summary>
         private int EffectivePriority(GoalSO g)
-            => g.Priority + (_goalBias != null ? _goalBias(g) : 0);
+            => g.Priority + (g == _order || _goalBias == null ? 0 : _goalBias(g));
 
         /// <summary>
         /// 이 goal을 특정 축이 얼마나 원하는가 (M12-J 계측 분류용, 순수).

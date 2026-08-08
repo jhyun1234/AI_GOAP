@@ -16,10 +16,12 @@ namespace AIVillage.M0
     [CreateAssetMenu(menuName = "AIVillage/M0/Action/Fight", fileName = "FightAction")]
     public sealed class FightActionSO : ActionSO
     {
-        [Tooltip("타격 사거리 (타일, 맨해튼). 이 안에 들어와야 때린다. 제안 1 — 맨손 근접이므로 " +
-                 "위협의 타격 반경(3~4)보다 **좁아야** 한다: 늑대가 먼저 닿고 주민이 파고들어야 " +
-                 "'맞으면서 때린다'가 성립한다.")]
-        public int StrikeRangeTiles = 1;
+        [Tooltip("타격 사거리 (타일, 맨해튼). 이 안에 들어와야 때린다. 리뷰①에서 1 → 2 개정 " +
+                 "(2026-08-08): 사거리 1은 배회 반경 5를 도는 늑대가 매복지 1타일 안으로 들어와야만 " +
+                 "맞아서 '근처에 있어도 안 싸우는' 판이 나왔다. 여전히 위협의 타격 반경(3~4)보다 " +
+                 "**좁아야** 한다 — 늑대가 먼저 닿고 주민이 파고들어야 '맞으면서 때린다'가 성립 " +
+                 "(게이트 M21-T9 가 이 관계를 고정).")]
+        public int StrikeRangeTiles = 2;
 
         [Tooltip("기본 타격 간격 (실시간 초). §4 제안치 4초 — 늑대 60 체력을 맨손 10 피해로 " +
                  "6대(24초)에 몰아낸다. 직업·무기 배율이 여기에 곱해진다 (CombatService.HitInterval).")]

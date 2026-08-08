@@ -94,18 +94,29 @@ add(bigPauses.length <= 2, '큰 쉼 회차당 2회 이하',
    첫 사용처: ep10s-3·ep11s (제목 도치형 개정 재렌더, 2026-08-08). */
 const legacy = String(scene.legacyFormat ?? '').trim();
 
+/* 🔑 가로(wide) 프로필 (롱폼 트랙, ADR-LF-1) — 4단 구조·쇼츠 길이 대역·예고 사슬은
+   **세로 쇼츠의 규격**이다(ADR-V25-8 의 적용 범위). 롱폼 구조의 정본은
+   Docs/롱폼_대본_문법.md(W7)이고, 기계 게이트 승격은 그 문서 확정 후에 한다 —
+   그때까지 wide 는 해당 검사를 「wide — 쇼츠 규격 비대상」으로 통과시킨다.
+   🔴 무르게 한 것이 아니라 측정을 규격에 맞춘 것이다(ADR-V25-3 과 같은 원칙).
+   보편 검사(메타·2줄 상한·2초·팔레트·결정성·정적·잘림·안전영역)는 wide 도 그대로 본다. */
+const WIDE = scene.format === 'wide';
+const wideSkip = 'wide — 쇼츠 규격 비대상 (롱폼 규격은 Docs/롱폼_대본_문법.md)';
+
 const introShot = scene.shots[0];
 const introSayAll = (introShot?.lines ?? []).map(l => l.say ?? l.text).join(' ');
-add(legacy ? true : (introShot?.kind === 'intro' && /개발\s*일지/.test(introSayAll)), '인트로 있음',
-  legacy ? `구형 예외 — ${legacy}`
+add((legacy || WIDE) ? true : (introShot?.kind === 'intro' && /개발\s*일지/.test(introSayAll)), '인트로 있음',
+  WIDE ? wideSkip
+  : legacy ? `구형 예외 — ${legacy}`
     : introShot?.kind === 'intro'
       ? `${introShot.id} (kind=intro) — 「${introSayAll.slice(0, 28)}…」`
       : `🔴 shots[0].kind 가 intro 가 아니다(${introShot?.kind}) — 고정 인트로가 없다`);
 
 const hookLine = scene.shots[1]?.lines?.[0];
 const hookSay = hookLine ? (hookLine.say ?? hookLine.text) : '';
-add(legacy ? true : /^오늘\s*개발\s*일지/.test(hookSay), '훅 시작 문구',
-  legacy ? `구형 예외 — ${legacy}`
+add((legacy || WIDE) ? true : /^오늘\s*개발\s*일지/.test(hookSay), '훅 시작 문구',
+  WIDE ? wideSkip
+  : legacy ? `구형 예외 — ${legacy}`
     : /^오늘\s*개발\s*일지/.test(hookSay)
       ? `「${hookSay.slice(0, 30)}…」`
       : `🔴 shots[1] 첫 줄이 「오늘 개발 일지 내용은」으로 시작하지 않는다 — 「${hookSay.slice(0, 30)}」`);
@@ -113,8 +124,9 @@ add(legacy ? true : /^오늘\s*개발\s*일지/.test(hookSay), '훅 시작 문�
 /* 아웃트로 소개 — 마지막 샷에 시리즈 소개로 맺는 줄이 있어야 한다(ADR-V25-10).
    문안은 회차 재량이라 낱말만 본다. 뜻은 검수팀 몫. */
 const lastLines = (scene.shots.at(-1)?.lines ?? []).map(l => l.say ?? l.text);
-add(legacy ? true : lastLines.some(s => /개발\s*일지|다음\s*편에서/.test(s)), '아웃트로 소개 있음',
-  legacy ? `구형 예외 — ${legacy}`
+add((legacy || WIDE) ? true : lastLines.some(s => /개발\s*일지|다음\s*편에서/.test(s)), '아웃트로 소개 있음',
+  WIDE ? wideSkip
+  : legacy ? `구형 예외 — ${legacy}`
     : lastLines.some(s => /개발\s*일지|다음\s*편에서/.test(s))
       ? `「${lastLines.at(-1)?.slice(0, 30)}…」`
       : `🟡 마지막 샷에 소개 마무리 줄(「…개발일지」·「다음 편에서…」)이 없다`, 'warn');
@@ -189,8 +201,9 @@ const headKeys = titleWords(headText);
 const titleHit = titleKeys.filter(k =>
   headKeys.some(h => h === k || h.includes(k) || k.includes(h)));
 
-add(titleKeys.length > 0 && titleHit.length > 0, '제목 이행 (첫 두 줄)',
-  titleKeys.length === 0
+add(WIDE ? true : (titleKeys.length > 0 && titleHit.length > 0), '제목 이행 (첫 두 줄)',
+  WIDE ? wideSkip
+  : titleKeys.length === 0
     ? `🔴 youtube.title 에서 핵심어를 못 뽑았다 — 제목이 비었거나 상투어뿐이다`
     : titleHit.length
       ? `겹침: ${titleHit.join(', ')}`
@@ -312,14 +325,16 @@ const teaserDur = teaserTimed
    🔴 `outro.next` 는 `outro.siblings` 와 다르다. siblings 는 형제 편 목록이고
    next 는 **다음 회차 하나**다. 둘을 같은 것으로 읽으면 분할 회차에서 조용히 통과한다. */
 const outroNext = String(scene.outro?.next ?? '').trim();
-add(teaserLines.length > 0 || outroNext.length > 0, '다음 편 예고 있음',
-  teaserLines.length
+add(WIDE ? true : (teaserLines.length > 0 || outroNext.length > 0), '다음 편 예고 있음',
+  WIDE ? wideSkip
+  : teaserLines.length
     ? `${lastShot.id} 자막 ${teaserLines.length}줄 (음성 예고)`
     : outroNext
       ? `아웃트로 카드: 「${outroNext}」 (음성 0)`
       : `🔴 마지막 샷(${lastShot.id})에 음성 예고가 없고 outro.next 도 비었다 — 다음 편을 아무도 모른다`);
-add(teaserLines.length === 0 || teaserDur <= TEASER_MAX, `예고 ${TEASER_MAX}초 이하`,
-  teaserLines.length ? `${teaserDur.toFixed(1)}초` : '음성 예고 없음 — 아웃트로가 진다', 'warn');
+add(WIDE || teaserLines.length === 0 || teaserDur <= TEASER_MAX, `예고 ${TEASER_MAX}초 이하`,
+  WIDE ? wideSkip
+    : teaserLines.length ? `${teaserDur.toFixed(1)}초` : '음성 예고 없음 — 아웃트로가 진다', 'warn');
 
 if (timed) {
   const flat = timed.shots.flatMap((s, si) =>
@@ -369,11 +384,19 @@ if (timed) {
      *"영상의 상한은 35초로 늘려도 될 듯하다"* + *"아웃트로를 넣었을 때 전체 영상길이가
      35초 -+ 3초 정도는 충분히 괜찮다"*. 길이가 늘어난 것이 아니라 **구조가 늘었다** —
      인트로(~4.5초)와 아웃트로 소개+미리보기(~5.5초)가 새로 붙었고 본문은 20±2 그대로다. */
-  add(totalSec <= 38, '총 길이 38초 이하',
-    `${totalSec.toFixed(1)}초 = 자막 ${subSec.toFixed(1)} + 꼬리 ${(SHOT_TAIL * timed.shots.length).toFixed(2)}` +
-    ` (목표 30~35초 · 이 값이 실제 mp4 길이다)`);
-  add(totalSec >= 30 && totalSec <= 35, '총 길이 30~35초 권장대역',
-    `${totalSec.toFixed(1)}초`, 'warn');
+  if (WIDE) {
+    /* 롱폼 길이 판정(본편 300~600초 = 명세 S1)은 W7 문법 문서 확정 후 게이트로 승격한다
+       (ADR-LF-9: 실측 전 규칙 금지). 지금은 실측값만 찍는다 — 판정 아님. */
+    add(true, '총 길이 (wide 참고 · 판정 아님)',
+      `${totalSec.toFixed(1)}초 = 자막 ${subSec.toFixed(1)} + 꼬리 ${(SHOT_TAIL * timed.shots.length).toFixed(2)}` +
+      ` (본편 기준 300~600초 · 승격은 W7 뒤)`);
+  } else {
+    add(totalSec <= 38, '총 길이 38초 이하',
+      `${totalSec.toFixed(1)}초 = 자막 ${subSec.toFixed(1)} + 꼬리 ${(SHOT_TAIL * timed.shots.length).toFixed(2)}` +
+      ` (목표 30~35초 · 이 값이 실제 mp4 길이다)`);
+    add(totalSec >= 30 && totalSec <= 35, '총 길이 30~35초 권장대역',
+      `${totalSec.toFixed(1)}초`, 'warn');
+  }
 
   /* ── 단별 길이 (2026-08-08 개정 · ADR-V25-8/9) ─────
      본문 = 총 − 인트로 샷 − 훅 줄 − 아웃트로 샷. 사용자 「본문 20초 ±2초」.
@@ -389,10 +412,10 @@ if (timed) {
     : 0;
   const outroSec = hasIntro ? durShot(timed.shots.length - 1) : teaserDur + 3.0;
   const bodySec = totalSec - introSec - hookSec - outroSec;
-  add(bodySec >= 18 && bodySec <= 22, '본문 18~22초',
+  if (!WIDE) add(bodySec >= 18 && bodySec <= 22, '본문 18~22초',
     `본문 ${bodySec.toFixed(1)}초 (인트로 ${introSec.toFixed(1)} · 훅 ${hookSec.toFixed(1)}` +
     ` · 아웃트로 ${outroSec.toFixed(1)} 제외)`, 'warn');
-  if (hasIntro) {
+  if (hasIntro && !WIDE) {
     /* 인트로 고정 문안(33자)의 실측이 4초대다. 5.5 를 넘으면 문안이 불었거나 pause 가
        샌 것 — 사용자 제안치 3초와의 차이는 음성 물리량이다(명세 §2-C). */
     add(introSec <= 5.5, '인트로 5.5초 이하', `${introSec.toFixed(1)}초`, 'warn');
@@ -471,6 +494,47 @@ try {
      상단(0~130)은 안 본다 — 그 값은 실측한 적이 없다. 잰 것만 판정한다.
      오른쪽 세로 버튼 열(x≥930·y≥1090)도 아직 안 본다 — 비주얼이 x 1025 까지 그려서
      지금도 모서리가 겹치는데, 폭을 줄이면 안 가리는 위쪽까지 손해라 미뤘다. 관찰 항목. */
+  if (WIDE) {
+    /* 무대가 선언한 프로필로 실제로 떴는가 — dimsOfEp 가 경로 오류로 조용히 tall 이
+       되거나 wide.css 로드가 실패하면 세로 무대에 가로 대본이 얹힌다. 조용한 종류라
+       비율로 못박는다 (W1 자가 재검토 산출물). wide 전용 — tall 은 CSS 가 정적
+       링크라 같은 고장 모드가 없고, tall 판정 불변(W2 DoD)을 지킨다. */
+    const stageAR = await cdp.evaluate(
+      `(()=>{const b=document.querySelector('.stage').getBoundingClientRect();return b.width/b.height})()`);
+    add(Math.abs(stageAR - 16 / 9) < 0.01, '무대 프로필 일치',
+      `가로세로비 ${stageAR.toFixed(4)} (기대 ${(16 / 9).toFixed(4)} · format=wide)`);
+    /* 가로 16:9 안전영역 — youtube-editor/CAPTION_SAFE_AREA.md **원판 규격** (@1080):
+       콘텐츠 안전영역 0~850 / 자막영역 850~1080. 쇼츠(아래 else)와 달리 플랫폼 UI
+       실측이 아니라 가이드 문서가 정본이다 — 16:9 규격의 첫 원판 적용(W2).
+       CAP_BOTTOM_MAX 1060 은 제안치(바닥 20px 여유) — 실측이 생기면 그쪽이 이긴다. */
+    const CONTENT_BOTTOM = 850, CAP_BOTTOM_MAX = 1060;
+    const w = await cdp.evaluate(`(()=>{
+      const st = document.querySelector('.stage') || document.body;
+      const S = st.getBoundingClientRect();
+      const y = v => (v - S.top) / S.height * 1080;
+      const worst = { visBot: 0, capBot: 0, capTop: 1e9 };
+      const N = 24;
+      for (let i = 0; i < N; i++) {
+        window.seek(window.TOTAL * i / (N - 1));
+        const vis = document.querySelector('.vis');
+        const cap = document.querySelector('.cap p');
+        if (vis) worst.visBot = Math.max(worst.visBot, y(vis.getBoundingClientRect().bottom));
+        if (cap) {
+          const b = cap.getBoundingClientRect();
+          worst.capBot = Math.max(worst.capBot, y(b.bottom));
+          worst.capTop = Math.min(worst.capTop, y(b.top));
+        }
+      }
+      return worst;
+    })()`);
+    add(w.visBot <= CONTENT_BOTTOM + 1, `콘텐츠 안전영역 (비주얼 ≤ ${CONTENT_BOTTOM})`,
+      `비주얼 바닥 ${w.visBot.toFixed(0)} (한계 ${CONTENT_BOTTOM})`);
+    add(w.capTop >= CONTENT_BOTTOM - 1 && w.capBot <= CAP_BOTTOM_MAX,
+      `자막영역 ${CONTENT_BOTTOM}~${CAP_BOTTOM_MAX} 안`,
+      `자막 머리 ${w.capTop.toFixed(0)} · 바닥 ${w.capBot.toFixed(0)}` +
+      (w.capTop < CONTENT_BOTTOM - 1 ? ' — 🔴 자막이 콘텐츠 영역을 침범 (줄 수 확인)' : ''));
+  } else {
+
   const SAFE_BOTTOM = 1477;
   const low = await cdp.evaluate(`(()=>{
     const st = document.querySelector('.stage') || document.body;
@@ -493,6 +557,7 @@ try {
     over.length
       ? over.map(([s, v]) => `${s} 바닥 ${v.toFixed(0)} > 한계 ${SAFE_BOTTOM}`).join(', ')
       : `자막 바닥 ${low['.cap']?.toFixed(0)} · 비주얼 바닥 ${low['.vis']?.toFixed(0)} (한계 ${SAFE_BOTTOM})`);
+  }
 
   frame = await cdp.evaluate(`(async () => {
     const FPS = ${FPS}, N = Math.max(2, Math.floor(window.TOTAL/1000*FPS));

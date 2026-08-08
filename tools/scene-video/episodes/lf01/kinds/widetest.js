@@ -13,10 +13,11 @@ export default {
     const { ctx, w, h } = fitCanvas(root.querySelector('canvas'));
     ctx.textBaseline = 'alphabetic';
 
-    // ① 바깥 테두리 — 3px, 흰색. 네 변이 다 보여야 잘림이 없다
+    // ① 바깥 테두리 — 3px, 흰색. 네 변이 다 보여야 잘림이 없다.
+    // 8px 안쪽으로 들인다 — 가장자리 0px에 그리면 잘림 검사가 (옳게) 잡는다.
     ctx.strokeStyle = tone('ink');
     ctx.lineWidth = 3;
-    ctx.strokeRect(1.5, 1.5, w - 3, h - 3);
+    ctx.strokeRect(8, 8, w - 16, h - 16);
 
     // ② 중앙 라벨 — 폭을 재서 넣는다 (캔버스 밖으로 그리면 잘린다)
     const label = spec.label || 'WIDE';

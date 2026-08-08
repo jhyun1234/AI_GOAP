@@ -15,6 +15,46 @@ metadata:
 
 ## 최신 사용 커밋
 
+- `latest_commit`: `ece7029` (전체 해시 확인 안 됨 — 짧은 해시는 기획팀 브리프
+  (`.staging/01_planner_brief.md`)·마스터 Step 6 판정서(`06_verdict.md`) `verify_at`과
+  동일, `docs(devlog): 2026-07-31 M15 세션 — 브레인스토밍→명세→W1~W3→Play 검증 완주 기록`
+  (21:09) — commit_refs 중 타임스탬프 기준 가장 최신 커밋이며 `verify_at`과도 일치해
+  별도 치환이 필요 없었다.)
+- `selected_commits_range`: `1580dcf`(spec(chronicle) M15 연대기 실행명세서) ~ `ece7029`
+  (docs(devlog) 2026-07-31 M15 세션) — M15 "연대기" 전 항목(W1~W3) 완결 + 결함 수정 +
+  세션 로그까지 6커밋: `1580dcf`(spec(chronicle) M15 연대기 실행명세서 — 판별 아카이브·
+  C 토글 패널·쓰기 2곳, 16:52) · `b2b1a56`(feat(chronicle) M15-W1 ChronicleArchive —
+  판별 연대기 저장소 + 게이트 T1~T3, 17:31) · `68a3f49`(feat(chronicle) M15-W2 아카이브
+  배선 — 겨울 전환·전멸 래치 2곳 스냅샷, 17:32) · `9a8bdc9`(feat(chronicle) M15-W3
+  연대기 패널 — C 토글 + 판 목록/상세 + 게이트 T4, 17:37) · `3b6cfeb`(fix(chronicle)
+  연대기 패널 결함 2건 — 현재 판 중복 행·전멸 화면 겹침, 20:52) · `ece7029`(docs(devlog)
+  2026-07-31 M15 세션 — 브레인스토밍→명세→W1~W3→Play 검증 완주 기록, 21:09,
+  **latest_commit**). 기획팀 브리프(`.staging/01_planner_brief.md`) commit_refs 전체 반영.
+- `cycle_date`: 2026-08-08 (로컬 수동 사이클 — 마스터 Step 6 2차 APPROVED, 반려 0회로
+  Step 3/4/6 정상 승인 경로 완주. 게시팀 Step 7이 `.staging/05_final.md`의
+  title/meta_description/labels/html_content를 수정 없이 그대로 정식 공개 발행.)
+- `publish_status`: PUBLISHED (Blogger published: 2026-08-08T00:19:34-07:00, status: LIVE)
+- `blogger_post_id`: 1028397470425467506
+- `blog_url`: https://gamedevclaude.blogspot.com/2026/08/unity-goap-2-claude-code-ai.html
+- `title`: Unity GOAP 연대기 아카이브 인디게임 개발일지: "통과"라고 적어둔 화면을 다시
+  봤더니 결함이 2건 숨어 있었다 (Claude Code 게임 개발 AI 페어 프로그래밍 후기)
+- `labels`: Unity GOAP 연대기 아카이브, Claude Code 게임 개발, AI 페어 프로그래밍 후기,
+  인디게임 개발일지
+- `local_archive`: tools/blog-automation/published/2026-08-08-unity-goap-m15-chronicle-archive.html
+  (게시 직후 Blogger POST 응답 JSON의 `content` 필드를 게시 직전 임시 파일
+  `_tmp_content.html`과 Node `===` 문자열 완전 비교 및 md5 대조해 완전 일치함을 직접
+  확인(byte-identical, md5 `429ea058f78e263aa3c4d7631d51290a` 동일, 12,876자, U+FFFD
+  0건). `title`·`labels`(4개, 집합 일치) 필드도 일치 확인. 화면 문자열 6종(▶·†·중간점·
+  em dash·`{N}`·`{종료일}`) 라이브 본문에서 개별 카운트 재확인 — `▶`1·`†`1·`·`15·`—`21·
+  `{N}`7·`{종료일}`1로 전부 승인 스냅샷과 동수.)
+- `content_note`: 이 회차는 blog-editor(Step 5)·blog-master(Step 6)를 정상 경유했다
+  (반려 0회). 마스터 Step 6 2차 판정서(`06_verdict.md`)가 Step 4 승인 스냅샷과
+  `05_final.md`를 기계 diff로 대조해 의미 변경이 H1→title 이동 1건뿐임을 확인했고,
+  게시팀은 그 승인분을 수정 없이 그대로 게시했다. 게시팀 자체 검증(POST 응답 대조)도
+  독립적으로 완전 일치를 확인했다.
+
+## 이전 사용 커밋 (2026-08-06, M14 가을과 겨울)
+
 - `latest_commit`: `c4bc93e` (전체 해시 `c4bc93edfbf5f921de035a45993f0856c52c31bf`,
   2026-07-31 16:07:44 +0900, `docs(devlog): M14 방치 완주 1판 관측 — 죽음의 축 이동,
   치료사 부재 적재` — 기획팀 브리프(`.staging/01_planner_brief.md`)의 `verify_at`이자

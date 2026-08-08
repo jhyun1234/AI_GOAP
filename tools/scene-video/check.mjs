@@ -82,6 +82,33 @@ add(bigPauses.length <= 2, '큰 쉼 회차당 2회 이하',
   `${bigPauses.length}회` + (bigPauses.length ? ` (${bigPauses.map(l => l.shot).join(', ')})` : ''),
   'warn');
 
+/* ── 4단 고정 구조 (2026-08-08 신설 · ADR-V25-8) ─────
+   인트로(고정 문안 + 브랜딩 그림) → 훅(「오늘 개발 일지 내용은」) → 본문 → 아웃트로.
+   사용자 지시가 문안까지 고정했으므로 기계가 볼 수 있다 — 셋 다 fail/warn 로 잰다.
+   🔴 이 게이트는 신규 회차용이다. 옛 회차(ep11s 이전)에 돌리면 전부 red 가 나는 것이
+   옳다 — 그 회차들은 이 구조 이전의 규격으로 승인됐다. */
+const introShot = scene.shots[0];
+const introSayAll = (introShot?.lines ?? []).map(l => l.say ?? l.text).join(' ');
+add(introShot?.kind === 'intro' && /개발\s*일지/.test(introSayAll), '인트로 있음',
+  introShot?.kind === 'intro'
+    ? `${introShot.id} (kind=intro) — 「${introSayAll.slice(0, 28)}…」`
+    : `🔴 shots[0].kind 가 intro 가 아니다(${introShot?.kind}) — 고정 인트로가 없다`);
+
+const hookLine = scene.shots[1]?.lines?.[0];
+const hookSay = hookLine ? (hookLine.say ?? hookLine.text) : '';
+add(/^오늘\s*개발\s*일지/.test(hookSay), '훅 시작 문구',
+  /^오늘\s*개발\s*일지/.test(hookSay)
+    ? `「${hookSay.slice(0, 30)}…」`
+    : `🔴 shots[1] 첫 줄이 「오늘 개발 일지 내용은」으로 시작하지 않는다 — 「${hookSay.slice(0, 30)}」`);
+
+/* 아웃트로 소개 — 마지막 샷에 시리즈 소개로 맺는 줄이 있어야 한다(ADR-V25-10).
+   문안은 회차 재량이라 낱말만 본다. 뜻은 검수팀 몫. */
+const lastLines = (scene.shots.at(-1)?.lines ?? []).map(l => l.say ?? l.text);
+add(lastLines.some(s => /개발\s*일지|다음\s*편에서/.test(s)), '아웃트로 소개 있음',
+  lastLines.some(s => /개발\s*일지|다음\s*편에서/.test(s))
+    ? `「${lastLines.at(-1)?.slice(0, 30)}…」`
+    : `🟡 마지막 샷에 소개 마무리 줄(「…개발일지」·「다음 편에서…」)이 없다`, 'warn');
+
 /* ── 영어 자막 (CC 로 나가는 트랙) ──────────────────
    영상은 하나다 — 더빙도 번인 자막도 한국어고, 영어권 시청자는 CC 를 켜서 본다.
    그 자막의 원문이 `lines[].en` 이고 srt.mjs 가 그것을 엔진 타임라인에 얹는다.
@@ -143,7 +170,11 @@ const titleWords = s => [...new Set(
 )];
 
 const titleKeys = titleWords(scene.youtube?.title);
-const headText = allLines.slice(0, 2).map(l => `${l.text ?? ''} ${l.say ?? ''}`).join(' ');
+/* 🔴 인트로 샷은 매회 같은 고정 문안이라 제목을 이행할 수 없다(ADR-V25-8, 2026-08-08).
+   「첫 두 줄」은 인트로를 건너뛰고 훅 줄부터 센다 — 인트로가 없는 옛 회차는 그대로다. */
+const postIntroLines = scene.shots.filter(s => s.kind !== 'intro')
+  .flatMap(s => s.lines.map(l => ({ ...l, shot: s.id })));
+const headText = postIntroLines.slice(0, 2).map(l => `${l.text ?? ''} ${l.say ?? ''}`).join(' ');
 const headKeys = titleWords(headText);
 const titleHit = titleKeys.filter(k =>
   headKeys.some(h => h === k || h.includes(k) || k.includes(h)));
@@ -314,32 +345,39 @@ if (timed) {
   const subSec = timed.shots.flatMap(s => s.lines)
     .reduce((a, l) => a + l.dur + (l.pause || 0), 0) / 1000;
   const totalSec = subSec + SHOT_TAIL * timed.shots.length;
-  /* 🔴 상한 25 → **28초** (2026-08-07 사용자 판정): *"25초를 너무 지켜야 된다고 생각하지
-     말고, 25초 ±3초까지는 괜찮을 거 같아."*
-     왜 풀었나: 25.0 을 칼같이 맞추려다 **예고가 6~7자로 쪼그라들어 뜻이 없어졌다.**
-     ep08s-2 의 「다음 편, 다 같이.」를 사용자가 보고 *"이게 무슨 말이야, 시청자는 읭?"*.
-     상한이 목적이 아니라 인트로·아웃트로가 목적이다 — 그쪽을 지키려고 3초를 열었다. */
-  add(totalSec <= 28, '총 길이 28초 이하',
+  /* 🔴 상한 28 → **38초 · 권장 30~35** (2026-08-08 사용자 판정 · ADR-V25-9).
+     이력: 25(2026-08-06) → 28(2026-08-07 「25초 ±3초」) → 35+3(2026-08-08).
+     *"영상의 상한은 35초로 늘려도 될 듯하다"* + *"아웃트로를 넣었을 때 전체 영상길이가
+     35초 -+ 3초 정도는 충분히 괜찮다"*. 길이가 늘어난 것이 아니라 **구조가 늘었다** —
+     인트로(~4.5초)와 아웃트로 소개+미리보기(~5.5초)가 새로 붙었고 본문은 20±2 그대로다. */
+  add(totalSec <= 38, '총 길이 38초 이하',
     `${totalSec.toFixed(1)}초 = 자막 ${subSec.toFixed(1)} + 꼬리 ${(SHOT_TAIL * timed.shots.length).toFixed(2)}` +
-    ` (목표 22.6~28초 · 이 값이 실제 mp4 길이다)`);
-  /* 🔴 하한 22.6 은 **파생값**이라 그대로 둔다(본문 하한 20 + 아웃트로 2.6).
-     사용자가 말한 22 와 사실상 같고, 이쪽은 근거가 있다. */
-  add(totalSec >= 22.6 && totalSec <= 28, '총 길이 22.6~28초 권장대역',
+    ` (목표 30~35초 · 이 값이 실제 mp4 길이다)`);
+  add(totalSec >= 30 && totalSec <= 35, '총 길이 30~35초 권장대역',
     `${totalSec.toFixed(1)}초`, 'warn');
 
-  /* ── 본문 하한 — 오버헤드가 사건을 잡아먹지 않게 (2026-08-06 신설) ──
-     본문이 얇으면 ①어긋난 상태 ②뒤집힘 ③남는 한 줄이 안 들어간다(ADR-V-1).
-
-     🔴 **21 → 20 (2026-08-06 사용자 판정, 명세서 §6 리뷰① 결과).**
-     첫 25초 편(ep08s-1)을 실제로 만들어 보니 상한 25 와 하한 사이의 창이 너무 좁았다:
-       음성 예고(1초) 형태 → 창 **0.5초** · 아웃트로 형태 → 창 1.4초
-     ADR-V25-2 는 두 형태를 회차가 고르는 것으로 뒀는데, 창이 0.5초면 사실상 아웃트로
-     형태를 강제한다. 게다가 산정치가 실측보다 **3.4초** 짧게 나온다(ep08s-1: 산정 23.9 →
-     실측 27.3). 20 으로 내리면 창이 각각 1.4초·2.4초가 되어 형태 선택이 살아난다.
-     🔴 이게 걸리면 편을 더 쪼갤 신호가 아니라 **곁가지를 덜어낼 신호**다(ADR-V25-4). */
-  const bodySec = totalSec - teaserDur - 2.6;   // 2.6 = engine.js 의 OUTRO_MS
-  add(bodySec >= 20, '본문 20초 이상',
-    `본문 ${bodySec.toFixed(1)}초 (예고 ${teaserDur.toFixed(1)} + 아웃트로 2.6 제외)`, 'warn');
+  /* ── 단별 길이 (2026-08-08 개정 · ADR-V25-8/9) ─────
+     본문 = 총 − 인트로 샷 − 훅 줄 − 아웃트로 샷. 사용자 「본문 20초 ±2초」.
+     🔴 걸리면 편을 쪼갤 신호가 아니라 곁가지를 덜어낼(모자라면 원문 어휘를 되살릴)
+     신호다(ADR-V25-4). 인트로가 없는 옛 회차는 옛 정의(총 − 예고 − 아웃트로)로 산다. */
+  const durShot = i => timed.shots[i]
+    ? timed.shots[i].lines.reduce((a, l) => a + l.dur + (l.pause || 0), 0) / 1000 + SHOT_TAIL
+    : 0;
+  const hasIntro = scene.shots[0]?.kind === 'intro';
+  const introSec = hasIntro ? durShot(0) : 0;
+  const hookSec = hasIntro
+    ? ((timed.shots[1]?.lines?.[0]?.dur ?? 0) + (timed.shots[1]?.lines?.[0]?.pause ?? 0)) / 1000
+    : 0;
+  const outroSec = hasIntro ? durShot(timed.shots.length - 1) : teaserDur + 3.0;
+  const bodySec = totalSec - introSec - hookSec - outroSec;
+  add(bodySec >= 18 && bodySec <= 22, '본문 18~22초',
+    `본문 ${bodySec.toFixed(1)}초 (인트로 ${introSec.toFixed(1)} · 훅 ${hookSec.toFixed(1)}` +
+    ` · 아웃트로 ${outroSec.toFixed(1)} 제외)`, 'warn');
+  if (hasIntro) {
+    /* 인트로 고정 문안(33자)의 실측이 4초대다. 5.5 를 넘으면 문안이 불었거나 pause 가
+       샌 것 — 사용자 제안치 3초와의 차이는 음성 물리량이다(명세 §2-C). */
+    add(introSec <= 5.5, '인트로 5.5초 이하', `${introSec.toFixed(1)}초`, 'warn');
+  }
 } else {
   add(false, '실측 타임라인 존재', `episodes/${EP}/build/timed.json 이 없다 — tts.mjs 를 먼저 돌려라`);
 
@@ -527,7 +565,7 @@ try {
          그 구간에 캔버스가 움직일 이유 자체가 없어졌다.
          🔑 이것은 기준을 무르게 하는 것이 아니라 **측정을 보이는 것으로 좁히는 것**이다.
          실제로 ep05s-2 는 이 패치 뒤에도 보이는 정적이 2.6초로 남아 3.0초 코앞이다. */
-      const OUTRO_MS = 2600;   // engine.js 의 같은 이름 상수와 맞춰라
+      const OUTRO_MS = 3000;   // engine.js 의 같은 이름 상수와 맞춰라 (2026-08-08 ADR-V25-10)
       const covered = (i / FPS * 1000) >= window.TOTAL - OUTRO_MS;
       if (covered) { P.staticRun = 0; prev = L; prevId = id; continue; }
       if (prev && prevId === id && prev.length === L.length) {

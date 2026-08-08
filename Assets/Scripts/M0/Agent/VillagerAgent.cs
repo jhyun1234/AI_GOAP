@@ -592,6 +592,12 @@ namespace AIVillage.M0
         public static bool IsNearDeath(float hp, AgentConfigSO cfg)
             => hp <= cfg.MaxHp * (1f - cfg.NearStarvationRatio);
 
+        /// <summary>MyWasStarved 를 찍을 자격 (순수 — 게이트 M21-T15, M12-G 희소성의 판정).
+        /// 원인이 **굶주림**이고 죽음 문턱 근처일 때만 — 전투 피해로도 찍히면 경험 우회가
+        /// 전투마다 발동해 "굶어 죽을 뻔한 기억"의 희소성이 사라진다 (DamageCause 주석 ②).</summary>
+        public static bool ShouldMarkStarved(DamageCause cause, float hp, AgentConfigSO cfg)
+            => cause == DamageCause.Starvation && IsNearDeath(hp, cfg);
+
         /// <summary>아사 소요 (순수 — 게이트 M21-T1): 만복에서 굶기만 할 때 죽기까지의 게임일.
         /// 이 값이 DepartAfterStarvingDays와 어긋나면 검증된 밸런스가 조용히 바뀐 것이다.</summary>
         public static float DaysToStarveDeath(AgentConfigSO cfg) => cfg.MaxHp / cfg.StarveHpPerDay;
@@ -611,9 +617,9 @@ namespace AIVillage.M0
         {
             if (State == AgentState.Dead || amount <= 0f) return;
             Hp = Mathf.Max(0f, Hp - amount);
-            // 굶주림 원인일 때만 기록 (M12-G 희소성 — DamageCause 주석 참조).
+            // 굶주림 원인일 때만 기록 (M12-G 희소성 — 판정은 순수 함수, 게이트 M21-T15).
             // 여기가 MyWasStarved의 유일한 쓰기 지점이다 (舊 SimTick에서 이전).
-            if (cause == DamageCause.Starvation && IsNearDeath(Hp, _cfg)) MyWasStarved = true;
+            if (ShouldMarkStarved(cause, Hp, _cfg)) MyWasStarved = true;
             if (!IsDead(Hp))
             {
                 // 부상 파생 (M21-W2) — 전투 피해로 부상선 아래면 다친 것이다.

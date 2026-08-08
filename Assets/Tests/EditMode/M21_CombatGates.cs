@@ -869,6 +869,31 @@ namespace AIVillage.Tests.EditMode
             StringAssert.DoesNotContain("격퇴", none, "격퇴 0회면 줄 생략 (이탈 0 감춤과 같은 규율)");
         }
 
+        // ── M21-T15: MyWasStarved 원인 라우팅 (W10 — 게이트 본대의 마지막 사각지대) ──
+
+        [Test]
+        public void M21_T15_StarvedMemory_OnlyFromStarvationNearDeath()
+        {
+            // M12-G 희소성 — "굶어 죽을 뻔한 기억"은 굶주림 + 죽음 문턱 근처에서만.
+            var c = NewCfg(); // MaxHp 100 · NearStarvationRatio 0.8 → 문턱 ≈ 체력 20
+            // ⚠️ 정확히 20f는 안 쓴다 — (1 − 0.8f)의 이진 오차로 문턱이 19.9999…라 경계값이
+            // 뒤집힌다 (T8 HP_EPSILON과 같은 부류). 경계 정밀도는 T2가 특성화했고,
+            // 이 게이트의 질문은 **원인 라우팅**이다.
+            Assert.IsTrue(VillagerAgent.ShouldMarkStarved(DamageCause.Starvation, 19.9f, c),
+                "굶주림으로 문턱 아래에 닿으면 찍힌다");
+            Assert.IsTrue(VillagerAgent.ShouldMarkStarved(DamageCause.Starvation, 5f, c),
+                "더 깊어도 찍힌다");
+            Assert.IsFalse(VillagerAgent.ShouldMarkStarved(DamageCause.Starvation, 20.1f, c),
+                "문턱 위는 아직 아니다 — 선이 앞당겨지면 전원이 기록돼 희소성이 사라진다");
+
+            // 🔴 이 줄이 이 게이트의 존재 이유다: 전투 피해로 체력이 바닥나도 '굶은 기억'은 아니다.
+            // 여기가 뚫리면 늑대에게 물릴 때마다 경험 우회(집 부탁 성향 문턱)가 발동한다.
+            Assert.IsFalse(VillagerAgent.ShouldMarkStarved(DamageCause.Combat, 5f, c),
+                "전투 피해는 아무리 아슬아슬해도 굶은 기억이 아니다 (M12-G 희소성)");
+
+            Object.DestroyImmediate(c);
+        }
+
         private static WorldSnapshot Snap(params (SlotId slot, int value)[] pairs)
         {
             var slots = new int[PlanningConfig.TotalSlots];

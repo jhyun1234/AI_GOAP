@@ -21,8 +21,13 @@ namespace AIVillage.M0
         private readonly Dictionary<(SlotId slot, Vector2Int tile), (float cur, float max, int repairCost)> _durability
             = new Dictionary<(SlotId, Vector2Int), (float, float, int)>();
 
-        /// <summary>내구도 변화 알림 (slot, tile, 현재, 최대) — 시각(W7)·HUD 구독. 표현 전용.</summary>
+        /// <summary>내구도 변화 알림 (slot, tile, 현재, 최대) — 시각(W7)·HUD 구독. 표현 전용.
+        /// ⚠️ 소멸(파괴·제거) 시에는 (0, 0)으로 한 번 더 나간다 — 손상 오버레이가 유령으로 남지 않게.</summary>
         public event Action<SlotId, Vector2Int, float, float> OnDurabilityChanged;
+
+        /// <summary>수리 완료 알림 (slot, tile, 수리자 표시명 — null 가능) — HUD 정보줄 구독 (W7).
+        /// 등록(완공)의 OnDurabilityChanged와 분리 — 완공마다 "수리되었습니다"가 뜨면 거짓말이다.</summary>
+        public event Action<SlotId, Vector2Int, string> OnRepaired;
 
         /// <summary>계획 변경 알림 (추가·차감·복귀) — 계획 마커 뷰 구독 (표현 전용).</summary>
         public event Action OnPlanChanged;
@@ -124,7 +129,7 @@ namespace AIVillage.M0
 
         /// <summary>수리의 유일한 문 (ADR-M22-3 쓰기 문 2 — 호출은 RepairRunner, W6). 전량 복원
         /// (한 걸음, ADR-M0-12). Wood 차감은 러너 몫 — 스톡의 문은 WorldModel이다 (ADR-M0-3).</summary>
-        public bool Repair(SlotId slot, Vector2Int tile)
+        public bool Repair(SlotId slot, Vector2Int tile, string actorName = null)
         {
             var key = (slot, tile);
             if (!_durability.TryGetValue(key, out (float cur, float max, int repairCost) v) || v.cur >= v.max)
@@ -132,6 +137,7 @@ namespace AIVillage.M0
             v.cur = v.max;
             _durability[key] = v;
             OnDurabilityChanged?.Invoke(slot, tile, v.cur, v.max);
+            OnRepaired?.Invoke(slot, tile, actorName);
             return true;
         }
 
@@ -167,6 +173,7 @@ namespace AIVillage.M0
         {
             var tile = new Vector2Int(x, y);
             if (!_durability.Remove((slot, tile))) return; // 방어 시설이 아니면 무관 (밭 소실 등)
+            OnDurabilityChanged?.Invoke(slot, tile, 0f, 0f); // 소멸 신호 — 손상 오버레이 정리 (W7)
             if (slot == SlotId.GateCount)
             {
                 if (!_plannedGates.Contains(tile)) _plannedGates.Add(tile);

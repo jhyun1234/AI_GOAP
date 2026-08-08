@@ -64,7 +64,7 @@ namespace AIVillage.M0
             if (cost > 0 && !agent.World.TrySpendStock(SlotId.WoodStock, cost))
                 return Fail($"수리 자재 부족 (Wood {cost})");
 
-            defense.Repair(_slot, _tile); // 내구도 쓰기 문 2 (ADR-M22-3) — 전량 복원
+            defense.Repair(_slot, _tile, agent.ShortName); // 내구도 쓰기 문 2 (ADR-M22-3) — 전량 복원
             return RunnerResult.Succeeded;
         }
     }

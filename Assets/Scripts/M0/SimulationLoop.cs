@@ -180,6 +180,7 @@ namespace AIVillage.M0
         private BuildingVisualizer _visualizer;
         private ZoneBorderView _zoneBorderView;
         private DefensePlanView _defensePlanView; // 방어 계획 마커 (M22-W3R2, 표현 전용)
+        private DefenseDurabilityView _defenseDurabilityView; // 시설 손상 오버레이 (M22-W7, 표현 전용)
         private FarmPlotView _farmView;
         private int _lastLoggedDay = -1;
         private readonly List<VillagerAgent> _agents = new List<VillagerAgent>(8);
@@ -810,6 +811,13 @@ namespace AIVillage.M0
             // 방어 계획 마커 (M22-W3R2, 표현 전용) — 계획된 울타리·문 칸을 흐린 사각으로.
             // 지어지기 전의 계획이 화면에 안 보이면 "그었는데 아무 일도 없다"가 된다.
             _defensePlanView = new DefensePlanView(transform, Defense);
+            // 시설 손상 오버레이 (M22-W7, 표현 전용) — 깎일수록 짙어지는 검붉은 마커.
+            // 헌장 표현 조항(ADR-M20-1): "색 바랜 울타리가 늘어나는 것"이 목수 부재의 화면이다.
+            _defenseDurabilityView = new DefenseDurabilityView(transform, Defense);
+            // 수리 완료 정보줄 (W7) — 등록(완공)과 분리된 전용 이벤트 (완공마다 "수리" 거짓말 방지)
+            Defense.OnRepaired += (slot, tile, actor) =>
+                Hud?.Notify($"{(string.IsNullOrEmpty(actor) ? "누군가" : actor)}이(가) " +
+                            $"{(slot == SlotId.GateCount ? "문" : "울타리")}을(를) 고쳤습니다");
             // 舊 농부 회의 배선(OnZoneEstablished → ShowFarmMeeting)은 M11-F에서 제거됐다.
             // 개인 택지 시대의 장면은 집들이다 — 소유 배정 이벤트로 옮겨졌다(아래 Ownership.OnAssigned).
             // ZoneService는 휴면 보존 (테두리 뷰·재해 대사 앵커가 여전히 읽는다, ⚠️②).

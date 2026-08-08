@@ -325,6 +325,25 @@ namespace AIVillage.Tests.EditMode
         }
 
         [Test]
+        public void M22_T7_Carpenter_BoostsDefenseGoals()
+        {
+            // W7 목수 부활 — 방어 건설·수리가 목수의 선호 goal이어야 "목수가 앞장서는" 그림이 된다
+            // (스폰 풀 재편입은 씬 직렬화라 게이트 밖 — 커밋 diff가 증거).
+            var carpenter = AssetDatabase.LoadAssetAtPath<JobSO>("Assets/M0Config/Jobs/Job_Carpenter.asset");
+            Assert.IsNotNull(carpenter);
+            var build = AssetDatabase.LoadAssetAtPath<GoalSO>("Assets/M0Config/Goals/Goal_BuildDefense.asset");
+            var repair = AssetDatabase.LoadAssetAtPath<GoalSO>("Assets/M0Config/Goals/Goal_RepairDefense.asset");
+            bool boostsBuild = false, boostsRepair = false;
+            foreach (GoalBoost b in carpenter.GoalBoosts)
+            {
+                if (b.Goal == build && b.Boost > 0) boostsBuild = true;
+                if (b.Goal == repair && b.Boost > 0) boostsRepair = true;
+            }
+            Assert.IsTrue(boostsBuild, "목수는 방어 건설을 선호한다 (GoalBoost > 0)");
+            Assert.IsTrue(boostsRepair, "목수는 수리를 선호한다 — 부재 시나리오의 짝 (ADR-M22-7)");
+        }
+
+        [Test]
         public void M22_T5c_Breach_ReopensJpsPath()
         {
             // 파괴 = 통행 복구의 원자 (ADR-M22-6) — 링이 막은 경로가 한 칸 뚫리면 다시 열린다.

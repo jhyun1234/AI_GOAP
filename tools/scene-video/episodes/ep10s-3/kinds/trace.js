@@ -19,21 +19,22 @@ import {
 
    🔴 사슬은 **위에서 아래로** 채워진다(주민 → 요청 → 목수 → 집). 원인의 순서다.
 
-   🔴 payCue(예고 자막)에는 아래쪽 트랙 하나가 열린다 — 집에서 나온 삯이 목수를 쫓는데
-   **둘이 같은 위상으로 함께 움직여 간격이 한 번도 안 좁혀진다.** 다음 편의 사건이다.
-   마지막 2.6초는 아웃트로 카드가 이 그림을 덮으므로 **lead 0.45 · span 0.06** 으로 조여
-   카드가 뜨기 전에 열리게 했고, 이 편의 페이오프(사슬 대비)는 그 앞 자막 안에서 끝난다.
-   (초고는 span 0.10 이었다. 실측으로 조인 근거는 아래 draw 안의 주석에 있다.)
+   🟢 **2026-08-08 4단 구조 개정 — 아래쪽 「삯이 목수를 쫓는」 트랙을 통째로 뺐다.**
+   그건 다음 편 예고였고, 예고는 이제 아웃트로 샷(`nextpeek`)이 진다. 그러면서 이 샷은
+   **자막 한 줄짜리 판정 샷**이 됐고, 아웃트로 카드도 더는 이 그림을 안 덮는다
+   (카드는 마지막 샷 위에 뜬다). 그래서 페이오프를 뒤로 밀 걱정 없이 c0 안에서 끝난다 —
+   집 두 채가 c0 0.05~0.31, 사슬이 0.30~0.70 이다.
+   🔴 예고를 여기 남겨 두면 **같은 것을 두 그림이 말하게 된다**(nextpeek 과 겹친다).
+   두 곳에 적으면 갈린다는 원칙 그대로다.
 
    🔴 화면에 숫자가 없다. 집이 둘인 것은 대조를 위한 배치이고 셀 값이 아니다.
 
    계속 도는 것 = 오른쪽 사슬을 타고 내려가는 강조색 하이라이트 · 왼쪽 빈 윤곽의 점선 ·
-   두 집의 빗금 · 아래 트랙에서 간격을 유지한 채 오가는 삯과 목수. */
+   두 집의 빗금. */
 
 const SLOT = { vill: 122, cap: 158, carp: 196 };
 const HOUSE = { cy: 236, w: 46, h: 38 };
 const LXP = 96, RXP = 256;
-const PAY_Y = 274, PAY_GAP = 86;
 
 function hatch(ctx, x, y, bw, bh, k, t, color) {
   if (k <= 0.004) return;
@@ -68,10 +69,6 @@ export default {
     const hTop = HOUSE.cy - HOUSE.h / 2;
 
     const c0 = cue(spec.traceCue ?? 0, 0.15, 0.75);
-    /* 🔴 span 0.10 → 0.06 (실측 반영). 마지막 자막이 rel 2,651ms 로 짧아 아웃트로 카드가
-       그 자막 시작 +401ms 에 뜬다. 0.10 이면 예고 그림이 +265ms 에 앉아 여유가 136ms
-       (30fps 로 4프레임)뿐이었다. 0.06 이면 +159ms 에 앉아 여유가 242ms(7프레임)다. */
-    const c1 = cue(spec.payCue ?? 1, 0.45, 0.06);
 
     const house = ease(clamp((c0 - 0.05) / 0.26));
     const chain = ease(clamp((c0 - 0.30) / 0.40));
@@ -170,47 +167,6 @@ export default {
       ctx.globalAlpha = clamp(house * 2.4);
       ctx.strokeStyle = tone('ink'); ctx.lineWidth = 3;
       roundRect(ctx, x, hTop, HOUSE.w, HOUSE.h, 5); ctx.stroke();
-      ctx.globalAlpha = 1;
-    }
-
-    /* ── 예고 — 삯이 목수를 쫓는데 간격이 그대로다 ─── */
-    const pa = ease(clamp(c1));
-    if (pa > 0.02) {
-      const swing = Math.sin(t * 2.5) * 46;
-      const pillW = 66, pillH = 22;
-      const px = Math.max(20 + pillW / 2, Math.min(w - 20 - pillW / 2 - PAY_GAP, w * 0.30 + swing));
-      const tx = px + PAY_GAP;
-
-      ctx.globalAlpha = pa * 0.85;
-      ctx.strokeStyle = tone('track'); ctx.lineWidth = 3;
-      ctx.setLineDash([6, 7]);
-      ctx.lineDashOffset = (t * 12) % 13;
-      ctx.beginPath(); ctx.moveTo(20, PAY_Y); ctx.lineTo(w - 20, PAY_Y); ctx.stroke();
-      ctx.setLineDash([]); ctx.lineDashOffset = 0;
-      ctx.globalAlpha = 1;
-
-      /* 좁혀지지 않는 간격 */
-      ctx.globalAlpha = pa * 0.8;
-      ctx.strokeStyle = tone('accent'); ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.moveTo(px + pillW / 2 + 3, PAY_Y); ctx.lineTo(tx - 11, PAY_Y);
-      ctx.stroke();
-      ctx.globalAlpha = 1;
-
-      if (spec.payLabel) {
-        ctx.globalAlpha = pa;
-        ctx.strokeStyle = tone('accent'); ctx.lineWidth = 3;
-        roundRect(ctx, px - pillW / 2, PAY_Y - pillH / 2, pillW, pillH, pillH / 2); ctx.stroke();
-        ctx.textAlign = 'center';
-        ctx.font = disp(900, fit(spec.payLabel, 900, 11, pillW - 16, 8));
-        ctx.fillStyle = tone('accent');
-        ctx.fillText(spec.payLabel, px, PAY_Y + 4);
-        ctx.globalAlpha = 1;
-      }
-
-      ctx.globalAlpha = pa;
-      ctx.fillStyle = tone('ink');
-      ctx.beginPath(); ctx.arc(tx, PAY_Y, 7, 0, Math.PI * 2); ctx.fill();
       ctx.globalAlpha = 1;
     }
 

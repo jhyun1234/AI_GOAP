@@ -110,9 +110,24 @@ namespace AIVillage.M0
         /// <summary>JPS용 통행 가능 배열 (배열 인덱스 기준, MapConfig 크기). M0는 장애물 없음 — 전부 true.</summary>
         public bool[,] Walkable { get; private set; }
 
+        /// <summary>위협용 통행 배열 (ADR-M22-1: 개체별 통행 = 배열 선택). 문(BlocksThreatMovement)
+        /// 타일만 여기서 추가로 false — 문 없는 세계에서는 Walkable과 항상 동일하다.</summary>
+        public bool[,] ThreatWalkable { get; private set; }
+
         /// <summary>경로 탐색 창구 (2026-07-18) — 이동 계층은 이 인터페이스로만 경로를 구한다.
         /// 알고리즘 교체(A*/HPA*)·가중치 지형은 이 뒤에서 흡수한다 (Docs/ADR_경로탐색_확장경계.md).</summary>
         public IPathfinder Pathfinder { get; private set; }
+
+        /// <summary>위협 전용 경로 창구 (ADR-M22-1) — ThreatWalkable을 보는 두 번째 JPS 인스턴스.
+        /// "누가 묻는가"는 시그니처가 아니라 인스턴스 선택이 흡수한다 (트리거 C, 확장경계 ADR).</summary>
+        public IPathfinder ThreatPathfinder { get; private set; }
+
+        /// <summary>이 건물이 주민 통행을 막는가 (ADR-M22-1 순수 규칙 — 게이트가 씬 없이 검산).</summary>
+        public static bool BlocksVillagerPassage(BuildingSO b) => b.BlocksMovement;
+
+        /// <summary>이 건물이 위협 통행을 막는가. 문(M22-W2 BlocksThreatMovement)은 여기만 참이 된다 —
+        /// 주민 쪽에 문 예외 분기를 만들면 ADR-M22-1 위반이다.</summary>
+        public static bool BlocksThreatPassage(BuildingSO b) => b.BlocksMovement;
 
         private BuildingVisualizer _visualizer;
         private ZoneBorderView _zoneBorderView;
@@ -747,23 +762,30 @@ namespace AIVillage.M0
                     Farm.RegisterPlot(x, y, builderId); // 소유자 = 지은 사람 (M11-E)
             };
             _farmView = new FarmPlotView(transform, _cropSprites, Farm); // M2-D 성장 표현 (이벤트 구독)
-            // 통행 차단 건물 → Walkable 갱신의 유일한 지점 (ADR-M3-3) — JPS는 이 배열만 보고 우회한다
+            // 통행 차단 건물 → 통행 배열 갱신의 유일한 지점 (ADR-M3-3) — JPS는 이 배열들만 보고 우회한다.
+            // 두 배열 규칙은 순수 함수(BlocksVillagerPassage/BlocksThreatPassage)가 정한다 (ADR-M22-1).
             Construction.OnCompleted += (b, x, y, _) =>
             {
-                if (b.BlocksMovement && MapBounds.ToArrayIndex(x, y, out int ax, out int ay))
-                    Walkable[ax, ay] = false;
+                if (!MapBounds.ToArrayIndex(x, y, out int ax, out int ay)) return;
+                if (BlocksVillagerPassage(b)) Walkable[ax, ay] = false;
+                if (BlocksThreatPassage(b)) ThreatWalkable[ax, ay] = false;
             };
 
-            // JPS 통행 배열 — Bootstrap(-95)이 MapConfig를 먼저 활성화한다
+            // JPS 통행 배열 (주민/위협 2벌, ADR-M22-1) — Bootstrap(-95)이 MapConfig를 먼저 활성화한다
             int mapSize = MapConfig.Active != null ? MapConfig.Active.mapSize : 100;
             Walkable = new bool[mapSize, mapSize];
+            ThreatWalkable = new bool[mapSize, mapSize];
             for (int x = 0; x < mapSize; x++)
                 for (int y = 0; y < mapSize; y++)
+                {
                     Walkable[x, y] = true;
+                    ThreatWalkable[x, y] = true;
+                }
 
-            // 경로 탐색 창구 — Walkable을 지연 조회하는 JPS 어댑터로 초기화한다.
-            // 후반 A*/HPA* 교체는 이 한 줄만 바꾼다 (Docs/ADR_경로탐색_확장경계.md).
+            // 경로 탐색 창구 — 통행 배열을 지연 조회하는 JPS 어댑터로 초기화한다.
+            // 후반 A*/HPA* 교체는 이 두 줄만 바꾼다 (Docs/ADR_경로탐색_확장경계.md).
             Pathfinder = new JpsPathfinder(() => Walkable);
+            ThreatPathfinder = new JpsPathfinder(() => ThreatWalkable);
 
             // 야생 위협 (M10-C) — Threats가 비면 서비스 null (중립 불변식, DisasterService 패턴).
             // 부상·파괴는 문(Injure/RemoveCountableAt)을 지난다 — 서비스가 상태를 직접 쓰지 않는다.
@@ -772,10 +794,12 @@ namespace AIVillage.M0
                 // M21-W2R: 인자 2번이 Zones → Season으로 교체됐다. 구역 참조는 b51c631 이후
                 // 죽은 코드였고(FarmPlot.ZoneRadius=0이라 등록 자체가 안 된다), 그 자리에 계절이
                 // 들어와 "겨울엔 늑대가 굶는다"를 만든다. isWalkable은 배회 목적지 필터.
+                // M22-W1: 위협의 경로·통행 원천은 위협용 배열이다 (ADR-M22-1 — 창구는 그대로,
+                // 배선의 원천만 교체. 문이 생기기 전엔 두 배열이 동일해 행동 변화 0).
                 Threats = new ThreatService(_worldConfig.Threats, Season, Construction,
-                                            _agents, _worldConfig, () => Pathfinder,
+                                            _agents, _worldConfig, () => ThreatPathfinder,
                                             (x, y) => MapBounds.ToArrayIndex(x, y, out int ax, out int ay)
-                                                      && Walkable[ax, ay],
+                                                      && ThreatWalkable[ax, ay],
                                             transform);
                 Threats.OnForecast += t =>
                     // 잔여 일수는 실제 스케줄에서 읽는다 (M21-W8) — 정찰 연장 시 WarnDays 상수로

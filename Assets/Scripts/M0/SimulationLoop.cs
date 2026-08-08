@@ -122,6 +122,9 @@ namespace AIVillage.M0
         /// "누가 묻는가"는 시그니처가 아니라 인스턴스 선택이 흡수한다 (트리거 C, 확장경계 ADR).</summary>
         public IPathfinder ThreatPathfinder { get; private set; }
 
+        /// <summary>방어 계획·내구도 (M22) — 구역 확정 시 둘레 계획, W5부터 내구도 소유 (ADR-M22-3).</summary>
+        public DefenseService Defense { get; private set; }
+
         /// <summary>이 건물이 주민 통행을 막는가 (ADR-M22-1 순수 규칙 — 게이트가 씬 없이 검산).</summary>
         public static bool BlocksVillagerPassage(BuildingSO b) => b.BlocksMovement;
 
@@ -690,9 +693,13 @@ namespace AIVillage.M0
             // 식량 수지 (M9-G, M11-D 개인화) — 가치표는 config.FoodSources에서 파생, 인원 입력은
             // 제거됨 (식량은 개인 단위). 부상 수(M10-A)는 provider 패턴 — 파생 슬롯의 원천은 집계 하나뿐
             World        = new WorldModel(Discovery, _worldConfig, Farm, Season,
-                                         _agentConfig, CountInjured, CountUntendedInjured);
+                                         _agentConfig, CountInjured, CountUntendedInjured,
+                                         // 방어 계획 잔여 (M22-W3) — Defense는 아래에서 생성되지만
+                                         // 지연 조회라 순서 무관 (Snapshot 시점 평가)
+                                         () => Defense != null ? Defense.PlannedCount : 0);
             Construction = new ConstructionService(World);
             Zones        = new ZoneService(); // M9-A — 배치 결정자 (군집 휴리스틱 대체, ADR-M9-1)
+            Defense      = new DefenseService(); // M22-W3 — 방어 계획 (W5에서 내구도까지)
             Planner      = new PlannerGateway(_catalog, _agentConfig); // M11-A — 개인 상한 전제 주입 (ADR-M11-3)
             Goals        = new GoalSelector(_goals);
             Chatter      = new ChatterService(_worldConfig, _agentConfig); // M7-C — 표현 전용 (ADR-M7-1)
@@ -734,6 +741,18 @@ namespace AIVillage.M0
             };
             // 구역 확정 = 첫 완공 (M9-A, ADR-M9-2) — NotifyBuilt가 첫 완공만 앵커로 잡는다
             Construction.OnCompleted += (b, x, y, _) => Zones.NotifyBuilt(b, x, y);
+            // 방어 구역 확정 → 둘레 계획 수립 (M22-W3). 필터 = 맵 안 + 빈 타일 + 통행 가능
+            // (기존 건물·통행 불가 자리는 계획에서 제외 — 명세 §W3).
+            Zones.OnZoneEstablished += (slot, anchor, radius) =>
+            {
+                if (slot != SlotId.FenceCount) return; // 방어 구역 키만 — 밭 구역(휴면)과 무관
+                Defense.EstablishPlan(anchor, radius,
+                    new Vector2Int(_worldConfig.BaseTileX, _worldConfig.BaseTileY),
+                    (x, y) => MapBounds.ToArrayIndex(x, y, out int ax, out int ay)
+                              && Walkable[ax, ay] && !Construction.HasBuildingAt(x, y));
+            };
+            // 방어 시설 완공 → 계획 차감 (M22-W3) — 완공 자체는 Complete()만 (ADR-M0-3)
+            Construction.OnCompleted += (b, x, y, _) => Defense.NotifyBuilt(b, x, y);
             // 구역 테두리 (표현 전용) — 확정 순간 앵커 둘레에 외곽선
             _zoneBorderView = new ZoneBorderView(transform);
             Zones.OnZoneEstablished += (slot, anchor, radius) => _zoneBorderView.Draw(slot, anchor, radius);

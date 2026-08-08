@@ -55,6 +55,11 @@ namespace AIVillage.M0
         private float _resumeSpeed = 1f;    // 일시정지 직전 배속 — 0키 재입력 시 복귀 대상
         private bool _prevPendingOffer;     // 방랑자 프롬프트 열림 감지 (에지 1회)
 
+        // 방어 구역 지정 모드 (M22-W3, 사용자 확정: B 진입 → 스크롤 반경 조절 → 클릭 확정 · ESC 취소)
+        private bool _defenseZoneMode;
+        private int _defenseRadius;
+        private LineRenderer _zonePreview; // 프리뷰 사각 (표현 전용 — 확정 테두리는 ZoneBorderView 몫)
+
         private VillagerAgent _selected;
         private GameObject _ring;
         private Camera _camera;
@@ -73,7 +78,24 @@ namespace AIVillage.M0
         {
             if (M0SimulationLoop.Instance == null || _camera == null) return;
 
-            if (Input.GetKeyDown(KeyCode.Escape)) Deselect();
+            if (Input.GetKeyDown(KeyCode.Escape))
+            {
+                if (_defenseZoneMode) { ExitDefenseZoneMode("방어 구역 지정 취소"); return; }
+                Deselect();
+            }
+
+            // 방어 구역 지정 (M22-W3) — B 토글. 모드 중에는 다른 입력을 소비한다 (오클릭 방지).
+            if (Input.GetKeyDown(KeyCode.B))
+            {
+                if (_defenseZoneMode) { ExitDefenseZoneMode("방어 구역 지정 취소"); return; }
+                ZoneService zones = M0SimulationLoop.Instance.Zones;
+                if (zones != null && zones.TryGetZone(SlotId.FenceCount, out _, out _))
+                    M0SimulationLoop.Instance.Hud?.Notify("방어 구역은 판당 하나입니다 (이미 지정됨)");
+                else
+                    EnterDefenseZoneMode();
+                return;
+            }
+            if (_defenseZoneMode) { TickDefenseZoneMode(); return; }
 
 #if UNITY_EDITOR
             // 디버그 전멸 (M13 — 회고 화면 즉시 관측용): Ctrl+F9. 에디터 전용, 빌드 제외.
@@ -262,6 +284,88 @@ namespace AIVillage.M0
                     M0SimulationLoop.Instance.Hud?.Notify($"보상을 걸 {reward.DisplayName} 재고가 부족합니다");
                 }
             }
+        }
+
+        // ── 방어 구역 지정 모드 (M22-W3) ──────────────────────────────────────
+
+        private void EnterDefenseZoneMode()
+        {
+            WorldConfigSO cfg = M0SimulationLoop.Instance.WorldConfig;
+            _defenseRadius = Mathf.Clamp(cfg.DefenseZoneRadiusDefault,
+                                         cfg.DefenseZoneRadiusMin, cfg.DefenseZoneRadiusMax);
+            _defenseZoneMode = true;
+            if (_cameraCtrl != null) _cameraCtrl.SuppressZoom = true; // 스크롤 = 반경 (줌 이중 반응 금지)
+            Deselect();
+            M0SimulationLoop.Instance.Hud?.Notify(
+                $"방어 구역 지정 — 클릭 확정 · 스크롤 반경(현재 {_defenseRadius}) · ESC 취소");
+        }
+
+        private void ExitDefenseZoneMode(string notice)
+        {
+            _defenseZoneMode = false;
+            if (_cameraCtrl != null) _cameraCtrl.SuppressZoom = false;
+            if (_zonePreview != null) _zonePreview.gameObject.SetActive(false);
+            if (!string.IsNullOrEmpty(notice))
+                M0SimulationLoop.Instance.Hud?.Notify(notice);
+        }
+
+        /// <summary>모드 중 매 프레임: 스크롤 반경 조절 + 마우스 타일 프리뷰 + 클릭 확정.
+        /// 확정은 ZoneService.EstablishPlayerZone 하나를 지난다 — 테두리·계획 수립은 구독이 잇는다.</summary>
+        private void TickDefenseZoneMode()
+        {
+            WorldConfigSO cfg = M0SimulationLoop.Instance.WorldConfig;
+            float scroll = Input.GetAxis("Mouse ScrollWheel");
+            if (Mathf.Abs(scroll) > 0.001f)
+            {
+                int next = Mathf.Clamp(_defenseRadius + (scroll > 0f ? 1 : -1),
+                                       cfg.DefenseZoneRadiusMin, cfg.DefenseZoneRadiusMax);
+                if (next != _defenseRadius)
+                {
+                    _defenseRadius = next;
+                    M0SimulationLoop.Instance.Hud?.Notify($"방어 구역 반경 {_defenseRadius}");
+                }
+            }
+
+            Vector2 world = MouseWorld();
+            var anchor = new Vector2Int(Mathf.RoundToInt(world.x), Mathf.RoundToInt(world.y));
+            DrawZonePreview(anchor, _defenseRadius);
+
+            if (Input.GetMouseButtonDown(0))
+            {
+                bool ok = M0SimulationLoop.Instance.Zones.EstablishPlayerZone(
+                    SlotId.FenceCount, anchor, _defenseRadius);
+                ExitDefenseZoneMode(ok
+                    ? $"방어 구역 확정 — 목수가 울타리를 세울 것입니다 (반경 {_defenseRadius})"
+                    : "방어 구역 지정 실패");
+            }
+        }
+
+        /// <summary>프리뷰 사각 (표현 전용, ZoneBorderView와 같은 기하 — 앵커 ± radius+0.5).
+        /// 확정 전의 손그림자라 매 프레임 갱신 — 확정 테두리는 ZoneBorderView가 따로 그린다.</summary>
+        private void DrawZonePreview(Vector2Int anchor, int radius)
+        {
+            if (_zonePreview == null)
+            {
+                var go = new GameObject("DefenseZonePreview");
+                _zonePreview = go.AddComponent<LineRenderer>();
+                _zonePreview.useWorldSpace = true;
+                _zonePreview.loop = true;
+                _zonePreview.positionCount = 4;
+                _zonePreview.widthMultiplier = 0.1f;
+                _zonePreview.numCornerVertices = 0;
+                _zonePreview.material = new Material(Shader.Find("Sprites/Default"));
+                _zonePreview.startColor = _zonePreview.endColor = new Color(0.9f, 0.85f, 0.3f, 0.6f);
+                _zonePreview.sortingOrder = 8;
+            }
+            _zonePreview.gameObject.SetActive(true);
+            float e = radius + 0.5f;
+            _zonePreview.SetPositions(new[]
+            {
+                new Vector3(anchor.x - e, anchor.y - e, 0f),
+                new Vector3(anchor.x + e, anchor.y - e, 0f),
+                new Vector3(anchor.x + e, anchor.y + e, 0f),
+                new Vector3(anchor.x - e, anchor.y + e, 0f),
+            });
         }
 
         /// <summary>배속 설정의 유일한 쓰기 지점 (2026-08-07) — 배속·일시정지·자동 실시간이

@@ -32,6 +32,22 @@ namespace AIVillage.M0
             OnZoneEstablished?.Invoke(b.CountSlot, anchor, b.ZoneRadius);
         }
 
+        /// <summary>
+        /// 플레이어 지정 구역 (M22-W3) — NotifyBuilt(첫 완공=앵커)와 대칭인 두 번째 등록 문.
+        /// 같은 _zones에 쓰고 같은 이벤트를 쏜다. 키가 서로소라 경로가 겹치지 않는다:
+        /// 방어 슬롯(FenceCount)은 ZoneRadius=0 에셋이라 NotifyBuilt가 절대 쓰지 않고,
+        /// 밭 슬롯은 플레이어 지정 대상이 아니다. 이미 확정된 슬롯이면 false
+        /// (ADR-M22-4: 방어 구역은 판당 1개, 지정 후 불변 — ADR-M9-2 정합).
+        /// </summary>
+        public bool EstablishPlayerZone(SlotId key, Vector2Int anchor, int radius)
+        {
+            if (radius <= 0 || _zones.ContainsKey(key)) return false;
+            _zones[key] = (anchor, radius);
+            Debug.Log($"[Zone] {key} 플레이어 구역 확정 @ ({anchor.x},{anchor.y}) r={radius}");
+            OnZoneEstablished?.Invoke(key, anchor, radius);
+            return true;
+        }
+
         /// <summary>확정된 구역의 앵커·반경. 미확정이면 false (호출처가 첫 완공 경로로 폴백).</summary>
         public bool TryGetZone(SlotId countSlot, out Vector2Int anchor, out int radius)
         {

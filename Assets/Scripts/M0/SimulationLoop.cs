@@ -127,42 +127,48 @@ namespace AIVillage.M0
 
         private int _fenceWoodCost = -1, _gateWoodCost = -1; // 카탈로그 파생 캐시 (−1 = 미계산)
 
-        /// <summary>방어 설치 필요 나무 (M22-W3R) — 지정 프리뷰 초록/빨강 판정의 원천.
-        /// 비용은 카탈로그의 방어 건설 액션(BuildActionSO.Building.Costs)에서 파생 — 이중 기입 금지.</summary>
-        public int DefenseWoodRequired(int perimeterTileCount)
+        private void EnsureDefenseWoodCosts()
         {
-            if (_fenceWoodCost < 0)
-            {
-                _fenceWoodCost = 0;
-                _gateWoodCost = 0;
-                if (_catalog != null && _catalog.Actions != null)
-                    foreach (ActionSO a in _catalog.Actions)
-                    {
-                        if (!(a is BuildActionSO b) || b.Building == null || !b.Building.PlaceOnDefensePlan)
-                            continue;
-                        int wood = 0;
-                        if (b.Building.Costs != null)
-                            foreach (ResourceCost c in b.Building.Costs)
-                                if (c.StockSlot == SlotId.WoodStock) wood += c.Amount;
-                        if (b.Building.CountSlot == SlotId.GateCount) _gateWoodCost = wood;
-                        else _fenceWoodCost = wood;
-                    }
-            }
-            return DefenseService.RequiredWood(perimeterTileCount, _fenceWoodCost, _gateWoodCost);
+            if (_fenceWoodCost >= 0) return;
+            _fenceWoodCost = 0;
+            _gateWoodCost = 0;
+            if (_catalog != null && _catalog.Actions != null)
+                foreach (ActionSO a in _catalog.Actions)
+                {
+                    if (!(a is BuildActionSO b) || b.Building == null || !b.Building.PlaceOnDefensePlan)
+                        continue;
+                    int wood = 0;
+                    if (b.Building.Costs != null)
+                        foreach (ResourceCost c in b.Building.Costs)
+                            if (c.StockSlot == SlotId.WoodStock) wood += c.Amount;
+                    if (b.Building.CountSlot == SlotId.GateCount) _gateWoodCost = wood;
+                    else _fenceWoodCost = wood;
+                }
         }
 
-        /// <summary>방어 구역 확정의 유일한 창구 (PlayerInput 전용, M22-W3R — ADR-M22-4 개정).
-        /// 판당 1회 (Defense.HasPlan이 강제). 필터 = 맵 안 + 빈 타일 + 노드 없음 + 통행 가능.</summary>
-        public bool TryEstablishDefenseZone(Vector2Int min, Vector2Int max)
-        {
-            if (Defense == null || Defense.HasPlan) return false;
-            Defense.EstablishPlanRect(min, max,
-                new Vector2Int(_worldConfig.BaseTileX, _worldConfig.BaseTileY),
-                (x, y) => MapBounds.ToArrayIndex(x, y, out int ax, out int ay)
-                          && Walkable[ax, ay] && !Construction.HasBuildingAt(x, y)
-                          && !Discovery.HasNodeAt(x, y));
-            return Defense.HasPlan;
-        }
+        /// <summary>울타리 1칸의 나무 비용 (M22-W3R2 — 프리뷰 초록/빨강 판정의 원천).
+        /// 비용은 카탈로그의 방어 건설 액션(BuildActionSO.Building.Costs)에서 파생 — 이중 기입 금지.</summary>
+        public int DefenseFenceWood { get { EnsureDefenseWoodCosts(); return _fenceWoodCost; } }
+
+        /// <summary>문 1칸의 나무 비용 (〃).</summary>
+        public int DefenseGateWood { get { EnsureDefenseWoodCosts(); return _gateWoodCost; } }
+
+        // 계획 입력 필터 (M22-W3R2) — 맵 안 + 빈 타일 + 노드 없음 + 통행 가능.
+        // 노드 포함은 M5 자가 재검토 🔴의 계승: 계획과 시공의 점유 어휘가 갈리면 goal이 공회전한다.
+        private bool DefenseTileBuildable(int x, int y)
+            => MapBounds.ToArrayIndex(x, y, out int ax, out int ay)
+               && Walkable[ax, ay] && !Construction.HasBuildingAt(x, y)
+               && !Discovery.HasNodeAt(x, y);
+
+        /// <summary>울타리 줄 계획 추가의 유일한 창구 (PlayerInput 전용, M22-W3R2 — ADR-M22-4 재개정).
+        /// end는 이미 우세축 스냅돼 있어야 한다. 추가된 칸 수를 돌려준다 (0 = 전부 막힘·중복).</summary>
+        public int AddDefenseFenceLine(Vector2Int start, Vector2Int snappedEnd)
+            => Defense == null ? 0
+               : Defense.AddFencePlan(DefenseService.LineTiles(start, snappedEnd), DefenseTileBuildable);
+
+        /// <summary>문 계획 추가의 유일한 창구 (PlayerInput 전용) — 우클릭 1칸.</summary>
+        public bool TryAddDefenseGate(Vector2Int tile)
+            => Defense != null && Defense.TryAddGatePlan(tile, DefenseTileBuildable);
 
         /// <summary>이 건물이 주민 통행을 막는가 (ADR-M22-1 순수 규칙 — 게이트가 씬 없이 검산).</summary>
         public static bool BlocksVillagerPassage(BuildingSO b) => b.BlocksMovement;
@@ -173,6 +179,7 @@ namespace AIVillage.M0
 
         private BuildingVisualizer _visualizer;
         private ZoneBorderView _zoneBorderView;
+        private DefensePlanView _defensePlanView; // 방어 계획 마커 (M22-W3R2, 표현 전용)
         private FarmPlotView _farmView;
         private int _lastLoggedDay = -1;
         private readonly List<VillagerAgent> _agents = new List<VillagerAgent>(8);
@@ -736,7 +743,8 @@ namespace AIVillage.M0
                                          // 방어 계획 잔여·손상 수 (M22-W3·W5) — Defense는 아래에서
                                          // 생성되지만 지연 조회라 순서 무관 (Snapshot 시점 평가)
                                          () => Defense != null ? Defense.PlannedCount : 0,
-                                         () => Defense != null ? Defense.DamagedCount : 0);
+                                         () => Defense != null ? Defense.DamagedCount : 0,
+                                         () => Defense != null ? Defense.GatePlannedCount : 0);
             Construction = new ConstructionService(World);
             Zones        = new ZoneService(); // M9-A — 배치 결정자 (군집 휴리스틱 대체, ADR-M9-1)
             Defense      = new DefenseService(); // M22-W3 — 방어 계획 (W5에서 내구도까지)
@@ -781,8 +789,8 @@ namespace AIVillage.M0
             };
             // 구역 확정 = 첫 완공 (M9-A, ADR-M9-2) — NotifyBuilt가 첫 완공만 앵커로 잡는다
             Construction.OnCompleted += (b, x, y, _) => Zones.NotifyBuilt(b, x, y);
-            // (M22-W3R: 방어 구역은 ZoneService 이벤트가 아니라 TryEstablishDefenseZone 창구로 —
-            //  드래그 사각형이 (앵커,반경) 그릇에 안 맞아 소유가 DefenseService로 이동, ADR-M22-4 개정)
+            // (M22-W3R2: 방어 계획 입력은 ZoneService가 아니라 AddDefenseFenceLine/TryAddDefenseGate
+            //  창구로 — 줄 누적 모델이 (앵커,반경) 그릇에 안 맞아 소유가 DefenseService로 이동, ADR-M22-4 재개정)
             // 방어 시설 완공 → 계획 차감 + 내구도 등록 (M22-W3·W5) — 완공 자체는 Complete()만 (ADR-M0-3)
             Construction.OnCompleted += (b, x, y, _) => Defense.NotifyBuilt(b, x, y);
             // 시설 소실 → 통행 복구 + 내구도 정리 + 계획 복귀 (M22-W5, ADR-M22-6 — 제거와 복구는 원자).
@@ -799,8 +807,9 @@ namespace AIVillage.M0
             // 구역 테두리 (표현 전용) — 확정 순간 앵커 둘레에 외곽선
             _zoneBorderView = new ZoneBorderView(transform);
             Zones.OnZoneEstablished += (slot, anchor, radius) => _zoneBorderView.Draw(slot, anchor, radius);
-            // 방어 구역 테두리 (M22-W3R) — 계획 확정 순간 사각 외곽선 (표현 전용)
-            Defense.OnPlanEstablished += (min, max) => _zoneBorderView.DrawRect(SlotId.FenceCount, min, max);
+            // 방어 계획 마커 (M22-W3R2, 표현 전용) — 계획된 울타리·문 칸을 흐린 사각으로.
+            // 지어지기 전의 계획이 화면에 안 보이면 "그었는데 아무 일도 없다"가 된다.
+            _defensePlanView = new DefensePlanView(transform, Defense);
             // 舊 농부 회의 배선(OnZoneEstablished → ShowFarmMeeting)은 M11-F에서 제거됐다.
             // 개인 택지 시대의 장면은 집들이다 — 소유 배정 이벤트로 옮겨졌다(아래 Ownership.OnAssigned).
             // ZoneService는 휴면 보존 (테두리 뷰·재해 대사 앵커가 여전히 읽는다, ⚠️②).

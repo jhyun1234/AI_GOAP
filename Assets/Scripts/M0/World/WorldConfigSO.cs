@@ -85,10 +85,8 @@ namespace AIVillage.M0
                  "격퇴 보상은 지연 없이 마릿수만 깎는다 (§4 — 이김에는 숨돌릴 틈이 필요 없다). 제안 2.")]
         public float ThreatReliefDelayDays = 2f;
 
-        [Header("방어 구역 (M22-W3R 드래그 사각형 — 전부 제안치, 리뷰⓪·①에서 조정)")]
-        [Tooltip("드래그 사각형의 최소 변 길이 (타일). 제안 7 — 이보다 작으면 지킬 것이 안 들어가 " +
-                 "프리뷰가 빨강(설치 불가)이 된다. 상한은 없다 — 나무 재고가 자연 상한이다 (ADR-M22-4 개정).")]
-        public int DefenseZoneMinSide = 7;
+        // (M22-W3R의 DefenseZoneMinSide는 W3R2 줄 누적 모델로 폐기=삭제 — 줄 최소 길이 2는
+        //  밸런스가 아니라 알고리즘 상수라 코드에 있다. 나무 재고가 자연 상한.)
 
         [Header("방랑자 (M10-E — 상실의 회복. 전부 제안치)")]
         [Tooltip("방랑자 도착 주기 (게임일). 위협 주기 6과 어긋난 5 — 회복이 상실 직후 오지 않는 위상차. " +
@@ -164,12 +162,6 @@ namespace AIVillage.M0
         [Tooltip("[DEPRECATED — 조각 Y로 대체, 미사용] 보고 심부름 마감 초.")]
         public float ReportTimeoutSec = 60f;
 
-        private void OnValidate()
-        {
-            // 방어 구역 최소 변 (M22-W3R) — 3 미만이면 둘레가 문 하나로도 못 두른다
-            if (DefenseZoneMinSide < 3)
-                Debug.LogWarning($"[WorldConfigSO] {name}: DefenseZoneMinSide({DefenseZoneMinSide})는 3 이상이어야 합니다.", this);
-        }
     }
 
     /// <summary>맵-비례 배치 산식 (M11-K, 순수 — 게이트 대상). 맵이 커지면 마을·선호 거리가

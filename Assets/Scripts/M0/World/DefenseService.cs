@@ -5,17 +5,17 @@ using UnityEngine;
 namespace AIVillage.M0
 {
     /// <summary>
-    /// 방어 계획의 집 (M22-W3, Docs/M22_방어건설_실행명세서.md) — W5에서 시설 내구도까지 얹는다
+    /// 방어 계획의 집 (M22-W3R2, Docs/M22_방어건설_실행명세서.md) — W5부터 시설 내구도까지 얹는다
     /// (ADR-M22-3: 내구도 상태의 단일 소유자).
-    /// W3 범위: 플레이어가 확정한 방어 구역(ZoneService.OnZoneEstablished 구독)의 둘레를
-    /// 결정적으로 계산해 "지을 자리"(울타리 N + 문 1)를 만들고, 완공마다 계획에서 차감한다.
-    /// 시공은 W4의 건설 goal 몫 — 이 서비스는 자리만 안다 (구역 지정 ≠ 즉시 건설, 합의 2).
-    /// 세이브 대상 (ADR-M0-10: 계획 잔여·문 자리 — 내구도는 W5에서 함께 선언).
+    /// 계획 모델 (ADR-M22-4 재개정, 사용자 UX 확정 2026-08-08): "사각형 1회"가 아니라 **줄 누적**이다 —
+    /// 플레이어가 드래그한 직선(울타리 줄)과 우클릭(문 칸)이 계획에 쌓이고, 완공마다 차감된다.
+    /// 시공은 W4의 건설 goal 몫 — 이 서비스는 자리만 안다 (지정 ≠ 즉시 건설, 합의 2).
+    /// 세이브 대상 (ADR-M0-10: 계획 잔여 울타리·문 + 내구도).
     /// </summary>
     public sealed class DefenseService
     {
         private readonly List<Vector2Int> _plannedFences = new List<Vector2Int>();
-        private Vector2Int? _plannedGate;
+        private readonly List<Vector2Int> _plannedGates = new List<Vector2Int>();
         // 시설 내구도 (M22-W5, ADR-M22-3) — 타일 키 상태 (HomeStorageService·FarmService 선례).
         // 파괴(0 도달)된 항목은 NotifyRemoved가 지운다 — "파괴 = 손상"이 아니다 (소멸 + 계획 복귀).
         private readonly Dictionary<(SlotId slot, Vector2Int tile), (float cur, float max)> _durability
@@ -24,17 +24,22 @@ namespace AIVillage.M0
         /// <summary>내구도 변화 알림 (slot, tile, 현재, 최대) — 시각(W7)·HUD 구독. 표현 전용.</summary>
         public event Action<SlotId, Vector2Int, float, float> OnDurabilityChanged;
 
-        /// <summary>계획이 수립됐는가 (구역 확정 후 true — 전량 완공돼도 유지. 재수립 없음, ADR-M22-4).</summary>
-        public bool HasPlan { get; private set; }
+        /// <summary>계획 변경 알림 (추가·차감·복귀) — 계획 마커 뷰 구독 (표현 전용).</summary>
+        public event Action OnPlanChanged;
 
         /// <summary>미건설 울타리 자리 (읽기 전용 — W4 BuildRunner가 시공자 최근접을 고른다).</summary>
         public IReadOnlyList<Vector2Int> PlannedFenceTiles => _plannedFences;
 
-        /// <summary>미건설 문 자리. null = 없음(미계획 또는 완공됨).</summary>
-        public Vector2Int? PlannedGateTile => _plannedGate;
+        /// <summary>미건설 문 자리들 (읽기 전용). 문은 여러 개일 수 있다 — 출입구도 플레이어가 정한다.</summary>
+        public IReadOnlyList<Vector2Int> PlannedGateTiles => _plannedGates;
 
         /// <summary>미건설 잔여 총수 — DefensePlannedCount 슬롯의 유일한 원천 (Goal_BuildDefense 트리거).</summary>
-        public int PlannedCount => _plannedFences.Count + (_plannedGate.HasValue ? 1 : 0);
+        public int PlannedCount => _plannedFences.Count + _plannedGates.Count;
+
+        /// <summary>미건설 문 수 — GatePlannedCount 슬롯의 유일한 원천 (BuildGate 액션 전제:
+        /// 문 계획이 있어야만 문 액션이 후보가 된다. GateCount==0 전제는 문이 여러 개가 되며 폐기 —
+        /// 그대로 두면 두 번째 문이 영영 안 서고 계획이 바닥나지 않아 goal이 공회전한다).</summary>
+        public int GatePlannedCount => _plannedGates.Count;
 
         /// <summary>서 있는 방어 시설이 하나라도 있는가 — 공성 전환(ADR-M22-2)의 전제 판독점.</summary>
         public bool HasStructures => _durability.Count > 0;
@@ -149,115 +154,103 @@ namespace AIVillage.M0
         {
             var tile = new Vector2Int(x, y);
             if (!_durability.Remove((slot, tile))) return; // 방어 시설이 아니면 무관 (밭 소실 등)
-            if (!HasPlan) return;
             if (slot == SlotId.GateCount)
             {
-                if (!_plannedGate.HasValue) _plannedGate = tile;
+                if (!_plannedGates.Contains(tile)) _plannedGates.Add(tile);
             }
             else if (slot == SlotId.FenceCount && !_plannedFences.Contains(tile))
             {
                 _plannedFences.Add(tile);
             }
+            OnPlanChanged?.Invoke();
         }
 
-        /// <summary>확정된 사각 영역 (표현·세이브용). HasPlan일 때만 유효.</summary>
-        public Vector2Int PlanMin { get; private set; }
-        public Vector2Int PlanMax { get; private set; }
+        // ── 계획 입력 (M22-W3R2 — 줄 누적, ADR-M22-4 재개정) ─────────────────
 
-        /// <summary>계획 확정 알림 (min, max) — 테두리 뷰 구독 (표현 전용).</summary>
-        public event Action<Vector2Int, Vector2Int> OnPlanEstablished;
+        /// <summary>드래그 끝점을 우세축 직선으로 스냅 (순수 — 대각 줄은 대각 이동에 새서 벽이 아니다).
+        /// |Δx| ≥ |Δy|면 수평(끝점 y = 시작 y), 아니면 수직.</summary>
+        public static Vector2Int SnapLineEnd(Vector2Int start, Vector2Int end)
+            => Mathf.Abs(end.x - start.x) >= Mathf.Abs(end.y - start.y)
+                ? new Vector2Int(end.x, start.y)
+                : new Vector2Int(start.x, end.y);
 
-        /// <summary>
-        /// 사각형(min~max)의 경계 타일 — 결정적 순서 (아랫변 좌→우, 오른변 아래→위,
-        /// 윗변 우→좌, 왼변 위→아래). 같은 입력이면 언제나 같은 목록 (순수, 게이트 대상).
-        /// 가로 W × 세로 H 사각의 타일 수 = 2(W+H) − 4 (W,H ≥ 2).
-        /// </summary>
-        public static List<Vector2Int> PerimeterTilesRect(Vector2Int min, Vector2Int max)
+        /// <summary>축 정렬 직선의 타일 목록 (순수, 결정적 — 시작→끝 순서). 끝점은 스냅돼 있어야 한다.</summary>
+        public static List<Vector2Int> LineTiles(Vector2Int start, Vector2Int snappedEnd)
         {
-            int minX = Mathf.Min(min.x, max.x), maxX = Mathf.Max(min.x, max.x);
-            int minY = Mathf.Min(min.y, max.y), maxY = Mathf.Max(min.y, max.y);
-            var tiles = new List<Vector2Int>(2 * (maxX - minX + maxY - minY) + 4);
-            if (minX == maxX && minY == maxY) { tiles.Add(new Vector2Int(minX, minY)); return tiles; }
-            for (int x = minX; x <= maxX; x++) tiles.Add(new Vector2Int(x, minY));          // 아랫변
-            for (int y = minY + 1; y <= maxY; y++) tiles.Add(new Vector2Int(maxX, y));      // 오른변
-            if (maxY > minY)
-                for (int x = maxX - 1; x >= minX; x--) tiles.Add(new Vector2Int(x, maxY)); // 윗변
-            if (maxX > minX)
-                for (int y = maxY - 1; y >= minY + 1; y--) tiles.Add(new Vector2Int(minX, y)); // 왼변
+            var tiles = new List<Vector2Int>();
+            int dx = Math.Sign(snappedEnd.x - start.x), dy = Math.Sign(snappedEnd.y - start.y);
+            var cur = start;
+            tiles.Add(cur);
+            while (cur != snappedEnd)
+            {
+                cur = new Vector2Int(cur.x + dx, cur.y + dy);
+                tiles.Add(cur);
+            }
             return tiles;
         }
 
-        /// <summary>정사각 편의 오버로드 (기존 게이트·호출부 호환) — anchor ± radius.</summary>
-        public static List<Vector2Int> PerimeterTiles(Vector2Int anchor, int radius)
+        /// <summary>울타리 줄 계획 추가 — buildable 필터(맵 밖·기존 건물·노드·통행 불가)는 배선이
+        /// 주입한다. 이미 계획됐거나(울타리·문) 시설이 선 칸은 건너뛴다 (줄이 기존 줄을 겹쳐 그어도
+        /// 이중 계획이 안 된다 — "줄끼리 연결"의 실체). 추가된 칸 수를 돌려준다.</summary>
+        public int AddFencePlan(IReadOnlyList<Vector2Int> tiles, Func<int, int, bool> buildable)
         {
-            if (radius <= 0) return new List<Vector2Int> { anchor };
-            return PerimeterTilesRect(new Vector2Int(anchor.x - radius, anchor.y - radius),
-                                      new Vector2Int(anchor.x + radius, anchor.y + radius));
-        }
-
-        /// <summary>설치에 필요한 나무 (순수 — 지정 프리뷰의 초록/빨강 판정 원천, ADR-M22-4 개정).
-        /// 둘레 = 울타리 (N−1)칸 + 문 1칸. 비용 인자는 에셋에서 파생해 넘긴다 (이중 기입 금지).</summary>
-        public static int RequiredWood(int perimeterTileCount, int fenceWoodCost, int gateWoodCost)
-        {
-            if (perimeterTileCount <= 0) return 0;
-            return Mathf.Max(0, perimeterTileCount - 1) * Mathf.Max(0, fenceWoodCost)
-                 + Mathf.Max(0, gateWoodCost);
-        }
-
-        /// <summary>문 자리 = 기지 최근접(맨해튼) 둘레 타일 (순수, 결정적 — 동률이면 목록 앞 우선).
-        /// 주민들이 아침마다 기지 쪽 문으로 줄지어 나가는 동선의 근거 (§7 재미 검증).</summary>
-        public static Vector2Int PickGateTile(IReadOnlyList<Vector2Int> perimeter, Vector2Int baseTile)
-        {
-            Vector2Int best = perimeter[0];
-            int bestDist = int.MaxValue;
-            foreach (Vector2Int t in perimeter)
+            int added = 0;
+            foreach (Vector2Int t in tiles)
             {
-                int d = Mathf.Abs(t.x - baseTile.x) + Mathf.Abs(t.y - baseTile.y);
-                if (d < bestDist) { bestDist = d; best = t; }
+                if (buildable != null && !buildable(t.x, t.y)) continue;
+                if (_plannedFences.Contains(t) || _plannedGates.Contains(t)) continue;
+                if (_durability.ContainsKey((SlotId.FenceCount, t))
+                    || _durability.ContainsKey((SlotId.GateCount, t))) continue;
+                _plannedFences.Add(t);
+                added++;
             }
-            return best;
-        }
-
-        /// <summary>
-        /// 구역 확정 → 계획 수립 (1회 — 이미 있으면 무시, ADR-M22-4). tileBuildable 필터(맵 밖·
-        /// 기존 건물·노드·통행 불가 제외)는 조립 배선이 주입한다 — 서비스는 맵을 모른다.
-        /// 문은 필터를 통과한 둘레에서 고른다 (막힌 자리에 문을 계획하면 영원히 못 짓는다).
-        /// </summary>
-        public void EstablishPlanRect(Vector2Int min, Vector2Int max, Vector2Int baseTile,
-                                      Func<int, int, bool> tileBuildable)
-        {
-            if (HasPlan) return;
-            List<Vector2Int> perimeter = PerimeterTilesRect(min, max);
-            var buildable = new List<Vector2Int>(perimeter.Count);
-            foreach (Vector2Int t in perimeter)
-                if (tileBuildable == null || tileBuildable(t.x, t.y))
-                    buildable.Add(t);
-            if (buildable.Count == 0)
+            if (added > 0)
             {
-                Debug.LogWarning($"[Defense] 방어 구역 ({min.x},{min.y})~({max.x},{max.y}) — " +
-                                 "지을 수 있는 둘레 타일이 0개라 계획 없음.");
-                return;
+                Debug.Log($"[Defense] 울타리 줄 계획 +{added}칸 (잔여 {PlannedCount})");
+                OnPlanChanged?.Invoke();
             }
-
-            Vector2Int gate = PickGateTile(buildable, baseTile);
-            _plannedGate = gate;
-            _plannedFences.Clear();
-            foreach (Vector2Int t in buildable)
-                if (t != gate) _plannedFences.Add(t);
-            PlanMin = Vector2Int.Min(min, max);
-            PlanMax = Vector2Int.Max(min, max);
-            HasPlan = true;
-            Debug.Log($"[Defense] 방어 계획 수립 — 울타리 {_plannedFences.Count} + 문 1 " +
-                      $"(제외 {perimeter.Count - buildable.Count}) ({PlanMin.x},{PlanMin.y})~({PlanMax.x},{PlanMax.y})");
-            OnPlanEstablished?.Invoke(PlanMin, PlanMax);
+            return added;
         }
 
-        /// <summary>정사각 편의 오버로드 (기존 게이트 호환) — anchor ± radius.</summary>
-        public void EstablishPlan(Vector2Int anchor, int radius, Vector2Int baseTile,
-                                  Func<int, int, bool> tileBuildable)
-            => EstablishPlanRect(new Vector2Int(anchor.x - radius, anchor.y - radius),
-                                 new Vector2Int(anchor.x + radius, anchor.y + radius),
-                                 baseTile, tileBuildable);
+        /// <summary>문 계획 추가 (우클릭 1칸 — 출입구도 플레이어가 정한다, 합의 2). 같은 칸의 울타리
+        /// 계획은 문으로 전환된다. 이미 시설이 선 칸·이미 문 계획인 칸은 거부 (완공 울타리의 문 전환은
+        /// 철거 축이 없어 2차+).</summary>
+        public bool TryAddGatePlan(Vector2Int tile, Func<int, int, bool> buildable)
+        {
+            if (_plannedGates.Contains(tile)) return false;
+            if (_durability.ContainsKey((SlotId.FenceCount, tile))
+                || _durability.ContainsKey((SlotId.GateCount, tile))) return false;
+            bool convertedFromFence = _plannedFences.Remove(tile); // 줄 위 우클릭 = 울타리 → 문 전환
+            if (!convertedFromFence && buildable != null && !buildable(tile.x, tile.y)) return false;
+            _plannedGates.Add(tile);
+            Debug.Log($"[Defense] 문 계획 @ ({tile.x},{tile.y}){(convertedFromFence ? " (울타리 전환)" : "")}");
+            OnPlanChanged?.Invoke();
+            return true;
+        }
+
+        /// <summary>from 곁(체비쇼프 ≤ range)의 계획·시설 타일 — 드래그 시작점 달라붙기(줄 연결)용.
+        /// 최근접 우선, 동률은 좌표순 (결정적).</summary>
+        public bool TryGetNearestPlanOrStructureTile(Vector2Int from, int range, out Vector2Int tile)
+        {
+            Vector2Int bestTile = default;
+            int best = int.MaxValue;
+            bool found = false;
+            void Consider(Vector2Int t)
+            {
+                int d = Mathf.Max(Mathf.Abs(t.x - from.x), Mathf.Abs(t.y - from.y));
+                if (d > range || d > best) return;
+                if (d == best && found && (t.x > bestTile.x || (t.x == bestTile.x && t.y >= bestTile.y))) return;
+                best = d;
+                bestTile = t;
+                found = true;
+            }
+            foreach (Vector2Int t in _plannedFences) Consider(t);
+            foreach (Vector2Int t in _plannedGates) Consider(t);
+            foreach (KeyValuePair<(SlotId slot, Vector2Int tile), (float, float)> e in _durability)
+                Consider(e.Key.tile);
+            tile = bestTile;
+            return found;
+        }
 
         /// <summary>
         /// 다음 시공 자리 (M22-W4) — 문 에셋(GateCount)은 문 자리, 울타리는 from 최근접(맨해튼)
@@ -270,17 +263,10 @@ namespace AIVillage.M0
         {
             tile = default;
             if (b == null || !b.PlaceOnDefensePlan) return false;
-            if (b.CountSlot == SlotId.GateCount)
-            {
-                if (!_plannedGate.HasValue) return false;
-                Vector2Int g = _plannedGate.Value;
-                if (occupied != null && occupied(g.x, g.y)) return false;
-                tile = g;
-                return true;
-            }
+            List<Vector2Int> pool = b.CountSlot == SlotId.GateCount ? _plannedGates : _plannedFences;
             int bestDist = int.MaxValue;
             bool found = false;
-            foreach (Vector2Int t in _plannedFences)
+            foreach (Vector2Int t in pool)
             {
                 if (occupied != null && occupied(t.x, t.y)) continue;
                 int d = Mathf.Abs(t.x - from.x) + Mathf.Abs(t.y - from.y);
@@ -304,8 +290,9 @@ namespace AIVillage.M0
                 OnDurabilityChanged?.Invoke(b.CountSlot, tile, b.MaxDurability, b.MaxDurability);
             }
             if (!b.PlaceOnDefensePlan) return;
-            if (_plannedGate.HasValue && _plannedGate.Value == tile) _plannedGate = null;
+            if (b.CountSlot == SlotId.GateCount) _plannedGates.Remove(tile);
             else _plannedFences.Remove(tile);
+            OnPlanChanged?.Invoke();
         }
     }
 }

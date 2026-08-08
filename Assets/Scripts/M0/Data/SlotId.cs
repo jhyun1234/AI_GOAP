@@ -115,11 +115,15 @@ namespace AIVillage.M0
                                   // (원천 = DefenseService, W5 배선). Goal_RepairDefense 트리거.
                                   // ⚠️ 파괴(0 도달)는 손상이 아니다 — 소멸 + 계획 복귀 (ADR-M22-6).
                                   // 예산 52칸 중 45.
+        GatePlannedCount    = 45, // 수치형 파생 — 미건설 문 계획 수 (원천 = DefenseService, W3R2).
+                                  // BuildGate 액션의 전제 — 문이 여러 개가 되며(우클릭 지정)
+                                  // 舊 GateCount==0 전제로는 두 번째 문이 영영 안 서고 계획이
+                                  // 바닥나지 않아 goal이 공회전한다. 예산 52칸 중 46.
     }
 
     public static class SlotIds
     {
-        public const int Count = 45;
+        public const int Count = 46;
 
         /// <summary>전역 스톡 슬롯 여부 — EffectApplier/러너가 공유하는 유일한 판정.
         /// ⚠️ 개인 스톡(MyRawFood 등)을 여기 넣으면 안 된다 (명세 M11-A ⚠️①) —
@@ -156,7 +160,8 @@ namespace AIVillage.M0
             || slot == SlotId.CampfireCount // MyHasCampfire(32)는 논리형이라 제외
             || slot == SlotId.DaysToFreeze  // PlantWindowOpen(36)은 논리형이라 제외
             || slot == SlotId.FenceCount || slot == SlotId.GateCount            // M22-W2
-            || slot == SlotId.DefensePlannedCount || slot == SlotId.DefenseDamagedCount;
+            || slot == SlotId.DefensePlannedCount || slot == SlotId.DefenseDamagedCount
+            || slot == SlotId.GatePlannedCount;                                 // M22-W3R2
             // (M19-W5: 화폐 슬롯 37~39는 휴면 — 수치형 분류에서도 제외)
             // (M21-W5: MyHasWeapon(40)은 논리형이라 제외)
 

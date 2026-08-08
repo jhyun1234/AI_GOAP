@@ -55,12 +55,16 @@ namespace AIVillage.M0
         private float _resumeSpeed = 1f;    // 일시정지 직전 배속 — 0키 재입력 시 복귀 대상
         private bool _prevPendingOffer;     // 방랑자 프롬프트 열림 감지 (에지 1회)
 
-        // 방어 구역 지정 모드 (M22-W3R, 사용자 확정 2026-08-08: B 진입 → 클릭-드래그 사각형 →
-        // 놓으면 설치. 프리뷰 색 = 나무 재고 판정 (초록 = 설치 가능 / 빨강 = 부족·최소 크기 미달 = 차단))
+        // 방어 울타리 그리기 모드 (M22-W3R2, 사용자 확정 2026-08-08: B 진입 → 좌클릭-드래그 =
+        // 울타리 한 줄(우세축 직선 스냅, 기존 줄 곁 시작점 달라붙기) · 우클릭 = 문 1칸 · ESC 종료.
+        // 프리뷰 색 = 나무 재고 판정 (초록 = 설치 가능 / 빨강 = 부족·너무 짧음 = 차단).
+        // 줄은 여러 번 그어 누적된다 — 모드는 설치 후에도 유지 (줄끼리 이어 긋는 UX).
+        private const int LINE_MIN_TILES = 2;    // 알고리즘 상수 — 1칸 "줄"은 줄이 아니다
+        private const int SNAP_RANGE_TILES = 1;  // 시작점 달라붙기 반경 (체비쇼프)
         private bool _defenseZoneMode;
         private bool _defenseDragging;
         private Vector2Int _defenseDragStart;
-        private LineRenderer _zonePreview; // 프리뷰 사각 (표현 전용 — 확정 테두리는 ZoneBorderView 몫)
+        private LineRenderer _zonePreview; // 프리뷰 줄 (표현 전용 — 확정 계획 마커는 DefensePlanView 몫)
         private static readonly Color ZoneOkColor = new Color(0.3f, 0.9f, 0.35f, 0.7f);  // 초록 = 설치 가능
         private static readonly Color ZoneBadColor = new Color(0.95f, 0.25f, 0.2f, 0.7f); // 빨강 = 설치 불가
 
@@ -88,15 +92,11 @@ namespace AIVillage.M0
                 Deselect();
             }
 
-            // 방어 구역 지정 (M22-W3R) — B 토글. 모드 중에는 다른 입력을 소비한다 (오클릭 방지).
+            // 방어 울타리 그리기 (M22-W3R2) — B 토글. 모드 중에는 다른 입력을 소비한다 (오클릭 방지).
             if (Input.GetKeyDown(KeyCode.B))
             {
-                if (_defenseZoneMode) { ExitDefenseZoneMode("방어 구역 지정 취소"); return; }
-                DefenseService defense = M0SimulationLoop.Instance.Defense;
-                if (defense != null && defense.HasPlan)
-                    M0SimulationLoop.Instance.Hud?.Notify("방어 구역은 판당 하나입니다 (이미 지정됨)");
-                else
-                    EnterDefenseZoneMode();
+                if (_defenseZoneMode) ExitDefenseZoneMode("울타리 그리기 종료");
+                else EnterDefenseZoneMode();
                 return;
             }
             if (_defenseZoneMode) { TickDefenseZoneMode(); return; }
@@ -298,7 +298,7 @@ namespace AIVillage.M0
             _defenseDragging = false;
             Deselect();
             M0SimulationLoop.Instance.Hud?.Notify(
-                "방어 구역 지정 — 클릭한 채 드래그해 사각형을 그리고 놓으면 설치 (초록 = 가능 · 빨강 = 불가) · ESC 취소");
+                "울타리 그리기 — 드래그 = 울타리 한 줄 (초록 = 가능 · 빨강 = 불가) · 우클릭 = 문 · ESC 종료");
         }
 
         private void ExitDefenseZoneMode(string notice)
@@ -310,65 +310,81 @@ namespace AIVillage.M0
                 M0SimulationLoop.Instance.Hud?.Notify(notice);
         }
 
-        /// <summary>모드 중 매 프레임 (M22-W3R): 클릭 = 드래그 시작, 드래그 중 사각 프리뷰가
-        /// 나무 재고 판정으로 색을 바꾼다 (초록/빨강), 놓으면 초록일 때만 설치.
-        /// 색 판정은 **지정 시점의 재고 기준** — 실차감은 건설 때 칸당 (선차감·예약 없음, ADR-M22-4).</summary>
+        /// <summary>모드 중 매 프레임 (M22-W3R2): 좌드래그 = 울타리 한 줄 (우세축 직선 스냅 +
+        /// 기존 줄 곁 시작점 달라붙기 = 줄 연결), 우클릭 = 문 1칸. 놓으면 초록일 때만 계획 추가,
+        /// **모드는 유지** — 줄을 이어 그린다. 색 판정은 지정 시점 재고 기준 (선차감·예약 없음).</summary>
         private void TickDefenseZoneMode()
         {
             M0SimulationLoop sim = M0SimulationLoop.Instance;
             Vector2 world = MouseWorld();
             var cur = new Vector2Int(Mathf.RoundToInt(world.x), Mathf.RoundToInt(world.y));
 
+            // 우클릭 = 문 계획 (사용자 확정 — 출입구도 플레이어가 정한다). 드래그 중엔 무시.
+            if (!_defenseDragging && Input.GetMouseButtonDown(1))
+            {
+                int gateWood = sim.DefenseGateWood;
+                int woodNow = sim.World.GetStock(SlotId.WoodStock);
+                if (woodNow < gateWood)
+                    sim.Hud?.Notify($"나무가 부족합니다 — 문 필요 {gateWood} / 보유 {woodNow}");
+                else if (sim.TryAddDefenseGate(cur))
+                    sim.Hud?.Notify($"문 계획 — ({cur.x},{cur.y}) · 나무 {gateWood}");
+                else
+                    sim.Hud?.Notify("여기에는 문을 둘 수 없습니다");
+                return;
+            }
+
             if (!_defenseDragging)
             {
-                DrawZonePreview(cur, cur, ZoneBadColor); // 시작 전 1×1 = 항상 최소 크기 미달 = 빨강
+                DrawZonePreviewLine(cur, cur, ZoneBadColor); // 시작 전 1칸 = 줄 미달 = 빨강
                 if (Input.GetMouseButtonDown(0))
                 {
                     _defenseDragging = true;
-                    _defenseDragStart = cur;
+                    // 시작점 달라붙기 (줄 연결) — 기존 계획·시설 곁이면 그 칸에서 잇는다
+                    _defenseDragStart =
+                        sim.Defense != null
+                        && sim.Defense.TryGetNearestPlanOrStructureTile(cur, SNAP_RANGE_TILES, out Vector2Int snap)
+                            ? snap : cur;
                 }
                 return;
             }
 
-            Vector2Int min = Vector2Int.Min(_defenseDragStart, cur);
-            Vector2Int max = Vector2Int.Max(_defenseDragStart, cur);
-            int minSide = sim.WorldConfig != null ? sim.WorldConfig.DefenseZoneMinSide : 7;
-            bool sizeOk = (max.x - min.x + 1) >= minSide && (max.y - min.y + 1) >= minSide;
-            int required = sim.DefenseWoodRequired(
-                DefenseService.PerimeterTilesRect(min, max).Count);
+            Vector2Int end = DefenseService.SnapLineEnd(_defenseDragStart, cur); // 우세축 직선
+            var tiles = DefenseService.LineTiles(_defenseDragStart, end);
+            int required = tiles.Count * sim.DefenseFenceWood;
             int stock = sim.World.GetStock(SlotId.WoodStock);
-            bool ok = sizeOk && stock >= required;
-            DrawZonePreview(min, max, ok ? ZoneOkColor : ZoneBadColor);
+            bool lengthOk = tiles.Count >= LINE_MIN_TILES;
+            bool ok = lengthOk && stock >= required;
+            DrawZonePreviewLine(_defenseDragStart, end, ok ? ZoneOkColor : ZoneBadColor);
 
             if (Input.GetMouseButtonUp(0))
             {
+                _defenseDragging = false; // 모드는 유지 — 이어 그린다
                 if (!ok)
                 {
-                    sim.Hud?.Notify(!sizeOk
-                        ? $"너무 작습니다 — 최소 {minSide}×{minSide}"
+                    sim.Hud?.Notify(!lengthOk
+                        ? "너무 짧습니다 — 최소 2칸"
                         : $"나무가 부족합니다 — 필요 {required} / 보유 {stock}");
-                    _defenseDragging = false; // 모드는 유지 — 다시 그린다
                     return;
                 }
-                bool done = sim.TryEstablishDefenseZone(min, max);
-                ExitDefenseZoneMode(done
-                    ? $"방어 구역 확정 — 울타리 계획 (나무 {required} 예상)"
-                    : "방어 구역 지정 실패");
+                int added = sim.AddDefenseFenceLine(_defenseDragStart, end);
+                sim.Hud?.Notify(added > 0
+                    ? $"울타리 줄 계획 — {added}칸 · 나무 {added * sim.DefenseFenceWood}"
+                    : "지을 수 있는 칸이 없습니다 (막힘·중복)");
             }
         }
 
-        /// <summary>프리뷰 사각 (표현 전용) — 확정 전의 손그림자라 매 프레임 갱신·색 교체.
-        /// 확정 테두리는 ZoneBorderView가 따로 그린다 (Defense.OnPlanEstablished 구독).</summary>
-        private void DrawZonePreview(Vector2Int min, Vector2Int max, Color color)
+        /// <summary>프리뷰 줄 (표현 전용) — 확정 전의 손그림자라 매 프레임 갱신·색 교체.
+        /// 확정된 계획 마커는 DefensePlanView가 따로 그린다 (Defense.OnPlanChanged 구독).</summary>
+        private void DrawZonePreviewLine(Vector2Int a, Vector2Int b, Color color)
         {
             if (_zonePreview == null)
             {
-                var go = new GameObject("DefenseZonePreview");
+                var go = new GameObject("DefenseLinePreview");
                 _zonePreview = go.AddComponent<LineRenderer>();
                 _zonePreview.useWorldSpace = true;
-                _zonePreview.loop = true;
-                _zonePreview.positionCount = 4;
-                _zonePreview.widthMultiplier = 0.1f;
+                _zonePreview.loop = false;
+                _zonePreview.positionCount = 2;
+                _zonePreview.widthMultiplier = 0.35f; // 타일 폭 느낌 — 줄이 지나갈 칸을 보여준다
                 _zonePreview.numCornerVertices = 0;
                 _zonePreview.material = new Material(Shader.Find("Sprites/Default"));
                 _zonePreview.sortingOrder = 8;
@@ -377,10 +393,8 @@ namespace AIVillage.M0
             _zonePreview.startColor = _zonePreview.endColor = color;
             _zonePreview.SetPositions(new[]
             {
-                new Vector3(min.x - 0.5f, min.y - 0.5f, 0f),
-                new Vector3(max.x + 0.5f, min.y - 0.5f, 0f),
-                new Vector3(max.x + 0.5f, max.y + 0.5f, 0f),
-                new Vector3(min.x - 0.5f, max.y + 0.5f, 0f),
+                new Vector3(a.x, a.y, 0f),
+                new Vector3(b.x, b.y, 0f),
             });
         }
 

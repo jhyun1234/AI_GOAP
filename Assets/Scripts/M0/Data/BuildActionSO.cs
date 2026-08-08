@@ -47,7 +47,12 @@ namespace AIVillage.M0
             // 시야용 파생 효과 (goal이 DefensePlannedCount를 노린다) — 런타임 반영은
             // DefenseService.NotifyBuilt 구독 몫 (BuildRunner AppliesOwnEffects, 이중 기입 아님).
             if (Building.PlaceOnDefensePlan)
+            {
                 into.Add(new SlotEffect { Slot = SlotId.DefensePlannedCount, Op = EffectOp.SubClamp0, Value = 1 });
+                // 문은 문 계획도 소진한다 (M22-W3R2) — BuildGate 전제(GatePlannedCount ≥ 1)의 짝
+                if (Building.CountSlot == SlotId.GateCount)
+                    into.Add(new SlotEffect { Slot = SlotId.GatePlannedCount, Op = EffectOp.SubClamp0, Value = 1 });
+            }
         }
 
         public override IActionRunner CreateRunner(VillagerAgent agent) => new BuildRunner(this);

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using AIVillage.M0;
 using NUnit.Framework;
 using UnityEditor;
@@ -64,73 +65,92 @@ namespace AIVillage.Tests.EditMode
         }
 
         [Test]
-        public void M22_T3_Perimeter_DeterministicRingWithGateNearBase()
+        public void M22_T3_LineSnap_Deterministic()
         {
-            // 둘레는 결정적 (같은 입력 = 같은 목록·같은 순서) — W3 계획의 재현성 (게이트가 씬 없이 검산)
-            var anchor = new Vector2Int(10, -5);
-            var a = DefenseService.PerimeterTiles(anchor, 5);
-            var b = DefenseService.PerimeterTiles(anchor, 5);
-            Assert.AreEqual(8 * 5, a.Count, "반경 5 둘레 = 40타일 (11×11 경계)");
-            CollectionAssert.AreEqual(a, b, "같은 앵커·반경이면 언제나 같은 목록 (결정적)");
-            foreach (Vector2Int t in a)
-                Assert.AreEqual(5, Mathf.Max(Mathf.Abs(t.x - anchor.x), Mathf.Abs(t.y - anchor.y)),
-                    "둘레 타일의 체비쇼프 거리 = 반경 (안쪽·바깥쪽 오염 없음)");
+            // 우세축 스냅 (순수) — 대각 드래그는 수평/수직 직선으로 (대각 줄은 벽이 아니다)
+            Assert.AreEqual(new Vector2Int(7, 2), DefenseService.SnapLineEnd(new Vector2Int(0, 2), new Vector2Int(7, 5)),
+                "|Δx| ≥ |Δy| → 수평 스냅");
+            Assert.AreEqual(new Vector2Int(0, 9), DefenseService.SnapLineEnd(new Vector2Int(0, 2), new Vector2Int(3, 9)),
+                "|Δy| > |Δx| → 수직 스냅");
 
-            // 문 = 기지 최근접 (맨해튼) — 기지 (0,0)에서 최근접은 좌상 모서리 (5,0): 거리 5.
-            // (왼변 중앙 (5,-5)는 거리 10 — 첫 기대값의 검산 오류를 게이트가 잡았다. 코드가 옳았다.)
-            Vector2Int gateTile = DefenseService.PickGateTile(a, Vector2Int.zero);
-            Assert.AreEqual(new Vector2Int(5, 0), gateTile, "문 자리 = 기지 최근접 둘레 타일");
+            // 줄 타일 (순수·결정적 — 시작→끝 순서, 양 끝 포함)
+            var a = DefenseService.LineTiles(new Vector2Int(2, 3), new Vector2Int(-2, 3));
+            var b = DefenseService.LineTiles(new Vector2Int(2, 3), new Vector2Int(-2, 3));
+            Assert.AreEqual(5, a.Count, "2→−2 수평 줄 = 5칸");
+            CollectionAssert.AreEqual(a, b, "같은 입력이면 언제나 같은 목록 (결정적)");
+            Assert.AreEqual(new Vector2Int(2, 3), a[0]);
+            Assert.AreEqual(new Vector2Int(-2, 3), a[4]);
+            Assert.AreEqual(1, DefenseService.LineTiles(new Vector2Int(5, 5), new Vector2Int(5, 5)).Count,
+                "제자리 = 1칸 (UI가 최소 2칸으로 거른다)");
         }
 
         [Test]
-        public void M22_T3b_EstablishPlan_FiltersAndConsumes()
+        public void M22_T3b_FencePlan_FilterDedup_GateConvert_AndConsume()
         {
             var d = new DefenseService();
-            var anchor = new Vector2Int(0, 0);
-            // (2,-2) 하나만 막힘 (기존 건물 가정) — 계획에서 제외돼야 한다
-            d.EstablishPlan(anchor, 2, new Vector2Int(0, -10), (x, y) => !(x == 2 && y == -2));
-            Assert.IsTrue(d.HasPlan);
-            Assert.AreEqual(8 * 2 - 1, d.PlannedCount, "막힌 타일 1개 제외 (울타리 14 + 문 1)");
-            Assert.IsTrue(d.PlannedGateTile.HasValue);
-            Assert.AreEqual(new Vector2Int(0, -2), d.PlannedGateTile.Value, "문 = 기지(남쪽) 최근접");
+            var line = DefenseService.LineTiles(new Vector2Int(0, 0), new Vector2Int(4, 0)); // 5칸
+            bool Buildable(int x, int y) => !(x == 2 && y == 0);
+            Assert.AreEqual(4, d.AddFencePlan(line, Buildable),
+                "막힌 칸(2,0) 제외 — 계획과 시공의 점유 어휘는 같다");
+            Assert.AreEqual(4, d.PlannedCount);
+            Assert.AreEqual(0, d.AddFencePlan(line, Buildable), "겹쳐 그은 줄은 이중 계획이 안 된다 (dedup)");
+            // (같은 줄을 필터 없이 다시 그으면 아까 막혔던 (2,0)만 추가되는 것이 옳다 —
+            //  첫 기대값 0은 검산 오류였고 게이트 red가 잡았다)
 
-            // 완공 차감 — 방어 계획 건물만 (PlaceOnDefensePlan)
+            // 우클릭 문: 줄 위 칸은 울타리 → 문 전환, 총수 불변·문 수 +1
+            Assert.IsTrue(d.TryAddGatePlan(new Vector2Int(1, 0), null));
+            Assert.AreEqual(4, d.PlannedCount, "전환은 총수를 안 바꾼다");
+            Assert.AreEqual(1, d.GatePlannedCount);
+            Assert.IsFalse(d.TryAddGatePlan(new Vector2Int(1, 0), null), "같은 칸 문 중복 금지");
+
+            // 완공 차감 — 방어 계획 건물만 (PlaceOnDefensePlan), 문/울타리는 CountSlot이 가른다
             var fence = ScriptableObject.CreateInstance<BuildingSO>();
             fence.PlaceOnDefensePlan = true;
+            fence.CountSlot = SlotId.FenceCount;
+            var gate = ScriptableObject.CreateInstance<BuildingSO>();
+            gate.PlaceOnDefensePlan = true;
+            gate.CountSlot = SlotId.GateCount;
             var house = ScriptableObject.CreateInstance<BuildingSO>();
-            int before = d.PlannedCount;
-            d.NotifyBuilt(house, -2, -2);
-            Assert.AreEqual(before, d.PlannedCount, "방어 계획 밖 건물(집)은 계획을 건드리지 않는다");
-            d.NotifyBuilt(fence, -2, -2);
-            Assert.AreEqual(before - 1, d.PlannedCount, "울타리 완공 = 계획 1 차감");
-            d.NotifyBuilt(fence, 0, -2);
-            Assert.IsFalse(d.PlannedGateTile.HasValue, "문 자리 완공 = 문 계획 소진");
+            d.NotifyBuilt(house, 0, 0);
+            Assert.AreEqual(4, d.PlannedCount, "방어 계획 밖 건물(집)은 계획을 건드리지 않는다");
+            d.NotifyBuilt(fence, 0, 0);
+            Assert.AreEqual(3, d.PlannedCount, "울타리 완공 = 계획 1 차감");
+            d.NotifyBuilt(gate, 1, 0);
+            Assert.AreEqual(0, d.GatePlannedCount, "문 완공 = 문 계획 소진");
+            Assert.AreEqual(2, d.PlannedCount);
 
-            // 재수립 금지 (ADR-M22-4) — 두 번째 EstablishPlan은 무시된다
-            int after = d.PlannedCount;
-            d.EstablishPlan(new Vector2Int(30, 30), 3, Vector2Int.zero, null);
-            Assert.AreEqual(after, d.PlannedCount, "계획은 판당 1회 (재수립 무시)");
+            // 시설이 선 칸은 재계획 거부 (완공 울타리 위에 줄을 그어도 무시)
+            var built = ScriptableObject.CreateInstance<BuildingSO>();
+            built.PlaceOnDefensePlan = true;
+            built.IsCountable = true;
+            built.CountSlot = SlotId.FenceCount;
+            built.MaxDurability = 100f;
+            d.NotifyBuilt(built, 4, 4);
+            Assert.AreEqual(0, d.AddFencePlan(new List<Vector2Int> { new Vector2Int(4, 4) }, null),
+                "서 있는 시설 칸은 계획 대상이 아니다");
+            Assert.IsFalse(d.TryAddGatePlan(new Vector2Int(4, 4), null), "서 있는 시설 칸에 문 계획 금지 (철거 축은 2차+)");
         }
 
         [Test]
-        public void M22_T4_Planner_BuildsGateFirstThenFence()
+        public void M22_T4_Planner_GateWhenGatePlanned_ElseFence()
         {
-            // W4 건설 사슬 — 문(BaseCost 5)이 울타리(8)보다 싸고 GateCount==0 전제가 있어
-            // 플래너는 문부터 세운다 (문 먼저 = 주민 동선이 항상 열려 있다). 문이 서면
-            // 전제가 죽어 울타리로 넘어간다. 상대 goal은 VillagerAgent 해석을 본떠 절대화한다.
+            // W4 건설 사슬 (W3R2 개정) — 문 전제 = GatePlannedCount ≥ 1 (문 계획이 있어야만 문
+            // 액션이 후보). 문이 싸서(5<8) 계획이 있으면 문 먼저, 없으면 울타리. 舊 GateCount==0
+            // 전제는 문이 여러 개(우클릭)가 되며 폐기 — 두 번째 문이 영영 안 서는 공회전 함정.
             var catalog = AssetDatabase.LoadAssetAtPath<ActionCatalog>("Assets/M0Config/ActionCatalog.asset");
             var goal = AssetDatabase.LoadAssetAtPath<GoalSO>("Assets/M0Config/Goals/Goal_BuildDefense.asset");
             Assert.IsNotNull(catalog); Assert.IsNotNull(goal);
             Assert.IsTrue(goal.RelativeToCurrent, "방어 건설 goal은 한 걸음 (ADR-M0-12)");
             var gw = new PlannerGateway(catalog);
 
-            ActionSO[] PlanWith(int planned, int gates)
+            ActionSO[] PlanWith(int planned, int gatesPlanned, int gatesBuilt)
             {
                 var slots = new int[PlanningConfig.TotalSlots];
                 slots[(int)SlotId.MySatiety] = 80;
                 slots[(int)SlotId.WoodStock] = 50;
                 slots[(int)SlotId.DefensePlannedCount] = planned;
-                slots[(int)SlotId.GateCount] = gates;
+                slots[(int)SlotId.GatePlannedCount] = gatesPlanned;
+                slots[(int)SlotId.GateCount] = gatesBuilt;
                 GoalSO resolved = ScriptableObject.Instantiate(goal);
                 resolved.RelativeToCurrent = false;
                 resolved.GoalConditions[0].Value = VillagerAgent.ResolveRelativeTarget(
@@ -138,29 +158,34 @@ namespace AIVillage.Tests.EditMode
                 PlannerGateway.PendingPlan pending = gw.RequestPlan(new WorldSnapshot(slots), resolved);
                 gw.CompleteNow(pending);
                 Assert.IsTrue(gw.TryGetResult(pending, out PlanStatus status, out ActionSO[] plan, out _));
-                Assert.AreEqual(PlanStatus.Success, status, $"planned={planned} gates={gates}");
+                Assert.AreEqual(PlanStatus.Success, status, $"planned={planned} gp={gatesPlanned}");
                 return plan;
             }
 
-            ActionSO[] first = PlanWith(planned: 40, gates: 0);
+            ActionSO[] first = PlanWith(planned: 10, gatesPlanned: 1, gatesBuilt: 0);
             Assert.AreEqual(1, first.Length, "한 걸음 goal = 1액션 플랜");
-            Assert.AreEqual("BuildGate", first[0].name, "문이 먼저 — 전제(GateCount==0)와 싼 비용");
+            Assert.AreEqual("BuildGate", first[0].name, "문 계획이 있으면 문 먼저 (싼 비용)");
 
-            ActionSO[] second = PlanWith(planned: 39, gates: 1);
+            ActionSO[] second = PlanWith(planned: 9, gatesPlanned: 0, gatesBuilt: 1);
             Assert.AreEqual(1, second.Length);
-            Assert.AreEqual("BuildFence", second[0].name, "문이 서면 울타리 — 문 전제가 죽는다");
+            Assert.AreEqual("BuildFence", second[0].name, "문 계획이 없으면 울타리");
+
+            // 두 번째 문도 선다 — 문이 이미 1개 있어도 새 문 계획이 있으면 문 액션이 후보다
+            ActionSO[] third = PlanWith(planned: 5, gatesPlanned: 1, gatesBuilt: 1);
+            Assert.AreEqual("BuildGate", third[0].name, "문 여러 개 허용 (舊 GateCount==0 전제의 폐기 근거)");
         }
 
         [Test]
-        public void M22_T4b_NextBuildTile_GateForGateAsset_NearestFenceForFence()
+        public void M22_T4b_NextBuildTile_GatePoolForGateAsset_NearestForFence()
         {
             var d = new DefenseService();
-            d.EstablishPlan(new Vector2Int(0, 0), 2, new Vector2Int(0, -10), null);
+            d.AddFencePlan(DefenseService.LineTiles(new Vector2Int(-2, 2), new Vector2Int(2, 2)), null);
+            Assert.IsTrue(d.TryAddGatePlan(new Vector2Int(0, 2), null)); // 줄 가운데를 문으로
             var fence = AssetDatabase.LoadAssetAtPath<BuildingSO>("Assets/M0Config/Buildings/Fence.asset");
             var gate = AssetDatabase.LoadAssetAtPath<BuildingSO>("Assets/M0Config/Buildings/Gate.asset");
 
             Assert.IsTrue(d.TryGetNextBuildTile(gate, new Vector2Int(9, 9), null, out Vector2Int g));
-            Assert.AreEqual(d.PlannedGateTile.Value, g, "문 에셋 = 문 자리 (시공자 위치 무관)");
+            Assert.AreEqual(new Vector2Int(0, 2), g, "문 에셋 = 문 계획 풀");
 
             Assert.IsTrue(d.TryGetNextBuildTile(fence, new Vector2Int(3, 3), null, out Vector2Int f));
             Assert.AreEqual(new Vector2Int(2, 2), f, "울타리 = 시공자 최근접 계획 타일");
@@ -175,9 +200,9 @@ namespace AIVillage.Tests.EditMode
         public void M22_T5_Durability_DamageRepairDestroyAndPlanReturn()
         {
             var d = new DefenseService();
-            d.EstablishPlan(new Vector2Int(0, 0), 2, new Vector2Int(0, -10), null);
+            d.AddFencePlan(DefenseService.LineTiles(new Vector2Int(0, 2), new Vector2Int(4, 2)), null);
             var fence = AssetDatabase.LoadAssetAtPath<BuildingSO>("Assets/M0Config/Buildings/Fence.asset");
-            var site = new Vector2Int(2, 2); // 계획 둘레 타일
+            var site = new Vector2Int(2, 2); // 계획 줄 위 타일
             int plannedBefore = d.PlannedCount;
 
             // 완공 = 내구도 등록 + 계획 차감
@@ -242,8 +267,13 @@ namespace AIVillage.Tests.EditMode
                 for (int y = 0; y < size; y++)
                     walkable[x, y] = true;
 
+            // 줄 4개로 두른 링 (W3R2 — 플레이어가 긋는 방식 그대로): anchor ± 2 사각의 경계
             var anchor = new Vector2Int(10, 0);
-            var ring = DefenseService.PerimeterTiles(anchor, 2);
+            var ring = new List<Vector2Int>();
+            ring.AddRange(DefenseService.LineTiles(new Vector2Int(8, -2), new Vector2Int(12, -2)));
+            ring.AddRange(DefenseService.LineTiles(new Vector2Int(8, 2), new Vector2Int(12, 2)));
+            ring.AddRange(DefenseService.LineTiles(new Vector2Int(8, -1), new Vector2Int(8, 1)));
+            ring.AddRange(DefenseService.LineTiles(new Vector2Int(12, -1), new Vector2Int(12, 1)));
             foreach (Vector2Int t in ring) walkable[t.x + off, t.y + off] = false;
 
             var pf = new AIVillage.Core.JpsPathfinder(() => walkable);
@@ -257,38 +287,33 @@ namespace AIVillage.Tests.EditMode
         }
 
         [Test]
-        public void M22_T3c_RectPlan_OncePerRun_WoodMath_AndSnapshotWiring()
+        public void M22_T3c_IncrementalPlan_SnapConnect_AndSnapshotWiring()
         {
-            // 드래그 사각형 계획 (ADR-M22-4 개정) — 7×5 사각의 둘레 = 2(7+5)−4 = 20타일
-            var rect = DefenseService.PerimeterTilesRect(new Vector2Int(-3, 0), new Vector2Int(3, 4));
-            Assert.AreEqual(20, rect.Count, "7×5 둘레 = 20타일");
-            foreach (Vector2Int t in rect)
-                Assert.IsTrue(t.x == -3 || t.x == 3 || t.y == 0 || t.y == 4, "둘레 타일만 (안쪽 오염 없음)");
-
-            // 필요 나무 산식 (초록/빨강 판정의 원천) — 울타리 19칸×1 + 문 1칸×3 = 22
-            Assert.AreEqual(22, DefenseService.RequiredWood(20, 1, 3), "울타리 (N−1)×비용 + 문 비용");
-            Assert.AreEqual(0, DefenseService.RequiredWood(0, 1, 3), "빈 둘레 = 0");
-
-            // 판당 1회 (HasPlan이 강제) + 확정 이벤트 1회
+            // 줄 누적 (ADR-M22-4 재개정) — 여러 줄이 쌓이고, 변경 알림이 그때마다 나간다
             var d = new DefenseService();
-            int fired = 0;
-            d.OnPlanEstablished += (min, max) => fired++;
-            d.EstablishPlanRect(new Vector2Int(0, 0), new Vector2Int(6, 4), new Vector2Int(0, -10), null);
-            Assert.IsTrue(d.HasPlan);
-            Assert.AreEqual(new Vector2Int(0, 0), d.PlanMin);
-            Assert.AreEqual(new Vector2Int(6, 4), d.PlanMax);
-            d.EstablishPlanRect(new Vector2Int(20, 20), new Vector2Int(30, 30), Vector2Int.zero, null);
-            Assert.AreEqual(new Vector2Int(6, 4), d.PlanMax, "이미 확정된 판은 거부 — 방어 구역은 판당 하나");
-            Assert.AreEqual(1, fired, "확정 이벤트는 정확히 1회");
+            int changed = 0;
+            d.OnPlanChanged += () => changed++;
+            d.AddFencePlan(DefenseService.LineTiles(new Vector2Int(0, 0), new Vector2Int(4, 0)), null);
+            d.AddFencePlan(DefenseService.LineTiles(new Vector2Int(4, 1), new Vector2Int(4, 4)), null);
+            Assert.AreEqual(9, d.PlannedCount, "두 줄 누적 (5 + 4)");
+            Assert.AreEqual(2, changed, "줄마다 변경 알림 1회");
 
-            // 스냅샷 배선 (provider 패턴, InjuredCount 동형) — 방어 파생 슬롯 2종이 실린다
+            // 시작점 달라붙기 (줄 연결) — 기존 줄 곁(체비쇼프 1)이면 그 칸을 돌려준다
+            Assert.IsTrue(d.TryGetNearestPlanOrStructureTile(new Vector2Int(5, 5), 1, out Vector2Int snap));
+            Assert.AreEqual(new Vector2Int(4, 4), snap, "곁 시작점은 기존 줄 끝에 달라붙는다");
+            Assert.IsFalse(d.TryGetNearestPlanOrStructureTile(new Vector2Int(9, 9), 1, out _),
+                "먼 곳은 달라붙지 않는다");
+
+            // 스냅샷 배선 (provider 패턴, InjuredCount 동형) — 방어 파생 슬롯 3종이 실린다
             var cfg = ScriptableObject.CreateInstance<WorldConfigSO>();
             var world = new WorldModel(new DiscoveryService(), cfg,
-                defensePlannedCount: () => 7, defenseDamagedCount: () => 2);
+                defensePlannedCount: () => 7, defenseDamagedCount: () => 2, gatePlannedCount: () => 1);
             Assert.AreEqual(7, world.BuildSnapshot(50, 50).Get(SlotId.DefensePlannedCount),
                 "방어 계획 잔여가 스냅샷에 실린다 (Goal_BuildDefense 트리거의 전제)");
             Assert.AreEqual(2, world.BuildSnapshot(50, 50).Get(SlotId.DefenseDamagedCount),
                 "손상 수가 스냅샷에 실린다 (Goal_RepairDefense 트리거의 전제, W5)");
+            Assert.AreEqual(1, world.BuildSnapshot(50, 50).Get(SlotId.GatePlannedCount),
+                "문 계획 수가 스냅샷에 실린다 (BuildGate 전제의 원천, W3R2)");
             var neutral = new WorldModel(new DiscoveryService(), cfg);
             Assert.AreEqual(0, neutral.BuildSnapshot(50, 50).Get(SlotId.DefensePlannedCount),
                 "미배선 = 0 (중립 불변식)");

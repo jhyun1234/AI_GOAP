@@ -32,9 +32,10 @@ const add = (ok, name, detail, level = 'fail') =>
 
 /* ── A. 씬·대본 (파일만 보면 되는 것) ───────────────── */
 
-const missingMeta = scene.shots.filter(s => !s.reads || !s.source || !s.kind).map(s => s.id);
+// 클립 샷(롱폼 W5)은 kind 대신 clip 이 화면을 진다 — 어느 쪽이든 하나는 있어야 한다
+const missingMeta = scene.shots.filter(s => !s.reads || !s.source || !(s.kind || s.clip)).map(s => s.id);
 add(missingMeta.length === 0, 'shot 메타 완비',
-  missingMeta.length ? `reads/source/kind 누락: ${missingMeta.join(', ')}` : `${scene.shots.length}샷 전부 있음`);
+  missingMeta.length ? `reads/source/kind|clip 누락: ${missingMeta.join(', ')}` : `${scene.shots.length}샷 전부 있음`);
 
 /* ── 형제 카드 라벨 = 그 편의 youtube.title ──────────
    🔴 분할 회차 여섯이 서로를 부르는 이름 열여덟 개 중 **하나도 안 맞았다**(2026-08-04 검수).
@@ -68,7 +69,7 @@ if (sibs.length) {
 }
 
 const kindsDir = path.join(ROOT, 'episodes', EP, 'kinds');
-const badKind = [...new Set(scene.shots.map(s => s.kind))].filter(k => !fs.existsSync(path.join(kindsDir, `${k}.js`)));
+const badKind = [...new Set(scene.shots.filter(s => s.kind).map(s => s.kind))].filter(k => !fs.existsSync(path.join(kindsDir, `${k}.js`)));
 add(badKind.length === 0, 'kind 파일 존재', badKind.length ? `없음: ${badKind.join(', ')}` : '전부 존재');
 
 const allLines = scene.shots.flatMap(s => s.lines.map(l => ({ ...l, shot: s.id })));
@@ -564,13 +565,37 @@ try {
     const per = {};
     let prev = null, prevId = null;
     for (let i = 0; i < N; i++) {
-      window.seek(i / FPS * 1000);
+      await window.seek(i / FPS * 1000);   // 클립 샷은 seek 이 비디오 프레임 정합 약속을 돌려준다 (W5)
       const el = document.querySelector('.shot.on');
       const id = el?.dataset.id; if (!id) continue;
       const cv = el.querySelector('canvas');
       if (!per[id]) per[id] = { frames:0, bad:0, total:0, staticRun:0, maxStatic:0, edgeBot:0, edgeSide:0, edgeSideFrames:0 };
       const P = per[id]; P.frames++;
-      if (!cv || !cv.width) { prev = null; prevId = id; continue; }
+      if (!cv || !cv.width) {
+        /* 클립 샷 (롱폼 W5) — 캔버스가 없다. 팔레트·가장자리는 게임 화면의 규격이
+           아니라서 재지 않지만(3색 규약은 모션그래픽의 것), **정적은 여기서도 잡는다**
+           — 멈춘 클립은 멈춘 캔버스와 같은 결함이다 (W2 DoD: 예외를 두지 않는다). */
+        const v = window.__activeClipVideo ? window.__activeClipVideo() : null;
+        if (v) {
+          const oc = window.__clipProbe
+            || (window.__clipProbe = Object.assign(document.createElement('canvas'), { width: 160, height: 90 }));
+          const og = oc.getContext('2d', { willReadFrequently: true });
+          og.drawImage(v, 0, 0, 160, 90);
+          const dd = og.getImageData(0, 0, 160, 90).data;
+          const Lc = new Uint8Array(160 * 90);
+          for (let p2 = 0; p2 < dd.length; p2 += 4)
+            Lc[p2 >> 2] = (dd[p2] * 77 + dd[p2 + 1] * 151 + dd[p2 + 2] * 28) >> 8;
+          if (prev && prevId === id && prev.length === Lc.length) {
+            let diff = 0;
+            for (let j = 0; j < Lc.length; j += 3) diff += Math.abs(Lc[j] - prev[j]);
+            const m = diff / (Lc.length / 3) / 255;
+            if (m < 0.0008) { P.staticRun++; P.maxStatic = Math.max(P.maxStatic, P.staticRun); }
+            else P.staticRun = 0;
+          } else P.staticRun = 0;
+          prev = Lc; prevId = id;
+        } else { prev = null; prevId = id; }
+        continue;
+      }
       const g = cv.getContext('2d');
       const d = g.getImageData(0,0,cv.width,cv.height).data;
 

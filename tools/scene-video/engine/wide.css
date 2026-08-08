@@ -50,7 +50,10 @@ body{background:#000;color:var(--ink);font-family:var(--mono);
   font-family:var(--disp);font-size:12.5px;letter-spacing:-.005em;
   color:var(--accent);font-weight:800}
 .progline{display:flex;align-items:center;gap:10px;margin-top:6px}
-.prog{flex:1;height:5px;background:var(--track);border-radius:3px;overflow:hidden}
+/* 높이 5.0823px = 장치 픽셀 정수 14 (÷DSF 2.754662). 5px 였을 때 위·아래 경계가
+   장치 픽셀 사이에 걸려 실행 간 AA 가 흔들렸다(실측 2026-08-09: 교차 렌더에서
+   헤어라인 2줄만 diff, YMAX 51). 라운드도 뺐다 — 곡선 AA 는 같은 종류의 자리다. */
+.prog{flex:1;height:5.0823px;background:var(--track);overflow:hidden}
 .prog i{display:block;height:100%;background:var(--ink);width:0}
 
 .chip{font-family:var(--disp);font-size:12.5px;font-weight:800;letter-spacing:.06em;

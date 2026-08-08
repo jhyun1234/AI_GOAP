@@ -28,6 +28,7 @@ const EPD = `../episodes/${EP}`;
 const LDIR = LANG === 'ko' ? `${EPD}/build` : `${EPD}/build/${LANG}`;
 
 let scene = null, shots = [], lines = [], TOTAL = 0, kinds = {};
+let clipLayer = null, clipCanvas = null;   // 게임 클립 레이어 (롱폼 W5) — buildDom 이 만든다
 const failedKinds = [];   // 로드에 실패한 그림 — check.mjs 가 읽는다
 
 /* ── 로드 ─────────────────────────────────────────── */
@@ -58,7 +59,8 @@ async function boot() {
     if (r.ok) timed = await r.json();
   } catch { /* 없으면 그만 */ }
 
-  const names = [...new Set(scene.shots.map(s => s.kind))];
+  // 클립 샷(롱폼 W5)은 kind 가 없을 수 있다 — 그림 대신 게임 녹화가 화면을 진다
+  const names = [...new Set(scene.shots.filter(s => s.kind).map(s => s.kind))];
   for (const n of names) {
     try { kinds[n] = (await import(`../episodes/${EP}/kinds/${n}.js`)).default; }
     catch (e) {
@@ -82,6 +84,7 @@ async function boot() {
   // (예: 예산 소진 후에만 찍히는 'NoSolution'). 그래서 샷마다 여러 지점을 훑는다.
   await loadFonts();
   await loadAssets();
+  await loadClips();
   prime();
   seek(0);
   $('hint').textContent =
@@ -154,6 +157,27 @@ async function loadAssets() {
     img.src = src;
     try { await img.decode(); images[name] = img; }
     catch { console.warn(`[asset] ${name} 을 못 읽었다: ${src}`); }
+  }
+}
+
+/* ── 게임 클립 (롱폼 W5) ────────────────────────────
+   shot.clip = { id, in, out } — clips.mjs 카탈로그의 클립을 무대 전면에 깐다.
+   폰트·이미지와 같은 이유로 loadeddata 까지 기다린 뒤에야 준비를 선언한다.
+   실패는 조용히 넘기지 않는다 — failedKinds 채널에 실어 check.mjs 가 잡는다
+   (그림 로드 실패와 같은 문이다: 빈 화면이 가장 조용하다). */
+async function loadClips() {
+  for (const s of shots) {
+    if (!s.clip || !s.clipVideo) continue;
+    const v = s.clipVideo;
+    await new Promise(res => {
+      v.addEventListener('loadeddata', res, { once: true });
+      v.addEventListener('error', () => {
+        console.warn(`[clip] ${s.clip.id} 로드 실패`);
+        failedKinds.push(`clip:${s.clip.id}`);
+        res();
+      }, { once: true });
+      v.src = `/clips/${encodeURIComponent(s.clip.id)}.mp4`;
+    });
   }
 }
 
@@ -241,6 +265,47 @@ function buildDom() {
     s.el = el;
     kinds[s.kind]?.build?.(el, { spec: s.spec || {}, shot: s, scene });
   });
+
+  /* ── 클립 레이어 (롱폼 W5) ─────────────────────────
+     게임 녹화 컷은 .vis 상자(약 2.6:1)에 안 넣는다 — 컨테인이면 좌우 기둥,
+     커버면 세로 1/3 이 잘린다. 무대가 wide 에서 정확히 16:9 = 클립 비율이므로
+     **무대 전면**에 깐다. z 는 카드(3)·자막(4)·HUD(5) 아래 — 셋 다 클립 위에 선다.
+     스타일이 인라인인 이유: 이 레이어는 프로필 무관 동작이라 CSS 파일(프로필별
+     교체 대상)에 걸면 두 곳에 적는 셈이 된다. */
+  const stage = document.querySelector('.stage');
+  clipLayer = document.createElement('div');
+  Object.assign(clipLayer.style,
+    { position: 'absolute', inset: '0', zIndex: '2', background: '#000' });
+  clipLayer.hidden = true;
+  stage.appendChild(clipLayer);
+  /* 비디오 요소는 화면에 안 세운다 — 디코더로만 쓰고, 프레임은 seeked 뒤에
+     우리 캔버스에 drawImage 한다. <video> 를 직접 보이면 컴포지터가 언제
+     그 프레임을 칠했는지 캡처가 보장 못 해 결정성이 깨진다
+     (실측 2026-08-09: 2회 렌더에서 클립 구간 147프레임 불일치). */
+  clipCanvas = document.createElement('canvas');
+  clipCanvas.width = 1920; clipCanvas.height = 1080;
+  Object.assign(clipCanvas.style, { width: '100%', height: '100%', display: 'block' });
+  clipLayer.appendChild(clipCanvas);
+  shots.forEach(s => {
+    if (!s.clip) return;
+    const v = document.createElement('video');
+    v.muted = true; v.preload = 'auto'; v.playsInline = true;
+    v.style.display = 'none';
+    clipLayer.appendChild(v);
+    s.clipVideo = v;
+  });
+  /* 배지 — 사실 정직성(ADR-LF-7): 클립은 과거 사건의 재현이 아니라 지금 빌드의
+     관측이다. 엔진이 자동으로 달고 대본이 끌 수 없다 (레이어와 함께만 보인다). */
+  const badge = document.createElement('div');
+  badge.textContent = '지금 빌드 화면';
+  Object.assign(badge.style, {
+    // 우하단 — 우상단은 챕터 칩 자리다 (실측 2026-08-09: top 10.5% 가 칩에 덮였다).
+    // bottom 22.5% = 자막영역 경계(21.3%) 바로 위, 콘텐츠 안전영역 안.
+    position: 'absolute', right: '24px', bottom: '22.5%',
+    font: '800 11px Pretendard', letterSpacing: '.06em', color: '#FFFFFF',
+    background: 'rgba(0,0,0,.55)', padding: '4px 9px', borderRadius: '3px',
+  });
+  clipLayer.appendChild(badge);
 }
 
 /** 초벌 렌더. 캔버스는 '한 번도 그린 적 없는 경로'를 처음 그릴 때 결과가
@@ -276,6 +341,33 @@ function seek(t) {
   // 활성 샷 — 마지막 샷은 끝까지 유지
   let act = shots[0];
   for (const s of shots) if (t >= s.t) act = s;
+
+  /* 클립 샷 (롱폼 W5) — seek 이 비디오 프레임 정합까지 책임진다.
+     렌더는 프레임마다 seek 을 await 하므로(awaitPromise) currentTime 이 실제로
+     그 프레임에 도착한 뒤 캡처된다 — play() 로 흘리면 결정성이 깨진다 (명세 ⚠️). */
+  let clipWait = null;
+  if (clipLayer) {
+    const clipOn = !!(act.clip && act.clipVideo && act.clipVideo.readyState >= 2);
+    clipLayer.hidden = !clipOn;
+    if (clipOn) {
+      const v = act.clipVideo;
+      const tIn = act.clip.in ?? 0;
+      const tOut = act.clip.out ?? v.duration ?? Infinity;
+      /* 프레임 경계(n/30) 정시를 요청하면 반올림이 실행마다 다른 프레임에 앉는다 —
+         반 프레임(1/60) 안쪽을 요청해 항상 같은 프레임 한가운데 떨어뜨린다 (결정성). */
+      const want = Math.min(tOut - 1 / 120, tIn + (t - act.t) / 1000 + 1 / 60);
+      const draw = () => clipCanvas.getContext('2d')
+        .drawImage(v, 0, 0, clipCanvas.width, clipCanvas.height);
+      if (Math.abs(v.currentTime - want) > 1 / 240) {
+        clipWait = new Promise(res => {
+          const done = () => { draw(); res(); };
+          v.addEventListener('seeked', done, { once: true });
+          setTimeout(done, 500);   // seeked 가 유실돼도 렌더가 영원히 멈추지는 않게
+        });
+        v.currentTime = want;
+      } else draw();
+    }
+  }
 
   for (const s of shots) {
     const on = s === act;
@@ -333,6 +425,9 @@ function seek(t) {
   // 위에서 내려와 자리를 잡는다. 아래에서 올라오게 하면 페이드 동안 자막 바닥이
   // 앵커(1550)보다 내려가 쇼츠 가림 영역 쪽으로 밀린다 — 바닥 고정이 깨진다.
   cap.style.transform = `translateY(${(k - 1) * 5}px)`;
+
+  // 클립 샷이면 비디오 seek 완료 약속을 돌려준다 — render/check 가 await 한다 (W5)
+  return clipWait;
 }
 
 /* ── 나레이션 (미리보기 전용) ─────────────────────
@@ -392,6 +487,12 @@ function wire() {
 
 /* ── 추출용 창구 (render.mjs 가 쓴다) ────────────── */
 window.seek = ms => seek(ms);
+/** 지금 화면을 지고 있는 클립 비디오 (없으면 null) — check.mjs 의 정적 검사용 (W5) */
+window.__activeClipVideo = () => {
+  if (!clipLayer || clipLayer.hidden) return null;
+  const act = shots.find(s => s.el?.classList.contains('on'));
+  return act?.clipVideo ?? null;
+};
 window.prime = prime;
 window.__ready = false;
 window.__failedKinds = () => failedKinds;

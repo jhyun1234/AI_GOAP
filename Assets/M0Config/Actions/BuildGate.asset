@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ac650d4317ee413eaed31b2e75c34290, type: 3}
+  m_Name: BuildGate
+  m_EditorClassIdentifier:
+  DisplayName: "문을 달자"
+  BubbleLines:
+  - "문을 달자"
+  - "드나들 곳은 하나면 돼"
+  - "사람은 지나가고 짐승은 못 지나가지"
+  BaseCost: 5
+  DurationSec: 4
+  Preconditions:
+  - Slot: 42
+    Op: 0
+    Value: 0
+  Effects: []
+  Building: {fileID: 11400000, guid: eb84dfa49d9e4a2097ab4c5536615450, type: 2}

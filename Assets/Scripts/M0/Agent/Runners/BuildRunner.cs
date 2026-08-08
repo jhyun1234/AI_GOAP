@@ -64,6 +64,35 @@ namespace AIVillage.M0
                 return true;
             }
 
+            // 방어 계획 (M22-W4) — 플레이어 구역 둘레의 계획 타일에 짓는다. 문/울타리 구분과
+            // 최근접 선정은 DefenseService가 안다 (계획 의미의 단일 소유자). 계획이 비면 실패 —
+            // goal 트리거(DefensePlannedCount ≥ 1)가 이미 막지만 방어선.
+            if (_so.Building.PlaceOnDefensePlan)
+            {
+                DefenseService defense = agent.Defense;
+                if (defense == null || !defense.TryGetNextBuildTile(_so.Building,
+                        new Vector2Int(agent.TileX, agent.TileY), Occupied, out _buildTile))
+                {
+                    FailReason = $"{_so.Building.DisplayName}: 방어 계획에 지을 자리 없음";
+                    return false;
+                }
+                if (_so.Building.BlocksMovement)
+                {
+                    // 울타리는 차단 건물 — 자기가 만든 벽 위에 설 수 없다 (ADR-M3-3 규약 그대로)
+                    if (!TryPickStandTile(Occupied, _buildTile, minX, maxX, minY, maxY, out Vector2Int stand))
+                    {
+                        FailReason = $"{_so.Building.DisplayName}: 건설 타일 곁에 설 자리 없음";
+                        return false;
+                    }
+                    MoveTarget = stand;
+                }
+                else
+                {
+                    MoveTarget = _buildTile; // 문은 주민 통행 가능 (ADR-M22-5) — 그 자리에서 짓는다
+                }
+                return true;
+            }
+
             // 택지 (M11-F, ADR-M11-5) — MinSpacingTiles > 0 건물(집)은 구역 대신 택지가 결정자다.
             // 앵커는 마을 기지 고정, 밀집은 기존 완공과의 최소 간격이 막는다.
             if (_so.Building.IsCountable && _so.Building.MinSpacingTiles > 0)

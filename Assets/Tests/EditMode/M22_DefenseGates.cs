@@ -113,6 +113,65 @@ namespace AIVillage.Tests.EditMode
         }
 
         [Test]
+        public void M22_T4_Planner_BuildsGateFirstThenFence()
+        {
+            // W4 건설 사슬 — 문(BaseCost 5)이 울타리(8)보다 싸고 GateCount==0 전제가 있어
+            // 플래너는 문부터 세운다 (문 먼저 = 주민 동선이 항상 열려 있다). 문이 서면
+            // 전제가 죽어 울타리로 넘어간다. 상대 goal은 VillagerAgent 해석을 본떠 절대화한다.
+            var catalog = AssetDatabase.LoadAssetAtPath<ActionCatalog>("Assets/M0Config/ActionCatalog.asset");
+            var goal = AssetDatabase.LoadAssetAtPath<GoalSO>("Assets/M0Config/Goals/Goal_BuildDefense.asset");
+            Assert.IsNotNull(catalog); Assert.IsNotNull(goal);
+            Assert.IsTrue(goal.RelativeToCurrent, "방어 건설 goal은 한 걸음 (ADR-M0-12)");
+            var gw = new PlannerGateway(catalog);
+
+            ActionSO[] PlanWith(int planned, int gates)
+            {
+                var slots = new int[PlanningConfig.TotalSlots];
+                slots[(int)SlotId.MySatiety] = 80;
+                slots[(int)SlotId.WoodStock] = 50;
+                slots[(int)SlotId.DefensePlannedCount] = planned;
+                slots[(int)SlotId.GateCount] = gates;
+                GoalSO resolved = ScriptableObject.Instantiate(goal);
+                resolved.RelativeToCurrent = false;
+                resolved.GoalConditions[0].Value = VillagerAgent.ResolveRelativeTarget(
+                    planned, goal.GoalConditions[0].Value, 0);
+                PlannerGateway.PendingPlan pending = gw.RequestPlan(new WorldSnapshot(slots), resolved);
+                gw.CompleteNow(pending);
+                Assert.IsTrue(gw.TryGetResult(pending, out PlanStatus status, out ActionSO[] plan, out _));
+                Assert.AreEqual(PlanStatus.Success, status, $"planned={planned} gates={gates}");
+                return plan;
+            }
+
+            ActionSO[] first = PlanWith(planned: 40, gates: 0);
+            Assert.AreEqual(1, first.Length, "한 걸음 goal = 1액션 플랜");
+            Assert.AreEqual("BuildGate", first[0].name, "문이 먼저 — 전제(GateCount==0)와 싼 비용");
+
+            ActionSO[] second = PlanWith(planned: 39, gates: 1);
+            Assert.AreEqual(1, second.Length);
+            Assert.AreEqual("BuildFence", second[0].name, "문이 서면 울타리 — 문 전제가 죽는다");
+        }
+
+        [Test]
+        public void M22_T4b_NextBuildTile_GateForGateAsset_NearestFenceForFence()
+        {
+            var d = new DefenseService();
+            d.EstablishPlan(new Vector2Int(0, 0), 2, new Vector2Int(0, -10), null);
+            var fence = AssetDatabase.LoadAssetAtPath<BuildingSO>("Assets/M0Config/Buildings/Fence.asset");
+            var gate = AssetDatabase.LoadAssetAtPath<BuildingSO>("Assets/M0Config/Buildings/Gate.asset");
+
+            Assert.IsTrue(d.TryGetNextBuildTile(gate, new Vector2Int(9, 9), null, out Vector2Int g));
+            Assert.AreEqual(d.PlannedGateTile.Value, g, "문 에셋 = 문 자리 (시공자 위치 무관)");
+
+            Assert.IsTrue(d.TryGetNextBuildTile(fence, new Vector2Int(3, 3), null, out Vector2Int f));
+            Assert.AreEqual(new Vector2Int(2, 2), f, "울타리 = 시공자 최근접 계획 타일");
+
+            // 점유 필터 — 시공 시점에 막힌 자리는 건너뛴다 (계획 수립 후 상태 변화 대응)
+            Assert.IsTrue(d.TryGetNextBuildTile(fence, new Vector2Int(3, 3),
+                (x, y) => x == 2 && y == 2, out Vector2Int f2));
+            Assert.AreNotEqual(new Vector2Int(2, 2), f2, "점유 타일은 건너뛴다");
+        }
+
+        [Test]
         public void M22_T3c_PlayerZone_OncePerSlot_AndSnapshotWiring()
         {
             // 플레이어 구역 등록 문 (ZoneService.EstablishPlayerZone) — 판당 1개 불변 (ADR-M22-4)

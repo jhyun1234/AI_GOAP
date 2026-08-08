@@ -93,6 +93,36 @@ namespace AIVillage.M0
         }
 
         /// <summary>
+        /// 다음 시공 자리 (M22-W4) — 문 에셋(GateCount)은 문 자리, 울타리는 from 최근접(맨해튼)
+        /// 계획 타일. occupied 필터(노드·기존 건물·타 주민 예약)는 BuildRunner가 주입 — 계획
+        /// 수립 후 상태가 변했을 수 있어 시공 시점에 다시 거른다. 문/울타리 구분이 여기 있는
+        /// 이유: 계획 의미의 단일 소유자가 이 서비스다 (러너에 슬롯 분기를 흩뿌리지 않는다).
+        /// </summary>
+        public bool TryGetNextBuildTile(BuildingSO b, Vector2Int from,
+                                        Func<int, int, bool> occupied, out Vector2Int tile)
+        {
+            tile = default;
+            if (b == null || !b.PlaceOnDefensePlan) return false;
+            if (b.CountSlot == SlotId.GateCount)
+            {
+                if (!_plannedGate.HasValue) return false;
+                Vector2Int g = _plannedGate.Value;
+                if (occupied != null && occupied(g.x, g.y)) return false;
+                tile = g;
+                return true;
+            }
+            int bestDist = int.MaxValue;
+            bool found = false;
+            foreach (Vector2Int t in _plannedFences)
+            {
+                if (occupied != null && occupied(t.x, t.y)) continue;
+                int d = Mathf.Abs(t.x - from.x) + Mathf.Abs(t.y - from.y);
+                if (d < bestDist) { bestDist = d; tile = t; found = true; }
+            }
+            return found;
+        }
+
+        /// <summary>
         /// 완공 통지 — 방어 계획 건물(PlaceOnDefensePlan)만 해당 타일을 계획에서 차감한다.
         /// ConstructionService.OnCompleted 구독 배선이 호출 (완공 자체는 Complete()만이 한다, ADR-M0-3).
         /// </summary>

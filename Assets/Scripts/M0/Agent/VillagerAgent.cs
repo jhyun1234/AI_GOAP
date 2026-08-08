@@ -74,6 +74,7 @@ namespace AIVillage.M0
         public DiscoveryService Discovery => _sim.Discovery;
         public ConstructionService Construction => _sim.Construction;
         public ZoneService Zones => _sim.Zones; // 구역 배치 결정자 (M9-A)
+        public DefenseService Defense => _sim.Defense; // 방어 계획 (M22-W4 — BuildRunner 배치 조회)
         public FarmService Farm => _sim.Farm;
         public HomeStorageService HomeStorage => _sim.HomeStorage; // 집 저장 (M11-A — EffectApplier 창구)
         public RequestService Requests => _sim.Requests; // 부탁 (M11-F — 택지의 의뢰인 조회)

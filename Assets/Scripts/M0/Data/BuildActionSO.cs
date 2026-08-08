@@ -42,6 +42,12 @@ namespace AIVillage.M0
                 into.Add(new SlotEffect { Slot = Building.CountSlot, Op = EffectOp.Add, Value = 1 });
             else
                 into.Add(new SlotEffect { Slot = Building.BuiltFlagSlot, Op = EffectOp.Set, Value = 1 });
+
+            // 방어 계획 소진 (M22-W4) — 계획 타일에 짓는 건물은 계획 잔여를 1 줄인다. 플래너
+            // 시야용 파생 효과 (goal이 DefensePlannedCount를 노린다) — 런타임 반영은
+            // DefenseService.NotifyBuilt 구독 몫 (BuildRunner AppliesOwnEffects, 이중 기입 아님).
+            if (Building.PlaceOnDefensePlan)
+                into.Add(new SlotEffect { Slot = SlotId.DefensePlannedCount, Op = EffectOp.SubClamp0, Value = 1 });
         }
 
         public override IActionRunner CreateRunner(VillagerAgent agent) => new BuildRunner(this);

@@ -130,6 +130,12 @@ namespace AIVillage.M0
             r.Cause = ExitCause.Unknown;
         }
 
+        /// <summary>사건 기록 관측 훅 (롱폼 촬영 트랙, ADR-LF-8) — 기록 **후** 통지.
+        /// 구독자 없으면 no-op. 촬영(CaptureDirector)이 유일한 의도된 구독자이고,
+        /// Chronicle 의 의미(주민 서사 아카이브)는 넓히지 않는다 — 여기 없는 사건을
+        /// 찍고 싶으면 해당 서비스의 이벤트를 구독하라 (명세 W3 전수표).</summary>
+        public event System.Action<ChronicleEvent> OnEventRecorded;
+
         /// <summary>사건 기록 (M13-C2) — 레코드의 Events에 **Add만** 한다 (ADR-M13-2:
         /// C1 필드를 읽지도 고치지도 않는다). 미등장 주체는 무시 (구독 배선이 주민 아닌
         /// ID를 넘겨도 안전 — 방어).</summary>
@@ -138,10 +144,12 @@ namespace AIVillage.M0
         {
             if (string.IsNullOrEmpty(subjectId)
                 || !_records.TryGetValue(subjectId, out VillagerRecord r)) return;
-            r.Events.Add(new ChronicleEvent
+            var ev = new ChronicleEvent
             {
                 Kind = kind, Day = day, SubjectId = subjectId, OtherId = otherId, Value = value,
-            });
+            };
+            r.Events.Add(ev);
+            OnEventRecorded?.Invoke(ev);
         }
 
         /// <summary>레코드 조회 (M13-C2 — 정보줄 표시용 읽기 창구). 미등장 = false.</summary>

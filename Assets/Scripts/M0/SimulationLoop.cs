@@ -641,9 +641,15 @@ namespace AIVillage.M0
         /// 이름·날짜는 죽는 순간에 인자로 받는다 — OnDestroy 시점엔 지연 파괴·서비스 기록 정리와
         /// 순서가 얽힌다 (M13 명세 §6-A ⚠️).
         /// </summary>
+        /// <summary>사망 관측 훅 (롱폼 촬영 트랙, ADR-LF-8) — 사망은 Chronicle EventId 에
+        /// 없어(RecordExit 는 레코드 마감이지 사건 스트림이 아니다) 공통 문인 여기서 알린다.
+        /// 구독자 없으면 no-op. (agentId, shortName, tileX, tileY)</summary>
+        public event System.Action<string, string, int, int> OnAgentDied;
+
         public void RecordDeath(int tileX, int tileY, string shortName, int day, string agentId)
         {
             DeathCount++;
+            OnAgentDied?.Invoke(agentId, shortName, tileX, tileY);
             // 래칫 완충 (M21-W7) — 사망의 공통 문(Die·StarveToDeath 합류점)이라 여기 한 줄이면
             // 원인 무관 전 사망을 덮는다. 위협 없는 판은 null이라 자연히 무효 (중립 불변식).
             Threats?.NotifyVillagerDeath();

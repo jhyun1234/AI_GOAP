@@ -25,6 +25,12 @@ namespace AIVillage.M0.Capture
         public string SessionDir;
         public float PlannedMinutes = 30f;
 
+        /// <summary>순항 배속 (사용자 제안 2026-08-09) — 사건이 없을 때는 빨리 감아 수확
+        /// 밀도를 올리고, **사건이 터지면 1×로 내려** 클립이 자연 속도로 찍히게 한다.
+        /// 4 = 숫자키 3 단계와 동일. 쓰기는 PlayerInputController.RequestSpeed 창구만
+        /// (배속 소유권 단일성). 방랑자 제안이 대기 중이면 게임의 1× 강제를 존중한다.</summary>
+        public float CruiseSpeed = 4f;
+
         /// <summary>세션 종료(계획 시간 도달) 통지 — Runner 가 녹화 정지·Play 종료를 맡는다.</summary>
         public event System.Action OnSessionComplete;
 
@@ -36,11 +42,14 @@ namespace AIVillage.M0.Capture
         private CutLog _log;
         private Camera _cam;
         private Behaviour _playerCamCtrl;         // 촬영 동안 꺼 두는 CameraController (파일 무수정)
+        private PlayerInputController _input;     // 배속 창구 (RequestSpeed) — 소유권은 그쪽
 
         private Vector3 _target;
         private int _curPriority;
-        private float _holdUntil;
+        private float _holdUntil;                 // ⏱ 배속이 오가므로 시계는 전부 unscaledTime
         private float _nextBrollAt;
+        private float _slowUntil;                 // 사건 촬영용 1× 유지 구간
+        private float _curSpeed = 1f;             // 마지막으로 요청한 배속 (재요청 방지)
         private bool _done;
 
         private void Start()
@@ -66,15 +75,17 @@ namespace AIVillage.M0.Capture
                 if (_playerCamCtrl != null) _playerCamCtrl.enabled = false;
                 _target = _cam.transform.position;
             }
+            _input = FindAnyObjectByType<PlayerInputController>();
 
             Subscribe();
-            _nextBrollAt = Time.time + 3f;
-            Debug.Log($"[Capture] 세션 시작 — {PlannedMinutes:F0}분 · {SessionDir}");
+            _nextBrollAt = Time.unscaledTime + 3f;
+            Debug.Log($"[Capture] 세션 시작 — {PlannedMinutes:F0}분 · 순항 ×{CruiseSpeed:0.#} · {SessionDir}");
         }
 
         private void OnDestroy()
         {
             if (_playerCamCtrl != null) _playerCamCtrl.enabled = true;
+            if (_input != null && _curSpeed != 1f) _input.RequestSpeed(1f);   // 배속 원복
         }
 
         private void Subscribe()
@@ -120,6 +131,9 @@ namespace AIVillage.M0.Capture
                 _sim.Disaster.OnStruck += (d, n) => Mark("disaster", 85, VillageCenter(), $"{d.name} ×{n}");
             if (_sim.Season != null)
                 _sim.Season.OnSeasonChanged += s => Mark("season", 30, VillageCenter(), s.name);
+            if (_sim.Wanderers != null)
+                _sim.Wanderers.OnOffered += (name, tile) =>
+                    Mark("wanderer", 70, new Vector3(tile.x, tile.y, 0f), name);
         }
 
         /// <summary>Chronicle 개인사의 우선순위. 서비스 이벤트로 이미 받는 종류는 -1(중복 방지).</summary>
@@ -138,17 +152,21 @@ namespace AIVillage.M0.Capture
         {
             if (_done) return;
             float recSec = (Time.frameCount - RecordStartFrame) / 30f;
-            bool attend = priority >= _curPriority || Time.time >= _holdUntil;
+            bool attend = priority >= _curPriority || Time.unscaledTime >= _holdUntil;
             if (attend)
             {
                 _target = new Vector3(pos.x, pos.y, _cam != null ? _cam.transform.position.z : -10f);
                 _curPriority = priority;
-                _holdUntil = Time.time + HOLD_SEC;
+                _holdUntil = Time.unscaledTime + HOLD_SEC;
+                // 사건은 1× 화면으로 찍는다 (사용자 제안 2026-08-09) — 배속 화면은 주민이
+                // 우스꽝스럽게 빨라 클립으로 못 쓴다. B-roll(10)은 순항 그대로 둔다.
+                if (priority >= 30) _slowUntil = Time.unscaledTime + HOLD_SEC;
             }
             _log.Add(new CutLog.Cut
             {
                 RecSec = recSec, Kind = kind, Detail = detail, Pos = pos, Attended = attend,
                 CamDist = _cam != null ? Vector2.Distance(_cam.transform.position, pos) : -1f,
+                Speed = Time.timeScale,
             });
         }
 
@@ -166,11 +184,28 @@ namespace AIVillage.M0.Capture
             }
 
             // 사건이 조용하면 B-roll — 마을의 일상을 기록만 남기고 따라간다
-            if (Time.time >= _holdUntil && Time.time >= _nextBrollAt)
+            if (Time.unscaledTime >= _holdUntil && Time.unscaledTime >= _nextBrollAt)
             {
-                _nextBrollAt = Time.time + BROLL_EVERY;
+                _nextBrollAt = Time.unscaledTime + BROLL_EVERY;
                 Vector3 p = RandomAlivePos();
                 Mark("broll", 10, p, "일상");
+            }
+
+            /* ── 순항 배속 (사용자 제안 2026-08-09) ─────
+               사건 촬영 구간(_slowUntil)과 방랑자 제안 대기 중에는 1× — 앞엣것은 클립
+               화질(자연 속도), 뒤엣것은 게임의 개입 설계(프롬프트 1× 강제)를 존중한다.
+               그 밖에는 CruiseSpeed 로 감아 수확 밀도를 올린다. 요청은 값이 바뀔 때만
+               (RequestSpeed 는 HUD 알림을 띄우므로 매 프레임 부르면 알림이 도배된다). */
+            if (_input != null)
+            {
+                bool slow = Time.unscaledTime < _slowUntil
+                         || _sim.Wanderers?.HasPendingOffer == true;
+                float want = slow ? 1f : CruiseSpeed;
+                if (!Mathf.Approximately(want, _curSpeed))
+                {
+                    _input.RequestSpeed(want);
+                    _curSpeed = want;
+                }
             }
         }
 

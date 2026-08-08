@@ -27,6 +27,7 @@ namespace AIVillage.M0.Capture
             public Vector2 Pos;      // 사건 좌표 (월드 = 타일, ADR-M0-9)
             public bool Attended;    // 카메라가 이 사건으로 이동했는가
             public float CamDist;    // 사건 순간 카메라와의 거리 (선별 참고)
+            public float Speed;      // 사건 순간 배속 (순항 중이면 그 앞 구간은 빨리 감긴 화면)
         }
 
         private readonly List<Cut> _cuts = new List<Cut>(64);
@@ -60,6 +61,7 @@ namespace AIVillage.M0.Capture
                   .Append(", \"y\": ").Append(c.Pos.y.ToString("F1", CultureInfo.InvariantCulture))
                   .Append(", \"attended\": ").Append(c.Attended ? "true" : "false")
                   .Append(", \"camDist\": ").Append(c.CamDist.ToString("F1", CultureInfo.InvariantCulture))
+                  .Append(", \"spd\": ").Append(c.Speed.ToString("F1", CultureInfo.InvariantCulture))
                   .Append('}').Append(i < _cuts.Count - 1 ? ",\n" : "\n");
             }
             sb.Append("  ]\n}\n");

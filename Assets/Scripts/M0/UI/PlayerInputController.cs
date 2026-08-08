@@ -492,14 +492,22 @@ namespace AIVillage.M0
             });
         }
 
+        /// <summary>외부 배속 요청 창구 (롱폼 촬영 W3 보강, 2026-08-09) — 유일한 사용처는
+        /// CaptureDirector(무인 촬영 순항 배속). 소유권은 여전히 이 클래스다: 쓰기가
+        /// SetSpeed 하나를 통과하므로 "지금 몇 배속인가" 판정이 갈리지 않는다.
+        /// Time.timeScale 직접 쓰기가 진짜 위반이고, 이 창구가 그걸 막는 길이다.</summary>
+        public void RequestSpeed(float scale) => SetSpeed(scale, notify: false);
+        // notify:false — 촬영 감독은 사건마다 배속을 오가는데, 그때마다 HUD 토스트가
+        // 뜨면 녹화 화면에 「배속 ×1」이 찍힌다. 로그는 남긴다(진단 경로 유지).
+
         /// <summary>배속 설정의 유일한 쓰기 지점 (2026-08-07) — 배속·일시정지·자동 실시간이
         /// 전부 여기를 통과한다. 0(정지)은 복귀 대상으로 기억하지 않는다.</summary>
-        private void SetSpeed(float scale)
+        private void SetSpeed(float scale, bool notify = true)
         {
             if (scale > 0f) _resumeSpeed = scale;
             Time.timeScale = scale;
             string label = scale > 0f ? $"배속 ×{scale:0.#}" : "일시정지 — [0] 해제";
-            M0SimulationLoop.Instance.Hud?.Notify(label);
+            if (notify) M0SimulationLoop.Instance.Hud?.Notify(label);
             Debug.Log($"[PlayerInput] {label}");
         }
 

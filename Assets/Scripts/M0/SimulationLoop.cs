@@ -205,6 +205,7 @@ namespace AIVillage.M0
         private ZoneBorderView _zoneBorderView;
         private DefensePlanView _defensePlanView; // 방어 계획 마커 (M22-W3R2, 표현 전용)
         private DefenseDurabilityView _defenseDurabilityView; // 시설 손상 오버레이 (M22-W7, 표현 전용)
+        private DefenseFenceView _defenseFenceView; // 울타리 오토타일 (M23-W2, 표현 전용)
         private FarmPlotView _farmView;
         private int _lastLoggedDay = -1;
         private readonly List<VillagerAgent> _agents = new List<VillagerAgent>(8);
@@ -800,8 +801,18 @@ namespace AIVillage.M0
             }
 
             _visualizer = new BuildingVisualizer(transform);
-            Construction.OnCompleted += (b, x, y, _) => _visualizer.Spawn(b, x, y);
-            Construction.OnRemoved += (slot, x, y) => _visualizer.Remove(slot, x, y); // M9-B 시각 파괴
+            _defenseFenceView = new DefenseFenceView(); // M23-W2 — 울타리 오토타일 (표현 전용)
+            Construction.OnCompleted += (b, x, y, _) =>
+            {
+                GameObject body = _visualizer.Spawn(b, x, y);
+                // 몸은 visualizer, 옷은 뷰 (ADR-M23-3 — 이중 스폰 금지). 방어물 아니면 무시.
+                _defenseFenceView.Dress(b, body, new Vector2Int(x, y));
+            };
+            Construction.OnRemoved += (slot, x, y) =>
+            {
+                _visualizer.Remove(slot, x, y); // M9-B 시각 파괴
+                _defenseFenceView.NotifyRemoved(slot, new Vector2Int(x, y)); // 구멍 양옆 끝단 갱신
+            };
             // 밭 시설 소실 → FarmService.RemovePlot (RemovePlot의 유일한 호출 경로, ADR-M9-3 대칭)
             Construction.OnRemoved += (slot, x, y) =>
             {

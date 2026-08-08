@@ -76,6 +76,11 @@ namespace AIVillage.M0
         [Tooltip("수리 1회의 Wood 비용 (MaxDurability > 0일 때만 의미). 수리 1회 = 전량 복원 (한 걸음, ADR-M0-12).")]
         public int RepairCost;
 
+        [Tooltip("연결형 조각 16장 (M23-W2, ADR-M23-2) — 4×4 오토타일 시트 순서 (인덱스 = 행×4+열, " +
+                 "윗행부터). 채우면 전용 뷰(DefenseFenceView)가 이웃 4방을 보고 조각을 고른다. " +
+                 "비면 MarkerSprite/원형 폴백 (중립 — 기존 건물 무변).")]
+        public Sprite[] TileSprites;
+
         [Tooltip("완공 시 스폰할 프리팹. 비우면 MarkerSprite → 원형 마커 순으로 폴백.")]
         public GameObject Prefab;
 

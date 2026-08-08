@@ -48,6 +48,44 @@ namespace AIVillage.Tests.EditMode
         }
 
         [Test]
+        public void M23_T2_FenceAutotile_MaskMappingAndWiring()
+        {
+            // 조각 선택 순수 함수 (ADR-M23-2) — 시트 판독표를 박제 (실수로 표를 바꾸면 red).
+            // 인덱스: 0=세로상단 1=가로좌끝 2=가로중간 3=가로우끝 4=세로중간 5=┌ 6=┬ 7=┐
+            //         8=세로하단 9=├ 10=┼ 11=┤ 12=단독 13=└ 14=┴ 15=┘
+            Assert.AreEqual(12, DefenseFenceView.PieceOf(false, false, false, false), "고립 = 단독 기둥");
+            Assert.AreEqual(10, DefenseFenceView.PieceOf(true, true, true, true), "사방 = 십자");
+            Assert.AreEqual(2, DefenseFenceView.PieceOf(false, true, false, true), "동서 = 가로 중간");
+            Assert.AreEqual(4, DefenseFenceView.PieceOf(true, false, true, false), "남북 = 세로 중간");
+            Assert.AreEqual(1, DefenseFenceView.PieceOf(false, true, false, false), "동만 = 가로 왼끝");
+            Assert.AreEqual(3, DefenseFenceView.PieceOf(false, false, false, true), "서만 = 가로 오른끝");
+            Assert.AreEqual(0, DefenseFenceView.PieceOf(false, false, true, false), "남만 = 세로 위끝");
+            Assert.AreEqual(8, DefenseFenceView.PieceOf(true, false, false, false), "북만 = 세로 아래끝");
+            Assert.AreEqual(5, DefenseFenceView.PieceOf(false, true, true, false), "동남 = ┌");
+            Assert.AreEqual(7, DefenseFenceView.PieceOf(false, false, true, true), "남서 = ┐");
+            Assert.AreEqual(13, DefenseFenceView.PieceOf(true, true, false, false), "북동 = └");
+            Assert.AreEqual(15, DefenseFenceView.PieceOf(true, false, false, true), "북서 = ┘");
+            Assert.AreEqual(6, DefenseFenceView.PieceOf(false, true, true, true), "동남서 = ┬");
+            Assert.AreEqual(14, DefenseFenceView.PieceOf(true, true, false, true), "북동서 = ┴");
+            Assert.AreEqual(9, DefenseFenceView.PieceOf(true, true, true, false), "북동남 = ├");
+            Assert.AreEqual(11, DefenseFenceView.PieceOf(true, false, true, true), "북남서 = ┤");
+
+            // 거울 대칭 (판독 오류 탐지기): E↔W 반전이면 좌우 조각도 짝으로 뒤집힌다
+            Assert.AreEqual(
+                DefenseFenceView.PieceOf(false, true, false, false) == 1 ? 3 : -1,
+                DefenseFenceView.PieceOf(false, false, false, true), "좌우 거울쌍 1↔3");
+
+            // 에셋 배선 — 조각 16장 전부 실 스프라이트 (fileID 손배선 검증), 문 그림 실재
+            var fence = AssetDatabase.LoadAssetAtPath<BuildingSO>("Assets/M0Config/Buildings/Fence.asset");
+            var gate = AssetDatabase.LoadAssetAtPath<BuildingSO>("Assets/M0Config/Buildings/Gate.asset");
+            Assert.IsTrue(fence.TileSprites != null && fence.TileSprites.Length == 16, "울타리 조각 16장");
+            for (int i = 0; i < 16; i++)
+                Assert.IsNotNull(fence.TileSprites[i], $"울타리 조각[{i}] null — fileID 손배선 오류");
+            Assert.IsNotNull(fence.MarkerSprite, "울타리 대표(폴백) 스프라이트");
+            Assert.IsNotNull(gate.MarkerSprite, "문 스프라이트 (Fence_Big_Gate 닫힌 문)");
+        }
+
+        [Test]
         public void M23_T1b_CoreActions_AnimMapping()
         {
             // 핵심 매핑 박제 (합의 — 명세 §W1. 괭이(Hoe)는 시트에 없어 심기 = 물뿌리개로 정정):

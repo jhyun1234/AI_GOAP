@@ -54,6 +54,14 @@ namespace AIVillage.M0.Capture.Editor
 
         private static void Begin(float minutes, bool exitAfter)
         {
+            // CLI 로 새로 뜬 에디터는 빈 Untitled 씬에서 시작한다 — 게임 씬을 먼저 연다.
+            // (실측 2026-08-09: 이 줄이 없으면 빈 씬을 3분 녹화하고, 시뮬이 없어
+            //  종료 통지도 안 와 세션이 영원히 안 끝난다.)
+            const string ScenePath = "Assets/Scenes/M0Scene.unity";
+            var active = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+            if (active.path != ScenePath)
+                UnityEditor.SceneManagement.EditorSceneManager.OpenScene(ScenePath);
+
             string dir = Path.Combine(ClipsRoot, DateTime.Now.ToString("yyMMdd-HHmm"));
             SessionState.SetBool(KeyPending, true);
             SessionState.SetFloat(KeyMinutes, minutes);

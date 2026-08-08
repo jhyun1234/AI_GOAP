@@ -46,7 +46,15 @@ namespace AIVillage.M0.Capture
         private void Start()
         {
             _sim = FindAnyObjectByType<M0SimulationLoop>();
-            if (_sim == null) { Debug.LogError("[Capture] M0SimulationLoop 이 없다 — 촬영 불가"); enabled = false; return; }
+            if (_sim == null)
+            {
+                // 세션을 끝내 준다 — 여기서 그냥 꺼지면 Runner 가 종료 통지를 못 받아
+                // CLI 세션이 영원히 안 끝난다 (실측 2026-08-09, 빈 씬 사고의 후반부).
+                Debug.LogError("[Capture] M0SimulationLoop 이 없다 — 촬영 불가, 세션 종료");
+                enabled = false;
+                OnSessionComplete?.Invoke();
+                return;
+            }
             _log = new CutLog(SessionDir);
 
             _cam = Camera.main;

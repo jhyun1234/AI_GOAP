@@ -747,10 +747,13 @@ namespace AIVillage.M0
             Zones.OnZoneEstablished += (slot, anchor, radius) =>
             {
                 if (slot != SlotId.FenceCount) return; // 방어 구역 키만 — 밭 구역(휴면)과 무관
+                // 필터에 자원 노드 포함 (M5 자가 재검토 🔴) — 노드 칸을 계획에 남기면 BuildRunner의
+                // Occupied(HasNodeAt)가 영영 거부해 DefensePlannedCount가 바닥나지 않는다 (goal 공회전)
                 Defense.EstablishPlan(anchor, radius,
                     new Vector2Int(_worldConfig.BaseTileX, _worldConfig.BaseTileY),
                     (x, y) => MapBounds.ToArrayIndex(x, y, out int ax, out int ay)
-                              && Walkable[ax, ay] && !Construction.HasBuildingAt(x, y));
+                              && Walkable[ax, ay] && !Construction.HasBuildingAt(x, y)
+                              && !Discovery.HasNodeAt(x, y));
             };
             // 방어 시설 완공 → 계획 차감 + 내구도 등록 (M22-W3·W5) — 완공 자체는 Complete()만 (ADR-M0-3)
             Construction.OnCompleted += (b, x, y, _) => Defense.NotifyBuilt(b, x, y);

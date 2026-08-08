@@ -126,6 +126,7 @@ namespace AIVillage.M0
         public DefenseService Defense { get; private set; }
 
         private int _fenceWoodCost = -1, _gateWoodCost = -1; // 카탈로그 파생 캐시 (−1 = 미계산)
+        private BuildingSO _fenceBuildingSO, _gateBuildingSO; // 고스트 그림·비용의 원천 (M23-W3)
 
         private void EnsureDefenseWoodCosts()
         {
@@ -141,8 +142,8 @@ namespace AIVillage.M0
                     if (b.Building.Costs != null)
                         foreach (ResourceCost c in b.Building.Costs)
                             if (c.StockSlot == SlotId.WoodStock) wood += c.Amount;
-                    if (b.Building.CountSlot == SlotId.GateCount) _gateWoodCost = wood;
-                    else _fenceWoodCost = wood;
+                    if (b.Building.CountSlot == SlotId.GateCount) { _gateWoodCost = wood; _gateBuildingSO = b.Building; }
+                    else { _fenceWoodCost = wood; _fenceBuildingSO = b.Building; }
                 }
         }
 
@@ -843,9 +844,10 @@ namespace AIVillage.M0
             // 구역 테두리 (표현 전용) — 확정 순간 앵커 둘레에 외곽선
             _zoneBorderView = new ZoneBorderView(transform);
             Zones.OnZoneEstablished += (slot, anchor, radius) => _zoneBorderView.Draw(slot, anchor, radius);
-            // 방어 계획 마커 (M22-W3R2, 표현 전용) — 계획된 울타리·문 칸을 흐린 사각으로.
-            // 지어지기 전의 계획이 화면에 안 보이면 "그었는데 아무 일도 없다"가 된다.
-            _defensePlanView = new DefensePlanView(transform, Defense);
+            // 방어 계획 마커 (M22-W3R2 → M23-W3 고스트) — 계획된 울타리·문 칸을 반투명 실물
+            // 그림으로. 지어지기 전의 계획이 화면에 안 보이면 "그었는데 아무 일도 없다"가 된다.
+            EnsureDefenseWoodCosts(); // 고스트 그림의 원천(BuildingSO) 캐시
+            _defensePlanView = new DefensePlanView(transform, Defense, _fenceBuildingSO, _gateBuildingSO);
             // 시설 손상 오버레이 (M22-W7, 표현 전용) — 깎일수록 짙어지는 검붉은 마커.
             // 헌장 표현 조항(ADR-M20-1): "색 바랜 울타리가 늘어나는 것"이 목수 부재의 화면이다.
             _defenseDurabilityView = new DefenseDurabilityView(transform, Defense);

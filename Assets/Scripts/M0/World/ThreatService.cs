@@ -50,6 +50,24 @@ namespace AIVillage.M0
         private readonly List<ThreatAgent> _routBuf = new List<ThreatAgent>(4);
         // 무리별 전투 퇴장 수 (M21-W7) — 격퇴 성공("무리 전체가 전투로 물러남") 판정의 분자.
         private readonly Dictionary<int, int> _groupCombatExits = new Dictionary<int, int>(2);
+        // 무리별 참여 타격자 (M21-W9) — 격퇴 성공 시 연대기에 남을 "전원"의 명단.
+        // 원천 = CombatService.NoteAttacker (착탄한 타격만 — 헛손질은 참여가 아니다).
+        private readonly Dictionary<int, List<string>> _groupAttackers = new Dictionary<int, List<string>>(2);
+
+        /// <summary>적습 격퇴 성립 (M21-W9) — 무리 전원이 전투로 물러난 순간 1회 (위협, 무리 규모,
+        /// **참여 타격자 전원**). 연대기(참여 전원 기록)·격퇴 카운터 구독 지점. W7 완충과 같은
+        /// 판정 지점에서 나간다 — 판정이 두 벌이면 "완충은 됐는데 기록이 없다"가 생긴다.
+        /// ⚠️ 명단 리스트는 직후 재사용될 수 있다 — 구독자는 동기 소비만 (OnStruck 규약과 동일).</summary>
+        public event Action<ThreatSO, int, IReadOnlyList<string>> OnRaidRepelled;
+
+        /// <summary>참여 타격자 등록 (CombatService 전용, M21-W9) — 착탄마다 호출, 중복은 1회만.</summary>
+        public void NoteAttacker(int groupKey, string attackerId)
+        {
+            if (string.IsNullOrEmpty(attackerId)) return;
+            if (!_groupAttackers.TryGetValue(groupKey, out List<string> list))
+                _groupAttackers[groupKey] = list = new List<string>(2);
+            if (!list.Contains(attackerId)) list.Add(attackerId);
+        }
 
         // ── 래칫 양방향 완충 (M21-W7, ADR-M21-4) — 티어는 불가침, 완충은 규모·간격만 ──
         // 🔴 M10R가 막은 루프의 재발이 아니다: 옛 루프는 *마을 규모* 축이 사망으로 줄며 티어가
@@ -618,9 +636,16 @@ namespace AIVillage.M0
                 if (_groupSpawned.TryGetValue(agent.GroupKey, out int spawnedCount)
                     && _groupCombatExits.TryGetValue(agent.GroupKey, out int combatExits)
                     && combatExits >= spawnedCount)
+                {
                     RegisterRepelRelief(agent.So);
+                    // 격퇴 사건 발신 (M21-W9) — 완충과 같은 판정, 참여 전원 명단과 함께
+                    if (_groupAttackers.TryGetValue(agent.GroupKey, out List<string> attackers)
+                        && attackers.Count > 0)
+                        OnRaidRepelled?.Invoke(agent.So, spawnedCount, attackers);
+                }
                 _groupSpawned.Remove(agent.GroupKey);
                 _groupCombatExits.Remove(agent.GroupKey);
+                _groupAttackers.Remove(agent.GroupKey);
             }
             Debug.Log($"[Threat] 퇴장 — {agent.So.DisplayName}");
         }

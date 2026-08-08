@@ -50,11 +50,11 @@ namespace AIVillage.M0
     /// **목수가 휴면인 이유가 이것이다** (ADR-M20-9) — 전이 통로(전역 스톡·나눔·공용 건물)에
     /// 닿는 효율만 마을 단위의 부재 시나리오를 만든다. 나무꾼·광부가 전역 스톡으로 통과하는 이유.
     ///
-    /// 📦 **격퇴 계열(사냥꾼·경비)의 선반 자리** — M21+ 전투 시스템과 **한 몸으로만** 신설한다
-    /// (전투 판정 없이 직업만 만들면 빈 껍데기다):
-    ///   · 전투 효율 → 새 필드 그룹(예: CombatDurationMult) — 여기에 append
-    ///   · 사냥·채광 자원 → GatherDurationMults가 이미 수용 (Iron 등 미정의 자원은 자동 1)
-    ///   · 격퇴 전용 권한이 필요하면 → 먼저 ADR-M19-3(독점은 치료 1곳뿐)의 개정 사유부터 쓴다
+    /// 📦 **격퇴 계열 선반 — M21-W8에서 입주 완료** (예고대로 전투 시스템과 한 몸으로 신설):
+    ///   · 전투 효율 → CombatDurationMult (사냥꾼 0.5 — FightRunner 하나가 소비)
+    ///   · 정찰 → WarnBonusDays (탐험가 재탄생 — 예고 연장, 최댓값이지 합산 아님)
+    ///   · 사냥 드랍은 전역 스톡 (ADR-M21-8) — 격퇴 전용 권한은 만들지 않았다 (ADR-M19-3 유지:
+    ///     독점은 치료 1곳뿐. 맨손도 싸운다 — ADR-M21-5)
     /// </summary>
     [CreateAssetMenu(menuName = "AIVillage/M0/Job", fileName = "Job")]
     public sealed class JobSO : ScriptableObject

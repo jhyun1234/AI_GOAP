@@ -433,6 +433,10 @@ namespace AIVillage.M0
         /// <summary>최대 동시 생존 인구 (M14-W4) — 쓰기는 RegisterAgent뿐. 세이브 대상.</summary>
         public int PeakPopulation { get; private set; }
 
+        /// <summary>이번 판 적습 격퇴 수 (M21-W9) — 쓰기는 OnRaidRepelled 구독 1곳
+        /// (무리 전원이 전투로 물러난 사건 단위 — 마리 단위 아님). 세이브 대상 (ADR-M0-10).</summary>
+        public int RepelCount { get; private set; }
+
         /// <summary>현재 판 스냅샷 (M15-W2 — 저장과 열람이 같은 함수: 직렬화 경로가 평소
         /// 열람으로도 검증된다, 명세 확정 보완 3). World+UI를 둘 다 아는 조립자는 여기뿐
         /// (ComposeGameOver 호출부 선례 — World→UI 역참조 금지). RunNumber는 안 채운다
@@ -654,7 +658,7 @@ namespace AIVillage.M0
                     if (_prevSeasonFrozen && !s.ForageFrozen && !_gameOverShown)
                     {
                         WintersSurvived++;
-                        bool newBest = RunRecordStore.SaveIfBetter(WintersSurvived, (int)GameTime, PeakPopulation);
+                        bool newBest = RunRecordStore.SaveIfBetter(WintersSurvived, (int)GameTime, PeakPopulation, RepelCount);
                         // 연대기 갱신 (M15-W2) — 쓰기 지점 ① (ADR-M15-2). 같은 가드 안이라
                         // 전멸 후 빈 마을의 겨울은 아카이브도 오염 못 한다 (M14 버그 수정 공유).
                         _archiveRunIndex = ChronicleArchive.SaveRun(_archiveRunIndex, SnapshotCurrentRun(ended: false));
@@ -799,10 +803,23 @@ namespace AIVillage.M0
                 Combat.OnRepelled += (t, attackerId, day) =>
                     Hud?.Notify($"{t.DisplayName}을(를) 물리쳤습니다");
                 Combat.OnHunted += (t, attackerId, drop, day) =>
+                {
                     Hud?.Notify(drop > 0 ? $"{t.DisplayName} 사냥 성공 — 고기 {drop} 확보"
                                          : $"{t.DisplayName} 사냥 성공");
+                    // 연대기 (M21-W9) — 사냥은 잡은 본인의 공적. Value = 드랍 (무리 규모는 격퇴 사건 몫)
+                    Chronicle.RecordEvent(attackerId, EventId.Hunted, day, t.DisplayName, drop);
+                };
                 Combat.OnRouted += (t, attackerId, day) =>
                     Hud?.Notify($"{t.DisplayName} 적습을 물리쳤습니다 — 무리가 달아납니다");
+                // 적습 격퇴 (M21-W9) — 무리 전원이 전투로 물러난 사건. 참여 전원의 연대기에 남고
+                // (ADR-M21-1 검증 문장: "늑대 다섯 적습을 사냥꾼이 앞장서 물리쳤다"의 재료),
+                // 격퇴 카운터가 오른다 (신기록 BestRepels의 원천).
+                Threats.OnRaidRepelled += (t, spawnedCount, attackers) =>
+                {
+                    RepelCount++;
+                    foreach (string id in attackers)
+                        Chronicle.RecordEvent(id, EventId.Repelled, GameTime, t.DisplayName, spawnedCount);
+                };
             }
 
             // 방랑자 (M10-E) — 주기 ≤ 0이면 서비스 null (중립 불변식). 표현 배선은 전부 여기 —
@@ -913,13 +930,14 @@ namespace AIVillage.M0
                     // 이론상 도달 불가하지만, 빈 회고 화면보다 숫자가 낫다).
                     IReadOnlyList<VillagerRecord> roster = Chronicle.RosterByBirth();
                     // 기록 마감 (M14-W4) — 저장 지점 ② (마지막 생존일·최대 인구 확정, ⚠️W4-③).
-                    bool newRecord = RunRecordStore.SaveIfBetter(WintersSurvived, (int)GameTime, PeakPopulation);
+                    bool newRecord = RunRecordStore.SaveIfBetter(WintersSurvived, (int)GameTime, PeakPopulation, RepelCount);
                     // 연대기 마감 (M15-W2) — 쓰기 지점 ② (ADR-M15-2). 겨울 0번 판도 여기서 처음 남는다.
                     _archiveRunIndex = ChronicleArchive.SaveRun(_archiveRunIndex, SnapshotCurrentRun(ended: true));
                     RunRecordStore.RunRecord best = RunRecordStore.Load();
                     Hud?.ShowGameOver(roster.Count > 0
                         ? SeasonHud.ComposeGameOver((int)GameTime, SettleCount, roster,
-                                                    WintersSurvived, PeakPopulation, best, newRecord)
+                                                    WintersSurvived, PeakPopulation, best, newRecord,
+                                                    RepelCount) // 격퇴 줄 (M21-W9)
                         : SeasonHud.ComposeGameOver((int)GameTime, DeathCount, 0, SettleCount)); // 이탈 축 휴면 — 0 (항목 자동 감춤)
                     Debug.Log($"[M0Sim] 전멸 — Day {(int)GameTime} (사망 {DeathCount} · 정착 {SettleCount} · " +
                               $"겨울 {WintersSurvived}번 · 최대 {PeakPopulation}명{(newRecord ? " · 역대 최고 갱신" : "")})");

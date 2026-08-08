@@ -16,10 +16,14 @@ namespace AIVillage.M0
         [Serializable]
         public sealed class RunRecord
         {
-            public int Version = 1;
+            public int Version = 1;  // append-only 스키마 (ADR-M14-3) — 필드 추가는 버전 불변
             public int BestWinters;  // 넘긴 겨울(봉쇄 계절) 수 — 비교 키 1순위
             public int BestDay;      // 그 판의 생존일 — 비교 키 2순위
             public int BestPeakPop;  // 그 판의 최대 동시 인구 — 표기용 (비교 키 아님)
+            public int BestRepels;   // 역대 최다 격퇴 (M21-W9) — **판과 독립인 최댓값** (비교 키
+                                     // 아님). 진 판의 최다 격퇴도 기록으로 남는다 — "격퇴하며
+                                     // 버티는 기록 경주"(ADR-M21-1)의 두 번째 자. 옛 파일은
+                                     // 필드 부재 → 0 (JsonUtility 역직렬화 호환, DoD ③)
         }
 
         private static string FilePath => Path.Combine(Application.persistentDataPath, "run_records.json");
@@ -47,15 +51,23 @@ namespace AIVillage.M0
             => winters > best.BestWinters
             || (winters == best.BestWinters && day > best.BestDay);
 
-        /// <summary>더 좋으면 저장하고 true. 호출 지점 = 겨울 전환·전멸 래치 2곳 (⚠️W4-③ — 매 틱 금지).</summary>
-        public static bool SaveIfBetter(int winters, int day, int peakPop)
+        /// <summary>더 좋으면 저장하고 true. 호출 지점 = 겨울 전환·전멸 래치 2곳 (⚠️W4-③ — 매 틱 금지).
+        /// repels(M21-W9)는 판 기록과 **독립으로** 최댓값 갱신 — 오래 못 버텼지만 많이 물리친 판의
+        /// 격퇴 기록이 사라지면 안 된다. 반환값은 여전히 "판 기록 갱신 여부"다 (신기록! 표시의 짝).</summary>
+        public static bool SaveIfBetter(int winters, int day, int peakPop, int repels = 0)
         {
             RunRecord best = Load();
-            if (!IsBetter(winters, day, best)) return false;
+            bool betterRun = IsBetter(winters, day, best);
+            bool betterRepels = repels > best.BestRepels;
+            if (!betterRun && !betterRepels) return false;
 
-            best.BestWinters = winters;
-            best.BestDay = day;
-            best.BestPeakPop = peakPop;
+            if (betterRun)
+            {
+                best.BestWinters = winters;
+                best.BestDay = day;
+                best.BestPeakPop = peakPop;
+            }
+            if (betterRepels) best.BestRepels = repels;
             try
             {
                 File.WriteAllText(FilePath, JsonUtility.ToJson(best, prettyPrint: true));
@@ -64,7 +76,7 @@ namespace AIVillage.M0
             {
                 Debug.LogWarning($"[RunRecord] 쓰기 실패 — 이번 갱신은 휘발 (기록은 게임을 못 막는다): {e.Message}");
             }
-            return true;
+            return betterRun;
         }
     }
 }

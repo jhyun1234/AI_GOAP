@@ -492,6 +492,15 @@ namespace AIVillage.M0
                 // 식량 나눔 (M19-W3) — 생존 서사의 계승: "굶다가 얻어먹고 살았다"
                 case EventId.FoodShared:
                     return $"식량 얻어먹음({e.Value}개)";
+                // 격퇴 (M21-W9) — ADR-M21-1 검증 문장의 재료: "늑대 무리 3마리 격퇴"
+                case EventId.Repelled:
+                    return string.IsNullOrEmpty(e.OtherId)
+                        ? "적습 격퇴"
+                        : e.Value > 1 ? $"{e.OtherId} {e.Value}마리 격퇴" : $"{e.OtherId} 격퇴";
+                // 사냥 (M21-W9) — 잡은 본인의 공적. Value = 드랍 고기
+                case EventId.Hunted:
+                    return (string.IsNullOrEmpty(e.OtherId) ? "사냥" : $"{e.OtherId} 사냥")
+                         + (e.Value > 0 ? $"(고기 {e.Value})" : "");
                 default:                   return e.Kind.ToString(); // 미등록 신규 — 이름 그대로 (침묵 금지)
             }
         }
@@ -598,13 +607,17 @@ namespace AIVillage.M0
         /// </summary>
         public static string ComposeGameOver(int day, int settles, IReadOnlyList<VillagerRecord> roster,
                                              int winters, int peakPop,
-                                             RunRecordStore.RunRecord best, bool newRecord)
+                                             RunRecordStore.RunRecord best, bool newRecord,
+                                             int repels = 0)
         {
-            string run = $"겨울 {winters}번을 넘기고 Day {day}에 쓰러졌다 · 최대 {peakPop}명";
+            // 격퇴 줄 (M21-W9) — 0회면 생략 (이탈 0 감춤과 같은 규율: 없는 축은 잡음이다)
+            string run = $"겨울 {winters}번을 넘기고 Day {day}에 쓰러졌다 · 최대 {peakPop}명"
+                       + (repels > 0 ? $" · 격퇴 {repels}회" : string.Empty);
             string record = best == null || (best.BestWinters == 0 && best.BestDay == 0)
                 ? "첫 기록이다."
                 : (newRecord ? "<color=#FFD966>신기록!</color> " : "역대 최고: ")
-                  + $"겨울 {best.BestWinters}번 · Day {best.BestDay} · 최대 {best.BestPeakPop}명";
+                  + $"겨울 {best.BestWinters}번 · Day {best.BestDay} · 최대 {best.BestPeakPop}명"
+                  + (best.BestRepels > 0 ? $" · 격퇴 {best.BestRepels}회" : string.Empty);
             // 힌트 줄 (M15-W3, 확정 보완 1) — 전멸 화면은 이미 현재 판 명부라 아카이브 패널을
             // 자동으로 겹치지 않는다 (같은 정보 두 형태 = 오독). 열람 통로는 C 토글 하나.
             return ComposeGameOver(day, settles, roster) + $"\n\n{run}\n{record}"
@@ -623,7 +636,8 @@ namespace AIVillage.M0
             switch (c)
             {
                 case ExitCause.Starvation: return "굶어 죽음";
-                case ExitCause.Injury:     return "부상으로 죽음";
+                case ExitCause.Injury:     return "부상으로 죽음"; // 옛 판 기록 호환 (M21-W9 이후 새 기록 없음)
+                case ExitCause.Combat:     return "짐승에게 물려 죽음"; // M21-W9 — "부상"이 아니라 가해자가 이야기다
                 case ExitCause.Unknown:    return "행방불명";
                 default:                   return "생존";
             }

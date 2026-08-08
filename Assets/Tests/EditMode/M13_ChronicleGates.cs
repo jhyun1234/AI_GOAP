@@ -92,8 +92,14 @@ namespace AIVillage.Tests.EditMode
             Assert.AreEqual(3, (int)EventId.OrderTaken);
             Assert.AreEqual(4, (int)EventId.OrderRefused);
             Assert.AreEqual(5, (int)EventId.Built);
+            Assert.AreEqual(6, (int)EventId.Traded);     // M16-W5
+            Assert.AreEqual(7, (int)EventId.HomePaid);   // M18-W5 (M19 휴면 — 값은 불변)
+            Assert.AreEqual(8, (int)EventId.FoodShared); // M19-W3
+            Assert.AreEqual(9, (int)EventId.Repelled);   // M21-W9
+            Assert.AreEqual(10, (int)EventId.Hunted);    // M21-W9
             Assert.AreEqual(0, (int)ExitCause.Alive);
             Assert.AreEqual(3, (int)ExitCause.Unknown);
+            Assert.AreEqual(4, (int)ExitCause.Combat);   // M21-W9 (Injury(1)는 옛 기록 호환으로 불변)
         }
 
         [Test]

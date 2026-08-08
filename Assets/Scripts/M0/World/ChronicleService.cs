@@ -7,9 +7,12 @@ namespace AIVillage.M0
     public enum ExitCause
     {
         Alive      = 0, // 아직 살아 있다 (기본값 — 0 = "미기록"과 같은 뜻이 되게 둔다)
-        Injury     = 1, // 부상 방치 사망 (VillagerAgent.Die)
+        Injury     = 1, // [M21-W9 이후 새 기록 없음 — 옛 판 표시 호환용 잔류 (append-only)]
+                        // 舊 부상 방치 사망. 부상은 현재 전투에서만 오므로 Combat(4)으로 통합됐다
         Starvation = 2, // 아사 (VillagerAgent.StarveToDeath)
         Unknown    = 3, // 사망 경로를 안 거치고 소멸 (씬 종료·강제 파괴 — 보루, ADR-M13-3)
+        Combat     = 4, // 전투 사망 (M21-W9) — 즉사·출혈 방치 모두 (둘 다 짐승이 낸 상처다).
+                        // "부상으로 죽음"이 아니라 "짐승에게 물려 죽음"이라고 말해야 이야기가 된다
     }
 
     /// <summary>사건 종류 (M13-C2 예약 — C1은 선언만, append 지점·표시는 C2).
@@ -27,6 +30,11 @@ namespace AIVillage.M0
                           //               (append-only). 화폐 철거로 지불 사건 자체가 소멸]
         FoodShared   = 8, // 식량 나눔   ← RequestService.AskShare (M19-W3. Value = 개수,
                           //               OtherId = 나눠준 주민). "굶다가 얻어먹고 살았다"의 계승
+        Repelled     = 9, // 적습 격퇴   ← ThreatService.OnRaidRepelled 구독 (M21-W9. 무리 전원이
+                          //               전투로 물러난 순간, **참여 전원**에 기록. Value = 무리
+                          //               규모, OtherId = 위협 이름). ADR-M21-1 검증 문장의 재료
+        Hunted       = 10, // 사냥       ← CombatService.OnHunted 구독 (M21-W9. 잡은 본인에게만 —
+                           //               사냥은 개인의 공적. Value = 드랍 고기, OtherId = 위협 이름)
     }
 
     /// <summary>사건 1건 (M13-C2) — 값 타입 취급: 서비스만 만들고 밖에서 고치지 않는다.</summary>

@@ -777,7 +777,9 @@ namespace AIVillage.M0
             _sim.RecordDeath(TileX, TileY, ShortName, (int)_sim.GameTime, AgentId);
             // 명부 퇴장 기록 (M13-C1) — 사유를 아는 곳에서만 쓴다 (ADR-M13-3:
             // 호출처는 여기와 StarveToDeath 둘뿐. UnregisterAgent로 옮기면 C3 증분이 무너진다).
-            _sim.Chronicle.RecordExit(AgentId, _sim.GameTime, ExitCause.Injury);
+            // M21-W9: Injury → Combat 개정 — 이 문은 전투 피해(즉사·출혈 방치)로만 열린다
+            // (TakeDamage의 Combat 분기가 유일한 호출자). "부상으로"가 아니라 "짐승에게"가 이야기다.
+            _sim.Chronicle.RecordExit(AgentId, _sim.GameTime, ExitCause.Combat);
             SnapshotRelationsForChronicle(); // C3 — ReleaseBy(OnDestroy)가 지우기 전에
             // (M19-W4: 지갑 소멸 회계(M16-W1)는 화폐와 함께 철거)
             ShowTransient(Pick(_cfg.DieLines));

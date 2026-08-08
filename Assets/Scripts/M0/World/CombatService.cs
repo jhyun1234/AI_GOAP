@@ -127,6 +127,7 @@ namespace AIVillage.M0
             ThreatSO so = target.So;
             float day = _gameTime != null ? _gameTime() : 0f;
             float remain = target.ApplyHit(damage); // 차감의 유일한 문 (ADR-M21-8)
+            _threats?.NoteAttacker(target.GroupKey, attackerId); // 참여 명단 (M21-W9 — 착탄만 참여다)
 
             Debug.Log($"[Combat] 타격 — {attackerId} → {so.DisplayName} " +
                       $"{damage:0.#} 피해 (남은 체력 {remain:0}/{so.MaxHp:0})");

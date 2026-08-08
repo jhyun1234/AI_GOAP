@@ -164,6 +164,10 @@ namespace AIVillage.M0
             {
                 VillagerAgent a = agents[i];
                 if (a == null || a.State == AgentState.Dead) continue;
+                // 명령 수행 중 제외 (리뷰① 2026-08-08 — ChatterService 와 같은 규율).
+                // 의뢰인 쪽: 싸우러 가던 주민이 부탁 장면으로 멈추면 명령의 무게가 사라진다.
+                // 수행자 쪽: 명령 중인 주민에게 부탁 goal 을 주입하면 완수 경쟁이 생긴다.
+                if (a.CurrentOrder != null) continue;
                 _scratch.Add(a);
             }
             for (int i = _scratch.Count - 1; i > 0; i--)
@@ -542,6 +546,9 @@ namespace AIVillage.M0
                 // 장면 연쇄 방지 — 둘 중 하나라도 대화 쿨다운이면 다음 기회에 정산
                 if (_chatter != null && (_chatter.IsCoolingDown(kv.Key, nowSec)
                                          || _chatter.IsCoolingDown(requester.AgentId, nowSec))) continue;
+                // 명령 수행 중이면 이번 마주침은 지나친다 (리뷰① 2026-08-08 — 정산 장면도 몇 초
+                // 정지를 건다). 빚은 소실 없이 유지 — 정산은 원래 다음 마주침 재시도 설계다.
+                if (builder.CurrentOrder != null || requester.CurrentOrder != null) continue;
 
                 int dist = Mathf.Abs(builder.TileX - requester.TileX)
                          + Mathf.Abs(builder.TileY - requester.TileY);

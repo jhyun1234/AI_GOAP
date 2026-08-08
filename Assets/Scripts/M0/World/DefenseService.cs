@@ -77,6 +77,49 @@ namespace AIVillage.M0
             return false;
         }
 
+        // ── 문 잠금 (M22-2차 W1, ADR-M22-9) ─────────────────────────────────
+
+        /// <summary>모든 문이 잠겨 있는가 (전역 1비트 — 개별 문 잠금은 관측 후 등록부 확장).
+        /// 잠금은 배열 상태이지 건물 속성이 아니다 — Gate.asset은 무변 (ADR-M22-9).
+        /// 세이브 대상 (ADR-M0-10).</summary>
+        public bool GatesLocked { get; private set; }
+
+        /// <summary>잠금 상태 변화 알림 — 자물쇠 마커 뷰 구독 (표현 전용).</summary>
+        public event Action<bool> OnGateLockChanged;
+
+        /// <summary>완공(서 있는) 문 타일들 — 내구도 등록부에서 파생 (전용 등록부 신설 금지:
+        /// NotifyBuilt/NotifyRemoved가 이미 문의 생사를 안다. 전제 확인 ③).</summary>
+        public IEnumerable<Vector2Int> BuiltGateTiles
+        {
+            get
+            {
+                foreach (KeyValuePair<(SlotId slot, Vector2Int tile), (float, float, int)> e in _durability)
+                    if (e.Key.slot == SlotId.GateCount) yield return e.Key.tile;
+            }
+        }
+
+        /// <summary>서 있는 문이 하나라도 있는가 — L 키의 "잠글 문이 없습니다" no-op 판정.
+        /// ⚠️ 잠금 해제는 문 0개여도 허용해야 한다 (잠금 중 전부 파괴되면 열 수 없는 상태가 된다).</summary>
+        public bool HasBuiltGates
+        {
+            get
+            {
+                foreach (KeyValuePair<(SlotId slot, Vector2Int tile), (float, float, int)> e in _durability)
+                    if (e.Key.slot == SlotId.GateCount) return true;
+                return false;
+            }
+        }
+
+        /// <summary>잠금 토글 — 쓰기 문 하나 (ADR-M0-3). 통행 배열 갱신·선별 재계획은
+        /// 배선(M0SimulationLoop.ToggleGateLock)이 이어서 한다. 새 상태를 돌려준다.</summary>
+        public bool ToggleGateLock()
+        {
+            GatesLocked = !GatesLocked;
+            Debug.Log($"[Defense] 문 잠금 {(GatesLocked ? "설정" : "해제")}");
+            OnGateLockChanged?.Invoke(GatesLocked);
+            return GatesLocked;
+        }
+
         /// <summary>수리 비용 조회 (M22-W6) — 완공 시 에셋(BuildingSO.RepairCost)에서 받아 둔 값.
         /// 러너의 Wood 선검사 원천 (비용의 단일 출처는 에셋, ADR-M0-2).</summary>
         public bool TryGetRepairCost(SlotId slot, Vector2Int tile, out int cost)

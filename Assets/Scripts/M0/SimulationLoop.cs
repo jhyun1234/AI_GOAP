@@ -195,6 +195,31 @@ namespace AIVillage.M0
             return false;
         }
 
+        /// <summary>문 잠금 토글의 유일한 창구 (M22-2차 W1, ADR-M22-9 — PlayerInput 전용).
+        /// 비용은 토글 순간에만 낸다: ①완공 문 타일의 주민 배열 갱신 (위협 배열 무변 — 문은
+        /// 위협에게 원래 불통) ②잔여 경로가 문을 지나는 주민만 선별 재계획 ③표현(마커·정보줄)은
+        /// 이벤트 구독이 따라온다. 해제 시 재계획 없음 — 길이 나빠진 주민이 없다.</summary>
+        public bool ToggleGateLock()
+        {
+            bool locked = Defense.ToggleGateLock();
+            var gateTiles = new HashSet<Vector2Int>();
+            foreach (Vector2Int t in Defense.BuiltGateTiles)
+            {
+                gateTiles.Add(t);
+                if (MapBounds.ToArrayIndex(t.x, t.y, out int ax, out int ay))
+                    Walkable[ax, ay] = !locked; // 주민 배열만 — 위협 쪽 갱신은 무의미 (⚠️③)
+            }
+            if (locked && gateTiles.Count > 0)
+                foreach (VillagerAgent a in _agents)
+                    if (a != null) a.AbortIfPathCrosses(gateTiles);
+            return locked;
+        }
+
+        /// <summary>잠금 중 완공된 문이 주민 통행을 막는가 (M22-2차 W1 순수 규칙 — 게이트 검산).
+        /// 전제 확인 ④의 유일한 신규 훅: 파괴의 복구·기존 완공 규칙은 1차 코드가 이미 옳다.</summary>
+        public static bool LockedGateBlocksVillager(BuildingSO b, bool gatesLocked)
+            => gatesLocked && b.BlocksThreatMovement;
+
         /// <summary>이 건물이 주민 통행을 막는가 (ADR-M22-1 순수 규칙 — 게이트가 씬 없이 검산).</summary>
         public static bool BlocksVillagerPassage(BuildingSO b) => b.BlocksMovement;
 
@@ -206,6 +231,7 @@ namespace AIVillage.M0
         private ZoneBorderView _zoneBorderView;
         private DefensePlanView _defensePlanView; // 방어 계획 마커 (M22-W3R2, 표현 전용)
         private DefenseDurabilityView _defenseDurabilityView; // 시설 손상 오버레이 (M22-W7, 표현 전용)
+        private GateLockView _gateLockView; // 문 잠금 자물쇠 마커 (M22-2차 W1, 표현 전용)
         private DefenseFenceView _defenseFenceView; // 울타리 오토타일 (M23-W2, 표현 전용)
         private FarmPlotView _farmView;
         private int _lastLoggedDay = -1;
@@ -851,6 +877,9 @@ namespace AIVillage.M0
             // 시설 손상 오버레이 (M22-W7, 표현 전용) — 깎일수록 짙어지는 검붉은 마커.
             // 헌장 표현 조항(ADR-M20-1): "색 바랜 울타리가 늘어나는 것"이 목수 부재의 화면이다.
             _defenseDurabilityView = new DefenseDurabilityView(transform, Defense);
+            // 문 잠금 마커 (M22-2차 W1, 표현 전용) — 잠금 중 서 있는 문 위에 자물쇠 표식.
+            // 잠긴 문이 안 보이면 "L을 눌렀는데 아무 일도 없다"가 된다 (계획 마커와 같은 원리).
+            _gateLockView = new GateLockView(transform, Defense);
             // 수리 완료 정보줄 (W7) — 등록(완공)과 분리된 전용 이벤트 (완공마다 "수리" 거짓말 방지)
             Defense.OnRepaired += (slot, tile, actor) =>
                 Hud?.Notify($"{(string.IsNullOrEmpty(actor) ? "누군가" : actor)}이(가) " +
@@ -887,6 +916,8 @@ namespace AIVillage.M0
                 if (!MapBounds.ToArrayIndex(x, y, out int ax, out int ay)) return;
                 if (BlocksVillagerPassage(b)) Walkable[ax, ay] = false;
                 if (BlocksThreatPassage(b)) ThreatWalkable[ax, ay] = false;
+                // 잠금 중 신규 문 완공 → 태어나면서 잠긴다 (M22-2차 W1, ADR-M22-9 — 전제 확인 ④)
+                if (LockedGateBlocksVillager(b, Defense.GatesLocked)) Walkable[ax, ay] = false;
             };
 
             // JPS 통행 배열 (주민/위협 2벌, ADR-M22-1) — Bootstrap(-95)이 MapConfig를 먼저 활성화한다

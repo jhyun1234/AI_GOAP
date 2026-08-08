@@ -106,6 +106,21 @@ namespace AIVillage.M0
                 else EnterDefenseZoneMode();
                 return;
             }
+            // 문 잠금 토글 (M22-2차 W1, ADR-M22-9) — L 하나가 유일한 통로. B 모드 밖·안 공용
+            // (키보드라 오클릭 위험 없음 — 모드 소비 대상은 마우스 입력이다).
+            if (Input.GetKeyDown(KeyCode.L))
+            {
+                M0SimulationLoop sim0 = M0SimulationLoop.Instance;
+                // 잠글 문이 없으면 no-op — 보이지 않는 상태 전환 금지. 단 해제는 문 0개여도
+                // 허용한다 (잠금 중 전부 파괴되면 열 수 없는 상태가 된다 — DefenseService 주석).
+                if (sim0.Defense != null && !sim0.Defense.GatesLocked && !sim0.Defense.HasBuiltGates)
+                    sim0.Hud?.Notify("잠글 문이 없습니다");
+                else
+                    sim0.Hud?.Notify(sim0.ToggleGateLock()
+                        ? "문을 걸어 잠갔습니다 (L = 해제)"
+                        : "문을 열었습니다");
+            }
+
             if (_defenseZoneMode) { TickDefenseZoneMode(); return; }
 
 #if UNITY_EDITOR

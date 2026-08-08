@@ -445,5 +445,92 @@ namespace AIVillage.Tests.EditMode
             Assert.IsFalse(M0SimulationLoop.BlocksVillagerPassage(b), "기본값은 주민 통행 가능");
             Assert.IsFalse(M0SimulationLoop.BlocksThreatPassage(b), "기본값은 위협 통행 가능");
         }
+
+        [Test]
+        public void M22_T9_GateLock_PathCrossing_PureRule()
+        {
+            // 선별 재계획의 판정 (M22-2차 W1, ADR-M22-9) — 잔여 경로가 문을 지나는 주민만 중단.
+            // startIndex 앞은 이미 밟았거나 예약한 칸 = 한 걸음 관용.
+            var gate = new HashSet<Vector2Int> { new Vector2Int(5, 0) };
+            var wp = new List<Vector2Int>
+            {
+                new Vector2Int(3, 0), new Vector2Int(4, 0), new Vector2Int(5, 0), new Vector2Int(6, 0)
+            };
+            Assert.IsTrue(VillagerAgent.PathCrossesAny(wp, 0, gate), "잔여 경로에 문 포함 → 중단 대상");
+            Assert.IsFalse(VillagerAgent.PathCrossesAny(wp, 3, gate),
+                "문(인덱스 2)을 이미 예약했으면 그 뒤부터 검사 → 관용 통과");
+            Assert.IsFalse(VillagerAgent.PathCrossesAny(
+                new List<Vector2Int> { new Vector2Int(1, 1), new Vector2Int(2, 1) }, 0, gate),
+                "문 미경유 경로는 건드리지 않는다 (전원 Abort 금지 — ⚠️②)");
+            Assert.IsFalse(VillagerAgent.PathCrossesAny(null, 0, gate), "경로 없음(비이동) → false");
+            Assert.IsFalse(VillagerAgent.PathCrossesAny(wp, 0, new HashSet<Vector2Int>()), "문 0개 → false");
+        }
+
+        [Test]
+        public void M22_T9b_GateLock_StateMachine_AndBreachWins()
+        {
+            // 잠금 상태의 집 = DefenseService (ADR-M22-9). 문 등록부는 내구도에서 파생 — 전용 장부 없음.
+            var d = new DefenseService();
+            var gateSO = AssetDatabase.LoadAssetAtPath<BuildingSO>("Assets/M0Config/Buildings/Gate.asset");
+            var fenceSO = AssetDatabase.LoadAssetAtPath<BuildingSO>("Assets/M0Config/Buildings/Fence.asset");
+            Assert.IsFalse(d.GatesLocked, "시작은 열림");
+            Assert.IsFalse(d.HasBuiltGates, "문 없음");
+
+            int events = 0; bool lastState = false;
+            d.OnGateLockChanged += v => { events++; lastState = v; };
+            Assert.IsTrue(d.ToggleGateLock(), "토글 1회 = 잠김");
+            Assert.IsTrue(d.GatesLocked && lastState && events == 1, "이벤트 1회·상태 일치");
+
+            d.NotifyBuilt(gateSO, 5, 0);
+            d.NotifyBuilt(fenceSO, 6, 0);
+            Assert.IsTrue(d.HasBuiltGates);
+            var gates = new List<Vector2Int>(d.BuiltGateTiles);
+            Assert.AreEqual(1, gates.Count, "울타리는 문 등록부에 안 나온다");
+            Assert.AreEqual(new Vector2Int(5, 0), gates[0]);
+
+            // 파괴는 잠금을 이긴다 (ADR-M22-9) — 등록부에서 소멸 (통행 복구는 기존 구독·T5c 등가물 몫)
+            d.NotifyRemoved(SlotId.GateCount, 5, 0);
+            Assert.IsFalse(d.HasBuiltGates, "잠금 중 파괴 → 문 소멸 (잠금이 파괴를 막지 않는다)");
+            Assert.IsTrue(d.GatesLocked, "잠금 상태 자체는 유지 — 해제는 플레이어 몫");
+            Assert.IsFalse(d.ToggleGateLock(), "토글 2회 = 해제 (문 0개여도 해제는 된다)");
+            Assert.AreEqual(2, events);
+
+            // 잠금 중 신규 문 완공 규칙 (전제 확인 ④의 유일한 신규 훅 — 순수 함수 검산)
+            Assert.IsTrue(M0SimulationLoop.LockedGateBlocksVillager(gateSO, gatesLocked: true),
+                "잠금 중 완공된 문은 태어나면서 잠긴다");
+            Assert.IsFalse(M0SimulationLoop.LockedGateBlocksVillager(gateSO, gatesLocked: false),
+                "열림 상태의 문 완공은 기존 규칙 그대로 (주민 통행 가능)");
+            Assert.IsFalse(M0SimulationLoop.LockedGateBlocksVillager(fenceSO, gatesLocked: true),
+                "울타리는 이 규칙과 무관 (BlocksMovement가 이미 막는다)");
+        }
+
+        [Test]
+        public void M22_T9c_GateLock_JpsDetour_Equivalence()
+        {
+            // 잠금 = 문 칸의 주민 배열 false (ADR-M22-9) — 배선 등가물 검산 (T5c 동형: 씬 없는
+            // EditMode라 ToggleGateLock 창구의 실행은 Play 실측 몫, 배열↔JPS 규칙을 검산한다).
+            int size = 100, off = 50;
+            var walkable = new bool[size, size];
+            for (int x = 0; x < size; x++)
+                for (int y = 0; y < size; y++)
+                    walkable[x, y] = true;
+
+            // 맵을 세로로 가르는 벽 x=10, 문 하나 (10,0) — 문이 유일한 통로
+            var gateTile = new Vector2Int(10, 0);
+            for (int y = 0; y < size; y++) walkable[10 + off, y] = false;
+            walkable[gateTile.x + off, gateTile.y + off] = true;
+
+            var pf = new AIVillage.Core.JpsPathfinder(() => walkable);
+            Assert.AreEqual(AIVillage.Core.PathResultKind.PathFound,
+                pf.FindPath(5, 0, 15, 0).Kind, "열림: 문 경유 경로가 있다");
+
+            walkable[gateTile.x + off, gateTile.y + off] = false; // 잠금 (ToggleGateLock의 등가물)
+            Assert.AreEqual(AIVillage.Core.PathResultKind.Unreachable,
+                pf.FindPath(5, 0, 15, 0).Kind, "잠금: 문 경유 경로가 사라진다 (성공 기준 1)");
+
+            walkable[gateTile.x + off, gateTile.y + off] = true; // 해제
+            Assert.AreEqual(AIVillage.Core.PathResultKind.PathFound,
+                pf.FindPath(5, 0, 15, 0).Kind, "해제: 경로 복원 (성공 기준 3)");
+        }
     }
 }

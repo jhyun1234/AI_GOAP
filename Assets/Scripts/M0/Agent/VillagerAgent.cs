@@ -1291,6 +1291,28 @@ namespace AIVillage.M0
             }
         }
 
+        /// <summary>잔여 경로 교차 판정 (순수 — EditMode 게이트 검산, M22-2차 W1).
+        /// startIndex 앞은 이미 밟았거나 예약한 칸 — 검사하지 않는다 (한 걸음 관용, ADR-M22-9).</summary>
+        internal static bool PathCrossesAny(List<Vector2Int> waypoints, int startIndex, HashSet<Vector2Int> tiles)
+        {
+            if (waypoints == null || tiles == null || tiles.Count == 0) return false;
+            for (int i = Mathf.Max(0, startIndex); i < waypoints.Count; i++)
+                if (tiles.Contains(waypoints[i])) return true;
+            return false;
+        }
+
+        /// <summary>문 잠금의 선별 재계획 (M22-2차 W1, ADR-M22-9) — 잔여 경로가 잠긴 문을 지나는
+        /// 주민만 중단한다 (전원 Abort 금지 — 진행 중 노동을 초기화하면 잠금의 숨은 비용이 과대).
+        /// 한 걸음 관용: 이미 예약한 다음 칸은 그대로 밟는다 — 예약 시스템과 싸우지 않는다.
+        /// warn/cooldown 없음 — 실패가 아니라 세계가 바뀐 것이다 ("상위 목표 전환" 선례).</summary>
+        public void AbortIfPathCrosses(HashSet<Vector2Int> tiles)
+        {
+            if (State != AgentState.Moving) return; // 경로는 Moving에만 있다 (그 외는 다음 FindPath가 새 배열을 본다)
+            int start = _hasNextReserved ? _wpIndex + 1 : _wpIndex;
+            if (PathCrossesAny(_waypoints, start, tiles))
+                AbortPlan("문이 잠겼다 — 재계획", warn: false, cooldown: false);
+        }
+
         // ─────────────────────────────────────────────────────────────────────
         // 중단 / 공용
         // ─────────────────────────────────────────────────────────────────────

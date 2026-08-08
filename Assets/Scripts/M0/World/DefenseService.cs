@@ -248,6 +248,29 @@ namespace AIVillage.M0
             return true;
         }
 
+        /// <summary>계획 취소 (M22-W8 철거 — 플레이어 전용). 미건설 계획 칸을 지운다 — 자재를
+        /// 안 썼으니 무료. 있었으면 true.</summary>
+        public bool RemovePlanAt(Vector2Int tile)
+        {
+            bool removed = _plannedFences.Remove(tile) | _plannedGates.Remove(tile);
+            if (removed) OnPlanChanged?.Invoke();
+            return removed;
+        }
+
+        /// <summary>
+        /// 철거 준비 (M22-W8 — 플레이어 전용): 내구도 항목만 지운다. **계획 복귀 없음** — 이것이
+        /// 위협의 파괴와 철거의 갈림길이다: 파괴는 NotifyRemoved가 그 자리를 계획으로 되돌려
+        /// 재건되지만, 철거는 여기서 항목을 먼저 지워 뒤따르는 NotifyRemoved(제거 문
+        /// RemoveCountableAt → OnRemoved 경유)가 조기 반환하게 만든다 — 주민이 도로 짓지 않는다.
+        /// ⚠️ 호출자는 반드시 직후 RemoveCountableAt을 호출할 것 (제거의 유일한 문, ADR-M0-3).
+        /// </summary>
+        public bool Demolish(SlotId slot, Vector2Int tile)
+        {
+            if (!_durability.Remove((slot, tile))) return false;
+            OnDurabilityChanged?.Invoke(slot, tile, 0f, 0f); // 소멸 신호 — 손상 오버레이 정리
+            return true;
+        }
+
         /// <summary>from 곁(체비쇼프 ≤ range)의 계획·시설 타일 — 드래그 시작점 달라붙기(줄 연결)용.
         /// 최근접 우선, 동률은 좌표순 (결정적).</summary>
         public bool TryGetNearestPlanOrStructureTile(Vector2Int from, int range, out Vector2Int tile)

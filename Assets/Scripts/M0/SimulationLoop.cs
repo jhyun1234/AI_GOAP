@@ -170,6 +170,30 @@ namespace AIVillage.M0
         public bool TryAddDefenseGate(Vector2Int tile)
             => Defense != null && Defense.TryAddGatePlan(tile, DefenseTileBuildable);
 
+        /// <summary>방어물 철거의 유일한 창구 (PlayerInput 전용, M22-W8 — Shift+드래그).
+        /// 계획 칸 = 무료 취소, 완공 시설 = 철거 + 나무 전액 회수 (잘못 설치 구제가 목적 —
+        /// 회수 없이는 실수 한 번이 자재 손실이라 긋기가 겁난다). refund = 회수한 나무.
+        /// 순서 불변식: Demolish(내구도 소거)가 RemoveCountableAt보다 먼저 — 뒤집으면
+        /// NotifyRemoved가 그 자리를 계획으로 되돌려 주민이 도로 짓는다 (파괴/철거의 갈림길).</summary>
+        public bool TryDemolishDefenseAt(Vector2Int tile, out int refund)
+        {
+            refund = 0;
+            if (Defense == null) return false;
+            if (Defense.RemovePlanAt(tile)) return true; // 계획 취소 — 자재 안 썼으니 무료
+
+            EnsureDefenseWoodCosts();
+            foreach (SlotId slot in new[] { SlotId.FenceCount, SlotId.GateCount })
+            {
+                if (!Defense.HasStructureAt(slot, tile)) continue;
+                Defense.Demolish(slot, tile);
+                Construction.RemoveCountableAt(slot, tile.x, tile.y); // → OnRemoved: 통행 복구 (계획 복귀는 무장해제됨)
+                refund = slot == SlotId.GateCount ? _gateWoodCost : _fenceWoodCost;
+                if (refund > 0) World.AddStock(SlotId.WoodStock, refund); // 스톡 쓰기 문 (ADR-M0-3)
+                return true;
+            }
+            return false;
+        }
+
         /// <summary>이 건물이 주민 통행을 막는가 (ADR-M22-1 순수 규칙 — 게이트가 씬 없이 검산).</summary>
         public static bool BlocksVillagerPassage(BuildingSO b) => b.BlocksMovement;
 

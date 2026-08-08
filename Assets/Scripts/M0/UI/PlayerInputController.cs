@@ -66,12 +66,14 @@ namespace AIVillage.M0
         private const int SNAP_RANGE_TILES = 1;  // 시작점 달라붙기 반경 (체비쇼프)
         private bool _defenseZoneMode;
         private bool _defenseDragging;
+        private bool _defenseErasing; // Shift+드래그 = 철거 (M22-W8) — 이 드래그가 긋기인가 지우기인가
         private Vector2Int _defenseDragStart;
         private LineRenderer _zonePreview; // 프리뷰 줄 (표현 전용 — 확정 계획 마커는 DefensePlanView 몫)
         private LineRenderer _hoverCell;   // 마우스 칸 하이라이트 (M22-W3R3 — 마우스→타일이 눈에 보이게)
         private string _lastModeInfo;      // 모드 정보줄 캐시 — 같은 문자열 재대입 방지
         private static readonly Color ZoneOkColor = new Color(0.3f, 0.9f, 0.35f, 0.7f);  // 초록 = 설치 가능
         private static readonly Color ZoneBadColor = new Color(0.95f, 0.25f, 0.2f, 0.7f); // 빨강 = 설치 불가
+        private static readonly Color ZoneEraseColor = new Color(1f, 0.6f, 0.15f, 0.7f);  // 주황 = 철거 (W8)
 
         private VillagerAgent _selected;
         private GameObject _ring;
@@ -353,13 +355,15 @@ namespace AIVillage.M0
             {
                 if (_zonePreview != null) _zonePreview.gameObject.SetActive(false); // 줄은 드래그 중에만
                 SetModeInfo($"울타리 그리기 — 나무 {stock} · 좌드래그 = 줄({sim.DefenseFenceWood}목/칸) · " +
-                            $"우클릭 = 문({sim.DefenseGateWood}목) · ESC 종료");
+                            $"우클릭 = 문({sim.DefenseGateWood}목) · Shift+드래그 = 철거 · ESC 종료");
                 if (Input.GetMouseButtonDown(0))
                 {
                     _defenseDragging = true;
+                    // Shift = 철거 드래그 (M22-W8) — 지우기는 달라붙지 않는다 (가리킨 곳을 지운다)
+                    _defenseErasing = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
                     // 시작점 달라붙기 (줄 연결) — 기존 계획·시설 곁이면 그 칸에서 잇는다
                     _defenseDragStart =
-                        sim.Defense != null
+                        !_defenseErasing && sim.Defense != null
                         && sim.Defense.TryGetNearestPlanOrStructureTile(cur, SNAP_RANGE_TILES, out Vector2Int snap)
                             ? snap : cur;
                 }
@@ -367,6 +371,26 @@ namespace AIVillage.M0
             }
 
             Vector2Int end = DefenseService.SnapLineEnd(_defenseDragStart, cur); // 우세축 직선
+
+            // 철거 드래그 (M22-W8) — 계획은 무료 취소, 완공 시설은 철거 + 나무 회수
+            if (_defenseErasing)
+            {
+                var eraseTiles = DefenseService.LineTiles(_defenseDragStart, end);
+                DrawZonePreviewLine(_defenseDragStart, end, ZoneEraseColor);
+                SetModeInfo($"철거 — 줄 {eraseTiles.Count}칸 (계획 무료 · 시설은 나무 회수)");
+                if (Input.GetMouseButtonUp(0))
+                {
+                    _defenseDragging = false; // 모드는 유지
+                    int removed = 0, refunded = 0;
+                    foreach (Vector2Int t in eraseTiles)
+                        if (sim.TryDemolishDefenseAt(t, out int refund)) { removed++; refunded += refund; }
+                    sim.Hud?.Notify(removed > 0
+                        ? $"철거 — {removed}칸{(refunded > 0 ? $" · 나무 {refunded} 회수" : "")}"
+                        : "철거할 것이 없습니다");
+                }
+                return;
+            }
+
             var tiles = DefenseService.LineTiles(_defenseDragStart, end);
             int required = tiles.Count * sim.DefenseFenceWood;
             bool lengthOk = tiles.Count >= LINE_MIN_TILES;

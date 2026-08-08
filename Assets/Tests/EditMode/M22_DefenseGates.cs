@@ -344,6 +344,38 @@ namespace AIVillage.Tests.EditMode
         }
 
         [Test]
+        public void M22_T8_Demolish_NoPlanReturn_UnlikeDestruction()
+        {
+            // 철거(플레이어)와 파괴(위협)의 갈림길 (M22-W8) — 파괴는 계획으로 되돌아가 재건되고,
+            // 철거는 되돌아가면 안 된다 (주민이 도로 짓는다). 순서 = Demolish 먼저, NotifyRemoved 뒤.
+            var d = new DefenseService();
+            var fence = AssetDatabase.LoadAssetAtPath<BuildingSO>("Assets/M0Config/Buildings/Fence.asset");
+
+            // 계획 취소 — 무료, 즉시
+            d.AddFencePlan(DefenseService.LineTiles(new Vector2Int(0, 0), new Vector2Int(3, 0)), null);
+            Assert.IsTrue(d.RemovePlanAt(new Vector2Int(1, 0)));
+            Assert.AreEqual(3, d.PlannedCount, "계획 취소 = 계획에서만 빠진다");
+            Assert.IsFalse(d.RemovePlanAt(new Vector2Int(1, 0)), "이미 없는 칸은 false");
+
+            // 파괴 경로 (대조군): NotifyRemoved만 → 계획 복귀
+            var site = new Vector2Int(2, 0);
+            d.NotifyBuilt(fence, site.x, site.y);
+            Assert.AreEqual(2, d.PlannedCount);
+            d.NotifyRemoved(SlotId.FenceCount, site.x, site.y);
+            Assert.AreEqual(3, d.PlannedCount, "파괴 = 계획 복귀 (재건)");
+            Assert.IsFalse(d.HasStructureAt(SlotId.FenceCount, site));
+
+            // 철거 경로: Demolish 먼저 → NotifyRemoved는 조기 반환 → 계획 복귀 없음
+            d.NotifyBuilt(fence, site.x, site.y); // 다시 지음 (계획 차감 3→2)
+            Assert.AreEqual(2, d.PlannedCount);
+            Assert.IsTrue(d.Demolish(SlotId.FenceCount, site));
+            d.NotifyRemoved(SlotId.FenceCount, site.x, site.y); // 제거 문 경유 시 뒤따르는 통지
+            Assert.AreEqual(2, d.PlannedCount, "철거 = 계획 복귀 없음 — 주민이 도로 짓지 않는다");
+            Assert.IsFalse(d.HasStructureAt(SlotId.FenceCount, site));
+            Assert.IsFalse(d.Demolish(SlotId.FenceCount, site), "이미 없는 시설은 false");
+        }
+
+        [Test]
         public void M22_T5c_Breach_ReopensJpsPath()
         {
             // 파괴 = 통행 복구의 원자 (ADR-M22-6) — 링이 막은 경로가 한 칸 뚫리면 다시 열린다.

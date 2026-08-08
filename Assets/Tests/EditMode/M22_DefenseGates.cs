@@ -258,6 +258,73 @@ namespace AIVillage.Tests.EditMode
         }
 
         [Test]
+        public void M22_T6_RepairDurationMult_NeutralByDefault_CarpenterOneToFive()
+        {
+            // ADR-M22-7 — 수리 전용 배율의 중립 불변식 (M19_T3b 동형). 신규 JobSO 기본 = 1,
+            // 에셋 전수: 목수만 0.2 (사용자 확정 1:5), 나머지 전부 정확히 1 (페널티 방향 금지).
+            var fresh = ScriptableObject.CreateInstance<JobSO>();
+            Assert.AreEqual(1f, fresh.RepairDurationMult, "신규 JobSO 기본 = 1 (중립)");
+            Object.DestroyImmediate(fresh);
+
+            int carpenters = 0;
+            foreach (string guid in AssetDatabase.FindAssets("t:JobSO", new[] { "Assets/M0Config/Jobs" }))
+            {
+                var job = AssetDatabase.LoadAssetAtPath<JobSO>(AssetDatabase.GUIDToAssetPath(guid));
+                if (job == null) continue;
+                if (job.name == "Job_Carpenter")
+                {
+                    carpenters++;
+                    Assert.AreEqual(0.2f, job.RepairDurationMult,
+                        "목수 = 0.2 — 1:5 격차 (사용자 확정: '주민이 1이면 목수는 5'). " +
+                        "BuildDurationMult(0.5)와 별개 축 (재사용은 M19_T3b 충돌)");
+                }
+                else
+                {
+                    Assert.AreEqual(1f, job.RepairDurationMult,
+                        $"{job.name}: 목수 외 수리 배율은 1 — 페널티 방향은 중립 불변식 위반");
+                }
+            }
+            Assert.AreEqual(1, carpenters, "Job_Carpenter 에셋 존재");
+        }
+
+        [Test]
+        public void M22_T6b_Planner_RepairsWhenDamaged()
+        {
+            // W6 수리 사슬 — 손상(DefenseDamagedCount ≥ 1)이 있고 Wood가 있으면 수리 플랜이 선다.
+            var catalog = AssetDatabase.LoadAssetAtPath<ActionCatalog>("Assets/M0Config/ActionCatalog.asset");
+            var goal = AssetDatabase.LoadAssetAtPath<GoalSO>("Assets/M0Config/Goals/Goal_RepairDefense.asset");
+            Assert.IsNotNull(catalog); Assert.IsNotNull(goal);
+            Assert.IsTrue(goal.RelativeToCurrent, "수리 goal은 한 걸음 (ADR-M0-12)");
+            var gw = new PlannerGateway(catalog);
+
+            var slots = new int[PlanningConfig.TotalSlots];
+            slots[(int)SlotId.MySatiety] = 80;
+            slots[(int)SlotId.WoodStock] = 5;
+            slots[(int)SlotId.DefenseDamagedCount] = 1;
+            GoalSO resolved = ScriptableObject.Instantiate(goal);
+            resolved.RelativeToCurrent = false;
+            resolved.GoalConditions[0].Value = VillagerAgent.ResolveRelativeTarget(
+                1, goal.GoalConditions[0].Value, 0);
+            PlannerGateway.PendingPlan pending = gw.RequestPlan(new WorldSnapshot(slots), resolved);
+            gw.CompleteNow(pending);
+            Assert.IsTrue(gw.TryGetResult(pending, out PlanStatus status, out ActionSO[] plan, out _));
+            Assert.AreEqual(PlanStatus.Success, status);
+            Assert.AreEqual(1, plan.Length, "한 걸음 goal = 1액션 플랜");
+            Assert.AreEqual("RepairDefense", plan[0].name);
+        }
+
+        [Test]
+        public void M22_T6c_RepairCost_FromShippedAsset()
+        {
+            // 수리 비용의 단일 출처 = BuildingSO.RepairCost — 완공 시 등록돼 러너 선검사의 원천이 된다
+            var d = new DefenseService();
+            var fence = AssetDatabase.LoadAssetAtPath<BuildingSO>("Assets/M0Config/Buildings/Fence.asset");
+            d.NotifyBuilt(fence, 7, 7);
+            Assert.IsTrue(d.TryGetRepairCost(SlotId.FenceCount, new Vector2Int(7, 7), out int cost));
+            Assert.AreEqual(fence.RepairCost, cost, "수리 비용 = 에셋 값 (ADR-M0-2)");
+        }
+
+        [Test]
         public void M22_T5c_Breach_ReopensJpsPath()
         {
             // 파괴 = 통행 복구의 원자 (ADR-M22-6) — 링이 막은 경로가 한 칸 뚫리면 다시 열린다.

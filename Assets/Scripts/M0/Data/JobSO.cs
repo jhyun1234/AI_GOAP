@@ -77,6 +77,13 @@ namespace AIVillage.M0
                  "적용 지점은 BuildRunner 하나 — 채집·농사에 곱지 않는다.")]
         public float BuildDurationMult = 1f;
 
+        [Tooltip("방어 시설 수리 실행 시간 배율 (M22-W6, ADR-M22-7). 1 = 현행(무직·일반 불변 — 중립). " +
+                 "목수만 0.2 = **1:5 격차** (사용자 확정: \"주민이 1이면 목수는 5 — 이 정도는 돼야 " +
+                 "부재가 체감\").\n" +
+                 "⚠️ BuildDurationMult(0.5) 재사용 금지 — 0.2로 내리면 집·밭 건설까지 5배가 되고 " +
+                 "M19_T3b 게이트와 충돌한다. 적용 지점은 RepairRunner 하나.")]
+        public float RepairDurationMult = 1f;
+
         [Tooltip("밭일(심기·수확) 실행 시간 배율 (M20 — ADR-M20-2). 1 = 현행(무직·일반 불변). " +
                  "농부만 <1 = 솜씨 보너스 (Job_Farmer 0.5, 제안치).\n" +
                  "적용 지점은 FarmRunner 하나 — Routine_TendFields(다른 SO)는 영향권 밖이다.")]

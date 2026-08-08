@@ -152,6 +152,10 @@ namespace AIVillage.M0
         public float BuildDurationMultOfJob()
             => Job != null ? Job.BuildDurationMult : 1f;
 
+        /// <summary>수리 실행 시간 배율 (M22-W6, ADR-M22-7 — 목수 0.2 = 1:5). 소비처는 RepairRunner뿐.</summary>
+        public float RepairDurationMultOfJob()
+            => Job != null ? Job.RepairDurationMult : 1f;
+
         /// <summary>지금 하는 일에 걸린 직업 효율 배율 (M20-W10 — 표기 전용).
         /// 러너가 없으면(계획 중·쉬는 중) 1. **HUD는 이 값만 읽는다** — 액션 타입으로 다시
         /// 유도하면 판정이 이원화된다.</summary>

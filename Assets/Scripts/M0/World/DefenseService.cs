@@ -18,8 +18,8 @@ namespace AIVillage.M0
         private readonly List<Vector2Int> _plannedGates = new List<Vector2Int>();
         // 시설 내구도 (M22-W5, ADR-M22-3) — 타일 키 상태 (HomeStorageService·FarmService 선례).
         // 파괴(0 도달)된 항목은 NotifyRemoved가 지운다 — "파괴 = 손상"이 아니다 (소멸 + 계획 복귀).
-        private readonly Dictionary<(SlotId slot, Vector2Int tile), (float cur, float max)> _durability
-            = new Dictionary<(SlotId, Vector2Int), (float, float)>();
+        private readonly Dictionary<(SlotId slot, Vector2Int tile), (float cur, float max, int repairCost)> _durability
+            = new Dictionary<(SlotId, Vector2Int), (float, float, int)>();
 
         /// <summary>내구도 변화 알림 (slot, tile, 현재, 최대) — 시각(W7)·HUD 구독. 표현 전용.</summary>
         public event Action<SlotId, Vector2Int, float, float> OnDurabilityChanged;
@@ -54,7 +54,7 @@ namespace AIVillage.M0
             get
             {
                 int n = 0;
-                foreach (KeyValuePair<(SlotId, Vector2Int), (float cur, float max)> e in _durability)
+                foreach (KeyValuePair<(SlotId, Vector2Int), (float cur, float max, int repairCost)> e in _durability)
                     if (e.Value.cur < e.Value.max) n++;
                 return n;
             }
@@ -63,12 +63,25 @@ namespace AIVillage.M0
         /// <summary>내구도 조회 (표현·게이트용). 항목 없으면 false — 방어 시설이 아니다.</summary>
         public bool TryGetDurability(SlotId slot, Vector2Int tile, out float cur, out float max)
         {
-            if (_durability.TryGetValue((slot, tile), out (float c, float m) v))
+            if (_durability.TryGetValue((slot, tile), out (float c, float m, int rc) v))
             {
                 cur = v.c; max = v.m;
                 return true;
             }
             cur = max = 0f;
+            return false;
+        }
+
+        /// <summary>수리 비용 조회 (M22-W6) — 완공 시 에셋(BuildingSO.RepairCost)에서 받아 둔 값.
+        /// 러너의 Wood 선검사 원천 (비용의 단일 출처는 에셋, ADR-M0-2).</summary>
+        public bool TryGetRepairCost(SlotId slot, Vector2Int tile, out int cost)
+        {
+            if (_durability.TryGetValue((slot, tile), out (float c, float m, int rc) v))
+            {
+                cost = v.rc;
+                return true;
+            }
+            cost = 0;
             return false;
         }
 
@@ -80,7 +93,7 @@ namespace AIVillage.M0
             tile = default;
             int best = int.MaxValue;
             bool found = false;
-            foreach (KeyValuePair<(SlotId slot, Vector2Int tile), (float, float)> e in _durability)
+            foreach (KeyValuePair<(SlotId slot, Vector2Int tile), (float, float, int)> e in _durability)
             {
                 Vector2Int t = e.Key.tile;
                 int d = Mathf.Abs(t.x - from.x) + Mathf.Abs(t.y - from.y);
@@ -101,7 +114,7 @@ namespace AIVillage.M0
         public float ApplyDamage(SlotId slot, Vector2Int tile, float amount)
         {
             var key = (slot, tile);
-            if (amount <= 0f || !_durability.TryGetValue(key, out (float cur, float max) v))
+            if (amount <= 0f || !_durability.TryGetValue(key, out (float cur, float max, int repairCost) v))
                 return float.MaxValue;
             v.cur = Mathf.Max(0f, v.cur - amount);
             _durability[key] = v;
@@ -114,7 +127,7 @@ namespace AIVillage.M0
         public bool Repair(SlotId slot, Vector2Int tile)
         {
             var key = (slot, tile);
-            if (!_durability.TryGetValue(key, out (float cur, float max) v) || v.cur >= v.max)
+            if (!_durability.TryGetValue(key, out (float cur, float max, int repairCost) v) || v.cur >= v.max)
                 return false;
             v.cur = v.max;
             _durability[key] = v;
@@ -129,7 +142,7 @@ namespace AIVillage.M0
             tile = default;
             float worst = float.MaxValue; // 남은 내구도가 가장 적은 것
             bool found = false;
-            foreach (KeyValuePair<(SlotId slot, Vector2Int tile), (float cur, float max)> e in _durability)
+            foreach (KeyValuePair<(SlotId slot, Vector2Int tile), (float cur, float max, int repairCost)> e in _durability)
             {
                 if (e.Value.cur >= e.Value.max) continue;
                 float remain = e.Value.cur / e.Value.max;
@@ -246,7 +259,7 @@ namespace AIVillage.M0
             }
             foreach (Vector2Int t in _plannedFences) Consider(t);
             foreach (Vector2Int t in _plannedGates) Consider(t);
-            foreach (KeyValuePair<(SlotId slot, Vector2Int tile), (float, float)> e in _durability)
+            foreach (KeyValuePair<(SlotId slot, Vector2Int tile), (float, float, int)> e in _durability)
                 Consider(e.Key.tile);
             tile = bestTile;
             return found;
@@ -286,7 +299,7 @@ namespace AIVillage.M0
             // 내구도 등록 (M22-W5) — 최대치의 단일 출처는 에셋 (BuildingSO.MaxDurability)
             if (b.MaxDurability > 0f && b.IsCountable)
             {
-                _durability[(b.CountSlot, tile)] = (b.MaxDurability, b.MaxDurability);
+                _durability[(b.CountSlot, tile)] = (b.MaxDurability, b.MaxDurability, Mathf.Max(0, b.RepairCost));
                 OnDurabilityChanged?.Invoke(b.CountSlot, tile, b.MaxDurability, b.MaxDurability);
             }
             if (!b.PlaceOnDefensePlan) return;

@@ -1,0 +1,38 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 33fdfa0cd09f4e98b5f035ae8ed6614b, type: 3}
+  m_Name: Goal_RepairDefense
+  m_EditorClassIdentifier:
+  DisplayName: "울타리를 고쳐야지"
+  Priority: 26
+  TraitWeights:
+  - Trait: 0
+    Weight: 0.4
+  - Trait: 1
+    Weight: 0.3
+  TriggerConditions:
+  - Slot: 44
+    Op: 1
+    Value: 1
+  ExperienceOverrideWhen: []
+  GoalConditions:
+  - Slot: 44
+    Op: 2
+    Value: -1
+  DirectActionPool: []
+  RelativeToCurrent: 1
+  SkipFailureCooldown: 0
+  OrderedIgnoresTrigger: 0
+  MayHaveNoSolution: 0
+  MaxWorkers: 0
+  AllowedWhenInjured: 0
+  RequiredJob: {fileID: 0}

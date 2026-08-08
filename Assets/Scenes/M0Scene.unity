@@ -640,6 +640,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 5a2f8d61c7b34e09a4d1e6f2b930c85d, type: 2}
   - {fileID: 11400000, guid: d6e31bc14cb2445c935b576bc0042786, type: 2}
   - {fileID: 11400000, guid: 5e8ba1941dca477abfb7d6326feaca4f, type: 2}
+  - {fileID: 11400000, guid: 648b70ea406c41e3a1c34270f175a4cb, type: 2}
   _nodeSpawner: {fileID: 502}
   _spriteSet: {fileID: 11400000, guid: b9a6564a8f7c4724b5edf1d3d32e17b6, type: 2}
   _bubbleFont: {fileID: 11400000, guid: 67865f5944a154b43b12b21a5f1d92c1, type: 2}

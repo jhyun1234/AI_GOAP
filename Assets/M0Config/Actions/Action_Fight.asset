@@ -27,3 +27,5 @@ MonoBehaviour:
   StrikeRangeTiles: 1
   BaseHitSec: 4
   HitDamage: 10
+  WeaponHitSecMult: 0.5
+  AmbushGiveUpSec: 30

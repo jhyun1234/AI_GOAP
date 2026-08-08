@@ -537,6 +537,11 @@ namespace AIVillage.Tests.EditMode
             int hits = Mathf.CeilToInt(toFlee / act.HitDamage);
             Assert.Less(hits, 12, $"늑대 격퇴에 {hits}대 필요 — 너무 길면 맨손 교전이 자살이 된다");
             Assert.Greater(hits, 1, "한 대에 격퇴되면 위협이 장식이 된다");
+
+            // 매복 상한 (2026-08-08 개정 — 쫓지 않고 매복한다). 0이면 舊 헛걸음 순환으로 회귀,
+            // 재타격 주기(0.25일 = 25초)보다 짧으면 늑대가 돌아오기 전에 포기한다.
+            Assert.Greater(act.AmbushGiveUpSec, 25f,
+                "매복 상한이 재타격 주기(25초)보다 짧다 — 늑대가 돌아오기 전에 포기해 교전이 영영 안 성립한다");
         }
 
         // ── M21-T10: 원시 무기 (W5 DoD ①②④) ────────────────────────────────

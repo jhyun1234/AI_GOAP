@@ -15,12 +15,24 @@ namespace AIVillage.M0
     /// 재검사 A2 (교전 지속): 진행 중인 교전은 **피격·부상으로 중단하지 않는다.** 부상 필터는
     /// 다음 참전 선발에서만 작동한다 — 인접한 위협 앞에서 감속 0.4로 등을 보이는 것이 오히려
     /// 자살이라, 지속이 생존적이다.
+    ///
+    /// 🔴 **쫓지 않는다 — 매복한다** (2026-08-08 Play가 잡은 개정, M8 보고 심부름의 교훈 이식).
+    /// 舊 동작: 늑대의 '현재 좌표'로 걷고, 도착 시 사거리 밖이면 즉시 Fail → 재계획이 또
+    /// 그 순간의 좌표를 찍는다. 이동은 액션 시작 시 1회뿐이라(러너는 걷는 동안 틱되지 않는다)
+    /// 움직이는 대상과 구조적으로 미수렴 — 주민 2.0 < 늑대 2.5에 배회 재선정 0.5초가 겹쳐
+    /// "주민이 늑대의 전 좌표로 걸어간다"가 화면에 그대로 보였다 (사용자 Play 관측).
+    /// 新 동작: 이동 목표 = 늑대의 **돌아올 자리**(TargetTile — 배회 중심이자 타격 대상 곁,
+    /// 정지 좌표다). 도착 후 사거리 밖이면 실패가 아니라 **대기** — 늑대는 재타격 주기(0.25일
+    /// = 25초)마다 어차피 돌아오고, 주민 타깃 늑대는 제 발로 온다. 대기 상한(AmbushGiveUpSec)
+    /// 초과 시에만 Fail — 쿨다운이 굶주림 등 하위 goal에 숨 쉴 틈을 준다 (교전 105 > 배고픔
+    /// 100이라, 상한 없는 대기는 매복 아사가 된다).
     /// </summary>
     public sealed class FightRunner : ActionRunnerBase
     {
         private readonly FightActionSO _so;
         private ThreatAgent _target;
         private float _nextHitAt;   // 실시간 초 — 다음 타격 가능 시각
+        private float _ambushSec;   // 사거리 밖 대기 누적 (실시간 초) — 사거리 안에 들면 리셋
         private bool _spoke;
 
         public FightRunner(FightActionSO so) : base(so)
@@ -54,8 +66,10 @@ namespace AIVillage.M0
             _nextHitAt = Time.time; // 도착 즉시 첫 대 — 달려와서 4초 기다리면 그 사이에 먼저 맞는다
             if (Dist(agent, _target) <= _so.StrikeRangeTiles) return true; // 이미 사거리 — 제자리
 
-            // 위협 타일 정확히가 아니라 곁 (겹쳐 서기·예약 충돌 방지 — TendRunner 패턴)
-            MoveTarget = MapBounds.PickWalkableNear(agent.IsWalkable, _target.TileX, _target.TileY, 1);
+            // 매복 지점 = 늑대의 현재 타일이 아니라 **돌아올 자리** (헤더 주석 참조).
+            // 곁 1타일 산개 — 겹쳐 서기·예약 충돌 방지 (TendRunner 패턴)
+            Vector2Int ambush = _target.TargetTile;
+            MoveTarget = MapBounds.PickWalkableNear(agent.IsWalkable, ambush.x, ambush.y, 1);
             return true;
         }
 
@@ -73,7 +87,14 @@ namespace AIVillage.M0
 
             int dist = Dist(agent, _target);
             if (dist > _so.StrikeRangeTiles)
-                return Fail("대상 이동 — 재추적 (재계획이 새 위치로)"); // TendRunner와 같은 통로
+            {
+                // 매복 대기 — 舊 "즉시 Fail → 재계획이 또 옛 좌표로"의 헛걸음 순환을 대체.
+                _ambushSec += dt;
+                if (_ambushSec >= _so.AmbushGiveUpSec)
+                    return Fail("매복 상한 — 대상이 오지 않는다 (쿨다운 후 재계획)");
+                return RunnerResult.Running;
+            }
+            _ambushSec = 0f;
 
             if (!_spoke)
             {

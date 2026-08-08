@@ -35,6 +35,12 @@ namespace AIVillage.M0
                  "(ADR-M21-5) — 맨손도 싸울 수 있고, 이 값은 '빨라지는 정도'만 정한다.")]
         public float WeaponHitSecMult = 0.5f;
 
+        [Tooltip("매복 대기 상한 (실시간 초, 2026-08-08 개정 — 쫓지 않고 매복한다). 사거리 밖 대상을 " +
+                 "기다리는 최대 시간. 재타격 주기(0.25일 = 25초)보다 길어야 늑대가 한 번은 돌아온다. " +
+                 "초과 시 플랜 실패(쿨다운) — 교전(105) > 배고픔(100)이라 상한 없는 대기는 매복 아사가 " +
+                 "된다. 제안 30.")]
+        public float AmbushGiveUpSec = 30f;
+
         public override IActionRunner CreateRunner(VillagerAgent agent) => new FightRunner(this);
 
         protected override void OnValidate()
@@ -49,6 +55,9 @@ namespace AIVillage.M0
             if (WeaponHitSecMult <= 0f || WeaponHitSecMult >= 1f)
                 Debug.LogWarning($"[FightActionSO] {name}: WeaponHitSecMult({WeaponHitSecMult})는 0~1 사이여야 " +
                                  "합니다 — 1 이상이면 무기가 오히려 느리거나 무의미합니다 (ADR-M21-5).", this);
+            if (AmbushGiveUpSec <= 0f)
+                Debug.LogWarning($"[FightActionSO] {name}: AmbushGiveUpSec({AmbushGiveUpSec}) ≤ 0 — 매복 없이 " +
+                                 "즉시 실패해 舊 헛걸음 순환으로 돌아갑니다.", this);
         }
     }
 }

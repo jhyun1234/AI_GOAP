@@ -110,6 +110,13 @@ namespace AIVillage.M0
             }
         }
 
+        /// <summary>완공 울타리 → 문 전환 가능 판정 (M22-2차 W2, ADR-M22-10 — 철거 **전** 사전
+        /// 검사, 부분 성공 금지). 전환 대상 = 서 있는 울타리뿐 — 계획 칸은 기존 우클릭 전환
+        /// 문법(TryAddGatePlan)이, 문·빈 칸은 대상이 아니다. 문 계획 중복은 불변식상 없지만
+        /// 방어적으로 함께 검사한다 (철거 후 TryAddGatePlan이 실패하면 원자성이 깨진다).</summary>
+        public bool CanConvertToGateAt(Vector2Int tile)
+            => _durability.ContainsKey((SlotId.FenceCount, tile)) && !_plannedGates.Contains(tile);
+
         /// <summary>잠금 토글 — 쓰기 문 하나 (ADR-M0-3). 통행 배열 갱신·선별 재계획은
         /// 배선(M0SimulationLoop.ToggleGateLock)이 이어서 한다. 새 상태를 돌려준다.</summary>
         public bool ToggleGateLock()

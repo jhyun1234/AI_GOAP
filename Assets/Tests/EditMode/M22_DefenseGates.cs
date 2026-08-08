@@ -532,5 +532,39 @@ namespace AIVillage.Tests.EditMode
             Assert.AreEqual(AIVillage.Core.PathResultKind.PathFound,
                 pf.FindPath(5, 0, 15, 0).Kind, "해제: 경로 복원 (성공 기준 3)");
         }
+
+        [Test]
+        public void M22_T10_ConvertFenceToGate_Atomic_AndNetCost()
+        {
+            // 원클릭 전환 (M22-2차 W2, ADR-M22-10) — 기존 두 창구의 원자 합성. 씬 없는 EditMode라
+            // 창구(TryConvertFenceToGateAt) 실행은 Play 몫 — 사전 검사와 합성 시퀀스 등가물을 검산.
+            var d = new DefenseService();
+            var fenceSO = AssetDatabase.LoadAssetAtPath<BuildingSO>("Assets/M0Config/Buildings/Fence.asset");
+
+            // 전환 대상 판정: 빈 칸·계획 칸은 아님, 완공 울타리만
+            var site = new Vector2Int(6, 0);
+            Assert.IsFalse(d.CanConvertToGateAt(site), "빈 칸은 전환 대상 아님");
+            d.AddFencePlan(DefenseService.LineTiles(new Vector2Int(5, 0), new Vector2Int(7, 0)), null);
+            Assert.IsFalse(d.CanConvertToGateAt(site), "계획 칸은 전환 대상 아님 — 기존 우클릭 전환 문법 몫");
+            d.NotifyBuilt(fenceSO, site.x, site.y); // 완공 (계획 차감)
+            Assert.IsTrue(d.CanConvertToGateAt(site), "완공 울타리 = 전환 대상");
+
+            // 합성 시퀀스 등가물: 철거(Demolish 선행 = 계획 복귀 무장해제) → 문 계획
+            int gateBefore = d.GatePlannedCount;
+            Assert.IsTrue(d.Demolish(SlotId.FenceCount, site));
+            d.NotifyRemoved(SlotId.FenceCount, site.x, site.y); // 제거 문 경유 시 뒤따르는 통지 — 조기 반환
+            Assert.IsTrue(d.TryAddGatePlan(site, null), "철거된 칸에 문 계획이 선다 (사전 검사의 보증)");
+            Assert.AreEqual(gateBefore + 1, d.GatePlannedCount, "문 계획 +1");
+            Assert.IsFalse(d.HasStructureAt(SlotId.FenceCount, site), "울타리는 사라졌다");
+            Assert.IsFalse(d.CanConvertToGateAt(site), "전환 후 같은 칸 재전환 불가 (문 계획 중복 방어)");
+
+            // 순 비용 규칙 (사용자 확정 2026-08-09) — 회수를 셈에 넣는다
+            Assert.IsTrue(M0SimulationLoop.ConversionAffordable(stock: 2, fenceRefund: 1, gateCost: 3),
+                "보유 2 + 회수 1 = 문 3 — 허용 (회수를 빼면 거짓 음성)");
+            Assert.IsFalse(M0SimulationLoop.ConversionAffordable(stock: 1, fenceRefund: 1, gateCost: 3),
+                "보유 1은 부족");
+            Assert.IsFalse(M0SimulationLoop.ConversionAffordable(stock: 2, fenceRefund: 0, gateCost: 3),
+                "일반 문 지정(회수 없음)은 기존 판정 그대로");
+        }
     }
 }

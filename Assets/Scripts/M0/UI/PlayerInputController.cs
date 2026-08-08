@@ -353,13 +353,20 @@ namespace AIVillage.M0
             int stock = sim.World.GetStock(SlotId.WoodStock);
             DrawHoverCell(cur); // 마우스가 가리키는 칸을 항상 보여준다 (W3R3 — 어긋남 체감 제거)
 
-            // 우클릭 = 문 계획 (사용자 확정 — 출입구도 플레이어가 정한다). 드래그 중엔 무시.
+            // 우클릭 = 문 계획 / 완공 울타리면 문 전환 (M22-2차 W2 — 같은 손짓, 같은 뜻:
+            // "여기가 출입구다"). 드래그 중엔 무시.
             if (!_defenseDragging && Input.GetMouseButtonDown(1))
             {
                 int gateWood = sim.DefenseGateWood;
-                if (stock < gateWood)
-                    sim.Hud?.Notify($"나무가 부족합니다 — 문 필요 {gateWood} / 보유 {stock}");
-                else if (sim.TryAddDefenseGate(cur))
+                // 전환 대상(완공 울타리)이면 순 비용 판정 — 철거 회수를 셈에 넣는다 (사용자 확정)
+                bool convertTarget = sim.Defense != null && sim.Defense.CanConvertToGateAt(cur);
+                int refundIfAny = convertTarget ? sim.DefenseFenceWood : 0;
+                if (!M0SimulationLoop.ConversionAffordable(stock, refundIfAny, gateWood))
+                    sim.Hud?.Notify($"나무가 부족합니다 — 문 필요 {gateWood} / 보유 {stock}" +
+                                    (convertTarget ? $" (회수 {refundIfAny} 포함)" : ""));
+                else if (convertTarget && sim.TryConvertFenceToGateAt(cur, out int refund))
+                    sim.Hud?.Notify($"울타리를 헐고 문을 냅니다 — 나무 {refund} 회수 · 문 {gateWood}");
+                else if (!convertTarget && sim.TryAddDefenseGate(cur))
                     sim.Hud?.Notify($"문 계획 — ({cur.x},{cur.y}) · 나무 {gateWood}");
                 else
                     sim.Hud?.Notify("여기에는 문을 둘 수 없습니다");

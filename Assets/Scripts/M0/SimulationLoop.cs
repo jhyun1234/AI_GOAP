@@ -195,6 +195,27 @@ namespace AIVillage.M0
             return false;
         }
 
+        /// <summary>완공 울타리 → 문 전환 매크로의 유일한 창구 (M22-2차 W2, ADR-M22-10 —
+        /// PlayerInput 전용). 기존 두 창구(철거 TryDemolishDefenseAt + 문 계획 TryAddDefenseGate)의
+        /// 원자 합성 — 새 건설·제거·정산 경로 없음. 시공은 여전히 주민 노동이다 (합의 2):
+        /// 문이 설 때까지 그 칸이 열려 있는 것은 정직한 대가. 실패 조건은 철거 전에 검사한다.</summary>
+        public bool TryConvertFenceToGateAt(Vector2Int tile, out int refund)
+        {
+            refund = 0;
+            if (Defense == null || !Defense.CanConvertToGateAt(tile)) return false;
+            TryDemolishDefenseAt(tile, out refund); // 철거 + 나무 회수 (기존 W8 문 — 계획 복귀 무장해제 포함)
+            bool planned = TryAddDefenseGate(tile); // 문 계획 (기존 창구 — 시공은 건설 goal 몫)
+            if (!planned) // 사전 검사(CanConvertToGateAt)가 참이면 도달 불가 — 깨지면 검사에 구멍이 난 것
+                Debug.LogError($"[Defense] 전환 원자성 깨짐 @ ({tile.x},{tile.y}) — 철거됐는데 문 계획 실패");
+            return planned;
+        }
+
+        /// <summary>전환 재고 판정 (M22-2차 W2 순수 규칙 — 게이트 검산. 사용자 확정 2026-08-09):
+        /// 부족 = 차단(ADR-M22-4)을 따르되 **순 비용**으로 — 매크로 자신이 만드는 회수를
+        /// 셈에 넣는다. 빼면 보유 2에서 가능한 전환을 막는 거짓 음성.</summary>
+        public static bool ConversionAffordable(int stock, int fenceRefund, int gateCost)
+            => stock + fenceRefund >= gateCost;
+
         /// <summary>문 잠금 토글의 유일한 창구 (M22-2차 W1, ADR-M22-9 — PlayerInput 전용).
         /// 비용은 토글 순간에만 낸다: ①완공 문 타일의 주민 배열 갱신 (위협 배열 무변 — 문은
         /// 위협에게 원래 불통) ②잔여 경로가 문을 지나는 주민만 선별 재계획 ③표현(마커·정보줄)은

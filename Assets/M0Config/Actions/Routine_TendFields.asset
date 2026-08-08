@@ -27,3 +27,4 @@ MonoBehaviour:
   AnchorPriority:
   - 11
   WanderRadius: 3
+  Anim: 4

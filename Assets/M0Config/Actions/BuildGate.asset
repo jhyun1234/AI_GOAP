@@ -25,3 +25,4 @@ MonoBehaviour:
     Value: 1
   Effects: []
   Building: {fileID: 11400000, guid: eb84dfa49d9e4a2097ab4c5536615450, type: 2}
+  Anim: 3

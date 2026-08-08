@@ -1,20 +1,35 @@
+using System;
 using UnityEngine;
 
 namespace AIVillage.M0
 {
     /// <summary>
     /// 주민 스프라이트 세트 (Kenmi Player 시트 등) — 아트 교체는 이 에셋만 바꾸면 된다.
-    /// 방향 3종(정면/측면/후면) × 상태 2종(대기/걷기). 왼쪽은 측면 flipX로 처리.
+    /// 방향 3종(정면/측면/후면) × 상태 2종(대기/걷기) + 행동 몸짓(M23-W1). 왼쪽은 측면 flipX.
     /// </summary>
     [CreateAssetMenu(menuName = "AIVillage/M0/AgentSpriteSet", fileName = "AgentSpriteSet")]
     public sealed class AgentSpriteSetSO : ScriptableObject
     {
+        /// <summary>행동 몸짓 한 벌 (M23-W1) — {Kind, 3방} append-only 배열의 항목
+        /// (TraitValue {축,값} 규약 동형: 미등록 Kind = 대기/걷기 폴백 = 중립).</summary>
+        [Serializable]
+        public struct ActionAnim
+        {
+            public AnimKind Kind;
+            public Sprite[] Down;
+            public Sprite[] Side;
+            public Sprite[] Up;
+        }
+
         public Sprite[] IdleDown;
         public Sprite[] IdleSide;
         public Sprite[] IdleUp;
         public Sprite[] WalkDown;
         public Sprite[] WalkSide;
         public Sprite[] WalkUp;
+
+        [Tooltip("행동 몸짓 칸 (M23-W1, ADR-M23-1). 미등록 Kind는 대기/걷기 폴백 (중립).")]
+        public ActionAnim[] Actions;
 
         [Tooltip("애니메이션 프레임 속도 (fps). 제안치 8 — 관찰 후 튜닝.")]
         public float FramesPerSecond = 8f;

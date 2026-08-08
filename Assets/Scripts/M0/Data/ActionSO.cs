@@ -4,6 +4,21 @@ using UnityEngine;
 namespace AIVillage.M0
 {
     /// <summary>
+    /// 실행 중 몸짓 종류 (M23-W1, ADR-M23-1) — **뒤에만 append** (에셋 int 호환, SlotId 규약).
+    /// 값은 시트가 가진 동작만 (실사 2026-08-09: Kenmi Player_Actions = 곡괭이·도끼·망치·물뿌리개
+    /// 4동작 × 3방향 — 명세 스케치의 괭이(Hoe)는 시트에 없어 물뿌리개로 정정).
+    /// </summary>
+    public enum AnimKind
+    {
+        None   = 0, // 대기/걷기 그대로 (중립 — 배선 전 액션은 오늘과 완전 동일)
+        Chop   = 1, // 도끼질 (벌목)
+        Mine   = 2, // 곡괭이질 (채석)
+        Hammer = 3, // 망치질 (건설·수리·제작)
+        Water  = 4, // 물뿌리개 (심기·밭 돌보기)
+        Attack = 5, // 맨손 타격 (교전 — Player_Attack_NoWeapon 시트)
+    }
+
+    /// <summary>
     /// M0 액션의 단일 응집 정의 (ADR-M0-1).
     /// 계획 데이터(전제/효과/비용)·실행 파라미터·말풍선 문구가 이 에셋 하나에만 존재한다.
     /// 플래너(W2 ActionCompiler)와 실행(W4 Runner)이 같은 Effects를 읽으므로
@@ -30,6 +45,10 @@ namespace AIVillage.M0
 
         [Tooltip("실행 소요 시간(초). 舊 코드는 도착 즉시 완료였으므로 기본 0 — 표현 연출용 여유 필드.")]
         public float DurationSec = 0f;
+
+        [Tooltip("실행 중 재생할 몸짓 (M23-W1, ADR-M23-1 — 몸짓도 에셋이 정한다. 코드 매핑 금지). " +
+                 "None = 대기 모션 그대로 (중립). 스프라이트 칸은 AgentSpriteSetSO.Actions.")]
+        public AnimKind Anim;
 
         public SlotCondition[] Preconditions;
         public SlotEffect[] Effects;

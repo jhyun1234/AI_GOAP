@@ -27,3 +27,4 @@ MonoBehaviour:
     Op: 0
     Value: 1
   Building: {fileID: 11400000, guid: ff902f62e16946d38629923afb822606, type: 2}
+  Anim: 3

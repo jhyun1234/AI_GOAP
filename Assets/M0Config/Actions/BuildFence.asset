@@ -23,3 +23,4 @@ MonoBehaviour:
   Preconditions: []
   Effects: []
   Building: {fileID: 11400000, guid: 40242de61f5e47bcb973d72459f0a528, type: 2}
+  Anim: 3

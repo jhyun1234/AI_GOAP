@@ -29,3 +29,4 @@ MonoBehaviour:
   HitDamage: 10
   WeaponHitSecMult: 0.5
   AmbushGiveUpSec: 30
+  Anim: 5

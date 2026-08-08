@@ -33,3 +33,4 @@ MonoBehaviour:
     Op: 1
     Value: 10
   TargetResource: 2
+  Anim: 1

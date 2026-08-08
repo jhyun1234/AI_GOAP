@@ -418,8 +418,13 @@ namespace AIVillage.M0
             if (chatting) _lastDir = _chatFaceDir;
 
             if (State == AgentState.Moving && !chatting) TickMoving(Time.deltaTime);
+            // 행동 몸짓 (M23-W1) — 어느 몸짓인지는 실행 중 액션의 에셋 필드가 정한다 (ADR-M23-1).
+            // 대화 중엔 끈다 (마주보며 도끼질하는 그림 방지).
+            AnimKind acting = State == AgentState.Acting && !chatting
+                && _plan != null && _planIndex >= 0 && _planIndex < _plan.Count
+                ? _plan[_planIndex].Anim : AnimKind.None;
             _animator?.Tick(Time.deltaTime,
-                State == AgentState.Moving && _hasNextReserved && !chatting, _lastDir);
+                State == AgentState.Moving && _hasNextReserved && !chatting, _lastDir, acting);
 
             // 임시 문구(거부 대사) 만료 처리 — 실행 중이면 침묵 여운 뒤 플랜 복원
             // (2026-07-18 사용자 지시: 대사 직후 '다음 행동' 노란 문구가 바로 튀지 않게)

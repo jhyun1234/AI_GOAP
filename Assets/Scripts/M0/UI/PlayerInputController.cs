@@ -38,12 +38,15 @@ namespace AIVillage.M0
                  "goal 순위에서 이미 말한다.")]
         [SerializeField] private GoalSO _orderFight;
 
-        [Tooltip("주민 선택 픽킹 반경 (타일). 2026-08-07 0.8 → 1.5 — 0.8은 스프라이트보다 좁아 " +
-                 "'분명히 눌렀는데 안 잡히는' 클릭이 잦았다. 노드 반경과 같은 값으로 통일.")]
-        [SerializeField] private float _villagerPickRadius = 1.5f;
+        // 픽킹 반경 (M22-W3R3 — 줌 불변): 舊 월드 고정 1.5타일은 줌인(orthoSize 3)에서 화면
+        // 270px로 부풀어 엉뚱한 대상을 잡았고("클릭이 정확히 안 된다"의 정체 절반), 줌아웃에선
+        // 감각보다 좁았다. 화면 픽셀 기준을 월드로 환산한다 — 어느 줌에서든 손맛이 같다.
+        private const float PICK_RADIUS_PX = 28f;         // UX 상수 (화면 기준)
+        private const float PICK_RADIUS_WORLD_MIN = 0.6f; // 초근접 줌에서도 스프라이트 반 칸은 잡히게
 
-        [Tooltip("노드 명령 픽킹 반경 (타일)")]
-        [SerializeField] private float _nodePickRadius = 1.5f;
+        private float PickRadiusWorld()
+            => Mathf.Max(PICK_RADIUS_WORLD_MIN,
+                         PICK_RADIUS_PX * (_camera.orthographicSize * 2f) / Mathf.Max(1, Screen.height));
 
         [Tooltip("배속 단계 (관측·테스트용 빨리 감기) — 숫자키 1부터 순서대로 Time.timeScale 적용. " +
                  "전역 배속이라 시뮬·이동·대사·쿨다운이 같은 비율로 일관 (게임 로직 무수정). " +
@@ -65,6 +68,8 @@ namespace AIVillage.M0
         private bool _defenseDragging;
         private Vector2Int _defenseDragStart;
         private LineRenderer _zonePreview; // 프리뷰 줄 (표현 전용 — 확정 계획 마커는 DefensePlanView 몫)
+        private LineRenderer _hoverCell;   // 마우스 칸 하이라이트 (M22-W3R3 — 마우스→타일이 눈에 보이게)
+        private string _lastModeInfo;      // 모드 정보줄 캐시 — 같은 문자열 재대입 방지
         private static readonly Color ZoneOkColor = new Color(0.3f, 0.9f, 0.35f, 0.7f);  // 초록 = 설치 가능
         private static readonly Color ZoneBadColor = new Color(0.95f, 0.25f, 0.2f, 0.7f); // 빨강 = 설치 불가
 
@@ -243,7 +248,7 @@ namespace AIVillage.M0
                 // 무덤 조사 (M13) — 산 주민이 항상 우선, 그 다음이 무덤. 죽은 주민의 생전
                 // 기록이 정보줄에 뜬다 ("아, 얘가 그 목수였지" — 플레이 도중의 회상).
                 else if (M0SimulationLoop.Instance.TryPickGraveRecord(
-                             world, _villagerPickRadius, out VillagerRecord grave))
+                             world, PickRadiusWorld(), out VillagerRecord grave))
                 {
                     Deselect(); // 산 주민 선택·추적 해제 후 정보줄 소유권 이전
                     seasonHud?.SetGraveInfo(SeasonHud.ComposeGraveInfo(grave));
@@ -296,9 +301,8 @@ namespace AIVillage.M0
         {
             _defenseZoneMode = true;
             _defenseDragging = false;
+            _lastModeInfo = null;
             Deselect();
-            M0SimulationLoop.Instance.Hud?.Notify(
-                "울타리 그리기 — 드래그 = 울타리 한 줄 (초록 = 가능 · 빨강 = 불가) · 우클릭 = 문 · ESC 종료");
         }
 
         private void ExitDefenseZoneMode(string notice)
@@ -306,8 +310,19 @@ namespace AIVillage.M0
             _defenseZoneMode = false;
             _defenseDragging = false;
             if (_zonePreview != null) _zonePreview.gameObject.SetActive(false);
+            if (_hoverCell != null) _hoverCell.gameObject.SetActive(false);
+            M0SimulationLoop.Instance.Hud?.ClearModeInfo();
             if (!string.IsNullOrEmpty(notice))
                 M0SimulationLoop.Instance.Hud?.Notify(notice);
+        }
+
+        /// <summary>모드 정보줄 갱신 (M22-W3R3) — 상시 안내는 Notify(휘발)가 아니라 전용 줄로.
+        /// 같은 문자열이면 재대입하지 않는다 (TMP 리레이아웃 방지).</summary>
+        private void SetModeInfo(string line)
+        {
+            if (line == _lastModeInfo) return;
+            _lastModeInfo = line;
+            M0SimulationLoop.Instance.Hud?.SetModeInfo(line);
         }
 
         /// <summary>모드 중 매 프레임 (M22-W3R2): 좌드래그 = 울타리 한 줄 (우세축 직선 스냅 +
@@ -318,14 +333,15 @@ namespace AIVillage.M0
             M0SimulationLoop sim = M0SimulationLoop.Instance;
             Vector2 world = MouseWorld();
             var cur = new Vector2Int(Mathf.RoundToInt(world.x), Mathf.RoundToInt(world.y));
+            int stock = sim.World.GetStock(SlotId.WoodStock);
+            DrawHoverCell(cur); // 마우스가 가리키는 칸을 항상 보여준다 (W3R3 — 어긋남 체감 제거)
 
             // 우클릭 = 문 계획 (사용자 확정 — 출입구도 플레이어가 정한다). 드래그 중엔 무시.
             if (!_defenseDragging && Input.GetMouseButtonDown(1))
             {
                 int gateWood = sim.DefenseGateWood;
-                int woodNow = sim.World.GetStock(SlotId.WoodStock);
-                if (woodNow < gateWood)
-                    sim.Hud?.Notify($"나무가 부족합니다 — 문 필요 {gateWood} / 보유 {woodNow}");
+                if (stock < gateWood)
+                    sim.Hud?.Notify($"나무가 부족합니다 — 문 필요 {gateWood} / 보유 {stock}");
                 else if (sim.TryAddDefenseGate(cur))
                     sim.Hud?.Notify($"문 계획 — ({cur.x},{cur.y}) · 나무 {gateWood}");
                 else
@@ -335,7 +351,9 @@ namespace AIVillage.M0
 
             if (!_defenseDragging)
             {
-                DrawZonePreviewLine(cur, cur, ZoneBadColor); // 시작 전 1칸 = 줄 미달 = 빨강
+                if (_zonePreview != null) _zonePreview.gameObject.SetActive(false); // 줄은 드래그 중에만
+                SetModeInfo($"울타리 그리기 — 나무 {stock} · 좌드래그 = 줄({sim.DefenseFenceWood}목/칸) · " +
+                            $"우클릭 = 문({sim.DefenseGateWood}목) · ESC 종료");
                 if (Input.GetMouseButtonDown(0))
                 {
                     _defenseDragging = true;
@@ -351,10 +369,13 @@ namespace AIVillage.M0
             Vector2Int end = DefenseService.SnapLineEnd(_defenseDragStart, cur); // 우세축 직선
             var tiles = DefenseService.LineTiles(_defenseDragStart, end);
             int required = tiles.Count * sim.DefenseFenceWood;
-            int stock = sim.World.GetStock(SlotId.WoodStock);
             bool lengthOk = tiles.Count >= LINE_MIN_TILES;
             bool ok = lengthOk && stock >= required;
             DrawZonePreviewLine(_defenseDragStart, end, ok ? ZoneOkColor : ZoneBadColor);
+            SetModeInfo(ok
+                ? $"울타리 줄 {tiles.Count}칸 = 나무 {required} / 보유 {stock} — 놓으면 설치"
+                : (!lengthOk ? $"울타리 줄 — 너무 짧습니다 (최소 {LINE_MIN_TILES}칸)"
+                             : $"울타리 줄 {tiles.Count}칸 = 나무 {required} / 보유 {stock} — 부족!"));
 
             if (Input.GetMouseButtonUp(0))
             {
@@ -371,6 +392,33 @@ namespace AIVillage.M0
                     ? $"울타리 줄 계획 — {added}칸 · 나무 {added * sim.DefenseFenceWood}"
                     : "지을 수 있는 칸이 없습니다 (막힘·중복)");
             }
+        }
+
+        /// <summary>마우스 칸 하이라이트 (표현 전용, M22-W3R3) — 지금 어느 타일을 가리키는지
+        /// 눈에 보이게. 프리뷰 줄과 별개로 항상 그린다 (칸 경계 = 타일 중심 ±0.5).</summary>
+        private void DrawHoverCell(Vector2Int tile)
+        {
+            if (_hoverCell == null)
+            {
+                var go = new GameObject("DefenseHoverCell");
+                _hoverCell = go.AddComponent<LineRenderer>();
+                _hoverCell.useWorldSpace = true;
+                _hoverCell.loop = true;
+                _hoverCell.positionCount = 4;
+                _hoverCell.widthMultiplier = 0.06f;
+                _hoverCell.numCornerVertices = 0;
+                _hoverCell.material = new Material(Shader.Find("Sprites/Default"));
+                _hoverCell.startColor = _hoverCell.endColor = new Color(1f, 1f, 1f, 0.8f);
+                _hoverCell.sortingOrder = 9;
+            }
+            _hoverCell.gameObject.SetActive(true);
+            _hoverCell.SetPositions(new[]
+            {
+                new Vector3(tile.x - 0.5f, tile.y - 0.5f, 0f),
+                new Vector3(tile.x + 0.5f, tile.y - 0.5f, 0f),
+                new Vector3(tile.x + 0.5f, tile.y + 0.5f, 0f),
+                new Vector3(tile.x - 0.5f, tile.y + 0.5f, 0f),
+            });
         }
 
         /// <summary>프리뷰 줄 (표현 전용) — 확정 전의 손그림자라 매 프레임 갱신·색 교체.
@@ -418,7 +466,7 @@ namespace AIVillage.M0
         private VillagerAgent PickVillager(Vector2 world)
         {
             VillagerAgent best = null;
-            float bestDist = _villagerPickRadius;
+            float bestDist = PickRadiusWorld();
             foreach (VillagerAgent a in M0SimulationLoop.Instance.Agents)
             {
                 if (a == null) continue;
@@ -435,7 +483,7 @@ namespace AIVillage.M0
         private ResourceNode PickNode(Vector2 world)
         {
             ResourceNode best = null;
-            float bestDist = _nodePickRadius;
+            float bestDist = PickRadiusWorld();
             foreach (ResourceNode n in M0SimulationLoop.Instance.Discovery.Nodes)
             {
                 if (!n.IsDiscovered) continue; // 못 본 노드에는 명령 불가 (FoW 공정성)

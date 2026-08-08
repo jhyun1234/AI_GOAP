@@ -24,6 +24,7 @@ namespace AIVillage.M0
         private readonly TMP_Text _selectedInfo;
         private readonly TMP_Text _prompt; // 결정 프롬프트 (M10-E) — 방랑자 Y/N 등 상시 유지 줄
         private readonly TMP_Text _status; // 상태 알림 (M13-B) — 해소될 때까지 유지 (_prompt 패턴의 일반화)
+        private readonly TMP_Text _modeInfo; // 모드 정보줄 (M22-W3R3) — 입력 모드 상시 안내 (프롬프트와 분리)
         private float _noticeUntil;
         private string _lastCalendar;
         private string _lastStatus;
@@ -75,10 +76,15 @@ namespace AIVillage.M0
                 ? worldCfg.HudStatusFontSize : 24f;
             _status = MakeText(root.transform, "Status", font, new Vector2(12f, -200f), statusSize);
             _status.text = "";
+            // 모드 정보줄 (M22-W3R3) — 울타리 그리기 등 입력 모드의 상시 안내. 프롬프트(적습·방랑자
+            // 소유)와 분리 — 한 줄을 나눠 쓰면 모드 종료가 적습 프롬프트를 지우는 사고가 난다.
+            _modeInfo = MakeText(root.transform, "ModeInfo", font, new Vector2(12f, -238f), 24f);
+            _modeInfo.color = new Color(0.6f, 0.95f, 0.6f);
+            _modeInfo.text = "";
 
-            // 수직 스택 순서 (위 → 아래) — 달력 → 알림 → 정보줄 → 프롬프트 → 상태. 순서 불변이
+            // 수직 스택 순서 (위 → 아래) — 달력 → 알림 → 정보줄 → 프롬프트 → 상태 → 모드. 순서 불변이
             // 클릭 매핑의 전제는 아니지만(픽킹은 실제 렌더 좌표 기준), 시선 습관의 전제다.
-            _stack = new[] { _calendar, _notice, _selectedInfo, _prompt, _status };
+            _stack = new[] { _calendar, _notice, _selectedInfo, _prompt, _status, _modeInfo };
         }
 
         // ── 수직 스택 리플로우 (M14 후속 2026-07-31 — 겹침 해소) ─────────────────
@@ -1033,6 +1039,12 @@ namespace AIVillage.M0
 
         /// <summary>결정 프롬프트 표시 (M10-E) — 알림(Notify)과 달리 ClearPrompt까지 상시 유지.
         /// 플레이어 입력을 기다리는 줄이라 자동 소거가 없다 (놓침 방지 — 예고 휘발성 교훈).</summary>
+        /// <summary>모드 정보줄 (M22-W3R3) — 입력 모드(울타리 그리기 등)의 상시 안내.
+        /// 프롬프트(적습·방랑자)와 별줄 — 모드 종료가 결정 프롬프트를 지우면 안 된다.</summary>
+        public void SetModeInfo(string line) => _modeInfo.text = line ?? "";
+
+        public void ClearModeInfo() => _modeInfo.text = "";
+
         public void SetPrompt(string line) => _prompt.text = line ?? "";
 
         /// <summary>결정 프롬프트 소거 — 해소(수락·거절·시간 초과)의 표현 짝.</summary>

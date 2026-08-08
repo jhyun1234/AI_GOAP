@@ -14,6 +14,63 @@ metadata:
 **How to apply:** 원격 routine과 로컬 점검 세션은 실행 시작 시 이 파일을 확인한다.
 OPEN 상태의 경보가 있으면 해당 우회 절차(MANUAL_STATE_UPDATE 등)를 미리 준비한다.
 
+## 🟡 반려 3회 도달 (2026-08-08 auto-run) — draft 강등 진행 중
+
+- **run**: 2026-08-08 스케줄 auto-run. 소재 = M19 "화폐 전면 철거와 실물 마을"(M16~M18을
+  배경으로 압축 서술, `verify_at c4c3431`). `state/blog_next_material_priority.md`의
+  ACTIVE 지정(M16)을 기획팀이 브레인스토밍 게이트에서 재판단해 M19 단일 완결 밀스톤 +
+  M16~M18 배경 서사로 재구성한 소재.
+- **반려 3회 각각의 사유·시각(UTC)**:
+  1. Step 3(검수팀) 1라운드 FAIL (~2026-08-08 08:05 UTC 추정) — 내부 링크 404(브리프
+     `internal_link_hint` 오타), 시각 오차("27분"이라 썼으나 실제 1시간 44분), H2 "여섯
+     단계" ↔ 본문 1~7단계 불일치, "직전 밀스톤" 귀속 오류(M17을 가리켜야 하는데 미명시).
+  2. Step 3(검수팀) 2라운드 FAIL (~2026-08-08 08:16 UTC 추정) — 재검사(`cfe9c96`)와
+     명세서(`6eec765`)의 선후·인과를 초안이 반대로 서술(재검사가 철거를 "확정"한 것처럼).
+     **근본 원인은 기획팀 브리프**(`01_planner_brief.md:57~58`)가 두 커밋 시각을 둘 다
+     "08-05 02:12"로 잘못 적은 것 — `6eec765`의 실제 시각은 00:55:18.
+  3. Step 4(마스터 1차) REJECTED (~2026-08-08 08:33 UTC) — 검수팀이 advisory(반려 아님)로
+     내렸던 2건을 마스터가 재검증 후 반려 사유로 격상: (a) 141행이 `Docs/CLAUDE.md:97`
+     규칙을 따옴표로 축자 인용하듯 제시했으나 원문과 문구가 다름(뜻은 동일), (b) 109~113행
+     "마지막 커밋"에 실제로는 다른 커밋(`5acc98e` W2, `3ef7457` W4) 소속 성과 2건이
+     잘못 귀속됨 — 마지막 커밋 `c3f8eba` 본문이 스스로 이 소속을 명시.
+- **판정**: 3회 누적(Step 3 ×2 + Step 4 ×1) — 오케스트레이터가 재작성 루프 중단 결정.
+  글은 버리지 않는다. `.staging/02_draft.md`(반려 사유 ⑤까지 반영된 최신본, 11,586자)를
+  그대로 blog-publisher에 draft 모드로 위임한다. `blog-editor`(Step 5)를 거치지 않았으므로
+  **SEO 메타·라벨 없이 최소 HTML 변환만 적용한 초안**이다.
+- **소재 미소비**: `blog_last_published_commit.md`·`blog_next_material_priority.md`는
+  이 회차에서 갱신하지 않는다 (draft는 소재 소비가 아님 — blog-publisher.md Step 7 규정).
+- **원인 스냅샷**: `.staging/*.md` 전체를 `state/incidents/2026-08-08/`에 보존함(아래
+  참조) — 반려 3건의 판정서 원문(`03_review.md`, `04_verdict.md`)과 각 라운드 초안
+  경과를 사후 추적 가능하게 함.
+- **다음 기획팀에게**: 브리프 작성 시 커밋 시각은 반드시 `git log -1 --format=%ai <hash>`로
+  직접 읽을 것 — 이번 회차 반려 2회차 원인이 브리프의 시각 오기였다.
+- **상태 (경과, 2026-08-08 게시팀 Step 7)**: DRAFTED로 파이프라인 자체는 정상 종료.
+  게시팀 Step 7이 실제로 Blogger 초안을 생성 완료함 — blogger_post_id
+  `9034137679451863013` (blog `6014451945015572125`, gamedevclaude.blogspot.com),
+  status: DRAFT. 초안 상태라 퍼머링크는 없음(`url` 필드가 블로그 홈으로 나옴), 관리자
+  화면: https://www.blogger.com/blog/posts/6014451945015572125?hl=ko. 입력은
+  `blog-editor`(Step 5)를 거치지 않은 `.staging/02_draft.md`(반려 3건 사유가 전부
+  반영된 최신본, `blog-writer`가 재작성한 상태) 그대로이며, **blog-editor
+  미경유(SEO 메타·라벨·이미지·광고 위치 없음)**. 문단 `<p>` · 소제목 `<h2>`/`<h3>` ·
+  인용 `<blockquote>` · 강조 `<b>` 네 가지 변환만 적용했다. 본문에 있던 마크다운 표
+  2개(밀스톤 요약표, "남긴 것" 표)는 변환기 범위 밖이라 파이프 문자 그대로 `<p>`에
+  남아 있다 — 2026-08-02 항목에서 이미 관측된 동일 한계이며 이번에도 손대지 않았다
+  (편집팀을 대행하지 않는다는 원칙 준수). `--labels` 인자에 빈 문자열을 넘기면
+  `blogger-client.js`의 `parseArgs`가 이를 불리언 플래그로 오인해 `labels: ["true"]`가
+  붙는 결함을 발견함 — 최초 게시(post_id `3121106430114146540`)에서 이 결함이 실제로
+  발생해 즉시 DELETE로 제거하고, `--labels` 인자 자체를 생략한 재게시(post_id
+  `9034137679451863013`, 현재 살아있는 초안)로 대체했다. 로컬 사본:
+  `tools/blog-automation/published/2026-08-08-unity-goap-m19-currency-teardown-DRAFT-NOT-PUBLISHED.html`.
+  **지시서 원칙에 따라 `blog_last_published_commit.md`·`blog_next_material_priority.md`는
+  갱신하지 않았다** — 소재를 소비한 것이 아니므로 M19(및 배경 M16~M18)는 다음 회차에도
+  ACTIVE 소재로 그대로 남아 있다(재검토 대상).
+- **다음 로컬 세션에게 (부수 결함, 블로그와 무관)**: `scripts/blogger-client.js`의
+  `parseArgs`가 `--flag ""`(빈 문자열 인자)를 값이 아니라 불리언 `true`로 해석해
+  `String(true).split(',')` → `["true"]`라는 잘못된 라벨이 실제로 게시될 뻔했다.
+  `--labels` 값이 빈 문자열일 수 있는 모든 호출부는 인자 자체를 생략하는 방식으로
+  당장은 우회했지만, 근본 수정(빈 문자열과 플래그 부재를 구분)은 아직 안 됐다.
+
+
 ## 🟢 CLOSED — 2026-08-02 반려 3회 도달 (M12 "성격 축 — 성향 벡터") → draft 강등 → 정식 발행으로 해소
 
 **해소 (2026-08-02 로컬 세션):** 해소 조건 (a)·(b) 둘 다 충족.

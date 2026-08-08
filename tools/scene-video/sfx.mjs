@@ -122,9 +122,33 @@ const KIT = {
     }
     return out;
   },
+
+  /* 패드 — 길게 깔리는 저역 드론 (롱폼 W6). 정적을 메우려고 깔지 않는다 —
+     챕터 전환처럼 **대본이 부르는 샷에만** (효과음 절제 원칙 그대로).
+     기음 110Hz + 3배음(330Hz — thud 와 같은 이유로 폰 스피커에 남는 성분).
+     미세 디튠(×1.005)의 맥놀이 + 느린 숨(0.11Hz)으로 기계 같은 규칙성을 피한다.
+     난수 없음 — 결정성은 공짜다. 양끝 페이드는 dur 에 비례(최대 1.2초). */
+  pad(o = {}, rate) {
+    const dur = o.dur ?? 8, f = o.freq ?? 110, out = alloc(dur, rate), n = out.length;
+    const fade = Math.min(1.2, dur / 4) * rate;
+    for (let i = 0; i < n; i++) {
+      const t = i / rate;
+      const breathe = 0.8 + 0.2 * Math.sin(TAU * 0.11 * t);
+      const a = Math.min(1, i / fade, (n - 1 - i) / fade);
+      out[i] = (Math.sin(TAU * f * t) * 0.45
+             + Math.sin(TAU * f * 1.005 * t) * 0.25
+             + Math.sin(TAU * f * 3 * t) * 0.18) * breathe * a;
+    }
+    return out;
+  },
 };
 
 export const SFX_KINDS = Object.keys(KIT);
+
+/** 패드 기본 목표 단기 RMS (롱폼 W6). 나레이션(0.115~0.122) 대비 약 -12dB —
+    깔림음은 악센트(DEFAULT_GAIN 0.060)보다 한참 아래 있어야 나레이션을 안 민다.
+    제안치다 — 파일럿 시청 판정(ADR-LF-9)에서 확정한다. */
+export const PAD_GAIN = 0.030;
 
 /** 기본 목표 단기 RMS. 🔴 0.030 → 0.060 (2026-08-01, 사용자 지시 — ep03s 부터).
     사유: 0.030 은 나레이션(50ms 최대 RMS 0.115~0.122) 대비 약 -12dB 이라 *"잘 들리지 않는다"*.

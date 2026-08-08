@@ -21,7 +21,7 @@ import fs from 'fs';
 import path from 'path';
 import { spawn } from 'child_process';
 import { ROOT, dimsOfEp, findFfmpeg, openEngine, langPaths, langOf, bakeScene } from './lib-node.mjs';
-import { synth } from './sfx.mjs';
+import { synth, PAD_GAIN } from './sfx.mjs';
 
 const argv = process.argv.slice(2);
 const EP = argv.find(a => !a.startsWith('--')) || 'ep01';
@@ -120,6 +120,29 @@ function buildTrack(timeline, outFile) {
       sfxN++;
     }
   }
+  /* ── 앵비언트 패드 (롱폼 W6) ───────────────────────
+     shot.ambient = { kind?, gain?, freq? } — **그 샷 구간 전체**에 깐다.
+     효과음과 같은 절제 원칙: 정적을 메우려고 깔지 않는다, 대본이 부르는 샷에만.
+     ambient 가 없는 회차는 이 블록이 통째로 안 돈다(기존 트랙 바이트 불변 — W6 DoD). */
+  let padN = 0; li = 0;
+  for (const sh of scene.shots) {
+    const base = li; li += sh.lines.length;
+    if (!sh.ambient) continue;
+    const start = timeline.lines[base]?.t;
+    const end = timeline.lines[base + sh.lines.length]?.t ?? timeline.totalMs;
+    if (start == null) continue;
+    const pcm = synth(sh.ambient.kind ?? 'pad',
+      { ...sh.ambient, dur: (end - start) / 1000, gain: sh.ambient.gain ?? PAD_GAIN }, rate);
+    const at = Math.round(start / 1000 * rate);
+    for (let i = 0; i < pcm.length; i++) {
+      const j = at + i;
+      if (j >= total) break;
+      track[j] += pcm[i];
+    }
+    padN++;
+  }
+  if (padN) console.log(`소리     앵비언트 ${padN}샷`);
+
   for (const v of track) { const a = Math.abs(v); if (a > sfxPeak) sfxPeak = a; }
   /* 나레이션 피크가 0.5 언저리라 여유가 있지만, 겹치면 1.0 을 넘길 수 있다.
      넘으면 16비트로 쓸 때 잘려서 '지직' 소리가 난다 — 통째로 줄여서 피한다. */

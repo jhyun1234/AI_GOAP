@@ -800,6 +800,23 @@ if (PREPARE) {
   state[EP] = { ...(state[EP] || {}), preparedAt: new Date().toISOString(), title: meta.snippet.title };
   fs.writeFileSync(STATE, JSON.stringify(state, null, 2));
 
+  /* ── 아카이브 미러 (롱폼 W6, 쇼츠·롱폼 공통) ─────────
+     build/ 는 git 밖이다(.gitignore) — D: 사본이 유일한 백업이다. robocopy 는
+     변경분만 복사하고, 종료 코드 0~7 이 성공이다(1 = 복사한 파일 있음).
+     D: 가 없는 기기에서는 경고만 하고 완주를 막지 않는다 — 아카이브는 보험이지
+     파이프라인의 필요조건이 아니다. */
+  const archiveRoot = process.env.SCENE_ARCHIVE_ROOT || 'D:\\AI_GOAP-videos\\episodes';
+  if (fs.existsSync(path.parse(archiveRoot).root)) {
+    const dst = path.join(archiveRoot, EP, 'build');
+    const rc = spawnSync('robocopy', [epBuild(EP), dst, '/E', '/NJH', '/NJS', '/NDL', '/NFL'],
+      { stdio: 'ignore' });
+    console.log(rc.status <= 7
+      ? `  아카이브 ${dst}`
+      : `  아카이브 🔴 실패 (robocopy exit ${rc.status}) — 완주는 유효, 사본만 없다`);
+  } else {
+    console.log(`  아카이브 ⚠️ ${archiveRoot} 드라이브 없음 — 건너뜀 (SCENE_ARCHIVE_ROOT 로 교체 가능)`);
+  }
+
   console.log(`\n준비 완료`);
   console.log(`  영상   ${path.relative(path.dirname(ROOT), mp4)}`);
   console.log(`  붙여넣기 ${path.relative(path.dirname(ROOT), txt)}`);

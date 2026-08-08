@@ -125,9 +125,9 @@ namespace AIVillage.M0
         /// <summary>이 건물이 주민 통행을 막는가 (ADR-M22-1 순수 규칙 — 게이트가 씬 없이 검산).</summary>
         public static bool BlocksVillagerPassage(BuildingSO b) => b.BlocksMovement;
 
-        /// <summary>이 건물이 위협 통행을 막는가. 문(M22-W2 BlocksThreatMovement)은 여기만 참이 된다 —
+        /// <summary>이 건물이 위협 통행을 막는가. 문(BlocksThreatMovement)은 여기만 참이 된다 —
         /// 주민 쪽에 문 예외 분기를 만들면 ADR-M22-1 위반이다.</summary>
-        public static bool BlocksThreatPassage(BuildingSO b) => b.BlocksMovement;
+        public static bool BlocksThreatPassage(BuildingSO b) => b.BlocksMovement || b.BlocksThreatMovement;
 
         private BuildingVisualizer _visualizer;
         private ZoneBorderView _zoneBorderView;

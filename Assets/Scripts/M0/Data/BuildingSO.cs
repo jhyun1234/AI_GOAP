@@ -59,6 +59,23 @@ namespace AIVillage.M0
                  "MyHasHome==1로 이미 막지만 방어선). ZoneRadius·MinSpacingTiles와 배타.")]
         public bool PlaceNearOwnedHome;
 
+        // ── 방어 (M22, Docs/M22_방어건설_실행명세서.md) ──
+
+        [Tooltip("0보다 크면 내구도를 가진다 (ADR-M22-3). 위협의 StructureDamage로 깎이고 수리로 " +
+                 "복원된다. 상태 소유는 DefenseService — 이 값은 최대치의 단일 출처다.")]
+        public float MaxDurability;
+
+        [Tooltip("true면 위협만 통행 불가 (문, ADR-M22-5 — 상태 없는 정적 차등 통행). " +
+                 "주민 배열에는 등록되지 않는다. BlocksMovement와 배타 — 둘 다 켜면 에러.")]
+        public bool BlocksThreatMovement;
+
+        [Tooltip("true면 방어 계획 타일(플레이어 지정 구역 둘레)에 짓는다 (M22-W3/W4). " +
+                 "배치 결정자 택1 규칙에 참여 — 다른 배치 필드와 겹치면 에러.")]
+        public bool PlaceOnDefensePlan;
+
+        [Tooltip("수리 1회의 Wood 비용 (MaxDurability > 0일 때만 의미). 수리 1회 = 전량 복원 (한 걸음, ADR-M0-12).")]
+        public int RepairCost;
+
         [Tooltip("완공 시 스폰할 프리팹. 비우면 MarkerSprite → 원형 마커 순으로 폴백.")]
         public GameObject Prefab;
 
@@ -85,11 +102,21 @@ namespace AIVillage.M0
             // 간격도 수량형 전용 — 기존 완공 목록(CountSlot)이 없으면 비교 대상이 없다 (M11-F)
             if (!IsCountable && MinSpacingTiles > 0)
                 Debug.LogWarning($"[BuildingSO] {name}: MinSpacingTiles({MinSpacingTiles})는 수량형(IsCountable) 건물에만 적용됩니다 — 무시됨.", this);
-            // 배치 결정자는 하나뿐이어야 한다 (M11-E/F ⚠️) — 택지·구역·집 곁이 겹치면 규칙이 이원화된다
-            int placers = (MinSpacingTiles > 0 ? 1 : 0) + (ZoneRadius > 0 ? 1 : 0) + (PlaceNearOwnedHome ? 1 : 0);
+            // 배치 결정자는 하나뿐이어야 한다 (M11-E/F ⚠️, M22 편입) — 겹치면 규칙이 이원화된다
+            int placers = (MinSpacingTiles > 0 ? 1 : 0) + (ZoneRadius > 0 ? 1 : 0)
+                        + (PlaceNearOwnedHome ? 1 : 0) + (PlaceOnDefensePlan ? 1 : 0);
             if (placers > 1)
                 Debug.LogError($"[BuildingSO] {name}: 배치 결정자는 하나만 — MinSpacingTiles(택지)·" +
-                               "ZoneRadius(구역)·PlaceNearOwnedHome(집 곁) 중 하나만 설정하세요.", this);
+                               "ZoneRadius(구역)·PlaceNearOwnedHome(집 곁)·PlaceOnDefensePlan(방어 계획) " +
+                               "중 하나만 설정하세요.", this);
+            // 통행 플래그 배타 (ADR-M22-5 ⚠️) — 둘 다 켜면 "모두 차단"과 "위협만 차단"이 충돌한다
+            if (BlocksMovement && BlocksThreatMovement)
+                Debug.LogError($"[BuildingSO] {name}: BlocksMovement(모두 차단)와 " +
+                               "BlocksThreatMovement(위협만 차단)는 배타입니다 — 하나만 켜세요.", this);
+            // 수리 비용은 내구도가 있어야 의미가 있다 (M22-W2 ⚠️)
+            if (RepairCost > 0 && MaxDurability <= 0f)
+                Debug.LogWarning($"[BuildingSO] {name}: RepairCost({RepairCost})는 MaxDurability > 0일 때만 " +
+                                 "쓰입니다 — 무시됨.", this);
         }
     }
 }

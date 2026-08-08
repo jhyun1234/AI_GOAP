@@ -102,11 +102,24 @@ namespace AIVillage.M0
                                 // MyWasAttacked 동형 영구 bool·세이브 대상. 분실·내구도 없음 — 이번 범위).
                                 // ⚠️ 무기는 게이트가 아니라 배율 (ADR-M21-5) — 어떤 goal도 이 슬롯을
                                 // 참전 전제로 걸면 안 된다 (게이트 M21_T10 감시). 예산 52칸 중 41.
+
+        // ── M22-W2 확장 (방어 건설 — 기존 인덱스 뒤에만 추가, 에셋 호환 유지) ──
+        FenceCount          = 41, // 수치형 — 완공 울타리 수 (원천 = ConstructionService 수량형, ADR-M0-3).
+                                  // 예산 52칸 중 42.
+        GateCount           = 42, // 수치형 — 완공 문 수. 문 = 정적 차등 통행(주민만, ADR-M22-5).
+                                  // 예산 52칸 중 43.
+        DefensePlannedCount = 43, // 수치형 파생 — 방어 계획의 미건설 잔여 타일 수
+                                  // (원천 = DefenseService, W3 배선 — 그전까지 스냅샷 항상 0).
+                                  // Goal_BuildDefense 트리거. 예산 52칸 중 44.
+        DefenseDamagedCount = 44, // 수치형 파생 — 손상(0 < 내구도 < Max) 시설 수
+                                  // (원천 = DefenseService, W5 배선). Goal_RepairDefense 트리거.
+                                  // ⚠️ 파괴(0 도달)는 손상이 아니다 — 소멸 + 계획 복귀 (ADR-M22-6).
+                                  // 예산 52칸 중 45.
     }
 
     public static class SlotIds
     {
-        public const int Count = 41;
+        public const int Count = 45;
 
         /// <summary>전역 스톡 슬롯 여부 — EffectApplier/러너가 공유하는 유일한 판정.
         /// ⚠️ 개인 스톡(MyRawFood 등)을 여기 넣으면 안 된다 (명세 M11-A ⚠️①) —
@@ -141,7 +154,9 @@ namespace AIVillage.M0
             || slot == SlotId.MyFarmPlotCount || slot == SlotId.MyEmptyPlot
             || slot == SlotId.MyRipeCrop || slot == SlotId.UntendedInjuredCount
             || slot == SlotId.CampfireCount // MyHasCampfire(32)는 논리형이라 제외
-            || slot == SlotId.DaysToFreeze; // PlantWindowOpen(36)은 논리형이라 제외
+            || slot == SlotId.DaysToFreeze  // PlantWindowOpen(36)은 논리형이라 제외
+            || slot == SlotId.FenceCount || slot == SlotId.GateCount            // M22-W2
+            || slot == SlotId.DefensePlannedCount || slot == SlotId.DefenseDamagedCount;
             // (M19-W5: 화폐 슬롯 37~39는 휴면 — 수치형 분류에서도 제외)
             // (M21-W5: MyHasWeapon(40)은 논리형이라 제외)
 

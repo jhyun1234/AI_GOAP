@@ -25,9 +25,31 @@ http.createServer((req, res) => {
   if (!file.startsWith(base)) { res.writeHead(403).end(); return; }
   fs.readFile(file, (err, buf) => {
     if (err) { res.writeHead(404, { 'content-type': 'text/plain' }).end('404 ' + p); return; }
+    const type = TYPES[path.extname(file)] || 'application/octet-stream';
+    /* 🔴 Range 지원 (롱폼 W5 수리, 2026-08-09) — HTML5 비디오 시킹은 Range 가 필수다.
+       없으면 크로미움이 seekable=[0,0] 인 스트림으로 취급해 currentTime 할당이 전부
+       0 으로 클램프되고, **클립 8샷이 전부 정지 사진으로 렌더된다** (검수가 잡았다 —
+       엔진 스틸이 시각과 무관하게 비트 동일 · PSNR inf). */
+    const range = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range || '');
+    if (range && (range[1] || range[2])) {
+      const start = range[1] ? Number(range[1]) : Math.max(0, buf.length - Number(range[2]));
+      const end = range[1] && range[2] ? Math.min(Number(range[2]), buf.length - 1) : buf.length - 1;
+      if (start > end || start >= buf.length) {
+        res.writeHead(416, { 'content-range': `bytes */${buf.length}` }).end(); return;
+      }
+      res.writeHead(206, {
+        'content-type': type, 'cache-control': 'no-store',
+        'accept-ranges': 'bytes',
+        'content-range': `bytes ${start}-${end}/${buf.length}`,
+        'content-length': end - start + 1,
+      });
+      res.end(buf.subarray(start, end + 1));
+      return;
+    }
     res.writeHead(200, {
-      'content-type': TYPES[path.extname(file)] || 'application/octet-stream',
-      'cache-control': 'no-store'
+      'content-type': type,
+      'cache-control': 'no-store',
+      'accept-ranges': 'bytes'
     });
     res.end(buf);
   });

@@ -41,8 +41,11 @@ body{background:#000;color:var(--ink);font-family:var(--mono);
   position:relative;overflow:hidden}
 
 /* ── 상단 : 상시 브랜딩 ───────────────────────────
-   가로는 플랫폼 UI 가림이 없다. 3% = 32px(@1080) — 얇은 띠로만. */
-.hud{position:absolute;top:3%;left:0;right:0;padding:0 24px;z-index:5}
+   가로는 플랫폼 UI 가림이 없다. 3% = 32px(@1080) — 얇은 띠로만.
+   🔴 우측 46% 에만 산다 (2026-08-09 검수 반려 1번) — 좌상단은 게임 클립의
+   HUD(Day·경보줄)가 쓰는 자리다. 전폭이던 시절 경보줄 한가운데를 제목이 덮었고,
+   하필 자막이 그 경보를 가리키는 샷들이었다. 캔버스 샷에서도 우측 정렬로 통일. */
+.hud{position:absolute;top:3%;left:auto;right:24px;width:46%;padding:0;z-index:5;text-align:right}
 .ep{font-family:var(--disp);font-weight:800;font-size:18px;line-height:1.24;
   letter-spacing:-.025em;color:var(--ink)}
 .airow{margin-top:5px}

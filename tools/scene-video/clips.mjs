@@ -80,6 +80,31 @@ function ingest(arg) {
     `\n카탈로그  ${LIB_FILE} (${lib.clips.length}개)`);
 }
 
+/* 재슬라이스 — 원본 raw.mp4 를 보존하는 이유가 이것이다. 7초 기본 컷이 샷 길이보다
+   짧으면(클립이 끝나고 마지막 프레임에 멈춤 → 정적 검사에 걸림) 같은 사건을 더 길게
+   다시 자른다. 카탈로그의 recSec·session 으로 원본 위치를 찾는다. */
+function reslice(clipId, preS, postS) {
+  const lib = loadLib();
+  const c = lib.clips.find(x => x.id === clipId);
+  if (!c) { console.error(`🔴 카탈로그에 없다: ${clipId}`); process.exit(1); }
+  const raw = path.join(CLIPS_ROOT, c.session, 'raw.mp4');
+  if (!fs.existsSync(raw)) { console.error(`🔴 원본이 없다: ${raw}`); process.exit(1); }
+  const out = path.join(CLIPS_ROOT, c.src);
+  const start = Math.max(0, c.recSec - preS);
+  const dur = (c.recSec - start) + postS;
+  const r = spawnSync(ffmpeg, [
+    '-y', '-loglevel', 'error',
+    '-ss', start.toFixed(2), '-i', raw, '-t', dur.toFixed(2),
+    '-c:v', 'libx264', '-crf', '18', '-preset', 'medium', '-an',
+    out,
+  ], { stdio: 'inherit' });
+  if (r.status !== 0) { console.error(`🔴 재슬라이스 실패: ${clipId}`); process.exit(1); }
+  c.durSec = Number(dur.toFixed(2));
+  c.preS = preS;   // 사건 시각 = 클립 안 preS 초 지점 (in 오프셋 계산용)
+  saveLib(lib);
+  console.log(`재슬라이스 ${clipId} — ${c.durSec}s (사건은 ${preS}s 지점)`);
+}
+
 function stills(clipId) {
   const lib = loadLib();
   const c = lib.clips.find(x => x.id === clipId);
@@ -104,9 +129,10 @@ function list() {
 }
 
 if (cmd === 'ingest' && argv[1]) ingest(argv[1]);
+else if (cmd === 'reslice' && argv[1]) reslice(argv[1], Number(argv[2] ?? PRE_S), Number(argv[3] ?? POST_S));
 else if (cmd === 'stills' && argv[1]) stills(argv[1]);
 else if (cmd === 'list') list();
 else {
-  console.log('사용: node clips.mjs ingest <세션> | stills <clipId> | list  [--all]');
+  console.log('사용: node clips.mjs ingest <세션> | reslice <clipId> [pre] [post] | stills <clipId> | list  [--all]');
   process.exit(cmd ? 1 : 0);
 }

@@ -170,8 +170,13 @@ namespace AIVillage.Tests.EditMode
             Assert.IsTrue(SlotIds.IsHomeStock(SlotId.MyHomeCookedFood));
             Assert.IsFalse(SlotIds.IsPersonalStock(SlotId.MyDebt),
                 "빚은 소지품이 아니다 (M17-W7) — 넣으면 TransferTo가 '빚을 남에게 주는' 경로를 연다");
-            Assert.AreEqual(40, SlotIds.Count,
-                "슬롯 예산 40/52 (M18-W2 HomePriceNow 추가 — 2026-08-04)");
+            Assert.AreEqual(41, SlotIds.Count,
+                "슬롯 예산 41/52 (M21-W5 MyHasWeapon 추가 — 2026-08-08)");
+            Assert.IsFalse(SlotIds.IsStock(SlotId.MyHasWeapon),
+                "무기는 스톡이 아니라 개인 논리 슬롯 — 스톡에 넣으면 EffectApplier 선검사가 " +
+                "WorldModel을 읽어 제작 픽션(Set)이 경고를 낸다 (M21-W5)");
+            Assert.IsFalse(SlotIds.IsPersonalStock(SlotId.MyHasWeapon),
+                "무기는 이전·지급 대상이 아니다 (내 손의 창은 나눠지지 않는다 — 명세 W5 ⚠️①)");
         }
     }
 }

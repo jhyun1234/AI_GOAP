@@ -30,16 +30,25 @@ namespace AIVillage.M0
                  "'맨손 솔로는 아프다'는 검산이 조용히 무너진다.")]
         public float HitDamage = 10f;
 
+        [Tooltip("무기 보유 시 타격 간격 배율 (M21-W5). §4 제안치 0.5 = 2배 빠름. 직업 배율(W8)과 " +
+                 "곱 결합 (M20 배율 문법 — 무장 사냥꾼 = 4배). ⚠️ 무기는 게이트가 아니라 배율이다 " +
+                 "(ADR-M21-5) — 맨손도 싸울 수 있고, 이 값은 '빨라지는 정도'만 정한다.")]
+        public float WeaponHitSecMult = 0.5f;
+
         public override IActionRunner CreateRunner(VillagerAgent agent) => new FightRunner(this);
 
-        private void OnValidate()
+        protected override void OnValidate()
         {
+            base.OnValidate(); // ADR-M18-1 전제 문법 검사 — private으로 가리면 이 액션만 감사를 빠져나간다
             if (BaseHitSec <= 0f)
                 Debug.LogWarning($"[FightActionSO] {name}: BaseHitSec({BaseHitSec}) ≤ 0 — 매 프레임 타격이 됩니다.", this);
             if (HitDamage <= 0f)
                 Debug.LogWarning($"[FightActionSO] {name}: HitDamage({HitDamage}) ≤ 0 — 때려도 아무 일이 없습니다.", this);
             if (StrikeRangeTiles < 0)
                 Debug.LogWarning($"[FightActionSO] {name}: StrikeRangeTiles({StrikeRangeTiles})는 음수일 수 없습니다.", this);
+            if (WeaponHitSecMult <= 0f || WeaponHitSecMult >= 1f)
+                Debug.LogWarning($"[FightActionSO] {name}: WeaponHitSecMult({WeaponHitSecMult})는 0~1 사이여야 " +
+                                 "합니다 — 1 이상이면 무기가 오히려 느리거나 무의미합니다 (ADR-M21-5).", this);
         }
     }
 }

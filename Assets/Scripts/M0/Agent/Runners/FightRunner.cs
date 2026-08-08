@@ -28,12 +28,11 @@ namespace AIVillage.M0
             _so = so;
         }
 
-        /// <summary>이번 타격 간격 — 직업·무기 배율은 W5·W8이 배선한다.
-        /// 지금은 중립값(1·무기 없음)이라 기본 간격 그대로다 (중립 불변식).
-        /// ⚠️ 배율을 여기서 발명하지 않는다 — `JobSO.CombatDurationMult`(W8)·`MyHasWeapon`(W5)이
-        /// 생기면 그때 인자만 갈아 끼운다. 없는 필드를 미리 흉내 내면 W5·W8이 검산할 기준이 사라진다.</summary>
+        /// <summary>이번 타격 간격 — 무기 배율은 W5가 배선했다 (`MyHasWeapon` × 에셋 배율).
+        /// 직업 배율(`JobSO.CombatDurationMult`)은 W8 몫 — 그때 두 번째 인자만 갈아 끼운다.
+        /// ⚠️ 배율을 여기서 발명하지 않는다 — 곱 결합·클램프는 전부 HitInterval(순수, 게이트 T8)이 한다.</summary>
         private float Interval(VillagerAgent agent)
-            => CombatService.HitInterval(_so.BaseHitSec, 1f, false, 1f);
+            => CombatService.HitInterval(_so.BaseHitSec, 1f, agent.MyHasWeapon, _so.WeaponHitSecMult);
 
         private static int Dist(VillagerAgent a, ThreatAgent t)
             => Mathf.Abs(a.TileX - t.TileX) + Mathf.Abs(a.TileY - t.TileY);

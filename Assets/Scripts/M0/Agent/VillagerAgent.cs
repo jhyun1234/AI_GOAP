@@ -534,7 +534,8 @@ namespace AIVillage.M0
                 Farm != null ? Farm.CountEmptyOf(AgentId) : 0,
                 Farm != null ? Farm.CountRipeOf(AgentId) : 0,
                 hasCampfire,                                                   // 내 모닥불 (M11-K)
-                MyWasStarved);                                                 // 아사 직전 경험 (M12-G)
+                MyWasStarved,                                                  // 아사 직전 경험 (M12-G)
+                MyHasWeapon);                                                  // 무기 소유 (M21-W5)
         }
 
         /// <summary>
@@ -1858,6 +1859,16 @@ namespace AIVillage.M0
         /// 배부르게 회복해도 남는다 — 이것은 상태가 아니라 **기억**이고, 기질(성향)이 하지 않는
         /// 선택을 하게 만드는 근거다 (집 부탁의 성향 문턱 우회).</summary>
         public bool MyWasStarved { get; private set; }
+
+        /// <summary>무기 소유 (M21-W5, MyHasWeapon 슬롯의 유일한 원천) — 쓰기는 CraftRunner 완료
+        /// (AcquireWeapon)뿐이고 되돌리는 경로는 없다 (분실·내구도 없음 — ADR-M21-5 이번 범위).
+        /// 소비처는 FightRunner의 타격 간격 배율 하나 — 게이트가 아니라 배율이다 (맨손도 싸운다).
+        /// 세이브 대상 (ADR-M0-10).</summary>
+        public bool MyHasWeapon { get; private set; }
+
+        /// <summary>무기 획득의 유일한 문 (M21-W5) — CraftRunner가 재료 지불 가능성을 선검사한
+        /// 직후에만 부른다 (Set MyHasWeapon 효과는 플래너 픽션 — EffectApplier는 논리형을 무시).</summary>
+        public void AcquireWeapon() => MyHasWeapon = true;
 
         /// <summary>내 집 타일 (M11-A) — 집 저장 라우팅·피난 목적지 공용 창구. 원천 = OwnershipService.</summary>
         public bool TryGetHomeTile(out Vector2Int tile)

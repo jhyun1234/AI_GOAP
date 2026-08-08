@@ -538,5 +538,118 @@ namespace AIVillage.Tests.EditMode
             Assert.Less(hits, 12, $"늑대 격퇴에 {hits}대 필요 — 너무 길면 맨손 교전이 자살이 된다");
             Assert.Greater(hits, 1, "한 대에 격퇴되면 위협이 장식이 된다");
         }
+
+        // ── M21-T10: 원시 무기 (W5 DoD ①②④) ────────────────────────────────
+
+        [Test]
+        public void M21_T10_FightNeedsNoWeapon_WeaponIsAMultiplierNotAGate()
+        {
+            // ADR-M21-5 — 무기는 게이트가 아니라 배율. Goal_Fight 어디에도 MyHasWeapon이
+            // 전제로 끼는 순간 "무기 없는 판 = 아무도 안 싸움"이 되어 축이 뒤집힌다.
+            GoalSO fight = LoadGoal("Goal_Fight");
+            Assert.IsFalse(fight.TriggerConditions.Any(c => c.Slot == SlotId.MyHasWeapon),
+                "교전 트리거에 무기 전제 금지 — 맨손도 싸운다");
+
+            var precs = new System.Collections.Generic.List<SlotCondition>();
+            foreach (ActionSO a in fight.DirectActionPool)
+            {
+                precs.Clear();
+                a.CollectPreconditions(precs);
+                Assert.IsFalse(precs.Exists(c => c.Slot == SlotId.MyHasWeapon),
+                    $"{a.name}: 교전 액션에 무기 전제 금지 (ADR-M21-5)");
+            }
+
+            // 배율은 에셋에 있고 (0,1) 구간 — 1이면 무기가 무의미, 0이면 간격 클램프에 먹혀 침묵
+            var act = AssetDatabase.LoadAssetAtPath<FightActionSO>(
+                "Assets/M0Config/Actions/Action_Fight.asset");
+            Assert.Greater(act.WeaponHitSecMult, 0f, "배율 0 = HitInterval이 무시해 무기가 침묵한다");
+            Assert.Less(act.WeaponHitSecMult, 1f, "배율 1 이상 = 무기를 만들 이유가 없다");
+        }
+
+        [Test]
+        public void M21_T10_ArmSelf_TriggersOnlyInPeaceAndOnlyOnce()
+        {
+            GoalSO arm = LoadGoal("Goal_ArmSelf");
+
+            // 전투 중 제작 금지 — 늑대 앞에서 창을 깎기 시작하면 안 된다
+            Assert.IsTrue(arm.TriggerConditions.Any(
+                    c => c.Slot == SlotId.ThreatNear && c.Op == CompareOp.Equal && c.Value == 0),
+                "트리거에 ThreatNear==0 누락 — 교전 중 제작이 열린다");
+            // 트리거(무기 없음)와 목표(무기 있음)가 서로소 — ADR-M0-7 무한 루프 방지
+            Assert.IsTrue(arm.TriggerConditions.Any(
+                    c => c.Slot == SlotId.MyHasWeapon && c.Op == CompareOp.Equal && c.Value == 0),
+                "트리거에 MyHasWeapon==0 누락 — 무장한 뒤에도 계속 뜬다");
+            Assert.IsTrue(arm.GoalConditions.Any(
+                    c => c.Slot == SlotId.MyHasWeapon && c.Op == CompareOp.Equal && c.Value == 1),
+                "목표가 MyHasWeapon==1이 아니면 제작 사슬이 성립하지 않는다");
+            // 생존 아래 (P0 승인 목록 비대상 — M12_T3 관할 밖임을 고정)
+            Assert.Less(arm.Priority, 90, "무장이 수면·식사보다 급하면 안 된다 (여가 위·생존 아래)");
+            Assert.IsFalse(arm.AllowedWhenInjured, "부상자는 제작 노동에서 빠진다 (기존 필터 재사용)");
+        }
+
+        [Test]
+        public void M21_T10_CraftChain_GatherFeedsTheCraft()
+        {
+            // W5 DoD ① 기구 증명 — 재료가 있으면 제작 한 방, 빈손이면 채집이 앞에 붙는다.
+            // (화면의 "플랜 로그: 채집→제작 사슬"은 Play 실측 몫 — 여기는 플래너 기구만 고정한다.)
+            var catalog = AssetDatabase.LoadAssetAtPath<ActionCatalog>(
+                "Assets/M0Config/ActionCatalog.asset");
+            Assert.IsNotNull(catalog, "카탈로그 로드");
+            var gw = new PlannerGateway(catalog);
+            GoalSO arm = LoadGoal("Goal_ArmSelf");
+
+            // 재료 충족 — 제작 단독 플랜
+            (PlanStatus s1, ActionSO[] p1) = RunPlan(gw, Snap(
+                (SlotId.WoodStock, 3), (SlotId.StoneStock, 2)), arm);
+            Assert.AreEqual(PlanStatus.Success, s1, "재료가 있는데 무장 플랜이 안 나온다");
+            Assert.AreEqual(1, p1.Length, "재료가 있으면 제작 한 방이어야 한다");
+            Assert.IsInstanceOf<CraftActionSO>(p1[0], "플랜의 끝은 제작 액션");
+
+            // 빈손 + 발견만 — 채집→제작 사슬 (DoD ①의 플래너 쪽 절반)
+            (PlanStatus s2, ActionSO[] p2) = RunPlan(gw, Snap(
+                (SlotId.NearDiscoveredWood, 1), (SlotId.NearDiscoveredStone, 1)), arm);
+            Assert.AreEqual(PlanStatus.Success, s2, "빈손이면 채집해서라도 만들어야 한다");
+            Assert.IsTrue(p2.Any(a => a is CraftActionSO), "사슬 끝에 제작이 없다");
+            Assert.Greater(p2.Length, 1, "빈손인데 채집 없이 만들었다 — 재료 전제가 뚫렸다");
+        }
+
+        [Test]
+        public void M21_T10_ShippedCraft_MaterialsAreGuardedByPreconditions()
+        {
+            // 원자성의 짝 (ADR-M0-8) — Sub 효과마다 같은 슬롯 ≥ 전제가 있어야
+            // "차감 실패로 플랜 중단"이 정상 경로가 아니라 경합 예외로만 남는다.
+            var act = AssetDatabase.LoadAssetAtPath<CraftActionSO>(
+                "Assets/M0Config/Actions/Action_CraftWeapon.asset");
+            Assert.IsNotNull(act, "Action_CraftWeapon 에셋 로드");
+
+            foreach (SlotEffect e in act.Effects)
+            {
+                if (e.Op != EffectOp.SubClamp0) continue;
+                Assert.IsTrue(act.Preconditions.Any(
+                        p => p.Slot == e.Slot && p.Op == CompareOp.GreaterOrEqual && p.Value >= e.Value),
+                    $"{e.Slot} −{e.Value}에 대응하는 ≥ 전제가 없다 — 지불 불가 플랜이 성립한다");
+            }
+            Assert.IsTrue(act.Effects.Any(
+                    e => e.Slot == SlotId.MyHasWeapon && e.Op == EffectOp.Set && e.Value == 1),
+                "Set MyHasWeapon 1 픽션이 없으면 플래너가 이 액션으로 무장을 세울 수 없다");
+        }
+
+        private static WorldSnapshot Snap(params (SlotId slot, int value)[] pairs)
+        {
+            var slots = new int[PlanningConfig.TotalSlots];
+            foreach ((SlotId slot, int value) in pairs) slots[(int)slot] = value;
+            return new WorldSnapshot(slots);
+        }
+
+        private static (PlanStatus status, ActionSO[] plan) RunPlan(
+            PlannerGateway gw, WorldSnapshot snap, GoalSO goal)
+        {
+            PlannerGateway.PendingPlan pending = gw.RequestPlan(snap, goal);
+            Assert.IsNotNull(pending, "RequestPlan이 null을 반환했습니다.");
+            gw.CompleteNow(pending);
+            Assert.IsTrue(gw.TryGetResult(pending, out PlanStatus status, out ActionSO[] plan, out _),
+                "CompleteNow 이후에도 TryGetResult가 false입니다.");
+            return (status, plan);
+        }
     }
 }

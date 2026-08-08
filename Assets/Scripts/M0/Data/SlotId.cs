@@ -96,11 +96,17 @@ namespace AIVillage.M0
         MyMoney           = 37, // 휴면 — 舊 몸 소지 돈(동)
         MyDebt            = 38, // 휴면 — 舊 화폐 빚(동)
         HomePriceNow      = 39, // 휴면 — 舊 집 실가격(동)
+
+        // ── M21-W5 확장 (원시 무기 — 기존 인덱스 뒤에만 추가, 에셋 호환 유지) ──
+        MyHasWeapon       = 40, // 논리형 — 내 무기 소유 (원천 = VillagerAgent.AcquireWeapon,
+                                // MyWasAttacked 동형 영구 bool·세이브 대상. 분실·내구도 없음 — 이번 범위).
+                                // ⚠️ 무기는 게이트가 아니라 배율 (ADR-M21-5) — 어떤 goal도 이 슬롯을
+                                // 참전 전제로 걸면 안 된다 (게이트 M21_T10 감시). 예산 52칸 중 41.
     }
 
     public static class SlotIds
     {
-        public const int Count = 40;
+        public const int Count = 41;
 
         /// <summary>전역 스톡 슬롯 여부 — EffectApplier/러너가 공유하는 유일한 판정.
         /// ⚠️ 개인 스톡(MyRawFood 등)을 여기 넣으면 안 된다 (명세 M11-A ⚠️①) —
@@ -137,6 +143,7 @@ namespace AIVillage.M0
             || slot == SlotId.CampfireCount // MyHasCampfire(32)는 논리형이라 제외
             || slot == SlotId.DaysToFreeze; // PlantWindowOpen(36)은 논리형이라 제외
             // (M19-W5: 화폐 슬롯 37~39는 휴면 — 수치형 분류에서도 제외)
+            // (M21-W5: MyHasWeapon(40)은 논리형이라 제외)
 
         /// <summary>자원 타입 → 스톡 슬롯. M0 미지원 타입이면 null (Iron/Copper/Silver는 M1).</summary>
         public static SlotId? StockOf(ResourceType type)

@@ -170,7 +170,8 @@ namespace AIVillage.M0
                                            bool wasAttacked = false,
                                            int myPlots = 0, int myEmptyPlots = 0, int myRipeCrops = 0,
                                            bool hasCampfire = false,
-                                           bool wasStarved = false)
+                                           bool wasStarved = false,
+                                           bool hasWeapon = false)
         {
             var slots = new int[PlanningConfig.TotalSlots];
 
@@ -236,6 +237,10 @@ namespace AIVillage.M0
             // 인자로 넘긴다, MySatiety 패턴). 기본 false = 0 (중립 — Goal_Flee 영구 불발).
             slots[(int)SlotId.ThreatNear] = threatNear ? 1 : 0;
             // (M19-W5: 지갑(37)·빚(38)·집값(39) 주입 철거 — 슬롯 3칸 휴면, 항상 0)
+            // 무기 소유 (M21-W5) — 원천 = VillagerAgent.AcquireWeapon. 기본 false = 0
+            // (중립: Goal_ArmSelf 트리거 상시 참이지만 제작 사슬이 없으면 NoSolution이 아니라
+            //  플랜 실패 쿨다운 — 미배선 테스트는 이 goal을 참조하지 않는다).
+            slots[(int)SlotId.MyHasWeapon] = hasWeapon ? 1 : 0;
             return new WorldSnapshot(slots);
         }
 

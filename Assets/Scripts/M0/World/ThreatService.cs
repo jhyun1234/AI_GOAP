@@ -114,7 +114,8 @@ namespace AIVillage.M0
         public ThreatService(ThreatSO[] threats, SeasonService season,
                              ConstructionService construction, IReadOnlyList<VillagerAgent> agents,
                              WorldConfigSO config, Func<IPathfinder> pathfinder,
-                             Func<int, int, bool> isWalkable, Transform parent)
+                             Func<int, int, bool> isWalkable, Transform parent,
+                             DefenseService defense = null)
         {
             _threats = threats ?? Array.Empty<ThreatSO>();
             _season = season;
@@ -124,6 +125,110 @@ namespace AIVillage.M0
             _pathfinder = pathfinder;
             _isWalkable = isWalkable;
             _parent = parent;
+            _defense = defense;
+        }
+
+        // ── 공성 (M22-W5, ADR-M22-2 — 막힌 위협은 출몰을 접지 않고 시설을 부순다) ──
+
+        // null = 방어 축 없는 판 (중립: 막히면 기존 출몰 생략 그대로).
+        private readonly DefenseService _defense;
+
+        /// <summary>무리별 공성 상태 — 파괴 순간 해제되고 무리 전원이 원래 타깃으로 재진격한다.
+        /// 공성은 **타깃 교체**일 뿐이다: 수명 주기(체류 상한·재타격 주기·퇴장 3경로)는 기존 그대로
+        /// (명세 ⚠️① — 새 수명 규칙을 만들면 W2R가 고친 것을 다시 부순다).</summary>
+        private struct SiegeInfo
+        {
+            public SlotId Slot;
+            public Vector2Int Tile;               // 두드리는 시설
+            public bool OrigTargetsVillagers;     // 원래 롤 (돌파 후 복귀할 타깃 종류)
+            public Vector2Int OrigTarget;         // 원래 목표 (밭형 — 주민형은 돌파 시점 재선정)
+        }
+        private readonly Dictionary<int, SiegeInfo> _groupSiege = new Dictionary<int, SiegeInfo>(2);
+        private readonly List<ThreatAgent> _resumeBuf = new List<ThreatAgent>(4);
+
+        /// <summary>공성 타격 알림 (위협, 시설 슬롯, 타일, 남은 내구도, 최대) — HUD·대사 구독 (표현).</summary>
+        public event Action<ThreatSO, SlotId, Vector2Int, float, float> OnStructureStruck;
+
+        /// <summary>시설 파괴 알림 — HUD 구독. 제거·통행 복구는 RemoveCountableAt → OnRemoved 배선 몫.</summary>
+        public event Action<ThreatSO, SlotId, Vector2Int> OnStructureDestroyed;
+
+        /// <summary>이 무리가 공성 중인가 (ThreatAgent 판독점 — 공성 중엔 추격을 멈추고 시설로 간다).</summary>
+        public bool IsGroupSieging(int groupKey) => _groupSiege.ContainsKey(groupKey);
+
+        private enum SiegeTick { NotSiege, Struck, Skipped, Resumed }
+
+        /// <summary>공성 틱 — 무리가 공성 중이면 이번 타격을 시설이 가져간다.
+        /// 사거리 밖이면 이번 틱만 거른다 (배회가 다시 데려온다 — 밭형 '대상 소멸' 퇴장에 떨어지면 안 된다).</summary>
+        private SiegeTick TickSiegeStrike(ThreatAgent agent, Vector2Int here)
+        {
+            if (!_groupSiege.TryGetValue(agent.GroupKey, out SiegeInfo s)) return SiegeTick.NotSiege;
+            // 다른 개체가 이미 부쉈다 — 이 개체도 원래 타깃으로 (해제는 파괴 순간에 이미 됐다)
+            if (_defense == null || !_defense.HasStructureAt(s.Slot, s.Tile))
+            {
+                ResumeAdvance(agent, s);
+                return SiegeTick.Resumed;
+            }
+            if (Mathf.Abs(here.x - s.Tile.x) + Mathf.Abs(here.y - s.Tile.y) > agent.So.StrikeRadiusTiles)
+                return SiegeTick.Skipped;
+
+            float remain = _defense.ApplyDamage(s.Slot, s.Tile, agent.So.StructureDamage);
+            _defense.TryGetDurability(s.Slot, s.Tile, out _, out float max);
+            Debug.Log($"[Threat] 공성 — {agent.So.DisplayName}: ({s.Tile.x},{s.Tile.y}) 내구 {remain:0.#}/{max:0.#}");
+            OnStructureStruck?.Invoke(agent.So, s.Slot, s.Tile, remain, max);
+            if (remain <= 0f)
+            {
+                // 파괴 = 제거 + 통행 복구의 원자 (ADR-M22-6) — 제거의 유일한 문을 지난다 (ADR-M0-3).
+                // OnRemoved 구독(SimulationLoop)이 통행 두 배열 복구 + 내구도 정리 + 계획 복귀를 잇는다.
+                _construction.RemoveCountableAt(s.Slot, s.Tile.x, s.Tile.y);
+                OnStructureDestroyed?.Invoke(agent.So, s.Slot, s.Tile);
+                _groupSiege.Remove(agent.GroupKey);
+                ResumeGroupAdvance(agent.GroupKey, s); // 뚫었다 — 무리 전원 원래 타깃으로
+            }
+            return SiegeTick.Struck;
+        }
+
+        /// <summary>돌파 후 무리 전원 재진격 (퇴장 중 개체 제외).</summary>
+        private void ResumeGroupAdvance(int groupKey, SiegeInfo s)
+        {
+            _resumeBuf.Clear();
+            foreach (ThreatAgent t in _active)
+                if (t != null && t.GroupKey == groupKey && !t.IsExiting) _resumeBuf.Add(t);
+            foreach (ThreatAgent t in _resumeBuf) ResumeAdvance(t, s);
+        }
+
+        /// <summary>개체 하나를 원래 타깃으로 되돌린다. 아직도 막혀 있으면(겹 방어) 다음 시설로
+        /// 공성을 재개하고, 그마저 못 가면 퇴장 — 남은 체류가 시간의 값을 정한다 (ADR-M22-2).</summary>
+        private void ResumeAdvance(ThreatAgent agent, SiegeInfo s)
+        {
+            if (agent == null || agent.IsExiting) return;
+            Vector2Int target = s.OrigTarget;
+            if (s.OrigTargetsVillagers && TryPickChaseTile(agent.TileX, agent.TileY, out Vector2Int chase))
+                target = chase; // 주민형은 돌파 시점의 최근접 생존 주민 (스폰 때 좌표는 낡았다)
+
+            PathResult p = _pathfinder().FindPath(agent.TileX, agent.TileY, target.x, target.y);
+            if (p.Kind == PathResultKind.PathFound) { agent.ResumeAdvance(target, p.Waypoints); return; }
+            if (p.Kind == PathResultKind.AlreadyThere) { agent.ResumeAdvance(target, null); return; }
+
+            // 겹 방어 — 가장 가까운 다음 시설로 공성 재등록 (무리 공용 — 개체별 시설 분산은 2차+)
+            if (_defense != null && agent.So.StructureDamage > 0f
+                && _defense.TryGetNearestStructure(new Vector2Int(agent.TileX, agent.TileY),
+                                                   out SlotId nslot, out Vector2Int ntile))
+            {
+                Vector2Int approach = ApproachTileOf(ntile, new Vector2Int(agent.TileX, agent.TileY));
+                PathResult sp = _pathfinder().FindPath(agent.TileX, agent.TileY, approach.x, approach.y);
+                if (sp.Kind != PathResultKind.Unreachable)
+                {
+                    _groupSiege[agent.GroupKey] = new SiegeInfo
+                    {
+                        Slot = nslot, Tile = ntile,
+                        OrigTargetsVillagers = s.OrigTargetsVillagers, OrigTarget = s.OrigTarget,
+                    };
+                    agent.ResumeAdvance(approach,
+                        sp.Kind == PathResultKind.PathFound ? sp.Waypoints : null);
+                    return;
+                }
+            }
+            BeginExit(agent, "닿지 못했다");
         }
 
         // ── 순수 판정 (게이트 M10-T3) ─────────────────────────────────────────
@@ -317,12 +422,39 @@ namespace AIVillage.M0
             Vector2Int target = PickTargetTile(so, targetsVillagers, entry);
 
             PathResult path = _pathfinder().FindPath(entry.x, entry.y, target.x, target.y);
+            bool siege = false;
             if (path.Kind == PathResultKind.Unreachable)
             {
-                // 이번 발동은 건너뛴다 (무한 재시도 금지 — 명세 ⚠️④). 다음 주기에 재출몰.
-                // 대표 경로(진입점→목표)가 없으면 인접 산개 지점도 못 간다고 보고 무리 전체를 접는다.
-                Debug.LogWarning($"[Threat] {so.DisplayName}: 진입 경로 없음 ({entry.x},{entry.y})→({target.x},{target.y}) — 이번 출몰 생략");
-                return;
+                // 공성 전환 (M22-W5, ADR-M22-2) — 방어 시설이 길을 막았으면 출몰을 접지 않고
+                // 최근접 시설을 두드린다. 시설이 파는 것은 시간뿐이다 ("완성되면 안전" 금지).
+                // ApproachTileOf 폴백이 시설 타일 자체를 돌려줘도 안전하다: 시설은 통행 불가라
+                // 그 경로도 Unreachable → 아래 생략으로 떨어진다 (전제 확인 ⑦의 해소 지점).
+                if (_defense != null && _defense.HasStructures && so.StructureDamage > 0f
+                    && _defense.TryGetNearestStructure(entry, out SlotId sslot, out Vector2Int stile))
+                {
+                    Vector2Int approach = ApproachTileOf(stile, entry);
+                    PathResult siegePath = _pathfinder().FindPath(entry.x, entry.y, approach.x, approach.y);
+                    if (siegePath.Kind != PathResultKind.Unreachable)
+                    {
+                        _groupSiege[_strikeOrdinal] = new SiegeInfo
+                        {
+                            Slot = sslot, Tile = stile,
+                            OrigTargetsVillagers = targetsVillagers, OrigTarget = target,
+                        };
+                        target = approach;
+                        path = siegePath;
+                        siege = true;
+                        Debug.Log($"[Threat] 공성 전환 — {so.DisplayName}: 길이 막혀 " +
+                                  $"({stile.x},{stile.y}) 시설을 노린다 (ADR-M22-2)");
+                    }
+                }
+                if (!siege)
+                {
+                    // 이번 발동은 건너뛴다 (무한 재시도 금지 — 명세 ⚠️④). 다음 주기에 재출몰.
+                    // 방어 시설 0개(자연 지형 막힘)의 기존 동작 — 회귀 아님 (ADR-M22-2 단서).
+                    Debug.LogWarning($"[Threat] {so.DisplayName}: 진입 경로 없음 ({entry.x},{entry.y})→({target.x},{target.y}) — 이번 출몰 생략");
+                    return;
+                }
             }
 
             // 마릿수 (M21-W6, ADR-M21-6) — 완충(M21-W7)은 여기서 전부 소모된다 (1회성):
@@ -360,7 +492,7 @@ namespace AIVillage.M0
                 _active.Add(agent);
                 spawned++;
             }
-            if (spawned == 0) return; // 전 개체 생략 — 위의 개별 경고가 이미 말했다
+            if (spawned == 0) { _groupSiege.Remove(_strikeOrdinal); return; } // 전 개체 생략 — 공성 등록도 회수
             _groupSpawned[_strikeOrdinal] = spawned; // 무리 도주선의 분모 = 실제 태어난 수
             Debug.Log($"[Threat] 출몰 — {so.DisplayName}{(spawned > 1 ? $" ×{spawned}" : "")} " +
                       $"@ ({entry.x},{entry.y}) → ({target.x},{target.y}) " +
@@ -517,6 +649,19 @@ namespace AIVillage.M0
         {
             agent.MarkArrived(_gameTime);
             var here = new Vector2Int(agent.TileX, agent.TileY);
+
+            // 공성이 먼저다 (M22-W5) — 밭형 "칠 대상이 없다" 판정에 떨어지면 시설 앞에서
+            // 한 대도 못 치고 물러난다 (울타리 곁에 밭이 없는 것이 정상이므로).
+            SiegeTick st = TickSiegeStrike(agent, here);
+            if (st != SiegeTick.NotSiege)
+            {
+                if (st == SiegeTick.Struck) agent.MarkStruck(_gameTime);
+                float slimit = StayLimitOf(agent);
+                Debug.Log($"[Threat] 공성 체류 시작 — {agent.So.DisplayName} @ ({here.x},{here.y}) " +
+                          $"[상한 {slimit:0.##}일 — 시설이 파는 것은 시간이다 (ADR-M22-2)]");
+                return;
+            }
+
             if (!agent.TargetsVillagers && !HasFarmTargetsNear(agent.So, here))
             {
                 BeginExit(agent, "칠 대상이 없다");
@@ -555,6 +700,13 @@ namespace AIVillage.M0
             if (!ShouldRepeatStrike(agent.LastStrikeDay, _gameTime, agent.So.RepeatStrikePeriodDays)) return;
 
             var here = new Vector2Int(agent.TileX, agent.TileY);
+
+            // 공성이 먼저다 (M22-W5) — 무리가 공성 중이면 이번 타격은 시설 몫이고,
+            // 사거리 밖(배회로 멀어짐)이면 이번 틱만 거른다 (밭형 퇴장 판정에 떨어지지 않게).
+            SiegeTick st = TickSiegeStrike(agent, here);
+            if (st == SiegeTick.Struck) { agent.MarkStruck(_gameTime); return; }
+            if (st != SiegeTick.NotSiege) return;
+
             if (!agent.TargetsVillagers)
             {
                 if (!HasFarmTargetsNear(agent.So, here))
@@ -646,6 +798,7 @@ namespace AIVillage.M0
                 _groupSpawned.Remove(agent.GroupKey);
                 _groupCombatExits.Remove(agent.GroupKey);
                 _groupAttackers.Remove(agent.GroupKey);
+                _groupSiege.Remove(agent.GroupKey); // 공성 등록부도 무리와 운명 공유 (M22-W5)
             }
             Debug.Log($"[Threat] 퇴장 — {agent.So.DisplayName}");
         }

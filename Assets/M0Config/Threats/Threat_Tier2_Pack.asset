@@ -47,3 +47,8 @@ MonoBehaviour:
   StrikeLinesFarm:
   - "늑대들이 밭을 헤집어놨어!"
   - "밭이 엉망이야… 한둘이 아니었어."
+  StructureDamage: 34
+  StrikeLinesStructure:
+  - "무리가 울타리에 달려들고 있어!"
+  - "여러 놈이 같이 물어뜯으니 버티질 못해!"
+  - "울타리가 흔들려… 서둘러야 해!"

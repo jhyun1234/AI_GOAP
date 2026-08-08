@@ -131,8 +131,22 @@ namespace AIVillage.M0
                  "다친 사람이 없으므로 화자는 타격 지점 최근접 주민이다. 소실 0개면 재생되지 않는다.")]
         public string[] StrikeLinesFarm;
 
+        [Header("공성 (M22-W5, ADR-M22-2 — 방어 시설은 안전을 팔지 않는다)")]
+        [Tooltip("방어 시설 타격당 내구도 차감 (절대값 — StrikeDamage와 같은 층). 티어 압박은 " +
+                 "에셋 값 차등으로만 (늑대 34 = 3타로 울타리 100 관통, 곰 100 = 일격). " +
+                 "0 = 시설을 못 부순다 — 막히면 기존 출몰 생략 동작으로 돌아간다 (중립).")]
+        public float StructureDamage = 34f;
+
+        [Tooltip("시설을 두드리는 동안 **근처 주민**이 내뱉는 대사 (예: 울타리가 버티고 있어!). " +
+                 "StructureDamage > 0인데 비면 침묵 공성이 된다 (W2R '내용 없는 분기' 함정 — 게이트 감시).")]
+        public string[] StrikeLinesStructure;
+
         private void OnValidate()
         {
+            if (StructureDamage < 0f)
+                Debug.LogWarning($"[ThreatSO] {name}: StructureDamage({StructureDamage})는 음수일 수 없습니다 — 0(공성 없음)으로 취급됩니다.", this);
+            if (StructureDamage > 0f && (StrikeLinesStructure == null || StrikeLinesStructure.Length == 0))
+                Debug.LogWarning($"[ThreatSO] {name}: 공성이 켜져 있는데(StructureDamage) StrikeLinesStructure가 비어 있습니다 — 침묵 공성이 됩니다.", this);
             if (PeriodDays <= 0f)
                 Debug.LogWarning($"[ThreatSO] {name}: PeriodDays({PeriodDays})는 양수여야 합니다 — 스케줄이 멈춥니다.", this);
             if (WarnDays >= PeriodDays)

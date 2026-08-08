@@ -47,3 +47,8 @@ MonoBehaviour:
   StrikeLinesFarm:
   - "늑대다! 밭이 엉망이 됐어!"
   - "저 짐승이 밭을 파헤쳤어…"
+  StructureDamage: 34
+  StrikeLinesStructure:
+  - "늑대가 울타리를 물어뜯고 있어!"
+  - "울타리가 버티고 있어… 아직은."
+  - "저러다 뚫리겠어, 누가 좀 고쳐!"

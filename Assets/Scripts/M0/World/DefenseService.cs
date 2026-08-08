@@ -16,6 +16,13 @@ namespace AIVillage.M0
     {
         private readonly List<Vector2Int> _plannedFences = new List<Vector2Int>();
         private Vector2Int? _plannedGate;
+        // 시설 내구도 (M22-W5, ADR-M22-3) — 타일 키 상태 (HomeStorageService·FarmService 선례).
+        // 파괴(0 도달)된 항목은 NotifyRemoved가 지운다 — "파괴 = 손상"이 아니다 (소멸 + 계획 복귀).
+        private readonly Dictionary<(SlotId slot, Vector2Int tile), (float cur, float max)> _durability
+            = new Dictionary<(SlotId, Vector2Int), (float, float)>();
+
+        /// <summary>내구도 변화 알림 (slot, tile, 현재, 최대) — 시각(W7)·HUD 구독. 표현 전용.</summary>
+        public event Action<SlotId, Vector2Int, float, float> OnDurabilityChanged;
 
         /// <summary>계획이 수립됐는가 (구역 확정 후 true — 전량 완공돼도 유지. 재수립 없음, ADR-M22-4).</summary>
         public bool HasPlan { get; private set; }
@@ -28,6 +35,130 @@ namespace AIVillage.M0
 
         /// <summary>미건설 잔여 총수 — DefensePlannedCount 슬롯의 유일한 원천 (Goal_BuildDefense 트리거).</summary>
         public int PlannedCount => _plannedFences.Count + (_plannedGate.HasValue ? 1 : 0);
+
+        /// <summary>서 있는 방어 시설이 하나라도 있는가 — 공성 전환(ADR-M22-2)의 전제 판독점.</summary>
+        public bool HasStructures => _durability.Count > 0;
+
+        /// <summary>이 자리에 방어 시설이 서 있는가 (공성 중 다른 개체가 이미 부쉈는지 판독).</summary>
+        public bool HasStructureAt(SlotId slot, Vector2Int tile) => _durability.ContainsKey((slot, tile));
+
+        /// <summary>손상(0 < 내구도 < 최대) 시설 수 — DefenseDamagedCount 슬롯의 유일한 원천
+        /// (Goal_RepairDefense 트리거, W6). 파괴된 시설은 여기 없다 — 재건은 건설 goal 몫.</summary>
+        public int DamagedCount
+        {
+            get
+            {
+                int n = 0;
+                foreach (KeyValuePair<(SlotId, Vector2Int), (float cur, float max)> e in _durability)
+                    if (e.Value.cur < e.Value.max) n++;
+                return n;
+            }
+        }
+
+        /// <summary>내구도 조회 (표현·게이트용). 항목 없으면 false — 방어 시설이 아니다.</summary>
+        public bool TryGetDurability(SlotId slot, Vector2Int tile, out float cur, out float max)
+        {
+            if (_durability.TryGetValue((slot, tile), out (float c, float m) v))
+            {
+                cur = v.c; max = v.m;
+                return true;
+            }
+            cur = max = 0f;
+            return false;
+        }
+
+        /// <summary>from 최근접(맨해튼) 시설 — 공성 타깃 선정 (ADR-M22-2). 동률은 좌표순 (결정적,
+        /// ADR-M10-1 — 같은 판이면 같은 울타리를 두드린다).</summary>
+        public bool TryGetNearestStructure(Vector2Int from, out SlotId slot, out Vector2Int tile)
+        {
+            slot = default;
+            tile = default;
+            int best = int.MaxValue;
+            bool found = false;
+            foreach (KeyValuePair<(SlotId slot, Vector2Int tile), (float, float)> e in _durability)
+            {
+                Vector2Int t = e.Key.tile;
+                int d = Mathf.Abs(t.x - from.x) + Mathf.Abs(t.y - from.y);
+                if (d > best) continue;
+                if (d == best && found && (t.x > tile.x || (t.x == tile.x && t.y >= tile.y))) continue;
+                best = d;
+                slot = e.Key.slot;
+                tile = t;
+                found = true;
+            }
+            return found;
+        }
+
+        /// <summary>내구도 차감의 유일한 문 (ADR-M22-3 쓰기 문 1 — 호출은 ThreatService 공성).
+        /// 남은 내구도를 돌려준다. 0 이하 = 파괴 신호 — **제거는 여기서 하지 않는다**:
+        /// 호출자가 ConstructionService.RemoveCountableAt을 지나야 한다 (ADR-M0-3, 재해 밭 파괴 동형).
+        /// 추적 항목이 아니면 float.MaxValue (아무 일 없음 — 방어 시설이 아니다).</summary>
+        public float ApplyDamage(SlotId slot, Vector2Int tile, float amount)
+        {
+            var key = (slot, tile);
+            if (amount <= 0f || !_durability.TryGetValue(key, out (float cur, float max) v))
+                return float.MaxValue;
+            v.cur = Mathf.Max(0f, v.cur - amount);
+            _durability[key] = v;
+            OnDurabilityChanged?.Invoke(slot, tile, v.cur, v.max);
+            return v.cur;
+        }
+
+        /// <summary>수리의 유일한 문 (ADR-M22-3 쓰기 문 2 — 호출은 RepairRunner, W6). 전량 복원
+        /// (한 걸음, ADR-M0-12). Wood 차감은 러너 몫 — 스톡의 문은 WorldModel이다 (ADR-M0-3).</summary>
+        public bool Repair(SlotId slot, Vector2Int tile)
+        {
+            var key = (slot, tile);
+            if (!_durability.TryGetValue(key, out (float cur, float max) v) || v.cur >= v.max)
+                return false;
+            v.cur = v.max;
+            _durability[key] = v;
+            OnDurabilityChanged?.Invoke(slot, tile, v.cur, v.max);
+            return true;
+        }
+
+        /// <summary>가장 많이 손상된 시설 (W6 수리 대상 선정) — 동률은 좌표순 (결정적).</summary>
+        public bool TryGetMostDamaged(out SlotId slot, out Vector2Int tile)
+        {
+            slot = default;
+            tile = default;
+            float worst = float.MaxValue; // 남은 내구도가 가장 적은 것
+            bool found = false;
+            foreach (KeyValuePair<(SlotId slot, Vector2Int tile), (float cur, float max)> e in _durability)
+            {
+                if (e.Value.cur >= e.Value.max) continue;
+                float remain = e.Value.cur / e.Value.max;
+                if (remain > worst) continue;
+                Vector2Int t = e.Key.tile;
+                if (Mathf.Approximately(remain, worst) && found
+                    && (t.x > tile.x || (t.x == tile.x && t.y >= tile.y))) continue;
+                worst = remain;
+                slot = e.Key.slot;
+                tile = t;
+                found = true;
+            }
+            return found;
+        }
+
+        /// <summary>
+        /// 제거 통지 (M22-W5, ADR-M22-6) — ConstructionService.OnRemoved 구독 배선이 호출한다.
+        /// 내구도 항목을 지우고, 그 자리를 계획으로 되돌린다 — 부서진 자리는 다시 "지을 자리"다
+        /// (재건은 W4 건설 goal이 같은 문법으로 잇는다).
+        /// </summary>
+        public void NotifyRemoved(SlotId slot, int x, int y)
+        {
+            var tile = new Vector2Int(x, y);
+            if (!_durability.Remove((slot, tile))) return; // 방어 시설이 아니면 무관 (밭 소실 등)
+            if (!HasPlan) return;
+            if (slot == SlotId.GateCount)
+            {
+                if (!_plannedGate.HasValue) _plannedGate = tile;
+            }
+            else if (slot == SlotId.FenceCount && !_plannedFences.Contains(tile))
+            {
+                _plannedFences.Add(tile);
+            }
+        }
 
         /// <summary>
         /// 체비쇼프 사각(anchor ± radius)의 경계 타일 — 결정적 순서 (아랫변 좌→우, 오른변 아래→위,
@@ -128,8 +259,15 @@ namespace AIVillage.M0
         /// </summary>
         public void NotifyBuilt(BuildingSO b, int x, int y)
         {
-            if (b == null || !b.PlaceOnDefensePlan) return;
+            if (b == null) return;
             var tile = new Vector2Int(x, y);
+            // 내구도 등록 (M22-W5) — 최대치의 단일 출처는 에셋 (BuildingSO.MaxDurability)
+            if (b.MaxDurability > 0f && b.IsCountable)
+            {
+                _durability[(b.CountSlot, tile)] = (b.MaxDurability, b.MaxDurability);
+                OnDurabilityChanged?.Invoke(b.CountSlot, tile, b.MaxDurability, b.MaxDurability);
+            }
+            if (!b.PlaceOnDefensePlan) return;
             if (_plannedGate.HasValue && _plannedGate.Value == tile) _plannedGate = null;
             else _plannedFences.Remove(tile);
         }

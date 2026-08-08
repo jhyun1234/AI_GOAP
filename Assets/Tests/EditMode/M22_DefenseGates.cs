@@ -172,6 +172,91 @@ namespace AIVillage.Tests.EditMode
         }
 
         [Test]
+        public void M22_T5_Durability_DamageRepairDestroyAndPlanReturn()
+        {
+            var d = new DefenseService();
+            d.EstablishPlan(new Vector2Int(0, 0), 2, new Vector2Int(0, -10), null);
+            var fence = AssetDatabase.LoadAssetAtPath<BuildingSO>("Assets/M0Config/Buildings/Fence.asset");
+            var site = new Vector2Int(2, 2); // 계획 둘레 타일
+            int plannedBefore = d.PlannedCount;
+
+            // 완공 = 내구도 등록 + 계획 차감
+            d.NotifyBuilt(fence, site.x, site.y);
+            Assert.IsTrue(d.HasStructures);
+            Assert.IsTrue(d.HasStructureAt(SlotId.FenceCount, site));
+            Assert.AreEqual(plannedBefore - 1, d.PlannedCount);
+            Assert.AreEqual(0, d.DamagedCount, "갓 지은 시설은 손상이 아니다");
+
+            // 타격 — 검산: 100 − 34×2 = 32 (수치 관계식 §3)
+            Assert.AreEqual(fence.MaxDurability - 34f, d.ApplyDamage(SlotId.FenceCount, site, 34f), 1e-3f);
+            Assert.AreEqual(fence.MaxDurability - 68f, d.ApplyDamage(SlotId.FenceCount, site, 34f), 1e-3f);
+            Assert.AreEqual(1, d.DamagedCount, "0 < 내구도 < 최대 = 손상 1건");
+            Assert.IsTrue(d.TryGetMostDamaged(out SlotId ms, out Vector2Int mt));
+            Assert.AreEqual(site, mt);
+
+            // 수리 = 전량 복원 (한 걸음, ADR-M0-12)
+            Assert.IsTrue(d.Repair(SlotId.FenceCount, site));
+            d.TryGetDurability(SlotId.FenceCount, site, out float cur, out float max);
+            Assert.AreEqual(max, cur, 1e-3f, "수리 = MaxDurability 복원");
+            Assert.AreEqual(0, d.DamagedCount);
+            Assert.IsFalse(d.Repair(SlotId.FenceCount, site), "멀쩡한 시설은 수리 대상이 아니다");
+
+            // 3타 파괴 → 제거 통지 → 계획 복귀 (ADR-M22-6 — 파괴는 손상이 아니라 소멸+복귀)
+            d.ApplyDamage(SlotId.FenceCount, site, 34f);
+            d.ApplyDamage(SlotId.FenceCount, site, 34f);
+            Assert.LessOrEqual(d.ApplyDamage(SlotId.FenceCount, site, 34f), 0f, "34×3 = 102 > 100 — 3타 파괴");
+            d.NotifyRemoved(SlotId.FenceCount, site.x, site.y);
+            Assert.IsFalse(d.HasStructureAt(SlotId.FenceCount, site));
+            Assert.AreEqual(0, d.DamagedCount, "파괴된 시설은 수리 목록에 없다 — 재건은 건설 goal 몫");
+            Assert.AreEqual(plannedBefore, d.PlannedCount, "부서진 자리는 다시 '지을 자리'다 (계획 복귀)");
+        }
+
+        [Test]
+        public void M22_T5b_ShippedThreats_OneSurgeBuysOneBreach()
+        {
+            // §3 핵심 검산 — 체류 상한 안의 타격 수(0, 0.25, 0.5 = 상한/주기 회)로 울타리 한 칸을
+            // 뚫을 수 있어야 한다. 못 뚫으면 "완성되면 안전" = ADR-M22-2 위반 (34→25로 내리면 red).
+            var fence = AssetDatabase.LoadAssetAtPath<BuildingSO>("Assets/M0Config/Buildings/Fence.asset");
+            foreach (string name in new[] { "Threat_Tier1_Wolf", "Threat_Tier2_Pack", "Threat_Tier3_Bear" })
+            {
+                var t = AssetDatabase.LoadAssetAtPath<ThreatSO>($"Assets/M0Config/Threats/{name}.asset");
+                Assert.IsNotNull(t, $"{name} 에셋 없음");
+                Assert.Greater(t.StructureDamage, 0f, $"{name}: 공성 없는 위협은 울타리 앞에서 무적을 만든다");
+                Assert.IsTrue(t.StrikeLinesStructure != null && t.StrikeLinesStructure.Length > 0,
+                    $"{name}: 침묵 공성 금지 (W2R '내용 없는 분기' 함정)");
+                int strikesPerStay = Mathf.FloorToInt(t.MaxStayDays / t.RepeatStrikePeriodDays);
+                int strikesToBreach = Mathf.CeilToInt(fence.MaxDurability / t.StructureDamage);
+                Assert.LessOrEqual(strikesToBreach, strikesPerStay,
+                    $"{name}: 한 출몰(타격 {strikesPerStay}회)로 울타리(내구 {fence.MaxDurability})를 " +
+                    $"못 뚫는다 — 시설이 시간을 '벌' 수는 있어도 '무적'이면 안 된다 (ADR-M22-2)");
+            }
+        }
+
+        [Test]
+        public void M22_T5c_Breach_ReopensJpsPath()
+        {
+            // 파괴 = 통행 복구의 원자 (ADR-M22-6) — 링이 막은 경로가 한 칸 뚫리면 다시 열린다.
+            int size = 100, off = 50;
+            var walkable = new bool[size, size];
+            for (int x = 0; x < size; x++)
+                for (int y = 0; y < size; y++)
+                    walkable[x, y] = true;
+
+            var anchor = new Vector2Int(10, 0);
+            var ring = DefenseService.PerimeterTiles(anchor, 2);
+            foreach (Vector2Int t in ring) walkable[t.x + off, t.y + off] = false;
+
+            var pf = new AIVillage.Core.JpsPathfinder(() => walkable);
+            Assert.AreEqual(AIVillage.Core.PathResultKind.Unreachable,
+                pf.FindPath(-10, 0, anchor.x, anchor.y).Kind, "완주 링 = 진입 불가");
+
+            Vector2Int broken = ring[0];
+            walkable[broken.x + off, broken.y + off] = true; // 파괴 → 복구 (OnRemoved 구독의 등가물)
+            Assert.AreEqual(AIVillage.Core.PathResultKind.PathFound,
+                pf.FindPath(-10, 0, anchor.x, anchor.y).Kind, "한 칸 뚫리면 경로가 다시 열린다");
+        }
+
+        [Test]
         public void M22_T3c_PlayerZone_OncePerSlot_AndSnapshotWiring()
         {
             // 플레이어 구역 등록 문 (ZoneService.EstablishPlayerZone) — 판당 1개 불변 (ADR-M22-4)

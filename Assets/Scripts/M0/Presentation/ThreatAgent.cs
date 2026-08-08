@@ -133,7 +133,10 @@ namespace AIVillage.M0
 
             // 추격 틱 (주민 타격형만) — 사거리·재타겟 판정. 체류 중에도 돈다: 도망친 주민을
             // 다시 쫓아가야 "눌러앉았다"가 성립한다 (제자리에 굳으면 첫 희생자만 계속 맞는다).
-            if (!_exiting && TargetsVillagers && Time.time >= _nextRetargetAt)
+            // ⚠️ 공성 중엔 멈춘다 (M22-W5) — 시설로 가는 길에 주민을 재조준하면 공성이 영영 안
+            // 시작된다. 돌파(공성 해제) 후 추격이 자연 재개된다.
+            bool sieging = _svc.IsGroupSieging(GroupKey);
+            if (!_exiting && TargetsVillagers && !sieging && Time.time >= _nextRetargetAt)
             {
                 _nextRetargetAt = Time.time + RETARGET_SEC;
                 TickChase();
@@ -143,7 +146,10 @@ namespace AIVillage.M0
             if (_path == null || _wp >= _path.Count)
             {
                 if (_exiting) { DespawnNow(); return; }               // 퇴장 경로 소진 = 가장자리 도달
-                if (!TargetsVillagers && !_arrived) { Arrive(); return; } // 밭형: 고정 목표 도착 = 체류 시작
+                // 밭형·공성형: 고정 목표 도착 = 체류 시작. 공성 무리는 원래 롤이 주민이어도
+                // 시설 곁이 목적지다 (M22-W5) — 사거리 진입(IsInStrikeRange)을 기다리면
+                // 주민이 울타리에서 먼 판에서 영영 도착하지 못한다.
+                if ((!TargetsVillagers || sieging) && !_arrived) { Arrive(); return; }
                 // 체류 중 목적지 도달 = 다음 배회 지점 (M21-W2R). ⚠️ 목적지에 **도착했을 때만**
                 // 재선정한다 — 매 프레임이면 제자리 떨림 + 경로탐색 폭증 (명세 ⚠️ 오해 위험 2).
                 if (_arrived) RepickWander();
@@ -244,8 +250,31 @@ namespace AIVillage.M0
             _svc.BeginExit(this, "물러난다");
         }
 
-        /// <summary>체류 시각 기록 (ThreatService 전용) — 재타격 주기·체류 상한 판정의 원본.</summary>
-        public void MarkArrived(float gameDay) => ArrivedDay = gameDay;
+        /// <summary>체류 시각 기록 (ThreatService 전용) — 재타격 주기·체류 상한 판정의 원본.
+        /// **한 출몰에 한 번만 시작한다** (M22-W5) — 공성 돌파 후 재진격(ResumeAdvance)이 다시
+        /// 도착해도 시계는 이어진다. 리셋하면 공성 0.75일 + 체류 0.75일 = 시설이 시간을 **버는**
+        /// 게 아니라 **늘려 주는** 역설이 된다 (ADR-M22-2 위반).</summary>
+        public void MarkArrived(float gameDay)
+        {
+            if (_everArrived) return;
+            _everArrived = true;
+            ArrivedDay = gameDay;
+        }
+        private bool _everArrived;
+
+        /// <summary>공성 돌파 후 재진격 (ThreatService 전용, M22-W5) — 체류를 풀고 새 목표로 걷는다.
+        /// 체류 시계(ArrivedDay)는 리셋되지 않는다 (MarkArrived 1회 규약) — 남은 체류가 곧
+        /// 뚫고 들어가서 할 수 있는 일의 전부다. waypoints null = 이미 도착 (다음 프레임 Arrive).</summary>
+        public void ResumeAdvance(Vector2Int target, List<Vector2Int> waypoints)
+        {
+            if (_exiting) return;
+            _arrived = false;
+            TargetTile = target;
+            _path = waypoints;
+            _wp = 0;
+            _lastChaseTile = new Vector2Int(int.MinValue, int.MinValue);
+            _chaseGiveUpAt = Time.time + CHASE_GIVEUP_SEC; // 재진격 기브업 재장전 (도달 불가 안전장치)
+        }
 
         /// <summary>타격 시각 기록 (ThreatService 전용).</summary>
         public void MarkStruck(float gameDay) => LastStrikeDay = gameDay;

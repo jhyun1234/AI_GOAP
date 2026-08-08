@@ -28,12 +28,14 @@ namespace AIVillage.M0
         private readonly System.Func<int> _injuredCount; // 부상 주민 수 (M10-A) — 원천 = SimulationLoop.CountInjured
         private readonly System.Func<int> _untendedInjuredCount; // 미안정 부상자 수 (M11-I) — SimulationLoop.CountUntendedInjured
         private readonly System.Func<int> _defensePlannedCount; // 방어 계획 잔여 (M22-W3) — 원천 = DefenseService.PlannedCount
+        private readonly System.Func<int> _defenseDamagedCount; // 손상 시설 수 (M22-W5) — 원천 = DefenseService.DamagedCount
 
         public WorldModel(DiscoveryService discovery, WorldConfigSO config, FarmService farm = null,
                           SeasonService season = null, AgentConfigSO agentCfg = null,
                           System.Func<int> injuredCount = null,
                           System.Func<int> untendedInjuredCount = null,
-                          System.Func<int> defensePlannedCount = null)
+                          System.Func<int> defensePlannedCount = null,
+                          System.Func<int> defenseDamagedCount = null)
         {
             _discovery = discovery;
             _farm = farm;
@@ -41,6 +43,7 @@ namespace AIVillage.M0
             _injuredCount = injuredCount;
             _untendedInjuredCount = untendedInjuredCount;
             _defensePlannedCount = defensePlannedCount;
+            _defenseDamagedCount = defenseDamagedCount;
             _decayPerDay = agentCfg != null ? agentCfg.SatietyDecayPerGameDay : 0f;
             if (config != null)
             {
@@ -244,10 +247,10 @@ namespace AIVillage.M0
             // (중립: Goal_ArmSelf 트리거 상시 참이지만 제작 사슬이 없으면 NoSolution이 아니라
             //  플랜 실패 쿨다운 — 미배선 테스트는 이 goal을 참조하지 않는다).
             slots[(int)SlotId.MyHasWeapon] = hasWeapon ? 1 : 0;
-            // 방어 계획 잔여 (M22-W3) — 파생 슬롯, 원천 = DefenseService.PlannedCount (provider 패턴,
-            // InjuredCount 동형). 미배선이면 0 (중립 — Goal_BuildDefense 트리거 영구 불발 = M21 동작).
-            // DefenseDamagedCount(44)는 W5에서 배선 — 그전까지 항상 0.
+            // 방어 계획 잔여·손상 수 (M22-W3·W5) — 파생 슬롯, 원천 = DefenseService (provider 패턴,
+            // InjuredCount 동형). 미배선이면 0 (중립 — 방어 goal 트리거 영구 불발 = M21 동작).
             slots[(int)SlotId.DefensePlannedCount] = _defensePlannedCount != null ? _defensePlannedCount() : 0;
+            slots[(int)SlotId.DefenseDamagedCount] = _defenseDamagedCount != null ? _defenseDamagedCount() : 0;
             return new WorldSnapshot(slots);
         }
 

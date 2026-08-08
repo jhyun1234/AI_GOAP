@@ -694,9 +694,10 @@ namespace AIVillage.M0
             // 제거됨 (식량은 개인 단위). 부상 수(M10-A)는 provider 패턴 — 파생 슬롯의 원천은 집계 하나뿐
             World        = new WorldModel(Discovery, _worldConfig, Farm, Season,
                                          _agentConfig, CountInjured, CountUntendedInjured,
-                                         // 방어 계획 잔여 (M22-W3) — Defense는 아래에서 생성되지만
-                                         // 지연 조회라 순서 무관 (Snapshot 시점 평가)
-                                         () => Defense != null ? Defense.PlannedCount : 0);
+                                         // 방어 계획 잔여·손상 수 (M22-W3·W5) — Defense는 아래에서
+                                         // 생성되지만 지연 조회라 순서 무관 (Snapshot 시점 평가)
+                                         () => Defense != null ? Defense.PlannedCount : 0,
+                                         () => Defense != null ? Defense.DamagedCount : 0);
             Construction = new ConstructionService(World);
             Zones        = new ZoneService(); // M9-A — 배치 결정자 (군집 휴리스틱 대체, ADR-M9-1)
             Defense      = new DefenseService(); // M22-W3 — 방어 계획 (W5에서 내구도까지)
@@ -751,8 +752,19 @@ namespace AIVillage.M0
                     (x, y) => MapBounds.ToArrayIndex(x, y, out int ax, out int ay)
                               && Walkable[ax, ay] && !Construction.HasBuildingAt(x, y));
             };
-            // 방어 시설 완공 → 계획 차감 (M22-W3) — 완공 자체는 Complete()만 (ADR-M0-3)
+            // 방어 시설 완공 → 계획 차감 + 내구도 등록 (M22-W3·W5) — 완공 자체는 Complete()만 (ADR-M0-3)
             Construction.OnCompleted += (b, x, y, _) => Defense.NotifyBuilt(b, x, y);
+            // 시설 소실 → 통행 복구 + 내구도 정리 + 계획 복귀 (M22-W5, ADR-M22-6 — 제거와 복구는 원자).
+            // 타일당 건물은 1개라 무조건 true 복구가 안전하다 (비차단 건물이면 이미 true).
+            Construction.OnRemoved += (slot, x, y) =>
+            {
+                if (MapBounds.ToArrayIndex(x, y, out int ax, out int ay))
+                {
+                    Walkable[ax, ay] = true;
+                    ThreatWalkable[ax, ay] = true;
+                }
+                Defense.NotifyRemoved(slot, x, y);
+            };
             // 구역 테두리 (표현 전용) — 확정 순간 앵커 둘레에 외곽선
             _zoneBorderView = new ZoneBorderView(transform);
             Zones.OnZoneEstablished += (slot, anchor, radius) => _zoneBorderView.Draw(slot, anchor, radius);
@@ -819,7 +831,17 @@ namespace AIVillage.M0
                                             _agents, _worldConfig, () => ThreatPathfinder,
                                             (x, y) => MapBounds.ToArrayIndex(x, y, out int ax, out int ay)
                                                       && ThreatWalkable[ax, ay],
-                                            transform);
+                                            transform, Defense); // Defense = 공성 대상 조회 (M22-W5)
+                // 공성 표현 (M22-W5) — 판정은 서비스, 여기는 알림·대사만 (M10-C ⚠️③)
+                Threats.OnStructureStruck += (t, slot, tile, remain, max) =>
+                {
+                    Hud?.Notify($"{t.DisplayName}이(가) {(slot == SlotId.GateCount ? "문" : "울타리")}을(를) " +
+                                $"두드립니다 — 내구 {remain:0}/{max:0}");
+                    ShowStructureStrikeLines(t, tile);
+                };
+                Threats.OnStructureDestroyed += (t, slot, tile) =>
+                    Hud?.Notify($"{(slot == SlotId.GateCount ? "문" : "울타리")}이(가) 부서졌습니다! " +
+                                $"— {t.DisplayName}이(가) 밀고 들어옵니다");
                 Threats.OnForecast += t =>
                     // 잔여 일수는 실제 스케줄에서 읽는다 (M21-W8) — 정찰 연장 시 WarnDays 상수로
                     // 표기하면 "1일 뒤"가 거짓말이 된다 (판정과 표시는 한 시계).
@@ -895,6 +917,23 @@ namespace AIVillage.M0
 
         /// <summary>밭 소실 반응 대사 (M10-C, 표현 전용) — 다친 사람이 없으므로 타격 지점 최근접
         /// 생존 주민 최대 2명이 내뱉는다 (재해 ShowStrikeLines 패턴 — 릴레이 아님, 대사만 Random 허용).</summary>
+        /// <summary>공성 반응 대사 (M22-W5) — 화자 = 타격 지점 최근접 주민 1명 (ShowFarmStrikeLines
+        /// 동형·단일 화자: 시설 타격은 재타격 주기마다 반복이라 2명이 말하면 소음이 된다).</summary>
+        private void ShowStructureStrikeLines(ThreatSO t, Vector2Int tile)
+        {
+            if (t.StrikeLinesStructure == null || t.StrikeLinesStructure.Length == 0 || _agents.Count == 0) return;
+            VillagerAgent best = null;
+            int bd = int.MaxValue;
+            foreach (VillagerAgent a in _agents)
+            {
+                if (a == null || a.State == AgentState.Dead) continue;
+                int dx = a.TileX - tile.x, dy = a.TileY - tile.y;
+                int dist = dx * dx + dy * dy;
+                if (dist < bd) { bd = dist; best = a; }
+            }
+            best?.ShowTransient(t.StrikeLinesStructure[Random.Range(0, t.StrikeLinesStructure.Length)]);
+        }
+
         private void ShowFarmStrikeLines(ThreatSO t, Vector2Int tile)
         {
             if (t.StrikeLinesFarm == null || t.StrikeLinesFarm.Length == 0 || _agents.Count == 0) return;

@@ -47,3 +47,7 @@ MonoBehaviour:
   StrikeLinesFarm:
   - "곰이 밭을 다 뭉개놨어…"
   - "저 덩치가 밭을 헤집고 갔어."
+  StructureDamage: 100
+  StrikeLinesStructure:
+  - "곰이 울타리를 한 번에…!"
+  - "저 덩치 앞에선 울타리도 소용없어…"

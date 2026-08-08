@@ -1,0 +1,33 @@
+{
+  "id": "lf01",
+  "format": "wide",
+  "stage": "w1-dummy",
+  "voice": "../voice.json",
+  "note": "W1 가로 프로필 시험용 더미. lf01 본편 대본이 오면 통째로 교체된다 — 이 파일을 선례로 인용하지 말 것.",
+  "hud": {
+    "title": "lf01 · 가로 프로필 시험",
+    "aiHook": "Claude Code로 만든 유니티 GOAP AI",
+    "outro": ""
+  },
+  "hook": "",
+  "shots": [
+    {
+      "id": "S1",
+      "chapter": "시험",
+      "kind": "widetest",
+      "spec": { "label": "WIDE 1920×1080", "phase": 0 },
+      "lines": [
+        { "text": "가로 프로필 시험, 첫 샷입니다.", "say": "가로 프로필 시험, 첫 샷입니다." }
+      ]
+    },
+    {
+      "id": "S2",
+      "chapter": "시험",
+      "kind": "widetest",
+      "spec": { "label": "PROFILE OK", "phase": 1 },
+      "lines": [
+        { "text": "두 번째 샷 — 치수를 확인합니다.", "say": "두 번째 샷, 치수를 확인합니다." }
+      ]
+    }
+  ]
+}

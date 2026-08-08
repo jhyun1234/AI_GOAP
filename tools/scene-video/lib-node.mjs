@@ -84,6 +84,25 @@ export const OUT_W = 1080, OUT_H = 1920;
 export const DSF = OUT_W / STAGE_W;             // 2.7551…
 export const VIEW_H = Math.round(OUT_H / DSF);  // 697
 
+/* ── 화면 프로필 (롱폼 트랙, ADR-LF-1) ─────────────────
+   쇼츠(tall)는 위 상수가 정본이고 여기서는 참조만 한다 — 값 복제 금지(가산 원칙).
+   롱폼(wide)은 scene.json 의 format:"wide" 로만 갈린다. CSS 폭을 1920 으로 키우지
+   않는 이유는 tall 과 같다(render.mjs:9) — 글자 px 고정이라 DSF 로 올린다. */
+export const PROFILES = {
+  tall: { STAGE_W, OUT_W, OUT_H },
+  wide: { STAGE_W: 697, OUT_W: 1920, OUT_H: 1080 },  // 697 = 392×16/9 반올림 (wide.css .stage 와 같아야 한다)
+};
+export function dimsOf(scene) {
+  const p = PROFILES[scene && scene.format === 'wide' ? 'wide' : 'tall'];
+  const dsf = p.OUT_W / p.STAGE_W;
+  return { ...p, DSF: dsf, VIEW_H: Math.round(p.OUT_H / dsf) };
+}
+/** 회차의 scene.json 을 읽어 프로필 치수를 얻는다. 파일이 없거나 format 이 없으면 tall. */
+export function dimsOfEp(EP, lang = 'ko') {
+  try { return dimsOf(JSON.parse(fs.readFileSync(langPaths(EP, lang).scene, 'utf8'))); }
+  catch { return dimsOf(null); }
+}
+
 export const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 function which(names) {
@@ -226,8 +245,10 @@ export async function openEngine(EP, { quiet = false, lang = 'ko' } = {}) {
     b.session = sessionId;
     await b.send('Page.enable');
     await b.send('Runtime.enable');
+    // 프로필 치수 — tall 회차는 기존 상수와 같은 값이 나온다 (dimsOf 기본 tall)
+    const D = dimsOfEp(EP, lang);
     await b.send('Emulation.setDeviceMetricsOverride',
-      { width: STAGE_W, height: VIEW_H, deviceScaleFactor: DSF, mobile: false });
+      { width: D.STAGE_W, height: D.VIEW_H, deviceScaleFactor: D.DSF, mobile: false });
     await b.send('Page.navigate', { url: `http://127.0.0.1:${PORT}/engine/?ep=${EP}&render=1&lang=${lang}` });
 
     if (!quiet) process.stdout.write('준비 중');

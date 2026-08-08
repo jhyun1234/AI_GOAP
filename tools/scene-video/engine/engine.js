@@ -39,6 +39,18 @@ async function boot() {
   scene = await (await fetch(
     LANG === 'ko' ? `${EPD}/scene.json` : `${LDIR}/scene.json`)).json();
 
+  // 가로(wide) 프로필 — CSS 파일 자체를 갈아 끼운다. style.css 는 불변(ADR-LF-1).
+  // 스타일이 붙기 전에 그리면 그 프레임만 다른 그림이 되므로 로드 완료를 기다린다.
+  if (scene.format === 'wide') {
+    await new Promise((res, rej) => {
+      const link = document.querySelector('link[rel="stylesheet"]');
+      link.addEventListener('load', res, { once: true });
+      link.addEventListener('error',
+        () => rej(new Error('wide.css 로드 실패')), { once: true });
+      link.href = 'wide.css';
+    });
+  }
+
   // timed 본이 있으면 실측 타임라인을 쓴다 (없으면 임시 계산)
   let timed = null;
   try {

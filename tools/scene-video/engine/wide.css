@@ -1,0 +1,159 @@
+/* scene-video 렌더러 스타일 — 가로(wide, 16:9) 프로필. 롱폼 트랙(ADR-LF-1) 전용.
+   style.css(세로 정본)를 복사해 레이아웃 좌표만 가로로 재계산했다. 규약은 동일:
+   규약 1: 시간에 따라 변하는 것에 transition/animation 을 쓰지 않는다.
+   규약 2: 3색만 쓴다 — #000000 / #FFFFFF / #00FF88.
+   🔴 공용 조각(.rows·.cmp·.choice 등)을 고칠 일이 생기면 style.css 와 여기를 **함께**
+   고친다 — 두 곳에 적으면 갈린다. 레이아웃 절(무대·HUD·비주얼·자막·카드) 밖의 차이는
+   이 파일의 결함이다.
+   좌표 근거: 쇼츠 UI 가림이 없는 대신 youtube-editor/CAPTION_SAFE_AREA.md 의 16:9
+   원판 규격을 쓴다 — 콘텐츠 안전영역 850px / 자막영역 230px (@1080 높이). */
+
+@font-face{
+  font-family:"Pretendard";
+  src:url("fonts/PretendardVariable.woff2") format("woff2-variations");
+  font-weight:45 920;
+  font-style:normal;
+  font-display:block;
+}
+@font-face{
+  font-family:"SceneMono";
+  src:url("fonts/JetBrainsMono-Bold.woff2") format("woff2");
+  font-weight:700; font-style:normal; font-display:block;
+}
+
+:root{
+  --bg:#000000; --ink:#FFFFFF; --accent:#00FF88;
+  --sub:rgba(255,255,255,.7);
+  --track:rgba(255,255,255,.12);
+  --line:rgba(255,255,255,.22);
+  --disp:"Pretendard",sans-serif;
+  --mono:"SceneMono","Pretendard",monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#000;color:var(--ink);font-family:var(--mono);
+  display:flex;flex-direction:column;align-items:center;gap:10px;
+  min-height:100vh;padding:12px}
+
+/* ── 무대 = 16:9 ─────────────────────────────────
+   697 = 392×16/9 반올림 (lib-node.mjs PROFILES.wide 와 같아야 한다).
+   CSS 폭을 1920 으로 키우지 않는다 — 글자 px 고정이라 DSF 로 올린다. */
+.stage{width:min(100%,697px);aspect-ratio:16/9;background:var(--bg);
+  position:relative;overflow:hidden}
+
+/* ── 상단 : 상시 브랜딩 ───────────────────────────
+   가로는 플랫폼 UI 가림이 없다. 3% = 32px(@1080) — 얇은 띠로만. */
+.hud{position:absolute;top:3%;left:0;right:0;padding:0 24px;z-index:5}
+.ep{font-family:var(--disp);font-weight:800;font-size:18px;line-height:1.24;
+  letter-spacing:-.025em;color:var(--ink)}
+.airow{margin-top:5px}
+.ai{display:flex;align-items:center;gap:5px;white-space:nowrap;
+  font-family:var(--disp);font-size:12.5px;letter-spacing:-.005em;
+  color:var(--accent);font-weight:800}
+.progline{display:flex;align-items:center;gap:10px;margin-top:6px}
+.prog{flex:1;height:5px;background:var(--track);border-radius:3px;overflow:hidden}
+.prog i{display:block;height:100%;background:var(--ink);width:0}
+
+.chip{font-family:var(--disp);font-size:12.5px;font-weight:800;letter-spacing:.06em;
+  padding:5px 12px 6px;border:0;border-radius:3px;
+  background:var(--ink);color:#000;line-height:1}
+.chip.ok{background:var(--accent);color:#000}
+
+/* ── 비주얼 ───────────────────────────────────────
+   바닥 = 콘텐츠 안전영역 850px 경계 → (1080-850)/1080 = 21.2963%.
+   위 = HUD(제목+훅줄+진행바 ≈ y 60px CSS) 아래 — 16% = 63px CSS. */
+.vis{position:absolute;top:16%;left:24px;right:24px;bottom:21.2963%}
+.shot{position:absolute;inset:0;display:none}
+.shot.on{display:block}
+.shot canvas{width:100%;height:100%;display:block}
+
+/* ── 자막 ─────────────────────────────────────────
+   자막영역 230px(850~1080) 안에 앉는다. 바닥 앵커 4% = 43px(@1080) —
+   플레이어 컨트롤 바가 덮어도 자동 숨김이 기본이라 가이드의 230px 밴드를 믿는다.
+   줄이 늘면 위로만 자란다(밴드 위 경계를 넘으면 W2 검사가 잡는다). */
+.cap{position:absolute;left:0;right:0;bottom:4%;
+  display:flex;flex-direction:column;justify-content:flex-end;padding:0 26px;z-index:4}
+.cap p{white-space:pre-line;font-family:var(--disp);font-weight:900;
+  font-size:20px;line-height:1.34;letter-spacing:-.015em;min-height:2.7em;
+  color:var(--ink);text-shadow:0 2px 8px rgba(0,0,0,.85), 0 0 2px rgba(0,0,0,.9)}
+.outro{display:block;margin-top:4px;font-size:10.5px;color:var(--sub);
+  letter-spacing:.08em;white-space:nowrap}
+
+/* ── 아웃트로 카드 ─────────────────────────────────
+   `.vis` 와 **정확히 같은 상자** — 근거는 style.css 와 동일(검사 좌표 공유). */
+.outrocard{position:absolute;top:16%;left:24px;right:24px;bottom:21.2963%;
+  z-index:3;background:var(--bg);display:flex;flex-direction:column;
+  justify-content:center;gap:9px}
+.outrocard[hidden]{display:none}
+.oc-hook{font-family:var(--disp);font-weight:900;font-size:19px;line-height:1.22;
+  letter-spacing:-.02em;color:var(--ink);margin-bottom:2px;
+  white-space:pre-line}
+.oc-hook[hidden]{display:none}
+.oc-src{font-family:var(--disp);font-weight:800;font-size:15px;line-height:1.3;
+  letter-spacing:-.02em;color:var(--ink)}
+.oc-sibs{list-style:none;display:flex;flex-direction:column;gap:5px}
+.oc-sibs li{font-family:var(--mono);font-size:11px;line-height:1.4;color:var(--sub);
+  border-left:3px solid var(--track);padding:3px 0 3px 9px}
+.oc-sibs li.me{color:var(--ink);border-left-color:var(--accent)}
+.oc-next{font-family:var(--disp);font-weight:800;font-size:14px;line-height:1.3;
+  letter-spacing:-.02em;color:var(--accent);border-left:3px solid var(--accent);
+  padding:3px 0 3px 9px}
+.oc-next[hidden]{display:none}
+.oc-ai{margin-top:4px;font-family:var(--mono);font-size:11px;letter-spacing:.02em;
+  color:var(--accent);font-weight:800}
+
+/* ── kind 공용 조각 ─────────────────────────────── */
+.hookbig{font-family:var(--disp);font-weight:900;font-size:33px;line-height:1.1;
+  letter-spacing:-.035em;white-space:pre-line;display:flex;align-items:center;height:100%}
+
+.rows{height:100%;display:flex;flex-direction:column;justify-content:center;gap:7px}
+.row{font-family:var(--mono);font-size:11px;line-height:1.45;color:var(--sub);
+  border-left:3px solid var(--track);padding:4px 0 4px 9px;white-space:pre-wrap}
+.row.warn{color:var(--ink);border-left-color:var(--line)}
+.row.hot{color:var(--ink);border-left-color:var(--ink)}
+.row em{font-style:normal;background:var(--accent);color:#000;padding:1px 5px;
+  border-radius:2px;font-weight:700}
+
+.cmp{height:100%;display:flex;align-items:flex-end;gap:16px;padding-bottom:8px}
+.cmpcol{flex:1;display:flex;flex-direction:column;justify-content:flex-end;
+  align-items:center;gap:9px;height:100%}
+.cmpcol .barwrap{flex:1;display:flex;align-items:flex-end;width:56%}
+.cmpcol .bar2{width:100%;border-radius:3px 3px 0 0}
+.cmpcol b{font-family:var(--disp);font-weight:900;font-size:34px;letter-spacing:-.03em;
+  line-height:1.1}
+.cmpcol small{font-size:11px;color:var(--sub);text-align:center;line-height:1.35}
+.cmpnote{position:absolute;right:0;top:8px;font-family:var(--disp);font-weight:900;
+  font-size:24px;color:var(--accent);line-height:1.1}
+
+.choice{height:100%;display:flex;flex-direction:column;justify-content:center;gap:12px}
+.opt{border:3px solid var(--track);border-radius:4px;padding:12px 14px;
+  display:flex;align-items:center;justify-content:space-between;gap:10px}
+.opt .nm{font-family:var(--disp);font-weight:800;font-size:14px}
+.opt .vd{font-size:10.5px;letter-spacing:.1em;font-weight:800}
+.opt .tag{font-size:10px;color:var(--ink);border:3px solid var(--line);
+  padding:2px 6px;border-radius:2px;font-weight:700}
+
+.planwrap{height:100%;display:flex;flex-direction:column;justify-content:center;gap:12px}
+.goalchip{align-self:flex-start;font-size:10.5px;letter-spacing:.09em;color:var(--accent);
+  border:3px solid var(--accent);padding:4px 9px;font-weight:700}
+.cards{display:flex;flex-wrap:wrap;gap:6px}
+.card{font-size:12px;padding:7px 10px;background:transparent;color:var(--sub);
+  border:3px solid var(--track);border-radius:3px;position:relative;font-weight:700}
+.card .why{display:block;font-size:9px;letter-spacing:.04em;margin-top:2px;font-weight:400}
+.verdict{font-family:var(--disp);font-weight:900;font-size:18px;letter-spacing:-.02em;
+  line-height:1.1}
+
+/* ── 추출 모드 (?render=1) ────────────────────────
+   697 × 2.7546 = 1920. 원리는 style.css 와 동일. */
+body.render{padding:0;gap:0;min-height:0;display:block;background:#000}
+body.render .bar,body.render .hint{display:none}
+body.render .stage{width:697px}
+
+/* ── 컨트롤 (영상에는 안 들어감) ──────────────────── */
+.bar{width:min(100%,697px);display:flex;gap:8px;align-items:center}
+button{font-family:inherit;font-size:11px;font-weight:700;letter-spacing:.1em;
+  text-transform:uppercase;background:var(--ink);color:#000;border:0;
+  padding:9px 14px;border-radius:2px;cursor:pointer}
+button.ghost{background:transparent;color:var(--ink);border:1px solid #2A2E3A}
+#scrub{flex:1;accent-color:var(--accent)}
+.time{font-size:10px;color:var(--sub);min-width:48px;text-align:right}
+.hint{width:min(100%,697px);font-size:10px;color:var(--sub);line-height:1.6}

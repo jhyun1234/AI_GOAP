@@ -20,7 +20,7 @@
 import fs from 'fs';
 import path from 'path';
 import { spawn } from 'child_process';
-import { ROOT, OUT_W, OUT_H, findFfmpeg, openEngine, langPaths, langOf, bakeScene } from './lib-node.mjs';
+import { ROOT, dimsOfEp, findFfmpeg, openEngine, langPaths, langOf, bakeScene } from './lib-node.mjs';
 import { synth } from './sfx.mjs';
 
 const argv = process.argv.slice(2);
@@ -35,6 +35,7 @@ const QUICK = !!flag('quick', false);        // 확인용 저화질·고속 인�
 const STILL = flag('still', null);
 const LANG = langOf(argv);                   // 'ko'(기본) 또는 scene.<lang>.json 이 있는 언어
 const P = langPaths(EP, LANG);
+const D = dimsOfEp(EP, LANG);                // 프로필 치수 — tall 회차는 기존 상수와 동일 값
 
 /* ── wav 읽기/쓰기 ───────────────────────────────── */
 function readWav(file) {
@@ -186,7 +187,7 @@ try {
   const probe = await cdp.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
   const png = Buffer.from(probe.data, 'base64');
   const pw = png.readUInt32BE(16), ph = png.readUInt32BE(20);
-  console.log(`프레임   ${pw}×${ph}` + (pw === OUT_W && ph === OUT_H ? '' : ` → ${OUT_W}×${OUT_H} 로 보정`));
+  console.log(`프레임   ${pw}×${ph}` + (pw === D.OUT_W && ph === D.OUT_H ? '' : ` → ${D.OUT_W}×${D.OUT_H} 로 보정`));
 
   const outFile = P.build(QUICK ? 'quick.mp4' : 'video.mp4');
   const DUR = (nFrames / FPS).toFixed(3);
@@ -198,7 +199,7 @@ try {
     '-f', 'image2pipe', '-framerate', String(FPS), '-i', 'pipe:0',
     '-i', trackFile,
     '-filter_complex',
-    `[0:v]scale=${OUT_W}:${OUT_H}:flags=lanczos,format=yuv420p[v];[1:a]apad[a]`,
+    `[0:v]scale=${D.OUT_W}:${D.OUT_H}:flags=lanczos,format=yuv420p[v];[1:a]apad[a]`,
     '-map', '[v]', '-map', '[a]',
     // medium 이상으로 올리면 인코딩이 캡처보다 느려져 파이프가 막힌다. crf 18 이면 차이도 안 보인다
     '-c:v', 'libx264', '-preset', QUICK ? 'ultrafast' : 'medium',
@@ -227,7 +228,7 @@ try {
 
   const size = fs.statSync(outFile).size;
   console.log(`\n\n완료  ${path.relative(process.cwd(), outFile)}`);
-  console.log(`      ${(nFrames / FPS).toFixed(1)}초 · ${OUT_W}×${OUT_H} · ${FPS}fps · ${(size / 1048576).toFixed(1)}MB`);
+  console.log(`      ${(nFrames / FPS).toFixed(1)}초 · ${D.OUT_W}×${D.OUT_H} · ${FPS}fps · ${(size / 1048576).toFixed(1)}MB`);
 } catch (e) {
   console.error('\n🔴 ' + e.message);
   process.exitCode = 1;

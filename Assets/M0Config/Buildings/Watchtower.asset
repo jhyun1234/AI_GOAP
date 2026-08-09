@@ -34,7 +34,8 @@ MonoBehaviour:
   TileSprites: []
   TowerRangeTiles: 6
   TrapDamage: 0
-  MarkerSprite: {fileID: 0}
+  MountOffsetTiles: 1.75
+  MarkerSprite: {fileID: 639925261, guid: 9b8011c99ea846161f03f0fbead3b0b5, type: 3}
   FallbackColor: {r: 0.58, g: 0.44, b: 0.26, a: 1}
-  FallbackSize: 0.6
+  FallbackSize: 1
   SortingOrder: 5

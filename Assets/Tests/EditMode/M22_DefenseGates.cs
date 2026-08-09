@@ -766,6 +766,18 @@ namespace AIVillage.Tests.EditMode
             Assert.IsNotNull(wolf, "늑대 에셋 없음");
             Assert.Greater(wolf.MaxHp - trap.TrapDamage, wolf.MaxHp * wolf.FleeBelowHpPct,
                 "한 방 격퇴 금지 (사용자 확정 15) — 함정은 소프트닝이다. 값을 올려 한 방이 되면 red");
+
+            // W5b 실그림 배선 (M23_T1 문법) — 임시 색 사각으로 되돌아가면 red.
+            // 자작 시트라 fileID가 이름 해시로 고정돼 있어(tools/pixel-art) 다시 구워도 안 깨진다.
+            Assert.IsNotNull(tower.MarkerSprite, "망루 실그림 미배선 — 임시 색 사각으로 회귀");
+            Assert.IsNotNull(trap.MarkerSprite, "함정 실그림 미배선 — 임시 색 사각으로 회귀");
+            foreach (var b in new[] { tower, trap })
+                Assert.AreEqual(1f, b.FallbackSize, 1e-3f,
+                    $"{b.name}: 실그림은 16 PPU로 구웠으므로 배율 1이라야 한 타일에 맞는다");
+            // 탑승 높이는 **그림이 정한다** — 코드 상수(舊 0.45)로 되돌리면 사람이 다리 사이에 뜬다
+            Assert.Greater(tower.MountOffsetTiles, 1f,
+                "망루 탑승 높이(MountOffsetTiles)가 발판 높이와 어긋난다 — 그림과 짝인 값이다");
+            Assert.AreEqual(0f, trap.MountOffsetTiles, "함정은 올라서는 시설이 아니다");
         }
 
         [Test]

@@ -55,7 +55,10 @@ namespace AIVillage.M0
                 _mounted = true;
                 _standPos = agent.transform.position;
                 agent.SetOnTower(true); // 희생 선정 제외 (높이 — ADR-M22-11)
-                agent.transform.position = new Vector3(_towerTile.x, _towerTile.y + 0.45f, 0f); // 표현만
+                // 올라서는 높이는 **그림이 정한다** (M22-3차 W5b) — 舊 상수 0.45는 임시 색
+                // 사각 시절의 값이라, 실그림(발판 1.75타일)이 들어오자 사람이 다리 사이에 떴다.
+                float lift = M0SimulationLoop.Instance != null ? M0SimulationLoop.Instance.DefenseTowerMountOffset : 0f;
+                agent.transform.position = new Vector3(_towerTile.x, _towerTile.y + lift, 0f); // 표현만
                 Debug.Log($"[Tower] {agent.AgentId} 망루에 올랐다 @ ({_towerTile.x},{_towerTile.y})");
             }
 

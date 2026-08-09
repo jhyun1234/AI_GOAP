@@ -90,6 +90,12 @@ namespace AIVillage.M0
                  "MaxDurability와 배타 — 함정은 소모지 내구도가 아니다.")]
         public float TrapDamage;
 
+        [Tooltip("탑승한 주민이 올라서는 높이 (타일). 그림의 발판 위치와 짝이다 — " +
+                 "스프라이트를 고치면 이 값도 고친다 (M22-3차 W5b: 코드 상수 0.45를 에셋으로 승격. " +
+                 "그림이 커지면서 발판이 1.75타일로 올라갔는데 상수는 그대로라 사람이 다리 사이에 " +
+                 "떠 있었다 — 표현 수치를 코드에 두면 그림과 반드시 어긋난다).")]
+        public float MountOffsetTiles;
+
         [Tooltip("완공 시 스폰할 프리팹. 비우면 MarkerSprite → 원형 마커 순으로 폴백.")]
         public GameObject Prefab;
 

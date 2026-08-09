@@ -214,6 +214,13 @@ export function buildMeta(recipe, slices) {
     const unityY = recipe.height - s.y - s.h; // ⚠️ 좌상단 → 좌하단 (유일한 변환 지점)
     const id = internalIdOf(`${recipe.name}/${s.name}`);
     table.push(`      ${s.name}: ${id}`);
+    // 피벗 (M22-3차 W5b 실사): BuildingVisualizer는 스프라이트를 **타일 중심**에 놓고
+    // FallbackSize로 배율만 준다. 기본 정렬(alignment 0 = Center)이면 2타일 높이 구조물의
+    // 아래 절반이 땅 밑으로 내려간다 — 밑단이 타일을 덮게 하려면 피벗 y를 "바닥에서 반 타일"
+    // (= 8px / 시트높이)로 내려야 한다. 레시피가 pivot을 주면 Custom(9)으로 쓴다.
+    const pv = s.pivot;
+    const align = pv ? 9 : 0;
+    const pivot = pv ? `{x: ${pv[0]}, y: ${pv[1]}}` : '{x: 0, y: 0}';
     sprites +=
 `    - serializedVersion: 2
       name: ${s.name}
@@ -223,8 +230,8 @@ export function buildMeta(recipe, slices) {
         y: ${unityY}
         width: ${s.w}
         height: ${s.h}
-      alignment: 0
-      pivot: {x: 0, y: 0}
+      alignment: ${align}
+      pivot: ${pivot}
       border: {x: 0, y: 0, z: 0, w: 0}
       outline: []
       physicsShape: []

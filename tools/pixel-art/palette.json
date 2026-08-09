@@ -10,7 +10,8 @@
     "fur_*": "Sheep 시트의 무채색 (늑대 털 후보)",
     "hide_*": "Horse 시트의 갈색 (늑대 대안 톤)",
     "flame_*": "Lanter_Posts 불꽃",
-    "grass": "Grass_1_Middle 단색 — 대조 시트 배경(게임 화면의 바닥색)"
+    "grass": "Grass_1_Middle 단색 — 대조 시트 배경(게임 화면의 바닥색)",
+    "leaf_*": "Outdoor_Decor 덤불의 초록 4단계 (올가미 어린나무 잎 — W5b 2차)"
   },
   "colors": {
     "wood_shadow": "#3f2832",
@@ -45,6 +46,10 @@
     "flame_mid": "#ed7614",
     "flame_light": "#ffa214",
     "flame_hi": "#ffc825",
-    "grass": "#3e8948"
+    "grass": "#3e8948",
+    "leaf_dark": "#265c42",
+    "leaf_mid": "#33984b",
+    "leaf_light": "#50af5d",
+    "leaf_hi": "#63c74d"
   }
 }

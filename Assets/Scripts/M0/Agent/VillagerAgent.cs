@@ -127,6 +127,9 @@ namespace AIVillage.M0
             if (IsOnTower && _sim != null) y -= _sim.DefenseTowerMountOffset; // 발판이 아니라 망루 칸으로
             _viewSr.sortingOrder = WorldSort.Order(y, WorldSort.Agent);
             // 그림자는 제 몸 바로 아래 — 선택 링과 같은 칸에 겹치면 링이 위 (Select > Ghost)
+            // 🔮 낮/밤 축이 들어오면 **여기서** 알파를 시간대로 곱한다 (사용자 방향 2026-08-09).
+            //    밤엔 옅게·한낮엔 짙게 — 기준값은 에셋(ShadowAlpha), 시간 배율만 곱하면 된다.
+            //    매 프레임 도는 지점이 이미 여기 하나라 배선은 한 줄이다.
             if (_shadowSr != null) _shadowSr.sortingOrder = WorldSort.Order(y, WorldSort.Ghost);
             if (_selectionRing != null)
                 _selectionRing.sortingOrder = WorldSort.Order(y, WorldSort.Select);

@@ -80,4 +80,4 @@ MonoBehaviour:
   - "고블린이 함정에 걸렸다!"
   - "그쪽은 밟으면 안 되지 — 잘 걸렸어!"
   - "비명을 지르는군, 함정이 통했어!"
-  SpriteSet: {fileID: 0}
+  SpriteSet: {fileID: 11400000, guid: 3c47a6ee87215c085344490fdd52d1dc, type: 2}

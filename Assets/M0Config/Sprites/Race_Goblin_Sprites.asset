@@ -1,0 +1,77 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d65daa78324848f3963b356cba57724a, type: 3}
+  m_Name: Race_Goblin_Sprites
+  m_EditorClassIdentifier:
+  IdleDown:
+  - {fileID: -898398391, guid: beb2476a85275934783d54ee9619b489, type: 3}
+  - {fileID: -915176010, guid: beb2476a85275934783d54ee9619b489, type: 3}
+  - {fileID: -931953629, guid: beb2476a85275934783d54ee9619b489, type: 3}
+  - {fileID: -948731248, guid: beb2476a85275934783d54ee9619b489, type: 3}
+  IdleSide:
+  - {fileID: -979732770, guid: beb2476a85275934783d54ee9619b489, type: 3}
+  - {fileID: -962955151, guid: beb2476a85275934783d54ee9619b489, type: 3}
+  - {fileID: -1013288008, guid: beb2476a85275934783d54ee9619b489, type: 3}
+  - {fileID: -996510389, guid: beb2476a85275934783d54ee9619b489, type: 3}
+  IdleUp:
+  - {fileID: -209291585, guid: beb2476a85275934783d54ee9619b489, type: 3}
+  - {fileID: -226069204, guid: beb2476a85275934783d54ee9619b489, type: 3}
+  - {fileID: -175736347, guid: beb2476a85275934783d54ee9619b489, type: 3}
+  - {fileID: -192513966, guid: beb2476a85275934783d54ee9619b489, type: 3}
+  WalkDown:
+  - {fileID: 1846463508, guid: beb2476a85275934783d54ee9619b489, type: 3}
+  - {fileID: 1863241127, guid: beb2476a85275934783d54ee9619b489, type: 3}
+  - {fileID: 1880018746, guid: beb2476a85275934783d54ee9619b489, type: 3}
+  - {fileID: 1896796365, guid: beb2476a85275934783d54ee9619b489, type: 3}
+  - {fileID: 1779353032, guid: beb2476a85275934783d54ee9619b489, type: 3}
+  - {fileID: 1796130651, guid: beb2476a85275934783d54ee9619b489, type: 3}
+  WalkSide:
+  - {fileID: 345338813, guid: beb2476a85275934783d54ee9619b489, type: 3}
+  - {fileID: 328561194, guid: beb2476a85275934783d54ee9619b489, type: 3}
+  - {fileID: 311783575, guid: beb2476a85275934783d54ee9619b489, type: 3}
+  - {fileID: 295005956, guid: beb2476a85275934783d54ee9619b489, type: 3}
+  - {fileID: 278228337, guid: beb2476a85275934783d54ee9619b489, type: 3}
+  - {fileID: 261450718, guid: beb2476a85275934783d54ee9619b489, type: 3}
+  WalkUp:
+  - {fileID: -272879374, guid: beb2476a85275934783d54ee9619b489, type: 3}
+  - {fileID: -256101755, guid: beb2476a85275934783d54ee9619b489, type: 3}
+  - {fileID: -306434612, guid: beb2476a85275934783d54ee9619b489, type: 3}
+  - {fileID: -289656993, guid: beb2476a85275934783d54ee9619b489, type: 3}
+  - {fileID: -339989850, guid: beb2476a85275934783d54ee9619b489, type: 3}
+  - {fileID: -323212231, guid: beb2476a85275934783d54ee9619b489, type: 3}
+  Actions:
+  - Kind: 5   # AnimKind.Attack (ActionSO.cs — None0 Chop1 Mine2 Hammer3 Water4 Attack5)
+    Down:
+    - {fileID: 539138515, guid: beb2476a85275934783d54ee9619b489, type: 3}
+    - {fileID: 522360896, guid: beb2476a85275934783d54ee9619b489, type: 3}
+    - {fileID: 572693753, guid: beb2476a85275934783d54ee9619b489, type: 3}
+    - {fileID: 555916134, guid: beb2476a85275934783d54ee9619b489, type: 3}
+    - {fileID: 606248991, guid: beb2476a85275934783d54ee9619b489, type: 3}
+    - {fileID: 589471372, guid: beb2476a85275934783d54ee9619b489, type: 3}
+    Side:
+    - {fileID: -1710416280, guid: beb2476a85275934783d54ee9619b489, type: 3}
+    - {fileID: -1693638661, guid: beb2476a85275934783d54ee9619b489, type: 3}
+    - {fileID: -1676861042, guid: beb2476a85275934783d54ee9619b489, type: 3}
+    - {fileID: -1660083423, guid: beb2476a85275934783d54ee9619b489, type: 3}
+    - {fileID: -1643305804, guid: beb2476a85275934783d54ee9619b489, type: 3}
+    - {fileID: -1626528185, guid: beb2476a85275934783d54ee9619b489, type: 3}
+    Up:
+    - {fileID: 1910051297, guid: beb2476a85275934783d54ee9619b489, type: 3}
+    - {fileID: 1893273678, guid: beb2476a85275934783d54ee9619b489, type: 3}
+    - {fileID: 1876496059, guid: beb2476a85275934783d54ee9619b489, type: 3}
+    - {fileID: 1859718440, guid: beb2476a85275934783d54ee9619b489, type: 3}
+    - {fileID: 1977161773, guid: beb2476a85275934783d54ee9619b489, type: 3}
+    - {fileID: 1960384154, guid: beb2476a85275934783d54ee9619b489, type: 3}
+  FramesPerSecond: 8
+  Scale: 0.75
+  SideFacesRight: 1
+  TintStrength: 0

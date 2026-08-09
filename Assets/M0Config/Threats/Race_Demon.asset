@@ -65,4 +65,4 @@ MonoBehaviour:
   - "타락천사가 함정을 밟았다!"
   - "그쪽은 밟으면 안 되지 — 잘 걸렸어!"
   - "통했어! 저것도 아프긴 한가 봐!"
-  SpriteSet: {fileID: 0}
+  SpriteSet: {fileID: 11400000, guid: 2291530b580774f3b936569dd0f00187, type: 2}

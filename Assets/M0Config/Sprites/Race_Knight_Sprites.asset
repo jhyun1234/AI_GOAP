@@ -1,0 +1,83 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d65daa78324848f3963b356cba57724a, type: 3}
+  m_Name: Race_Knight_Sprites
+  m_EditorClassIdentifier:
+  IdleDown:
+  - {fileID: -1892891765, guid: 6ee457aacf3790d4ea032e776faaca82, type: 3}
+  - {fileID: -1909669384, guid: 6ee457aacf3790d4ea032e776faaca82, type: 3}
+  - {fileID: -1859336527, guid: 6ee457aacf3790d4ea032e776faaca82, type: 3}
+  - {fileID: -1876114146, guid: 6ee457aacf3790d4ea032e776faaca82, type: 3}
+  - {fileID: -1825781289, guid: 6ee457aacf3790d4ea032e776faaca82, type: 3}
+  - {fileID: -1842558908, guid: 6ee457aacf3790d4ea032e776faaca82, type: 3}
+  IdleSide:
+  - {fileID: 1804645696, guid: 6ee457aacf3790d4ea032e776faaca82, type: 3}
+  - {fileID: 1821423315, guid: 6ee457aacf3790d4ea032e776faaca82, type: 3}
+  - {fileID: 1838200934, guid: 6ee457aacf3790d4ea032e776faaca82, type: 3}
+  - {fileID: 1854978553, guid: 6ee457aacf3790d4ea032e776faaca82, type: 3}
+  - {fileID: 1871756172, guid: 6ee457aacf3790d4ea032e776faaca82, type: 3}
+  - {fileID: 1888533791, guid: 6ee457aacf3790d4ea032e776faaca82, type: 3}
+  IdleUp:
+  - {fileID: -424120747, guid: 6ee457aacf3790d4ea032e776faaca82, type: 3}
+  - {fileID: -440898366, guid: 6ee457aacf3790d4ea032e776faaca82, type: 3}
+  - {fileID: -457675985, guid: 6ee457aacf3790d4ea032e776faaca82, type: 3}
+  - {fileID: -474453604, guid: 6ee457aacf3790d4ea032e776faaca82, type: 3}
+  - {fileID: -491231223, guid: 6ee457aacf3790d4ea032e776faaca82, type: 3}
+  - {fileID: -508008842, guid: 6ee457aacf3790d4ea032e776faaca82, type: 3}
+  WalkDown:
+  - {fileID: 1631634346, guid: 6ee457aacf3790d4ea032e776faaca82, type: 3}
+  - {fileID: 1648411965, guid: 6ee457aacf3790d4ea032e776faaca82, type: 3}
+  - {fileID: 1598079108, guid: 6ee457aacf3790d4ea032e776faaca82, type: 3}
+  - {fileID: 1614856727, guid: 6ee457aacf3790d4ea032e776faaca82, type: 3}
+  - {fileID: 1564523870, guid: 6ee457aacf3790d4ea032e776faaca82, type: 3}
+  - {fileID: 1581301489, guid: 6ee457aacf3790d4ea032e776faaca82, type: 3}
+  WalkSide:
+  - {fileID: -452313097, guid: 6ee457aacf3790d4ea032e776faaca82, type: 3}
+  - {fileID: -469090716, guid: 6ee457aacf3790d4ea032e776faaca82, type: 3}
+  - {fileID: -418757859, guid: 6ee457aacf3790d4ea032e776faaca82, type: 3}
+  - {fileID: -435535478, guid: 6ee457aacf3790d4ea032e776faaca82, type: 3}
+  - {fileID: -519423573, guid: 6ee457aacf3790d4ea032e776faaca82, type: 3}
+  - {fileID: -536201192, guid: 6ee457aacf3790d4ea032e776faaca82, type: 3}
+  WalkUp:
+  - {fileID: 1056215596, guid: 6ee457aacf3790d4ea032e776faaca82, type: 3}
+  - {fileID: 1072993215, guid: 6ee457aacf3790d4ea032e776faaca82, type: 3}
+  - {fileID: 1089770834, guid: 6ee457aacf3790d4ea032e776faaca82, type: 3}
+  - {fileID: 1106548453, guid: 6ee457aacf3790d4ea032e776faaca82, type: 3}
+  - {fileID: 989105120, guid: 6ee457aacf3790d4ea032e776faaca82, type: 3}
+  - {fileID: 1005882739, guid: 6ee457aacf3790d4ea032e776faaca82, type: 3}
+  Actions:
+  - Kind: 5   # AnimKind.Attack (ActionSO.cs — None0 Chop1 Mine2 Hammer3 Water4 Attack5)
+    Down:
+    - {fileID: -1182996607, guid: 6ee457aacf3790d4ea032e776faaca82, type: 3}
+    - {fileID: -1199774226, guid: 6ee457aacf3790d4ea032e776faaca82, type: 3}
+    - {fileID: -1216551845, guid: 6ee457aacf3790d4ea032e776faaca82, type: 3}
+    - {fileID: -1233329464, guid: 6ee457aacf3790d4ea032e776faaca82, type: 3}
+    - {fileID: -1115886131, guid: 6ee457aacf3790d4ea032e776faaca82, type: 3}
+    - {fileID: -1132663750, guid: 6ee457aacf3790d4ea032e776faaca82, type: 3}
+    Side:
+    - {fileID: 346320438, guid: 6ee457aacf3790d4ea032e776faaca82, type: 3}
+    - {fileID: 363098057, guid: 6ee457aacf3790d4ea032e776faaca82, type: 3}
+    - {fileID: 312765200, guid: 6ee457aacf3790d4ea032e776faaca82, type: 3}
+    - {fileID: 329542819, guid: 6ee457aacf3790d4ea032e776faaca82, type: 3}
+    - {fileID: 413430914, guid: 6ee457aacf3790d4ea032e776faaca82, type: 3}
+    - {fileID: 430208533, guid: 6ee457aacf3790d4ea032e776faaca82, type: 3}
+    Up:
+    - {fileID: -406374157, guid: 6ee457aacf3790d4ea032e776faaca82, type: 3}
+    - {fileID: -423151776, guid: 6ee457aacf3790d4ea032e776faaca82, type: 3}
+    - {fileID: -372818919, guid: 6ee457aacf3790d4ea032e776faaca82, type: 3}
+    - {fileID: -389596538, guid: 6ee457aacf3790d4ea032e776faaca82, type: 3}
+    - {fileID: -339263681, guid: 6ee457aacf3790d4ea032e776faaca82, type: 3}
+    - {fileID: -356041300, guid: 6ee457aacf3790d4ea032e776faaca82, type: 3}
+  FramesPerSecond: 8
+  Scale: 0.5
+  SideFacesRight: 1
+  TintStrength: 0

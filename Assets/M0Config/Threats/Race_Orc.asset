@@ -74,4 +74,4 @@ MonoBehaviour:
   - "오크가 함정에 걸렸다!"
   - "그쪽은 밟으면 안 되지 — 잘 걸렸어!"
   - "한 놈 줄었어, 함정이 통했어!"
-  SpriteSet: {fileID: 0}
+  SpriteSet: {fileID: 11400000, guid: f5a5549ff49f3e5fa3d2a56004039721, type: 2}

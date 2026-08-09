@@ -1,0 +1,83 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d65daa78324848f3963b356cba57724a, type: 3}
+  m_Name: Race_Orc_Sprites
+  m_EditorClassIdentifier:
+  IdleDown:
+  - {fileID: -72365476, guid: 5ef985e3e84d5e048ba4a121da41bc4d, type: 3}
+  - {fileID: -55587857, guid: 5ef985e3e84d5e048ba4a121da41bc4d, type: 3}
+  - {fileID: -38810238, guid: 5ef985e3e84d5e048ba4a121da41bc4d, type: 3}
+  - {fileID: -22032619, guid: 5ef985e3e84d5e048ba4a121da41bc4d, type: 3}
+  - {fileID: -139475952, guid: 5ef985e3e84d5e048ba4a121da41bc4d, type: 3}
+  - {fileID: -122698333, guid: 5ef985e3e84d5e048ba4a121da41bc4d, type: 3}
+  IdleSide:
+  - {fileID: 556195303, guid: 5ef985e3e84d5e048ba4a121da41bc4d, type: 3}
+  - {fileID: 539417684, guid: 5ef985e3e84d5e048ba4a121da41bc4d, type: 3}
+  - {fileID: 589750541, guid: 5ef985e3e84d5e048ba4a121da41bc4d, type: 3}
+  - {fileID: 572972922, guid: 5ef985e3e84d5e048ba4a121da41bc4d, type: 3}
+  - {fileID: 489084827, guid: 5ef985e3e84d5e048ba4a121da41bc4d, type: 3}
+  - {fileID: 472307208, guid: 5ef985e3e84d5e048ba4a121da41bc4d, type: 3}
+  IdleUp:
+  - {fileID: 1344383078, guid: 5ef985e3e84d5e048ba4a121da41bc4d, type: 3}
+  - {fileID: 1361160697, guid: 5ef985e3e84d5e048ba4a121da41bc4d, type: 3}
+  - {fileID: 1310827840, guid: 5ef985e3e84d5e048ba4a121da41bc4d, type: 3}
+  - {fileID: 1327605459, guid: 5ef985e3e84d5e048ba4a121da41bc4d, type: 3}
+  - {fileID: 1411493554, guid: 5ef985e3e84d5e048ba4a121da41bc4d, type: 3}
+  - {fileID: 1428271173, guid: 5ef985e3e84d5e048ba4a121da41bc4d, type: 3}
+  WalkDown:
+  - {fileID: -174488207, guid: 5ef985e3e84d5e048ba4a121da41bc4d, type: 3}
+  - {fileID: -191265826, guid: 5ef985e3e84d5e048ba4a121da41bc4d, type: 3}
+  - {fileID: -208043445, guid: 5ef985e3e84d5e048ba4a121da41bc4d, type: 3}
+  - {fileID: -224821064, guid: 5ef985e3e84d5e048ba4a121da41bc4d, type: 3}
+  - {fileID: -107377731, guid: 5ef985e3e84d5e048ba4a121da41bc4d, type: 3}
+  - {fileID: -124155350, guid: 5ef985e3e84d5e048ba4a121da41bc4d, type: 3}
+  WalkSide:
+  - {fileID: 634487920, guid: 5ef985e3e84d5e048ba4a121da41bc4d, type: 3}
+  - {fileID: 651265539, guid: 5ef985e3e84d5e048ba4a121da41bc4d, type: 3}
+  - {fileID: 668043158, guid: 5ef985e3e84d5e048ba4a121da41bc4d, type: 3}
+  - {fileID: 684820777, guid: 5ef985e3e84d5e048ba4a121da41bc4d, type: 3}
+  - {fileID: 701598396, guid: 5ef985e3e84d5e048ba4a121da41bc4d, type: 3}
+  - {fileID: 718376015, guid: 5ef985e3e84d5e048ba4a121da41bc4d, type: 3}
+  WalkUp:
+  - {fileID: -884383365, guid: 5ef985e3e84d5e048ba4a121da41bc4d, type: 3}
+  - {fileID: -901160984, guid: 5ef985e3e84d5e048ba4a121da41bc4d, type: 3}
+  - {fileID: -850828127, guid: 5ef985e3e84d5e048ba4a121da41bc4d, type: 3}
+  - {fileID: -867605746, guid: 5ef985e3e84d5e048ba4a121da41bc4d, type: 3}
+  - {fileID: -817272889, guid: 5ef985e3e84d5e048ba4a121da41bc4d, type: 3}
+  - {fileID: -834050508, guid: 5ef985e3e84d5e048ba4a121da41bc4d, type: 3}
+  Actions:
+  - Kind: 5   # AnimKind.Attack (ActionSO.cs — None0 Chop1 Mine2 Hammer3 Water4 Attack5)
+    Down:
+    - {fileID: -1654824550, guid: 5ef985e3e84d5e048ba4a121da41bc4d, type: 3}
+    - {fileID: -1638046931, guid: 5ef985e3e84d5e048ba4a121da41bc4d, type: 3}
+    - {fileID: -1688379788, guid: 5ef985e3e84d5e048ba4a121da41bc4d, type: 3}
+    - {fileID: -1671602169, guid: 5ef985e3e84d5e048ba4a121da41bc4d, type: 3}
+    - {fileID: -1721935026, guid: 5ef985e3e84d5e048ba4a121da41bc4d, type: 3}
+    - {fileID: -1705157407, guid: 5ef985e3e84d5e048ba4a121da41bc4d, type: 3}
+    Side:
+    - {fileID: 573941893, guid: 5ef985e3e84d5e048ba4a121da41bc4d, type: 3}
+    - {fileID: 557164274, guid: 5ef985e3e84d5e048ba4a121da41bc4d, type: 3}
+    - {fileID: 540386655, guid: 5ef985e3e84d5e048ba4a121da41bc4d, type: 3}
+    - {fileID: 523609036, guid: 5ef985e3e84d5e048ba4a121da41bc4d, type: 3}
+    - {fileID: 506831417, guid: 5ef985e3e84d5e048ba4a121da41bc4d, type: 3}
+    - {fileID: 490053798, guid: 5ef985e3e84d5e048ba4a121da41bc4d, type: 3}
+    Up:
+    - {fileID: -238075996, guid: 5ef985e3e84d5e048ba4a121da41bc4d, type: 3}
+    - {fileID: -221298377, guid: 5ef985e3e84d5e048ba4a121da41bc4d, type: 3}
+    - {fileID: -204520758, guid: 5ef985e3e84d5e048ba4a121da41bc4d, type: 3}
+    - {fileID: -187743139, guid: 5ef985e3e84d5e048ba4a121da41bc4d, type: 3}
+    - {fileID: -305186472, guid: 5ef985e3e84d5e048ba4a121da41bc4d, type: 3}
+    - {fileID: -288408853, guid: 5ef985e3e84d5e048ba4a121da41bc4d, type: 3}
+  FramesPerSecond: 8
+  Scale: 0.5
+  SideFacesRight: 1
+  TintStrength: 0

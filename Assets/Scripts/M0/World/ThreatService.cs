@@ -38,6 +38,12 @@ namespace AIVillage.M0
 
         private float _lastStrikeDay;   // 마지막 발동 시각 (게임일). 세이브 대상 (ADR-M10-10)
         private int _strikeOrdinal;     // 발동 누적 서수 — 진입점·밭 희생 시드의 유일 키. 세이브 대상
+
+        // 종족별 조우 누적 (M24-1차 W3) — 키 = ThreatSO 에셋 이름(안정), 값 = 출몰 횟수.
+        // **세이브 대상** (ADR-M0-10 선언): 유효압력의 한 항이라 판을 이어 받으면 함께 와야 한다.
+        // 🔑 조우 = **출몰**이다 (ADR-M24-5). 격퇴 성공만 세면 지는 판에서 압력이 멈춰
+        // "약한 마을은 영영 안 배우는 적을 만난다"가 되고, 무엇보다 단조가 깨질 여지가 생긴다.
+        private readonly Dictionary<string, int> _encounters = new Dictionary<string, int>(4);
         private ThreatSO _pending;      // 예고~발동 사이 고정 — 예고한 그 위협이 온다
         private float _gameTime;        // 최근 틱의 게임일 (M21-W2) — 체류·재타격 판정의 시계.
                                         // 개체는 Update(실시간)로 돌지만 주기는 게임일이라 여기서 받아 쓴다
@@ -268,6 +274,53 @@ namespace AIVillage.M0
         public static int VillageScale(int aliveCount, int farmPlots, int houses)
             => aliveCount + farmPlots + houses;
 
+        // ── 압력 (M24-1차 W3 — ADR-M24-1: 압력은 단조다) ──────────────────────
+        //
+        // 이 축이 존재하는 이유는 게임일 밴드(PickTier)를 대체하면서 **두 가지 실패를 동시에
+        // 피하는 것**이다. 둘은 정반대이고 둘 다 실제로 관측된 적이 있다:
+        //
+        //   ① 사망 → 마을 축소 → 위협 강등 → 영구 안정   (ADR-M10R-1이 고친 음성 피드백 루프)
+        //   ② 사망 → 압력 유지 → 회복 불가 → 남은 판이 소화 시간  (①의 거울상)
+        //
+        // ①은 **역대 최고 인구**를 읽어 막는다(현재 인구가 아니다). ②는 압력을 낮춰서가 아니라
+        // 자비 장치(W9 — 방랑자 유입 증가)로 푼다. **압력은 어떤 경로로도 내려가지 않는다.**
+
+        /// <summary>전역압력 (순수 — 게이트 M24-T2). 예산·스탯 곡선의 단일 눈금.
+        /// 두 항 모두 단조 증가라 절대 줄지 않는다: 게임일은 시간이고, 인구는 **역대 최고**다.
+        /// 🔴 <paramref name="peakPopulation"/>에 현재 인구를 넘기면 `ADR-M24-1` 정면 위반이다 —
+        /// 그 순간 "주민이 죽으면 게임이 쉬워진다"가 되어 M10R 버그가 그대로 돌아온다.</summary>
+        public static int GlobalPressure(float gameDay, int peakPopulation,
+                                         float daysPerPoint, int popPerPoint)
+        {
+            int byTime = Mathf.FloorToInt(Mathf.Max(0f, gameDay) / Mathf.Max(1e-4f, daysPerPoint));
+            int byGrowth = Mathf.Max(0, peakPopulation) / Mathf.Max(1, popPerPoint);
+            return byTime + byGrowth;
+        }
+
+        /// <summary>종족 유효압력 (순수 — 게이트 M24-T2). 그 종족의 **스탯 배율과 전략 해금**이
+        /// 읽는 값. 전역압력이 바닥을 깔고, 많이 만난 종족만 그만큼 앞서 나간다.
+        /// k=0이면 전역압력과 같다 (중립 — 적응하지 않는 종족).</summary>
+        public static int EffectivePressure(int globalPressure, int encounters, float k)
+            => globalPressure + Mathf.FloorToInt(Mathf.Max(0, encounters) * Mathf.Max(0f, k));
+
+        /// <summary>이 종족을 몇 번 만났는가 (출몰 기준 — ADR-M24-5).</summary>
+        public int EncountersOf(ThreatSO so)
+            => so != null && _encounters.TryGetValue(so.name, out int n) ? n : 0;
+
+        /// <summary>종족별 조우 중 최대 — 파생 슬롯 `ThreatEncounterMax`의 유일한 원천.</summary>
+        public int MaxEncounters()
+        {
+            int max = 0;
+            foreach (int n in _encounters.Values) if (n > max) max = n;
+            return max;
+        }
+
+        /// <summary>지금의 전역압력 (설정 계수 적용). 원천은 위 순수 함수 하나뿐이다.</summary>
+        public int CurrentGlobalPressure(int peakPopulation)
+            => _config == null ? 0
+             : GlobalPressure(_gameTime, peakPopulation,
+                              _config.PressureDaysPerPoint, _config.PressurePopPerPoint);
+
         /// <summary>활성 밴드 (순수, ADR-M10R-1): UnlockDay ≤ day 중 최신(최대 UnlockDay). 동률은 배열 앞.
         /// 충족 밴드가 없으면 null. 게임일은 단조 증가 → 한 번 열린 밴드는 닫히지 않는다(래칫 — 사망해도
         /// 위협이 강등되지 않는다, §0 음성 피드백 루프 해소).</summary>
@@ -445,6 +498,9 @@ namespace AIVillage.M0
         private void Spawn(ThreatSO so)
         {
             _strikeOrdinal++;
+            // 조우 누적 (M24-1차 W3) — 이 종족을 한 번 더 만났다. 이겨도 져도 배운다.
+            _encounters.TryGetValue(so.name, out int seen);
+            _encounters[so.name] = seen + 1;
             // 타깃 종류는 출몰 시 1회 확정 (ADR-M10R-4). 확률만 계절 보정을 받는다 (M21-W2R) —
             // 겨울엔 위협이 굶어 주민 쪽으로 기운다. 시드는 그대로라 결정성은 유지된다.
             bool hungry = PredatorHungryNow;

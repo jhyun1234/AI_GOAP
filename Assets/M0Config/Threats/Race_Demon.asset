@@ -35,6 +35,7 @@ MonoBehaviour:
   HungrySeasonChanceMult: 2
   HungrySeasonStayMult: 2
   MoveSpeed: 2.4
+  EncounterPressureK: 0.2
   BodyColor: {r: 0.55, g: 0.15, b: 0.45, a: 1}
   ForecastLines:
   - "하늘빛이 이상해… 저게 뭐지."

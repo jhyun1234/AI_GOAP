@@ -141,10 +141,11 @@ namespace AIVillage.M0
         /// <summary>SimulationLoop 틱마다 호출 — 문자열은 값이 바뀔 때만 재조립 (GC 절약).
         /// 舊 foodDaysLeft 인자(M9-I·M11-D 마을 최솟값)는 2026-07-30 개정으로 삭제 —
         /// 식량 표기는 상태 알림 줄(M13-B)의 개인 열거가 전담한다.</summary>
-        public void Tick(float gameTime, SeasonService season, float forecastDays)
+        public void Tick(float gameTime, SeasonService season, float forecastDays, int pressure = -1)
         {
             // (M19-W4: 물가·금고·세율·발행 인자 9종은 화폐와 함께 철거 — 달력 줄은 계절만)
-            string line = Compose(gameTime, season, forecastDays);
+            // pressure는 M24-1차 W3 — 미배선(-1)이면 문구가 안 바뀐다 (중립).
+            string line = Compose(gameTime, season, forecastDays, pressure);
             if (line != _lastCalendar)
             {
                 _lastCalendar = line;
@@ -543,11 +544,17 @@ namespace AIVillage.M0
         /// 마을 최솟값 요약이 상태 알림 줄(M13-B)의 개인 열거와 겹쳐 "마을 전체가 N일치"로
         /// 오독됐다. 식량 표기는 개인 열거 한 곳만 남긴다 (같은 정보 두 형태 = 오해 소지).
         /// </summary>
-        public static string Compose(float gameTime, SeasonService season, float forecastDays)
+        /// <param name="pressure">전역압력 (M24-1차 W3). **음수면 표기 없음** — 기본값이 -1이라
+        /// 기존 호출자·게이트는 문구가 한 글자도 안 바뀐다 (중립 불변식).
+        /// 상시 노출하는 이유는 연차 병기와 같다: 예산·스탯·전략 해금이 전부 이 숫자를 읽는데
+        /// 화면에 없으면 플레이어는 무엇이 세지고 있는지 모른 채 세진다.</param>
+        public static string Compose(float gameTime, SeasonService season, float forecastDays,
+                                     int pressure = -1)
         {
             // (M19-W4: 재정 접미사 — 금고·세율·물가·예보·발행 — 는 화폐와 함께 철거)
             int day = (int)gameTime;
-            if (season == null || season.Current == null) return $"Day {day}";
+            string pres = pressure >= 0 ? $" · 압력 {pressure}" : "";
+            if (season == null || season.Current == null) return $"Day {day}{pres}";
 
             // 연차 병기 (M14-W4) — "N번째 겨울까지"라는 경주의 자를 상시 노출 (ADR-M13-1의 정신:
             // 기록 카운터가 전멸 화면에만 있으면 살아 있는 동안 아무도 못 본다).
@@ -555,11 +562,11 @@ namespace AIVillage.M0
             string yearSeason = $"{season.Year}년째 {cur.DisplayName}";
             if (cur.IsCrisis)
                 return $"Day {day} · <color=#7EC8FF>{yearSeason}</color> " +
-                       $"(남은 {Mathf.CeilToInt(season.DaysLeftInSeason)}일)";
+                       $"(남은 {Mathf.CeilToInt(season.DaysLeftInSeason)}일){pres}";
             if (season.NextCrisis != null && season.DaysToCrisis <= forecastDays)
                 return $"Day {day} · {yearSeason} · <color=#FF8A65>" +
-                       $"{season.NextCrisis.DisplayName}까지 {Mathf.CeilToInt(season.DaysToCrisis)}일</color>";
-            return $"Day {day} · {yearSeason}";
+                       $"{season.NextCrisis.DisplayName}까지 {Mathf.CeilToInt(season.DaysToCrisis)}일</color>{pres}";
+            return $"Day {day} · {yearSeason}{pres}";
         }
 
         /// <summary>화폐 표시 (M16-W4, M17-W5 진법 개편, 순수 — 게이트 M16-T8.

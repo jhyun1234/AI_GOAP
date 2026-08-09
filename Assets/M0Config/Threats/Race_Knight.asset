@@ -35,6 +35,7 @@ MonoBehaviour:
   HungrySeasonChanceMult: 2
   HungrySeasonStayMult: 2
   MoveSpeed: 2.5
+  EncounterPressureK: 0.3
   BodyColor: {r: 0.6, g: 0.65, b: 0.8, a: 1}
   ForecastLines:
   - "언덕 너머에서 쇳소리가 나…"

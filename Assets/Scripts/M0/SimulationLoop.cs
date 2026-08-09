@@ -888,7 +888,9 @@ namespace AIVillage.M0
                                          () => Defense != null ? Defense.GatePlannedCount : 0,
                                          // 함정·망루 계획 수 (M22-3차 W2) — BuildTrap/BuildTower 전제의 원천
                                          () => Defense != null ? Defense.TrapPlannedCount : 0,
-                                         () => Defense != null ? Defense.TowerPlannedCount : 0);
+                                         () => Defense != null ? Defense.TowerPlannedCount : 0,
+                                         // 종족 조우 최대 (M24-1차 W3) — Threats도 아래에서 생성되지만 같은 지연 조회
+                                         () => Threats != null ? Threats.MaxEncounters() : 0);
             Construction = new ConstructionService(World);
             Zones        = new ZoneService(); // M9-A — 배치 결정자 (군집 휴리스틱 대체, ADR-M9-1)
             Defense      = new DefenseService(); // M22-W3 — 방어 계획 (W5에서 내구도까지)
@@ -1268,7 +1270,9 @@ namespace AIVillage.M0
                 }
 
                 // 계절 줄 (M19-W4: 재정 인자 9종은 화폐와 함께 철거 — 계절·예보만 남는다)
-                Hud?.Tick(GameTime, Season, _worldConfig.ForecastDays);
+                // 전역압력 병기 (M24-1차 W3) — 역대 최고 인구가 원천이다 (현재 인구 아님, ADR-M24-1).
+                Hud?.Tick(GameTime, Season, _worldConfig.ForecastDays,
+                          Threats != null ? Threats.CurrentGlobalPressure(PeakPopulation) : -1);
                 Hud?.TickResources(World); // 자원 줄 (M22-2차 W4) — 목록은 에셋이 정한다
                 // 조리 중 모닥불 갈아입히기 (M22-3차 W5d) — 등록된 모닥불이 없으면 즉시 빠진다
                 _campfireCookView?.Tick(_agents);

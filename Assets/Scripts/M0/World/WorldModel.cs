@@ -32,6 +32,7 @@ namespace AIVillage.M0
         private readonly System.Func<int> _gatePlannedCount;    // 문 계획 수 (M22-W3R2) — 원천 = DefenseService.GatePlannedCount
         private readonly System.Func<int> _trapPlannedCount;    // 함정 계획 수 (M22-3차 W2) — 원천 = DefenseService.TrapPlannedCount
         private readonly System.Func<int> _towerPlannedCount;   // 망루 계획 수 (M22-3차 W2) — 원천 = DefenseService.TowerPlannedCount
+        private readonly System.Func<int> _threatEncounterMax;  // 종족별 조우 최대 (M24-1차 W3) — 원천 = ThreatService.MaxEncounters
 
         public WorldModel(DiscoveryService discovery, WorldConfigSO config, FarmService farm = null,
                           SeasonService season = null, AgentConfigSO agentCfg = null,
@@ -41,7 +42,8 @@ namespace AIVillage.M0
                           System.Func<int> defenseDamagedCount = null,
                           System.Func<int> gatePlannedCount = null,
                           System.Func<int> trapPlannedCount = null,
-                          System.Func<int> towerPlannedCount = null)
+                          System.Func<int> towerPlannedCount = null,
+                          System.Func<int> threatEncounterMax = null)
         {
             _discovery = discovery;
             _farm = farm;
@@ -53,6 +55,7 @@ namespace AIVillage.M0
             _gatePlannedCount = gatePlannedCount;
             _trapPlannedCount = trapPlannedCount;
             _towerPlannedCount = towerPlannedCount;
+            _threatEncounterMax = threatEncounterMax;
             _decayPerDay = agentCfg != null ? agentCfg.SatietyDecayPerGameDay : 0f;
             if (config != null)
             {
@@ -263,6 +266,10 @@ namespace AIVillage.M0
             slots[(int)SlotId.GatePlannedCount]    = _gatePlannedCount != null ? _gatePlannedCount() : 0;
             slots[(int)SlotId.TrapPlannedCount]    = _trapPlannedCount != null ? _trapPlannedCount() : 0;
             slots[(int)SlotId.TowerPlannedCount]   = _towerPlannedCount != null ? _towerPlannedCount() : 0;
+            // 종족 조우 최대 (M24-1차 W3) — 같은 provider 패턴. 아직 이 슬롯을 읽는 goal은 없다
+            // (전략 해금은 W5가 에셋에서 읽는다). 배선을 먼저 두는 것은 W2의 약속을 지키는 것이고,
+            // 미배선이면 0이라 중립이다.
+            slots[(int)SlotId.ThreatEncounterMax]  = _threatEncounterMax != null ? _threatEncounterMax() : 0;
             return new WorldSnapshot(slots);
         }
 

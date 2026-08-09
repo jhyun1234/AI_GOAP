@@ -1172,6 +1172,7 @@ namespace AIVillage.M0
 
                 // 계절 줄 (M19-W4: 재정 인자 9종은 화폐와 함께 철거 — 계절·예보만 남는다)
                 Hud?.Tick(GameTime, Season, _worldConfig.ForecastDays);
+                Hud?.TickResources(World); // 자원 줄 (M22-2차 W4) — 목록은 에셋이 정한다
 
                 // 상태 알림 줄 (M13-B, 2026-07-30 개정 — 舊 M11-D 마을 최솟값 요약을 개인 열거로).
                 // 관측 대상은 마을 평균이 아니라 낙오자 — 그 정신의 완성형은 "낙오자의 이름"이다.

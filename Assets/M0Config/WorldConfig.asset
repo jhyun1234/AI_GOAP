@@ -60,3 +60,8 @@ MonoBehaviour:
   ReportTimeoutSec: 60
   MoneyBasePrice: 10
   PriceCapPct: 400
+  HudResources:
+  - Slot: 0
+    Label: 나무
+  - Slot: 8
+    Label: 돌

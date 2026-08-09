@@ -566,5 +566,27 @@ namespace AIVillage.Tests.EditMode
             Assert.IsFalse(M0SimulationLoop.ConversionAffordable(stock: 2, fenceRefund: 0, gateCost: 3),
                 "일반 문 지정(회수 없음)은 기존 판정 그대로");
         }
+
+        [Test]
+        public void M22_T11_ResourceHud_ShippedConfig()
+        {
+            // 자원 HUD (M22-2차 W4, Play 피드백 "보유 자원이 안 보인다") — 배포 에셋 검산.
+            // 목록·라벨의 유일한 원천 = WorldConfigSO.HudResources (새 자원 = 행 추가, 코드 0줄).
+            var cfg = AssetDatabase.LoadAssetAtPath<WorldConfigSO>("Assets/M0Config/WorldConfig.asset");
+            Assert.IsNotNull(cfg, "WorldConfig 에셋 없음");
+            Assert.IsNotNull(cfg.HudResources, "HudResources 미배선 — 자원 줄이 통째로 사라진다");
+            Assert.GreaterOrEqual(cfg.HudResources.Length, 2, "최소 나무·돌 두 줄 (요청 원문)");
+
+            var slots = new HashSet<SlotId>();
+            foreach (WorldConfigSO.ResourceHudEntry e in cfg.HudResources)
+            {
+                Assert.IsTrue(SlotIds.IsStock(e.Slot),
+                    $"{e.Slot}: 전역 스톡만 표시한다 — 개인·집 스톡을 넣으면 항상 0이 찍힌다 (IsStock 아님)");
+                Assert.IsFalse(string.IsNullOrEmpty(e.Label), $"{e.Slot}: 라벨 비어 있음 (YAML 오타면 빈 문자열로 풀린다)");
+                Assert.IsTrue(slots.Add(e.Slot), $"{e.Slot}: 중복 행");
+            }
+            Assert.IsTrue(slots.Contains(SlotId.WoodStock) && slots.Contains(SlotId.StoneStock),
+                "나무·돌은 반드시 포함 (건설·수리 비용의 두 축)");
+        }
     }
 }

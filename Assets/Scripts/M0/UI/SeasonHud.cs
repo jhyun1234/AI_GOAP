@@ -20,6 +20,7 @@ namespace AIVillage.M0
         public const int FOOD_ALERT_DAYS = 2;
 
         private readonly TMP_Text _calendar;
+        private readonly TMP_Text _resources; // 자원 줄 (M22-2차 W4) — 목록·라벨은 WorldConfigSO.HudResources
         private readonly TMP_Text _notice;
         private readonly TMP_Text _selectedInfo;
         private readonly TMP_Text _prompt; // 결정 프롬프트 (M10-E) — 방랑자 Y/N 등 상시 유지 줄
@@ -60,6 +61,11 @@ namespace AIVillage.M0
             // 첫 프레임 임시값일 뿐이다. 아래 주석의 舊 고정 오프셋(-10/-48/-86/-162/-200)은 폐기:
             // 정보줄이 길어지면 상태줄을 덮었다 (사용자 Play 피드백 — 스크린샷 관측).
             _calendar = MakeText(root.transform, "Calendar", font, new Vector2(12f, -10f), 30f);
+            // 자원 줄 (M22-2차 W4, 사용자 Play 피드백 "보유 자원이 안 보인다") — 달력 바로 아래.
+            // 무엇을 몇 줄 보여줄지는 에셋(WorldConfigSO.HudResources)이 정한다 — 새 자원 = 행 추가.
+            _resources = MakeText(root.transform, "Resources", font, new Vector2(12f, -48f), 24f);
+            _resources.color = new Color(0.95f, 0.88f, 0.62f); // 옅은 볏짚색 — 달력·알림과 층 구분
+            _resources.text = "";
             _notice   = MakeText(root.transform, "Notice",   font, new Vector2(12f, -48f), 24f);
             _notice.text = "";
             // 정보줄 — M13-D부터 2줄 (1줄 = 신상, 2줄 = 이유·문턱). 높이는 Reflow가 실측한다.
@@ -84,7 +90,7 @@ namespace AIVillage.M0
 
             // 수직 스택 순서 (위 → 아래) — 달력 → 알림 → 정보줄 → 프롬프트 → 상태 → 모드. 순서 불변이
             // 클릭 매핑의 전제는 아니지만(픽킹은 실제 렌더 좌표 기준), 시선 습관의 전제다.
-            _stack = new[] { _calendar, _notice, _selectedInfo, _prompt, _status, _modeInfo };
+            _stack = new[] { _calendar, _resources, _notice, _selectedInfo, _prompt, _status, _modeInfo };
         }
 
         // ── 수직 스택 리플로우 (M14 후속 2026-07-31 — 겹침 해소) ─────────────────
@@ -1021,6 +1027,29 @@ namespace AIVillage.M0
 
         /// <summary>상태 알림 갱신 (M13-B) — SimulationLoop 틱마다 호출. 값이 바뀔 때만 재할당
         /// (달력과 동일 패턴). 빈 문자열 = 줄 소거.</summary>
+        /// <summary>자원 줄 갱신 (M22-2차 W4) — 표시 전용, 캐시로 재대입 방지. 목록·라벨의
+        /// 원천 = WorldConfigSO.HudResources (비면 줄 없음 = 중립). 값 = WorldModel 전역 스톡.</summary>
+        public void TickResources(WorldModel world)
+        {
+            if (world == null || _worldCfg == null || _worldCfg.HudResources == null
+                || _worldCfg.HudResources.Length == 0) return;
+            _resBuf.Length = 0;
+            foreach (WorldConfigSO.ResourceHudEntry e in _worldCfg.HudResources)
+            {
+                if (string.IsNullOrEmpty(e.Label)) continue; // 빈 라벨 행 = 무시 (배선 실수 중립)
+                if (_resBuf.Length > 0) _resBuf.Append("  ·  ");
+                _resBuf.Append(e.Label).Append(' ').Append(world.GetStock(e.Slot));
+            }
+            string line = _resBuf.ToString();
+            if (line == _lastResources) return;
+            _lastResources = line;
+            _resources.text = line;
+            Reflow(); // 첫 표시·자릿수 변화로 높이가 바뀔 수 있다 — 즉시 재쌓기
+        }
+
+        private string _lastResources;
+        private readonly System.Text.StringBuilder _resBuf = new System.Text.StringBuilder(64);
+
         public void TickStatus(string line)
         {
             if (line == _lastStatus) return;

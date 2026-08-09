@@ -110,6 +110,21 @@ namespace AIVillage.M0
                  "0 이하 = 기본 24. 다른 HUD 줄(달력 30·정보줄 24)은 코드 상수 유지 — 조절 요구가 생기면 그때 승격.")]
         public float HudStatusFontSize = 30f;
 
+        [Tooltip("좌상단 자원 줄에 표시할 전역 스톡 목록 (M22-2차 W4 — 사용자 Play 피드백 " +
+                 "\"보유 자원이 안 보인다\"). 표시 순서 그대로. 새 자원 = 여기 행 추가, 코드 0줄. " +
+                 "비면 자원 줄 없음 (중립). 전역 스톡(SlotIds.IsStock)만 — 개인·집 스톡은 정보줄 몫. " +
+                 "배포 값 검산은 게이트 M22_T11.")]
+        public ResourceHudEntry[] HudResources;
+
+        [System.Serializable]
+        public struct ResourceHudEntry
+        {
+            [Tooltip("표시할 전역 스톡 슬롯 (SlotIds.IsStock 참이어야 한다)")]
+            public SlotId Slot;
+            [Tooltip("표시 라벨 (예: 나무)")]
+            public string Label;
+        }
+
         [Tooltip("성격별 행동 프로파일 로그 주기(게임일, M12-J). 0 = 계측 끄기(중립). 제안치 7 — " +
                  "계절 길이(8)와 어긋나게 잡아야 특정 계절만 찍히는 편향이 안 생긴다. 읽기 전용 관측.")]
         public float ProfilerIntervalDays = 7f;

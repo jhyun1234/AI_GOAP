@@ -1,0 +1,582 @@
+{
+  "fence": {
+    "source": "Outdoor decoration/Fences.png",
+    "colors": [
+      {
+        "hex": "#3f2832",
+        "count": 672
+      },
+      {
+        "hex": "#b86f50",
+        "count": 264
+      },
+      {
+        "hex": "#000000",
+        "count": 252
+      },
+      {
+        "hex": "#91533b",
+        "count": 216
+      },
+      {
+        "hex": "#e4a672",
+        "count": 64
+      },
+      {
+        "hex": "#743f39",
+        "count": 48
+      }
+    ]
+  },
+  "fenceBig": {
+    "source": "Outdoor decoration/Fence_Big.png",
+    "colors": [
+      {
+        "hex": "#3f2832",
+        "count": 1072
+      },
+      {
+        "hex": "#91533b",
+        "count": 504
+      },
+      {
+        "hex": "#b86f50",
+        "count": 408
+      },
+      {
+        "hex": "#000000",
+        "count": 243
+      },
+      {
+        "hex": "#e4a672",
+        "count": 128
+      },
+      {
+        "hex": "#743f39",
+        "count": 80
+      }
+    ]
+  },
+  "well": {
+    "source": "Outdoor decoration/Well.png",
+    "colors": [
+      {
+        "hex": "#3f2832",
+        "count": 161
+      },
+      {
+        "hex": "#743f39",
+        "count": 110
+      },
+      {
+        "hex": "#91533b",
+        "count": 77
+      },
+      {
+        "hex": "#2a2f4e",
+        "count": 55
+      },
+      {
+        "hex": "#000000",
+        "count": 52
+      },
+      {
+        "hex": "#b86f50",
+        "count": 42
+      },
+      {
+        "hex": "#4d586f",
+        "count": 34
+      },
+      {
+        "hex": "#657392",
+        "count": 30
+      },
+      {
+        "hex": "#8e9ab4",
+        "count": 23
+      },
+      {
+        "hex": "#262b44",
+        "count": 22
+      },
+      {
+        "hex": "#424c6e",
+        "count": 14
+      },
+      {
+        "hex": "#5a6988",
+        "count": 13
+      },
+      {
+        "hex": "#50af5d",
+        "count": 11
+      },
+      {
+        "hex": "#3e8948",
+        "count": 11
+      },
+      {
+        "hex": "#c0cbdc",
+        "count": 8
+      },
+      {
+        "hex": "#8b9bb4",
+        "count": 8
+      },
+      {
+        "hex": "#3c4258",
+        "count": 8
+      },
+      {
+        "hex": "#47536b",
+        "count": 4
+      },
+      {
+        "hex": "#3a4466",
+        "count": 3
+      }
+    ]
+  },
+  "posts": {
+    "source": "Outdoor decoration/Lanter_Posts.png",
+    "colors": [
+      {
+        "hex": "#0e071b",
+        "count": 9390
+      },
+      {
+        "hex": "#657392",
+        "count": 1908
+      },
+      {
+        "hex": "#424c6e",
+        "count": 1284
+      },
+      {
+        "hex": "#000000",
+        "count": 1152
+      },
+      {
+        "hex": "#91533b",
+        "count": 1008
+      },
+      {
+        "hex": "#92a1b9",
+        "count": 846
+      },
+      {
+        "hex": "#b86f50",
+        "count": 594
+      },
+      {
+        "hex": "#ed7614",
+        "count": 480
+      },
+      {
+        "hex": "#ffa214",
+        "count": 384
+      },
+      {
+        "hex": "#743f39",
+        "count": 360
+      },
+      {
+        "hex": "#ff5000",
+        "count": 336
+      },
+      {
+        "hex": "#ffc825",
+        "count": 144
+      },
+      {
+        "hex": "#c64524",
+        "count": 96
+      },
+      {
+        "hex": "#0c0617",
+        "count": 6
+      }
+    ]
+  },
+  "decor": {
+    "source": "Outdoor decoration/Outdoor_Decor.png",
+    "colors": [
+      {
+        "hex": "#000000",
+        "count": 763
+      },
+      {
+        "hex": "#3f2832",
+        "count": 468
+      },
+      {
+        "hex": "#006da8",
+        "count": 316
+      },
+      {
+        "hex": "#91533b",
+        "count": 276
+      },
+      {
+        "hex": "#743f39",
+        "count": 206
+      },
+      {
+        "hex": "#b86f50",
+        "count": 201
+      },
+      {
+        "hex": "#50af5d",
+        "count": 200
+      },
+      {
+        "hex": "#8e9ab4",
+        "count": 175
+      },
+      {
+        "hex": "#5d2c28",
+        "count": 132
+      },
+      {
+        "hex": "#3c4258",
+        "count": 131
+      },
+      {
+        "hex": "#ead4aa",
+        "count": 119
+      },
+      {
+        "hex": "#262b44",
+        "count": 118
+      },
+      {
+        "hex": "#6c7c9d",
+        "count": 107
+      },
+      {
+        "hex": "#193c3e",
+        "count": 105
+      },
+      {
+        "hex": "#63c74d",
+        "count": 98
+      },
+      {
+        "hex": "#3e8948",
+        "count": 95
+      },
+      {
+        "hex": "#e4a672",
+        "count": 93
+      },
+      {
+        "hex": "#1e6f50",
+        "count": 73
+      },
+      {
+        "hex": "#33984b",
+        "count": 68
+      },
+      {
+        "hex": "#265c42",
+        "count": 67
+      },
+      {
+        "hex": "#5ac54f",
+        "count": 60
+      },
+      {
+        "hex": "#134c4c",
+        "count": 56
+      },
+      {
+        "hex": "#7a2934",
+        "count": 40
+      },
+      {
+        "hex": "#692a7e",
+        "count": 40
+      },
+      {
+        "hex": "#0e3c67",
+        "count": 40
+      },
+      {
+        "hex": "#fef09f",
+        "count": 34
+      },
+      {
+        "hex": "#e8b796",
+        "count": 32
+      },
+      {
+        "hex": "#bd46d8",
+        "count": 22
+      },
+      {
+        "hex": "#feae34",
+        "count": 19
+      },
+      {
+        "hex": "#f389f5",
+        "count": 18
+      },
+      {
+        "hex": "#c28569",
+        "count": 18
+      },
+      {
+        "hex": "#c62a37",
+        "count": 17
+      },
+      {
+        "hex": "#d84650",
+        "count": 15
+      },
+      {
+        "hex": "#0095e9",
+        "count": 15
+      },
+      {
+        "hex": "#d4d4d4",
+        "count": 12
+      },
+      {
+        "hex": "#99e65f",
+        "count": 11
+      },
+      {
+        "hex": "#db3ffd",
+        "count": 10
+      },
+      {
+        "hex": "#a028bd",
+        "count": 10
+      },
+      {
+        "hex": "#875945",
+        "count": 8
+      },
+      {
+        "hex": "#f77622",
+        "count": 8
+      },
+      {
+        "hex": "#95420f",
+        "count": 5
+      },
+      {
+        "hex": "#eba2a9",
+        "count": 3
+      },
+      {
+        "hex": "#dea7ec",
+        "count": 3
+      },
+      {
+        "hex": "#8ad6ff",
+        "count": 3
+      }
+    ]
+  },
+  "ores": {
+    "source": "Outdoor decoration/Ores.png",
+    "colors": [
+      {
+        "hex": "#000000",
+        "count": 1880
+      },
+      {
+        "hex": "#f9e6cf",
+        "count": 976
+      },
+      {
+        "hex": "#3f2832",
+        "count": 692
+      },
+      {
+        "hex": "#0c2e44",
+        "count": 346
+      },
+      {
+        "hex": "#262b44",
+        "count": 173
+      },
+      {
+        "hex": "#571c27",
+        "count": 173
+      },
+      {
+        "hex": "#8e9ab4",
+        "count": 143
+      },
+      {
+        "hex": "#6c7c9d",
+        "count": 143
+      },
+      {
+        "hex": "#e4a672",
+        "count": 143
+      },
+      {
+        "hex": "#b86f50",
+        "count": 143
+      },
+      {
+        "hex": "#fee761",
+        "count": 143
+      },
+      {
+        "hex": "#feae34",
+        "count": 143
+      },
+      {
+        "hex": "#5ac54f",
+        "count": 143
+      },
+      {
+        "hex": "#33984b",
+        "count": 143
+      },
+      {
+        "hex": "#00cdf9",
+        "count": 143
+      },
+      {
+        "hex": "#0098dc",
+        "count": 143
+      },
+      {
+        "hex": "#ffa214",
+        "count": 143
+      },
+      {
+        "hex": "#ed7614",
+        "count": 143
+      },
+      {
+        "hex": "#f5555d",
+        "count": 143
+      },
+      {
+        "hex": "#c42430",
+        "count": 143
+      },
+      {
+        "hex": "#f389f5",
+        "count": 143
+      },
+      {
+        "hex": "#db3ffd",
+        "count": 143
+      },
+      {
+        "hex": "#743f39",
+        "count": 117
+      },
+      {
+        "hex": "#dd5a08",
+        "count": 117
+      },
+      {
+        "hex": "#1e6f50",
+        "count": 117
+      },
+      {
+        "hex": "#0069aa",
+        "count": 117
+      },
+      {
+        "hex": "#c64524",
+        "count": 117
+      },
+      {
+        "hex": "#891e2b",
+        "count": 117
+      },
+      {
+        "hex": "#93388f",
+        "count": 117
+      },
+      {
+        "hex": "#c0cbdc",
+        "count": 99
+      },
+      {
+        "hex": "#ead4aa",
+        "count": 99
+      },
+      {
+        "hex": "#fff7d2",
+        "count": 99
+      },
+      {
+        "hex": "#d3fc7e",
+        "count": 99
+      },
+      {
+        "hex": "#94fdff",
+        "count": 99
+      },
+      {
+        "hex": "#ffeb57",
+        "count": 99
+      },
+      {
+        "hex": "#f8a0a6",
+        "count": 99
+      },
+      {
+        "hex": "#fdd2ed",
+        "count": 99
+      },
+      {
+        "hex": "#3c4258",
+        "count": 74
+      },
+      {
+        "hex": "#424c6e",
+        "count": 43
+      }
+    ]
+  },
+  "grass": {
+    "source": "Tiles/Grass/Grass_1_Middle.png",
+    "colors": [
+      {
+        "hex": "#3e8948",
+        "count": 256
+      }
+    ]
+  },
+  "pig": {
+    "source": "Animals/Pig/Pig_01.png",
+    "colors": [
+      {
+        "hex": "#0e071b",
+        "count": 3632
+      },
+      {
+        "hex": "#f68187",
+        "count": 2901
+      },
+      {
+        "hex": "#f9a4a9",
+        "count": 2511
+      },
+      {
+        "hex": "#000000",
+        "count": 1769
+      },
+      {
+        "hex": "#ffffff",
+        "count": 306
+      },
+      {
+        "hex": "#c85086",
+        "count": 94
+      }
+    ]
+  }
+}

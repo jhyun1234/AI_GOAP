@@ -1356,5 +1356,12 @@
     "늑대": "늑대, 그리고 첫 무덤",
     "지금": "지금 — 방어를 짓는 중",
     "기록": "이 게임의 목표"
+  },
+  "thumbnail": {
+    "file": "build/thumbnail.png",
+    "bg": "death-260809-0424-80.mp4 @4.2s (겨울 굶주림 경보 HUD)",
+    "kicker": "Claude Code로만 개발",
+    "title": "24,800줄을 지우고|다시 지은 게임",
+    "note": "시안 A(늑대 습격)·B(첫 무덤) 중 사용자가 C 채택 (2026-08-09). 재합성: node thumb.mjs lf01 --bg <스틸> --title ... --kicker ..."
   }
 }

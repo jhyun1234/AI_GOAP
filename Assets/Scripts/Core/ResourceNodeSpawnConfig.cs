@@ -46,7 +46,18 @@ namespace AIVillage.Core
 
         // ── 시각화 ────────────────────────────────────────────────────────────────
         [Header("시각화")]
-        [Tooltip("자원이 가득 찼을 때 노드 마커 색상")]
+        [Tooltip("노드 그림 (2026-08-09). 채우면 색 원 대신 이 그림이 서고 색 보간은 꺼진다 " +
+                 "(그림을 색으로 물들이면 아트가 죽는다). 비우면 舊 색 원 — 중립.")]
+        public Sprite nodeSprite;
+
+        [Tooltip("거의 고갈됐을 때 그림 (그루터기·부스러기). 비우면 nodeSprite를 흐리게만 한다. " +
+                 "**잔량이 그림으로 읽히는 지점** — 어느 나무를 베러 갈지가 화면에서 정해진다.")]
+        public Sprite depletedSprite;
+
+        [Tooltip("고갈 그림으로 바뀌는 잔량 비율 (0~1). 기본 0.25 = 1/4 남으면 그루터기.")]
+        [Range(0f, 1f)] public float depletedBelowRatio = 0.25f;
+
+        [Tooltip("자원이 가득 찼을 때 노드 마커 색상 (그림을 안 쓸 때만)")]
         public Color nodeColor = Color.green;
         [Tooltip("자원이 완전히 고갈됐을 때 노드 마커 색상")]
         public Color depletedColor = new Color(0.25f, 0.25f, 0.25f, 1f);

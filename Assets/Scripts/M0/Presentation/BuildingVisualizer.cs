@@ -47,13 +47,21 @@ namespace AIVillage.M0
             // ── 폴백 마커 생성 ──
             var go = new GameObject($"Building_{building.name}");
             go.transform.SetParent(_parent, worldPositionStays: false);
-            go.transform.position   = pos;
+            // 그림 위치 보정 (M22-3차 W5d) — 큰 그림은 피벗이 한가운데라 그대로 두면 땅에 파묻힌다.
+            // 보정값은 에셋의 몫 (MountOffsetTiles와 같은 규약 — 표현 수치를 코드에 두면 그림과 어긋난다).
+            go.transform.position   = pos + (Vector3)(Vector2)building.MarkerOffsetTiles;
             go.transform.localScale = Vector3.one * Mathf.Max(0.1f, building.FallbackSize);
 
             var sr = go.AddComponent<SpriteRenderer>();
             if (building.MarkerSprite != null)
             {
                 sr.sprite = building.MarkerSprite; // 원본색 그대로 (M3-D 시각 보강)
+                // 애니 프레임이 있으면 재생기를 얹는다 (모닥불·조리 전환). 없으면 정지 그림 그대로.
+                bool anim = (building.MarkerFrames != null && building.MarkerFrames.Length > 0)
+                            || (building.BusyFrames != null && building.BusyFrames.Length > 0);
+                if (anim)
+                    go.AddComponent<BuildingFlipbook>()
+                      .Setup(sr, building.MarkerFrames, building.BusyFrames, building.MarkerFps);
             }
             else
             {
@@ -62,7 +70,9 @@ namespace AIVillage.M0
                 if (c.a <= 0f) c.a = 1f; // BC5: 알파 0 에셋 함정 방어
                 sr.color = c;
             }
-            sr.sortingOrder = building.SortingOrder;
+            // 깊이 = 월드 Y (WorldSort) — SortingOrder는 **같은 칸에서의 위아래**만 정한다.
+            // 舊 절대 층(5 고정)은 주민이 집 뒤에 서도 집 위에 그려지게 만들었다.
+            sr.sortingOrder = WorldSort.Order(tileY, building.SortingOrder);
             return go;
         }
     }

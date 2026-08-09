@@ -254,9 +254,14 @@ namespace AIVillage.Core
             var view = go.GetComponent<ResourceNodeView>();
             if (view == null) view = go.AddComponent<ResourceNodeView>();
 
-            // 프리팹이 없을 때만 _fallbackSprite 사용
-            Sprite sprite = _fallbackSprite ?? (go.GetComponent<SpriteRenderer>()?.sprite);
-            view.Init(node, typeData.nodeColor, typeData.depletedColor, typeData.nodeSize, sprite);
+            // 에셋 그림이 최우선 (2026-08-09) — 없을 때만 프리팹/코드 원 폴백 (중립 불변식).
+            // 그림이 있으면 색 보간을 끈다: 실그림을 잔량 색으로 물들이면 아트가 죽는다.
+            bool hasArt = typeData.nodeSprite != null;
+            Sprite sprite = hasArt
+                ? typeData.nodeSprite
+                : (_fallbackSprite ?? (go.GetComponent<SpriteRenderer>()?.sprite));
+            view.Init(node, typeData.nodeColor, typeData.depletedColor, typeData.nodeSize, sprite,
+                      typeData.depletedSprite, typeData.depletedBelowRatio, tintByAmount: !hasArt);
         }
 
         // ─────────────────────────────────────────────────────────────────────────

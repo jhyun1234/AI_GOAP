@@ -81,6 +81,56 @@ namespace AIVillage.M0
         /// 아님 (러너 상태와 한 몸, 로드 후 재계획이 다시 올린다 — ADR-M0-10).</summary>
         public bool IsOnTower { get; private set; }
         public void SetOnTower(bool on) => IsOnTower = on;
+
+        /// <summary>지금 조리 중인 모닥불 타일 (M22-3차 W5d) — null = 조리 안 함. **표현 전용**:
+        /// 소비처는 CampfireCookView 하나뿐이고 플래너·시뮬은 이 값을 읽지 않는다.
+        /// 쓰기는 ConsumeRunner의 실행/Cleanup 두 지점뿐 (IsOnTower와 같은 규약 — 러너 상태와
+        /// 한 몸이라 세이브 대상 아님).</summary>
+        public Vector2Int? CookingAt { get; private set; }
+        public void SetCookingAt(Vector2Int? tile) => CookingAt = tile;
+
+        // 몸 스프라이트 (마커 폴백이면 자신, 실그림이면 자식 View) — 깊이 갱신 대상.
+        private SpriteRenderer _viewSr;
+        private SpriteRenderer _shadowSr; // 발밑 그림자 (없을 수 있다)
+
+        /// <summary>발밑 그림자 (2026-08-09) — 팩 건물·나무는 그림자를 달고 오는데 주민만 없어서
+        /// 집 앞에 서면 경계가 사라졌다 (사용자 Play 지적). 앞뒤는 정렬이 정하고, **땅에 붙어
+        /// 있다**는 이것이 정한다. 크기·진하기는 에셋의 몫 — 0이면 안 만든다 (중립).</summary>
+        private void SetupShadow(AgentSpriteSetSO set)
+        {
+            if (set == null || set.ShadowWidthTiles <= 0f || set.ShadowAlpha <= 0f) return;
+            var go = new GameObject("Shadow");
+            go.transform.SetParent(transform, worldPositionStays: false);
+            go.transform.localPosition = new Vector3(0f, set.ShadowOffsetTiles, 0f);
+            go.transform.localScale = new Vector3(set.ShadowWidthTiles,
+                                                  set.ShadowWidthTiles * set.ShadowFlatten, 1f);
+            _shadowSr = go.AddComponent<SpriteRenderer>();
+            _shadowSr.sprite = M0Sprites.Circle;
+            _shadowSr.color = new Color(0f, 0f, 0f, set.ShadowAlpha);
+        }
+        // 발밑 선택 링 (PlayerInputController 소유) — 주민과 같은 깊이 띠에 매달아 둔다.
+        private SpriteRenderer _selectionRing;
+        public void AttachSelectionRing(SpriteRenderer ring) => _selectionRing = ring;
+        public void DetachSelectionRing(SpriteRenderer ring)
+        {
+            if (_selectionRing == ring) _selectionRing = null;
+        }
+
+        /// <summary>깊이 갱신 (2026-08-09) — 위에서 내려다보는 2D에서 앞뒤는 **아래에 있는 쪽이 앞**.
+        /// 움직이니까 매 프레임 다시 잰다 (건물은 안 움직여서 스폰 때 한 번).
+        /// ⚠️ 망루에 올라가면 몸은 3.2타일 위로 올라가지만 **서 있는 자리는 망루 칸**이다 —
+        /// 올라간 높이로 재면 자기가 올라선 망루 뒤로 숨는다.</summary>
+        private void TickDepth()
+        {
+            if (_viewSr == null) return;
+            float y = transform.position.y;
+            if (IsOnTower && _sim != null) y -= _sim.DefenseTowerMountOffset; // 발판이 아니라 망루 칸으로
+            _viewSr.sortingOrder = WorldSort.Order(y, WorldSort.Agent);
+            // 그림자는 제 몸 바로 아래 — 선택 링과 같은 칸에 겹치면 링이 위 (Select > Ghost)
+            if (_shadowSr != null) _shadowSr.sortingOrder = WorldSort.Order(y, WorldSort.Ghost);
+            if (_selectionRing != null)
+                _selectionRing.sortingOrder = WorldSort.Order(y, WorldSort.Select);
+        }
         public FarmService Farm => _sim.Farm;
         public HomeStorageService HomeStorage => _sim.HomeStorage; // 집 저장 (M11-A — EffectApplier 창구)
         public RequestService Requests => _sim.Requests; // 부탁 (M11-F — 택지의 의뢰인 조회)
@@ -431,6 +481,7 @@ namespace AIVillage.M0
                 ? _plan[_planIndex].Anim : AnimKind.None;
             _animator?.Tick(Time.deltaTime,
                 State == AgentState.Moving && _hasNextReserved && !chatting, _lastDir, acting);
+            TickDepth();
 
             // 임시 문구(거부 대사) 만료 처리 — 실행 중이면 침묵 여운 뒤 플랜 복원
             // (2026-07-18 사용자 지시: 대사 직후 '다음 행동' 노란 문구가 바로 튀지 않게)
@@ -1975,7 +2026,7 @@ namespace AIVillage.M0
                 var marker = gameObject.AddComponent<SpriteRenderer>();
                 marker.sprite = M0Sprites.Circle;
                 marker.color = agentColor;
-                marker.sortingOrder = 10;
+                _viewSr = marker; // 깊이는 매 프레임 갱신 (움직이니까)
                 transform.localScale = Vector3.one * 0.8f;
                 return;
             }
@@ -1987,8 +2038,9 @@ namespace AIVillage.M0
             view.transform.localPosition = new Vector3(-set.Scale, -set.Scale, 0f);
 
             var sr = view.AddComponent<SpriteRenderer>();
-            sr.sortingOrder = 10;
+            _viewSr = sr; // 깊이는 매 프레임 갱신 (움직이니까 — Update의 TickDepth)
             _animator = new AgentAnimator(sr, set, agentColor);
+            SetupShadow(set);
         }
 
         /// <summary>말풍선 초기화 (W6). SetupView와 분리 — 마커 폴백이어도 말풍선은 표시.</summary>

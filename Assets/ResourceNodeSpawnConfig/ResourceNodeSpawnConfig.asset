@@ -27,9 +27,12 @@ MonoBehaviour:
     maxNodesPerCluster: 5
     clusterSpreadRadius: 3
     minClusterSpacing: 15
+    nodeSprite: {fileID: -1198562835, guid: 94ff3b01f7317c243a29213d03ca7285, type: 3}
+    depletedSprite: {fileID: -2091055549, guid: 94ff3b01f7317c243a29213d03ca7285, type: 3}
+    depletedBelowRatio: 0.25
     nodeColor: {r: 0.23529412, g: 0.6901961, b: 0.2627451, a: 1}
     depletedColor: {r: 0.33333334, g: 0.33333334, b: 0.33333334, a: 1}
-    nodeSize: 0.6
+    nodeSize: 0.55
   - resourceType: 3
     nodeCount: 25
     maxAmount: 40
@@ -41,9 +44,12 @@ MonoBehaviour:
     maxNodesPerCluster: 4
     clusterSpreadRadius: 3
     minClusterSpacing: 15
+    nodeSprite: {fileID: 532985936, guid: 572bb35294ab715449c4c06f31b1fa55, type: 3}
+    depletedSprite: {fileID: 1267103209, guid: 572bb35294ab715449c4c06f31b1fa55, type: 3}
+    depletedBelowRatio: 0.25
     nodeColor: {r: 0.5019608, g: 0.5019608, b: 0.5019608, a: 1}
     depletedColor: {r: 0.2, g: 0.2, b: 0.2, a: 1}
-    nodeSize: 0.55
+    nodeSize: 0.9
   - resourceType: 4
     nodeCount: 15
     maxAmount: 30
@@ -55,9 +61,12 @@ MonoBehaviour:
     maxNodesPerCluster: 3
     clusterSpreadRadius: 2
     minClusterSpacing: 20
+    nodeSprite: {fileID: 1890451423, guid: 572bb35294ab715449c4c06f31b1fa55, type: 3}
+    depletedSprite: {fileID: 2140948208, guid: 572bb35294ab715449c4c06f31b1fa55, type: 3}
+    depletedBelowRatio: 0.25
     nodeColor: {r: 0.72156864, g: 0.4509804, b: 0.2, a: 1}
     depletedColor: {r: 0.2, g: 0.2, b: 0.2, a: 1}
-    nodeSize: 0.55
+    nodeSize: 0.9
   - resourceType: 6
     nodeCount: 4
     maxAmount: 15
@@ -69,9 +78,12 @@ MonoBehaviour:
     maxNodesPerCluster: 1
     clusterSpreadRadius: 0
     minClusterSpacing: 30
+    nodeSprite: {fileID: 844263125, guid: 572bb35294ab715449c4c06f31b1fa55, type: 3}
+    depletedSprite: {fileID: -562281476, guid: 572bb35294ab715449c4c06f31b1fa55, type: 3}
+    depletedBelowRatio: 0.25
     nodeColor: {r: 0.7075472, g: 0.7075472, b: 0.7075472, a: 1}
     depletedColor: {r: 0.2, g: 0.2, b: 0.2, a: 1}
-    nodeSize: 0.5
+    nodeSize: 0.9
   - resourceType: 0
     nodeCount: 12
     maxAmount: 25
@@ -83,9 +95,11 @@ MonoBehaviour:
     maxNodesPerCluster: 1
     clusterSpreadRadius: 3
     minClusterSpacing: 8
+    nodeSprite: {fileID: -1947992203, guid: 713f57e6852938949869f1a41c536e1f, type: 3}
+    depletedBelowRatio: 0.25
     nodeColor: {r: 1, g: 0.84313726, b: 0, a: 1}
     depletedColor: {r: 0.33333334, g: 0.33333334, b: 0.33333334, a: 1}
-    nodeSize: 0.5
+    nodeSize: 0.9
   - resourceType: 0
     nodeCount: 0
     maxAmount: 0

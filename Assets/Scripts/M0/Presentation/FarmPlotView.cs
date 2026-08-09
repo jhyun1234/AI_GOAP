@@ -47,7 +47,9 @@ namespace AIVillage.M0
                 go.transform.SetParent(_parent, worldPositionStays: false);
                 go.transform.position = new Vector3(plot.Tile.x, plot.Tile.y, 0f); // ADR-9: 2D X-Y, Z=0
                 sr = go.AddComponent<SpriteRenderer>();
-                sr.sortingOrder = _sprites != null ? _sprites.SortingOrder : 3;
+                // 흙(밭 마커) 위 · 서 있는 것 아래 — 앞뒤는 월드 Y가 정한다 (WorldSort)
+                sr.sortingOrder = WorldSort.Order(plot.Tile.y,
+                    _sprites != null ? _sprites.SortingOrder : WorldSort.Crop);
                 _overlays[plot] = sr;
             }
 

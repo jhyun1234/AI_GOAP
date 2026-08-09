@@ -22,6 +22,8 @@ MonoBehaviour:
   ZoneRadius: 0
   PlaceNearOwnedHome: 1
   Prefab: {fileID: 0}
+  MarkerSprite: {fileID: 1406911670, guid: 4f179b440401e4047b40209bc3c881f8, type: 3}
+  MarkerOffsetTiles: {x: 0, y: 0}
   FallbackColor: {r: 0.55, g: 0.38, b: 0.18, a: 1}
   FallbackSize: 1
   SortingOrder: 2

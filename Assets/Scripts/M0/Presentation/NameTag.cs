@@ -32,7 +32,8 @@ namespace AIVillage.M0
             text.text = label;
 
             var renderer = go.GetComponent<MeshRenderer>();
-            if (renderer != null) renderer.sortingOrder = 20; // 주민(10)·건물(5) 위 — 말풍선과 동일 층
+            // 화면 붙박이 — 앞뒤 정렬 밖(WorldSort.Overlay). 이름표가 집에 가리면 못 읽는다.
+            if (renderer != null) renderer.sortingOrder = WorldSort.Overlay;
         }
     }
 }

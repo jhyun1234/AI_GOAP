@@ -35,7 +35,7 @@ namespace AIVillage.M0
             var sr = gameObject.AddComponent<SpriteRenderer>();
             sr.sprite = M0Sprites.Circle;
             sr.color = new Color(0.4f, 0.75f, 0.4f, 1f); // 초록 마커 — 우호적 방문자 (아트는 후속 에셋)
-            sr.sortingOrder = 10;
+            _sr = sr; // 걸어오니까 깊이는 매 프레임 (WorldSort)
             transform.localScale = Vector3.one * 0.8f;
         }
 
@@ -49,8 +49,11 @@ namespace AIVillage.M0
             if (_path == null) Destroy(gameObject);
         }
 
+        private SpriteRenderer _sr; // 깊이 갱신 대상
+
         private void Update()
         {
+            if (_sr != null) _sr.sortingOrder = WorldSort.Order(transform.position.y, WorldSort.Agent);
             if (_path == null || _wp >= _path.Count)
             {
                 if (_leaving) { Destroy(gameObject); return; }

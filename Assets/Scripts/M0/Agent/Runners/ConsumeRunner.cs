@@ -11,6 +11,9 @@ namespace AIVillage.M0
     public sealed class ConsumeRunner : ActionRunnerBase
     {
         private readonly ConsumeActionSO _so;
+        // 조리 앵커 (M22-3차 W5d, 표현 전용) — 도착해서 실제로 끓이기 시작한 뒤에만 켠다.
+        // 걸어가는 동안 솥이 걸리면 "요리를 시작하면"이 아니라 "요리하러 나서면"이 된다.
+        private Vector2Int? _cookAnchor;
 
         public ConsumeRunner(ConsumeActionSO so) : base(so)
         {
@@ -30,6 +33,8 @@ namespace AIVillage.M0
             if (agent.ResolveAnchor(_so.AnchorPriority, out Vector2Int built)) // 내 집 우선 (M8-C)
             {
                 cx = built.x; cy = built.y;
+                // 조리 노동만 기억한다 — 밥 먹으러 온 사람 때문에 솥이 걸리면 거짓말이 된다
+                if (_so.IsCookingWork) _cookAnchor = built;
             }
             else if (agent.WorldConfig != null)
             {
@@ -44,6 +49,17 @@ namespace AIVillage.M0
         }
 
         public override RunnerResult Tick(VillagerAgent agent, float dt)
-            => DurationElapsed(dt, DurationMult) ? RunnerResult.Succeeded : RunnerResult.Running;
+        {
+            // Tick은 도착 후에만 돈다(FSM Acting) — 여기가 "끓이기 시작한" 순간이다
+            if (_cookAnchor.HasValue && !agent.CookingAt.HasValue) agent.SetCookingAt(_cookAnchor);
+            return DurationElapsed(dt, DurationMult) ? RunnerResult.Succeeded : RunnerResult.Running;
+        }
+
+        /// <summary>성공·실패·중단 어느 쪽으로 끝나도 솥은 내린다 (⚠️ 여기를 빼면 조리 그림이
+        /// 영원히 남는다 — 플랜 취소·사망도 이 문을 지난다).</summary>
+        public override void Cleanup(VillagerAgent agent)
+        {
+            if (_cookAnchor.HasValue) agent.SetCookingAt(null);
+        }
     }
 }

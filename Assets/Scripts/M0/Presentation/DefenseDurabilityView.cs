@@ -43,7 +43,7 @@ namespace AIVillage.M0
                 go.transform.localScale = Vector3.one * 0.55f;
                 sr = go.AddComponent<SpriteRenderer>();
                 sr.sprite = M0Sprites.Circle;
-                sr.sortingOrder = 6; // 건물 마커(5) 위, 위협(11) 아래
+                sr.sortingOrder = WorldSort.Order(tile.y, WorldSort.Damage); // 제 건물 위
                 _overlays[key] = sr;
             }
             float dmg = 1f - cur / max; // 0(멀쩡)~1(파괴 직전)

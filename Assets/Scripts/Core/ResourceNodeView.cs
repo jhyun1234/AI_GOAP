@@ -23,6 +23,11 @@ namespace AIVillage.Core
         private SpriteRenderer _sr;
         private Color          _fullColor;
         private Color          _emptyColor;
+        // 실그림 배선 (2026-08-09). _tintByAmount면 舊 색 원 경로 그대로 (중립).
+        private Sprite         _fullSprite;
+        private Sprite         _depletedSprite;
+        private float          _depletedBelowRatio = 0.25f;
+        private bool           _tintByAmount = true;
 
         // RefreshLoop 코루틴 핸들 — OnDisable 시 명시적 정지
         private Coroutine _refreshCoroutine;
@@ -31,16 +36,24 @@ namespace AIVillage.Core
         /// ResourceNodeSpawner에서 호출하는 유일한 초기화 진입점.
         /// Awake/Start 대신 이 메서드가 초기화를 담당한다.
         /// </summary>
-        public void Init(ResourceNode node, Color fullColor, Color emptyColor, float nodeSize, Sprite sprite)
+        public void Init(ResourceNode node, Color fullColor, Color emptyColor, float nodeSize, Sprite sprite,
+                         Sprite depletedSprite = null, float depletedBelowRatio = 0.25f,
+                         bool tintByAmount = true)
         {
             _node      = node;
             _fullColor = fullColor;
             _emptyColor = emptyColor;
+            _fullSprite = sprite;
+            _depletedSprite = depletedSprite;
+            _depletedBelowRatio = depletedBelowRatio;
+            _tintByAmount = tintByAmount;
 
             // RequireComponent 덕분에 이미 추가되어 있음
             _sr              = GetComponent<SpriteRenderer>();
             _sr.sprite       = sprite;
-            _sr.sortingOrder = 2; // 타일맵(0) + FoW 오버레이(1) 위에 렌더
+            // 깊이 = 월드 Y (AIVillage.M0.WorldSort) — 나무가 주민 앞뒤에 제대로 선다.
+            // 舊 고정 층(2)은 실그림이 들어오자 주민이 나무를 늘 뚫고 나왔다.
+            _sr.sortingOrder = AIVillage.M0.WorldSort.Order(transform.position.y, AIVillage.M0.WorldSort.Node);
             transform.localScale = Vector3.one * nodeSize;
 
             Refresh();
@@ -88,9 +101,22 @@ namespace AIVillage.Core
 
             _sr.enabled = true;
 
-            // 자원 잔량 비율에 따라 색상 보간 (1.0 = 가득, 0.0 = 고갈)
+            // 자원 잔량 비율 (1.0 = 가득, 0.0 = 고갈)
             float ratio = _node.MaxAmount > 0f ? _node.CurrentAmount / _node.MaxAmount : 0f;
-            _sr.color = Color.Lerp(_emptyColor, _fullColor, ratio);
+
+            if (_tintByAmount)
+            {
+                _sr.color = Color.Lerp(_emptyColor, _fullColor, ratio); // 舊 색 원 경로 (중립)
+                return;
+            }
+
+            // 실그림 경로 — 색으로 물들이지 않고 **그림을 바꾼다** (그루터기·부스러기).
+            // 고갈 그림이 없으면 흐리게만: 잔량이 안 보이면 어느 나무로 갈지 못 고른다.
+            bool low = ratio <= _depletedBelowRatio;
+            _sr.sprite = low && _depletedSprite != null ? _depletedSprite : _fullSprite;
+            _sr.color = low && _depletedSprite == null
+                ? new Color(0.62f, 0.62f, 0.62f, 1f)
+                : Color.white;
         }
 
 #if UNITY_EDITOR

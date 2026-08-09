@@ -45,7 +45,7 @@ namespace AIVillage.M0
                 go.transform.localScale = Vector3.one * 0.35f;
                 var sr = go.AddComponent<SpriteRenderer>();
                 sr.sprite = M0Sprites.Circle;
-                sr.sortingOrder = 7; // 손상 오버레이(6) 위, 위협(11) 아래
+                sr.sortingOrder = WorldSort.Order(t.y, WorldSort.Lock); // 제 문·손상 오버레이 위
                 sr.color = new Color(0.95f, 0.8f, 0.15f, 0.9f); // 자물쇠 노랑 — 손상 검붉음과 구분
                 _markers.Add(go);
             }

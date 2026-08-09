@@ -314,6 +314,7 @@ namespace AIVillage.M0
         private DefenseDurabilityView _defenseDurabilityView; // 시설 손상 오버레이 (M22-W7, 표현 전용)
         private GateLockView _gateLockView; // 문 잠금 자물쇠 마커 (M22-2차 W1, 표현 전용)
         private DefenseFenceView _defenseFenceView; // 울타리 오토타일 (M23-W2, 표현 전용)
+        private CampfireCookView _campfireCookView; // 조리 중 모닥불 (M22-3차 W5d, 표현 전용)
         private FarmPlotView _farmView;
         private int _lastLoggedDay = -1;
         private readonly List<VillagerAgent> _agents = new List<VillagerAgent>(8);
@@ -726,7 +727,7 @@ namespace AIVillage.M0
             var sr = marker.AddComponent<SpriteRenderer>();
             sr.sprite = M0Sprites.Circle;
             sr.color = new Color(0.45f, 0.45f, 0.5f, 0.9f); // 회색 비석 마커 (아트 교체는 후속 에셋)
-            sr.sortingOrder = 5;                             // 주민(10) 아래, 바닥 위
+            sr.sortingOrder = WorldSort.Order(tileY, WorldSort.Build); // 앞뒤는 월드 Y (WorldSort)
 
             // 이름표 (M13-A) — 주민과 같은 부품(NameTag) 공유, 크기만 별도 에셋 값
             // (Play 피드백 "작아서 확대해야 보임" — GraveTagFontSize로 Inspector 조절).
@@ -919,16 +920,19 @@ namespace AIVillage.M0
 
             _visualizer = new BuildingVisualizer(transform);
             _defenseFenceView = new DefenseFenceView(); // M23-W2 — 울타리 오토타일 (표현 전용)
+            _campfireCookView = new CampfireCookView(); // M22-3차 W5d — 조리 중 솥 (표현 전용)
             Construction.OnCompleted += (b, x, y, _) =>
             {
                 GameObject body = _visualizer.Spawn(b, x, y);
                 // 몸은 visualizer, 옷은 뷰 (ADR-M23-3 — 이중 스폰 금지). 방어물 아니면 무시.
                 _defenseFenceView.Dress(b, body, new Vector2Int(x, y));
+                _campfireCookView.Register(b, body, new Vector2Int(x, y)); // 모닥불 아니면 무시
             };
             Construction.OnRemoved += (slot, x, y) =>
             {
                 _visualizer.Remove(slot, x, y); // M9-B 시각 파괴
                 _defenseFenceView.NotifyRemoved(slot, new Vector2Int(x, y)); // 구멍 양옆 끝단 갱신
+                _campfireCookView.NotifyRemoved(slot, new Vector2Int(x, y));
             };
             // 밭 시설 소실 → FarmService.RemovePlot (RemovePlot의 유일한 호출 경로, ADR-M9-3 대칭)
             Construction.OnRemoved += (slot, x, y) =>
@@ -1262,6 +1266,8 @@ namespace AIVillage.M0
                 // 계절 줄 (M19-W4: 재정 인자 9종은 화폐와 함께 철거 — 계절·예보만 남는다)
                 Hud?.Tick(GameTime, Season, _worldConfig.ForecastDays);
                 Hud?.TickResources(World); // 자원 줄 (M22-2차 W4) — 목록은 에셋이 정한다
+                // 조리 중 모닥불 갈아입히기 (M22-3차 W5d) — 등록된 모닥불이 없으면 즉시 빠진다
+                _campfireCookView?.Tick(_agents);
 
                 // 상태 알림 줄 (M13-B, 2026-07-30 개정 — 舊 M11-D 마을 최솟값 요약을 개인 열거로).
                 // 관측 대상은 마을 평균이 아니라 낙오자 — 그 정신의 완성형은 "낙오자의 이름"이다.

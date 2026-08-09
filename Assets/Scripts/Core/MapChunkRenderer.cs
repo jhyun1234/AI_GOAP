@@ -119,6 +119,11 @@ namespace AIVillage.Core
                 return;
             }
 
+            // 지면·안개 판은 **맨 아래** (2026-08-09). Y 정렬은 위쪽 물건에 음수 order를 주는데
+            // 舊 MapQuad는 0이라, 배선하지 않으면 y > 0인 집·주민이 통째로 지면 뒤로 숨는다.
+            // 씬 설정이 아니라 코드가 정한다 — 씬은 사람이 실수로 되돌릴 수 있다.
+            _quad.sortingOrder = AIVillage.M0.WorldSort.Ground;
+
             // ── 맵 크기 캐시 ──────────────────────────────────────────────────
             _size   = MapConfig.Active.mapSize;
             _offset = MapConfig.Active.mapOffset;

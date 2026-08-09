@@ -34,7 +34,8 @@ namespace AIVillage.M0
             _text.outlineColor = new Color32(0, 0, 0, 220);
 
             var renderer = go.GetComponent<MeshRenderer>();
-            if (renderer != null) renderer.sortingOrder = 20; // 주민(10)·건물(5) 위
+            // 화면 붙박이 — 앞뒤 정렬 밖 (WorldSort.Overlay). 말풍선이 가리면 못 읽는다.
+            if (renderer != null) renderer.sortingOrder = WorldSort.Overlay;
 
             _currentColorHex = ColorUtility.ToHtmlStringRGB(cfg.BubbleCurrentColor);
             Clear();

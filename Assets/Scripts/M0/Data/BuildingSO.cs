@@ -102,13 +102,32 @@ namespace AIVillage.M0
         [Tooltip("프리팹 없을 때 쓸 마커 스프라이트 (Kenmi 등). 비우면 원형 마커 폴백.")]
         public Sprite MarkerSprite;
 
+        [Tooltip("마커 그림의 위치 보정 (타일). 큰 그림(망루·집·텐트)은 피벗이 한가운데라 " +
+                 "그대로 두면 땅에 파묻힌다 — 그림의 **발이 타일에 닿도록** 여기서 올린다. " +
+                 "MountOffsetTiles와 같은 규약(M22-3차 W5b): 표현 수치는 코드가 아니라 에셋이 갖는다.")]
+        public Vector2 MarkerOffsetTiles;
+
+        [Tooltip("마커 애니메이션 프레임 (모닥불·문 등). 2장 이상이면 MarkerSprite 대신 이 " +
+                 "프레임들이 MarkerFps로 순환한다. 비우면 정지 그림 (중립 — 기존 건물 무변).")]
+        public Sprite[] MarkerFrames;
+
+        [Tooltip("마커 애니메이션 초당 프레임. MarkerFrames가 2장 이상일 때만 쓰인다.")]
+        public float MarkerFps = 6f;
+
+        [Tooltip("**사용 중** 프레임 (모닥불 조리 = 솥 걸린 그림). 채우면 그 건물을 쓰는 주민이 " +
+                 "있는 동안 이 프레임들로 갈아입는다 — 판정은 표현 뷰의 몫이고 시뮬은 모른다. " +
+                 "비우면 전환 없음 (중립).")]
+        public Sprite[] BusyFrames;
+
         [Tooltip("원형 마커 폴백 색. 알파 0이면 런타임에서 1로 자동 보정 (舊 BC5 함정 방어). MarkerSprite에는 미적용(원본색).")]
         public Color FallbackColor = new Color(1f, 0.55f, 0.15f, 1f);
 
         [Tooltip("마커 공통 크기 (타일 단위 스케일) — 스프라이트/원형 모두 적용")]
         public float FallbackSize = 1f;
 
-        [Tooltip("스프라이트 정렬 순서. 음수면 맵 아래로 숨음 — 기본 5 (舊 BuildingSpawner 기본값)")]
+        [Tooltip("같은 칸에서의 위아래 (WorldSort bias, 0~15). 앞뒤는 이 값이 아니라 **월드 Y**가 " +
+                 "정한다 — 아래쪽에 있는 것이 앞이다. 기본 5(건물 몸체) · 함정 4(밟히는 것) · 밭 2(흙). " +
+                 "⚠️ 16 이상을 넣으면 한 타일을 건너뛰어 앞뒤 판정을 이긴다.")]
         public int SortingOrder = 5;
 
         private void OnValidate()
@@ -137,6 +156,11 @@ namespace AIVillage.M0
             if (RepairCost > 0 && MaxDurability <= 0f)
                 Debug.LogWarning($"[BuildingSO] {name}: RepairCost({RepairCost})는 MaxDurability > 0일 때만 " +
                                  "쓰입니다 — 무시됨.", this);
+            // 애니 프레임을 넣고 대표 그림을 비우면 계획 고스트(DefensePlanView)가 원 폴백으로 떨어진다 —
+            // "지어지기 전의 모습"이 실물과 달라지므로 대표 그림은 항상 채운다 (M23-W3 고스트 규약)
+            if (MarkerSprite == null && MarkerFrames != null && MarkerFrames.Length > 0)
+                Debug.LogWarning($"[BuildingSO] {name}: MarkerFrames를 넣었으면 MarkerSprite도 " +
+                                 "대표 프레임으로 채우세요 — 계획 고스트가 원 폴백이 됩니다.", this);
             // 함정은 소모지 내구도가 아니다 (M22-3차 W1, ADR-M22-13 ⚠️) — 다회용 함정 금지
             if (TrapDamage > 0f && MaxDurability > 0f)
                 Debug.LogError($"[BuildingSO] {name}: TrapDamage(소모형 함정)와 MaxDurability(내구도)는 " +

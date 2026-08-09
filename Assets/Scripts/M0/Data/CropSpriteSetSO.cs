@@ -18,7 +18,8 @@ namespace AIVillage.M0
         [Tooltip("작물 스프라이트 스케일 (타일 단위)")]
         public float Scale = 1f;
 
-        [Tooltip("정렬 순서 — 밭 마커보다 위, 주민보다 아래")]
+        [Tooltip("같은 칸에서의 위아래 (WorldSort bias) — 밭 흙(2)보다 위, 서 있는 것(4~)보다 아래. " +
+                 "앞뒤는 이 값이 아니라 월드 Y가 정한다.")]
         public int SortingOrder = 3;
     }
 }

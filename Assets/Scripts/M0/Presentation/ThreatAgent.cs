@@ -116,7 +116,7 @@ namespace AIVillage.M0
             // (AgentAnimator는 주민 타입을 모른다 — 후반 확장 규칙 ①의 배당금).
             // 세트가 없으면 기존 색 원 폴백 = 배선 전과 완전히 동일 (중립 불변식).
             var sr = gameObject.AddComponent<SpriteRenderer>();
-            sr.sortingOrder = 11; // 주민(10) 위 — 위협은 항상 보인다
+            _sr = sr; // 깊이는 매 프레임 갱신 (움직인다 — 앞뒤는 월드 Y가 정한다)
             if (so.SpriteSet != null)
             {
                 _anim = new AgentAnimator(sr, so.SpriteSet, Color.white); // 색조 없음 — 그림 그대로
@@ -130,6 +130,7 @@ namespace AIVillage.M0
             }
         }
 
+        private SpriteRenderer _sr;       // 깊이 갱신 대상
         private AgentAnimator _anim;      // null = 색 원 폴백
         private Vector2 _facing = Vector2.down;  // 마지막 이동 방향 (멈춰도 보던 쪽을 본다)
         private float _attackUntil;       // 이 시각까지 공격 몸짓 (실시간 초)
@@ -141,6 +142,9 @@ namespace AIVillage.M0
         private void Update()
         {
             if (So == null) return; // Init 전 방어
+
+            // 깊이 = 월드 Y (WorldSort). 같은 칸이면 주민 위 — 무는 장면이 가려지면 안 된다.
+            if (_sr != null) _sr.sortingOrder = WorldSort.Order(transform.position.y, WorldSort.Threat);
 
             // 그림 틱 (M22-3차 W5c) — 걷는가/무엇을 하는가만 넘기고 프레임 선택은 애니메이터가.
             // 판정은 아래 로직이 그대로 소유한다 (표현은 읽기만 — M10-C ⚠️③).

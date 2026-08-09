@@ -32,7 +32,7 @@ namespace AIVillage.M0
             lr.numCornerVertices = 0;
             lr.material = new Material(Shader.Find("Sprites/Default"));
             lr.startColor = lr.endColor = FarmZoneColor;
-            lr.sortingOrder = 1; // 밭 마커(2) 아래 — 테두리가 작물을 가리지 않게
+            lr.sortingOrder = WorldSort.Decal; // 바닥 데칼 — 테두리가 작물·주민을 가리지 않게
 
             float e = radius + 0.5f;
             float ax = anchor.x, ay = anchor.y;

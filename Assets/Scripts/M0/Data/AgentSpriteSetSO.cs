@@ -42,5 +42,20 @@ namespace AIVillage.M0
 
         [Tooltip("개체 구분 틴트 강도 (0=원본색). 제안치 0.15.")]
         [Range(0f, 1f)] public float TintStrength = 0.15f;
+
+        [Tooltip("발밑 그림자 크기 (타일 폭). 0 = 그림자 없음 (중립 — 배선 전과 동일). " +
+                 "왜 필요한가: 팩 건물·나무는 그림자가 구워져 나오는데 주민만 없어서, 집 앞에 서면 " +
+                 "**경계가 사라진다** (사용자 Play 지적 2026-08-09). 앞뒤는 정렬이 정하고, " +
+                 "'땅에 발을 붙이고 있다'는 그림자가 정한다.")]
+        public float ShadowWidthTiles = 0.62f;
+
+        [Tooltip("발밑 그림자 진하기 (0~1). 짙으면 픽셀아트가 탁해진다 — 제안치 0.28.")]
+        [Range(0f, 1f)] public float ShadowAlpha = 0.28f;
+
+        [Tooltip("발밑 그림자의 세로 눌림 (1 = 원, 0.35 = 납작한 타원). 위에서 비스듬히 본 바닥.")]
+        [Range(0.1f, 1f)] public float ShadowFlatten = 0.4f;
+
+        [Tooltip("발밑 그림자의 세로 위치 보정 (타일). 발 위치는 시트마다 달라 에셋이 정한다.")]
+        public float ShadowOffsetTiles = -0.12f;
     }
 }

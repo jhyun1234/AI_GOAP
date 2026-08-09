@@ -114,5 +114,81 @@ namespace AIVillage.Tests.EditMode
             var eat = AssetDatabase.LoadAssetAtPath<ActionSO>("Assets/M0Config/Actions/EatRawFood.asset");
             Assert.AreEqual(AnimKind.None, eat.Anim, "식사는 None (시트에 동작 없음 — 스코프 가드)");
         }
+
+        [Test]
+        public void M23_T4_WorldSort_DepthIsY()
+        {
+            // 2026-08-09 — 앞뒤는 **월드 Y**가 정한다 (사용자 Play 지적: "주민이 집 앞인지 뒤인지
+            // 모르겠다"). 舊 고정 층(건물 5 · 주민 10)은 주민을 늘 집 위에 올려놨다.
+            // 순수 함수라 전수 검산이 가능하다 — 이 규약이 깨지면 화면에서 앞뒤가 사라진다.
+
+            // ① 아래쪽이 앞 (나중에 그려진다)
+            Assert.Greater(WorldSort.Order(3f, 0), WorldSort.Order(4f, 0), "아래 칸이 앞이라야 한다");
+            Assert.Greater(WorldSort.Order(-5f, 0), WorldSort.Order(0f, 0), "음수 y도 같은 규칙");
+
+            // ② bias는 **같은 칸 안에서만** 이긴다 — 한 타일을 건너뛰면 규약이 무너진다.
+            //    맵 전 범위(±50타일)에서 전수 검산: 어떤 bias도 아래 칸의 최소 bias를 못 넘는다.
+            for (int y = -50; y < 50; y++)
+                for (int bias = 0; bias <= 15; bias++)
+                    Assert.Less(WorldSort.Order(y, bias), WorldSort.Order(y - 1, 0),
+                        $"y={y} bias={bias}: 같은 칸 보정이 아래 칸을 이겼다 (YScale={WorldSort.YScale})");
+
+            // ③ 층 표는 전부 bias 범위 안 (하나라도 16 이상이면 ②가 무너진다)
+            int[] biases =
+            {
+                WorldSort.Node, WorldSort.Ghost, WorldSort.Plot, WorldSort.Crop, WorldSort.Trap,
+                WorldSort.Build, WorldSort.Damage, WorldSort.Lock, WorldSort.Select,
+                WorldSort.Agent, WorldSort.Threat,
+            };
+            foreach (int b in biases)
+                Assert.That(b, Is.InRange(0, WorldSort.YScale - 1), "bias는 0~YScale-1만");
+
+            // ④ 같은 칸의 순서 — 밟히는 것 < 서 있는 것 < 사람 < 짐승
+            Assert.Less(WorldSort.Trap, WorldSort.Build, "함정은 건물 아래(밟힌다)");
+            Assert.Less(WorldSort.Build, WorldSort.Agent, "같은 칸이면 사람이 건물 위");
+            Assert.Less(WorldSort.Agent, WorldSort.Threat, "같은 칸이면 짐승이 사람 위(무는 게 보여야)");
+            Assert.Less(WorldSort.Select, WorldSort.Agent, "선택 링은 발밑");
+
+            // ⑤ 지면·데칼·붙박이는 월드 밖 — 맵 끝(±50)에서도 안 섞인다.
+            //    🔴 Ground가 여기 있는 이유: Y 정렬은 위쪽 물건에 **음수** order를 준다.
+            //    지면 판이 0이던 시절 그대로면 y > 0인 집·주민이 통째로 지면 뒤로 숨는다
+            //    (2026-08-09 Play 실측에서 잡은 회귀 — 이 줄이 그 재발을 막는다).
+            int farBack = WorldSort.Order(50f, 0), farFront = WorldSort.Order(-50f, 15);
+            Assert.Less(WorldSort.Ground, farBack, "지면 판이 맨 뒤 물건보다도 뒤라야 한다");
+            Assert.Less(WorldSort.Ground, WorldSort.Decal, "지면 판은 바닥 데칼보다도 아래");
+            Assert.Less(WorldSort.Decal, farBack, "바닥 데칼이 맨 뒤 물건보다도 뒤라야 한다");
+            Assert.Greater(WorldSort.Overlay, farFront, "이름표·말풍선은 맨 앞 물건보다 앞이라야 한다");
+        }
+
+        [Test]
+        public void M23_T5_WorldArt_ShippedWiring()
+        {
+            // 2026-08-09 — 밭·자원 노드 실그림 배선 검산. 색 원으로 되돌아가면 red.
+            var plot = AssetDatabase.LoadAssetAtPath<BuildingSO>("Assets/M0Config/Buildings/FarmPlot.asset");
+            Assert.IsNotNull(plot, "FarmPlot 에셋 없음");
+            Assert.IsNotNull(plot.MarkerSprite, "밭 흙 그림 미배선 — 갈색 원으로 회귀");
+            Assert.AreEqual(WorldSort.Plot, plot.SortingOrder, "밭 흙은 작물 아래(같은 칸 bias)");
+
+            var crops = AssetDatabase.LoadAssetAtPath<CropSpriteSetSO>("Assets/M0Config/CropSprites.asset");
+            Assert.IsNotNull(crops, "CropSprites 에셋 없음");
+            Assert.IsNotNull(crops.Growing, "작물 새싹 그림 미배선");
+            Assert.IsNotNull(crops.Ripe, "작물 결실 그림 미배선");
+            Assert.Greater(crops.SortingOrder, plot.SortingOrder, "작물은 흙 위에 얹힌다");
+
+            var cfg = AssetDatabase.LoadAssetAtPath<AIVillage.Core.ResourceNodeSpawnConfig>(
+                "Assets/ResourceNodeSpawnConfig/ResourceNodeSpawnConfig.asset");
+            Assert.IsNotNull(cfg, "ResourceNodeSpawnConfig 에셋 없음");
+            Assert.IsNotNull(cfg.resourceTypes, "resourceTypes 비어 있음");
+            foreach (AIVillage.Core.ResourceTypeSpawnData t in cfg.resourceTypes)
+            {
+                if (t.nodeCount <= 0) continue; // 휴면 항목은 검사 대상 아님
+                Assert.IsNotNull(t.nodeSprite, $"{t.resourceType}: 노드 그림 미배선 — 색 원으로 회귀");
+                Assert.That(t.depletedBelowRatio, Is.InRange(0f, 1f), $"{t.resourceType}: 고갈 비율은 0~1");
+                // 고갈 그림은 선택 — 없으면 흐려질 뿐이라 강제하지 않는다(중립).
+                float tiles = t.nodeSprite.rect.height * t.nodeSize / t.nodeSprite.pixelsPerUnit;
+                Assert.That(tiles, Is.InRange(0.4f, 4f),
+                    $"{t.resourceType}: 화면 높이 {tiles:0.00}타일 — 노드 하나가 아니다");
+            }
+        }
     }
 }

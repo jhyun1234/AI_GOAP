@@ -22,6 +22,24 @@ MonoBehaviour:
   OwnedBuilding: 1
   PlaceNearOwnedHome: 1
   Prefab: {fileID: 0}
+  MarkerSprite: {fileID: 947766100, guid: c550f469f9e01234a9b12f1c3606b4b6, type: 3}
+  MarkerOffsetTiles: {x: 0, y: 0.65}
+  MarkerFps: 8
+  MarkerFrames:
+  - {fileID: 947766100, guid: c550f469f9e01234a9b12f1c3606b4b6, type: 3}
+  - {fileID: -780171293, guid: c550f469f9e01234a9b12f1c3606b4b6, type: 3}
+  - {fileID: -55049655, guid: c550f469f9e01234a9b12f1c3606b4b6, type: 3}
+  - {fileID: 1508792686, guid: c550f469f9e01234a9b12f1c3606b4b6, type: 3}
+  - {fileID: 1335289978, guid: c550f469f9e01234a9b12f1c3606b4b6, type: 3}
+  - {fileID: 85423246, guid: c550f469f9e01234a9b12f1c3606b4b6, type: 3}
+  - {fileID: 1164931971, guid: c550f469f9e01234a9b12f1c3606b4b6, type: 3}
+  - {fileID: -481223667, guid: c550f469f9e01234a9b12f1c3606b4b6, type: 3}
+  BusyFrames:
+  - {fileID: -1054225571, guid: f3e5053d3647ccd48bbc8a5ec5e80f46, type: 3}
+  - {fileID: 1202027989, guid: f3e5053d3647ccd48bbc8a5ec5e80f46, type: 3}
+  - {fileID: 1730686132, guid: f3e5053d3647ccd48bbc8a5ec5e80f46, type: 3}
+  - {fileID: -675733891, guid: f3e5053d3647ccd48bbc8a5ec5e80f46, type: 3}
+  - {fileID: 70441884, guid: f3e5053d3647ccd48bbc8a5ec5e80f46, type: 3}
   FallbackColor: {r: 1, g: 0.55, b: 0.15, a: 1}
   FallbackSize: 1
   SortingOrder: 5

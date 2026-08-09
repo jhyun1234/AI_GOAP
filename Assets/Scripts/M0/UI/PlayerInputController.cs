@@ -514,7 +514,7 @@ namespace AIVillage.M0
                 _hoverCell.numCornerVertices = 0;
                 _hoverCell.material = new Material(Shader.Find("Sprites/Default"));
                 _hoverCell.startColor = _hoverCell.endColor = new Color(1f, 1f, 1f, 0.8f);
-                _hoverCell.sortingOrder = 9;
+                _hoverCell.sortingOrder = WorldSort.Decal; // 바닥 칸 표시 — 월드 물건 아래
             }
             _hoverCell.gameObject.SetActive(true);
             _hoverCell.SetPositions(new[]
@@ -540,7 +540,7 @@ namespace AIVillage.M0
                 _zonePreview.widthMultiplier = 0.35f; // 타일 폭 느낌 — 줄이 지나갈 칸을 보여준다
                 _zonePreview.numCornerVertices = 0;
                 _zonePreview.material = new Material(Shader.Find("Sprites/Default"));
-                _zonePreview.sortingOrder = 8;
+                _zonePreview.sortingOrder = WorldSort.Decal; // 줄 미리보기도 바닥 데칼
             }
             _zonePreview.gameObject.SetActive(true);
             _zonePreview.startColor = _zonePreview.endColor = color;
@@ -621,6 +621,9 @@ namespace AIVillage.M0
 
         private void Select(VillagerAgent agent)
         {
+            // 링은 하나뿐 — 옛 주인이 계속 깊이를 쓰면 두 사람이 같은 링을 밀고 당긴다
+            if (_selected != null && _selected != agent && _ring != null)
+                _selected.DetachSelectionRing(_ring.GetComponent<SpriteRenderer>());
             _selected = agent;
             if (_ring == null)
             {
@@ -628,12 +631,14 @@ namespace AIVillage.M0
                 var sr = _ring.AddComponent<SpriteRenderer>();
                 sr.sprite = M0Sprites.Circle;
                 sr.color = new Color(1f, 0.9f, 0.3f, 0.45f); // 반투명 노랑
-                sr.sortingOrder = 9;                          // 주민(10) 바로 아래
                 _ring.transform.localScale = Vector3.one * 1.2f;
             }
             _ring.transform.SetParent(agent.transform, worldPositionStays: false);
             _ring.transform.localPosition = Vector3.zero;
             _ring.SetActive(true);
+            // 링의 깊이는 주민이 매 프레임 맞춘다 (같이 움직이니까 — WorldSort.Select).
+            // 고정 층으로 두면 주민이 집 뒤로 가도 링만 집 위에 남는다.
+            _selected.AttachSelectionRing(_ring.GetComponent<SpriteRenderer>());
             M0SimulationLoop.Instance.Hud?.SetSelected(agent); // 정보줄 표시 (M7-A)
             // 선택 = 추적 (M13-B 후속, 몰입 카메라). WASD를 누르면 추적만 풀리고 선택은
             // 유지된다 — 명령 동선(선택 유지 + 멀리 있는 노드 찾아 우클릭)이 끊기면 안 된다.
@@ -642,6 +647,8 @@ namespace AIVillage.M0
 
         private void Deselect()
         {
+            if (_selected != null && _ring != null)
+                _selected.DetachSelectionRing(_ring.GetComponent<SpriteRenderer>());
             _selected = null;
             if (_ring != null)
             {

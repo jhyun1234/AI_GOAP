@@ -59,6 +59,8 @@ namespace AIVillage.M0
                 sr.sprite = b.MarkerSprite;
                 sr.color = GhostTint;
                 go.transform.localScale = Vector3.one * Mathf.Max(0.1f, b.FallbackSize);
+                // 위치 보정도 실물과 같이 (M22-3차 W5d) — 안 따라가면 고스트만 땅에 파묻힌다
+                go.transform.position += (Vector3)(Vector2)b.MarkerOffsetTiles;
             }
             else
             {
@@ -66,7 +68,8 @@ namespace AIVillage.M0
                 sr.color = fallback;
                 go.transform.localScale = Vector3.one * 0.45f;
             }
-            sr.sortingOrder = 1; // 건물 마커(5) 아래 — 실물이 서면 계획 마커는 사라진다 (Rebuild)
+            // 아직 없는 것 = 같은 칸 실물 아래 (Rebuild가 지우지만 한 틱 겹칠 수 있다)
+            sr.sortingOrder = WorldSort.Order(tile.y, WorldSort.Ghost);
             _markers.Add(go);
         }
     }

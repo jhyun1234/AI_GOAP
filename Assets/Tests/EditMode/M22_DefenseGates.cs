@@ -811,16 +811,94 @@ namespace AIVillage.Tests.EditMode
                 "한 방 격퇴 금지 (사용자 확정 15) — 함정은 소프트닝이다. 값을 올려 한 방이 되면 red");
 
             // W5b 실그림 배선 (M23_T1 문법) — 임시 색 사각으로 되돌아가면 red.
-            // 자작 시트라 fileID가 이름 해시로 고정돼 있어(tools/pixel-art) 다시 구워도 안 깨진다.
             Assert.IsNotNull(tower.MarkerSprite, "망루 실그림 미배선 — 임시 색 사각으로 회귀");
             Assert.IsNotNull(trap.MarkerSprite, "함정 실그림 미배선 — 임시 색 사각으로 회귀");
+            // 🔁 2026-08-09 개정 (W5d, 구매 팩 교체): 舊 규칙은 **배율 1 고정**이었다 —
+            // 자작 시트를 타일에 맞춰 구웠으니 배율이 1이 아니면 오배선이라는 뜻이었다.
+            // 남의 팩은 제 크기로 그려져 온다(망루 48×128 = 3×8타일) 탓에 그 전제가 깨졌다.
+            // 불변식을 "배율 1"에서 **"화면에 서는 크기"**로 옮긴다 — 지키려던 것은 배율이
+            // 아니라 한 타일짜리 시설이 화면에서 말이 되는 크기라는 것이었다.
             foreach (var b in new[] { tower, trap })
-                Assert.AreEqual(1f, b.FallbackSize, 1e-3f,
-                    $"{b.name}: 실그림은 16 PPU로 구웠으므로 배율 1이라야 한 타일에 맞는다");
+            {
+                Assert.Greater(b.FallbackSize, 0f, $"{b.name}: 배율 0 = 안 보인다");
+                Assert.IsNotNull(b.MarkerSprite.texture, $"{b.name}: 스프라이트 텍스처 없음");
+                float wTiles = b.MarkerSprite.rect.width  * b.FallbackSize / b.MarkerSprite.pixelsPerUnit;
+                float hTiles = b.MarkerSprite.rect.height * b.FallbackSize / b.MarkerSprite.pixelsPerUnit;
+                Assert.That(wTiles, Is.InRange(0.5f, 4f), $"{b.name}: 화면 폭 {wTiles:0.00}타일 — 한 칸 시설이 아니다");
+                Assert.That(hTiles, Is.InRange(0.5f, 9f), $"{b.name}: 화면 높이 {hTiles:0.00}타일 — 한 칸 시설이 아니다");
+                AssertStandsOnTile(b, hTiles);
+            }
             // 탑승 높이는 **그림이 정한다** — 코드 상수(舊 0.45)로 되돌리면 사람이 다리 사이에 뜬다
             Assert.Greater(tower.MountOffsetTiles, 1f,
                 "망루 탑승 높이(MountOffsetTiles)가 발판 높이와 어긋난다 — 그림과 짝인 값이다");
             Assert.AreEqual(0f, trap.MountOffsetTiles, "함정은 올라서는 시설이 아니다");
+        }
+
+        /// <summary>그림이 제 타일 위에 서 있는가 (W5d). 피벗은 늘 한가운데라, 키 큰 그림을
+        /// 보정 없이 놓으면 절반이 땅에 묻힌다 (망루 5.2타일 → 밑동 −2.6타일).
+        /// ⚠️ rect 높이로 재는 값이라 **아래 여백까지 키에 포함**된다(함정 rect 48px 중 20px가
+        /// 여백) — 그래서 기준을 빡빡하게 잡지 않는다. 잡으려는 것은 오배선(보정 누락)이지
+        /// 픽셀 단위 정렬이 아니다. 정렬은 사람이 화면에서 본다.</summary>
+        private static void AssertStandsOnTile(BuildingSO b, float hTiles)
+        {
+            float bottom = b.MarkerOffsetTiles.y - hTiles * 0.5f; // 그림 아랫변의 타일 좌표
+            Assert.GreaterOrEqual(bottom, -1.5f,
+                $"{b.name}: 그림 아랫변이 {bottom:0.00}타일 — 땅에 묻혔다. " +
+                "키운 그림을 넣었으면 MarkerOffsetTiles.y로 올려라 (표현 수치는 에셋의 몫).");
+        }
+
+        [Test]
+        public void M22_T17_PurchasedPackArt_ShippedWiring()
+        {
+            // M22-3차 W5d — 구매 팩(Kenmi War Camp) 교체 배선 검산. M22_T16과 같은 정신:
+            // **아트 교체 지점이 에셋 한 칸임**을 박제한다. 팩 재임포트로 fileID가 갈리면
+            // 여기가 먼저 red가 된다 (게임을 켜서 "왜 원이 뜨지"를 겪기 전에).
+            BuildingSO Load(string n) =>
+                AssetDatabase.LoadAssetAtPath<BuildingSO>($"Assets/M0Config/Buildings/{n}.asset");
+
+            // ── 울타리·문: 16조각 전수 + 가로/세로 분화 ──
+            // 조각 종류가 3개로 줄어도(팰리세이드 판독) **가로와 세로는 반드시 달라야** 한다 —
+            // 같아지면 오토타일이 죽고 줄이 한 방향으로만 읽힌다.
+            foreach (string n in new[] { "Fence", "Gate" })
+            {
+                BuildingSO b = Load(n);
+                Assert.IsNotNull(b, $"{n} 에셋 없음");
+                Assert.IsNotNull(b.TileSprites, $"{n}: TileSprites 미배선");
+                Assert.AreEqual(16, b.TileSprites.Length, $"{n}: 4방 마스크는 16칸이다");
+                for (int i = 0; i < 16; i++)
+                    Assert.IsNotNull(b.TileSprites[i], $"{n}: TileSprites[{i}] null — fileID 오배선");
+                Assert.AreNotSame(b.TileSprites[2], b.TileSprites[4],
+                    $"{n}: 가로중간(2)과 세로중간(4)이 같은 그림 — 오토타일이 죽었다");
+                Assert.IsNotNull(b.MarkerSprite, $"{n}: 대표 그림 미배선 — 계획 고스트가 원으로 떨어진다");
+            }
+
+            // ── 모닥불: 평상 애니 + 조리 전환 ──
+            // BusyFrames가 비면 "요리를 시작하면 솥이 걸린다"가 조용히 사라진다 (사용자 요청 지점).
+            BuildingSO fire = Load("Campfire");
+            Assert.IsNotNull(fire, "Campfire 에셋 없음");
+            Assert.IsNotNull(fire.MarkerSprite, "모닥불: 대표 그림 미배선 — 주황 원으로 회귀");
+            Assert.IsTrue(fire.MarkerFrames != null && fire.MarkerFrames.Length >= 2,
+                "모닥불: 평상 프레임 2장 미만 — 불이 안 흔들린다");
+            Assert.IsTrue(fire.BusyFrames != null && fire.BusyFrames.Length >= 1,
+                "모닥불: BusyFrames 미배선 — 조리 중 솥 전환이 사라진다");
+            foreach (Sprite s in fire.MarkerFrames) Assert.IsNotNull(s, "모닥불 평상 프레임에 null");
+            foreach (Sprite s in fire.BusyFrames) Assert.IsNotNull(s, "모닥불 조리 프레임에 null");
+            Assert.Greater(fire.MarkerFps, 0f, "모닥불: FPS 0이면 첫 프레임에 굳는다");
+            // 평상/조리는 세로 규격이 같아야 밑동이 안 튄다 (갈아입을 때 불이 뛰어오르면 안 된다)
+            Assert.AreEqual(fire.MarkerFrames[0].rect.height, fire.BusyFrames[0].rect.height, 1e-3f,
+                "모닥불: 평상·조리 프레임 높이가 다르다 — 갈아입을 때 밑동이 튄다");
+
+            // ── 집: 실그림 + 파묻힘 방지 ──
+            BuildingSO house = Load("House");
+            Assert.IsNotNull(house, "House 에셋 없음");
+            Assert.IsNotNull(house.MarkerSprite, "집: 실그림 미배선");
+            float houseH = house.MarkerSprite.rect.height * house.FallbackSize
+                           / house.MarkerSprite.pixelsPerUnit;
+            Assert.That(houseH, Is.InRange(1f, 5f), $"집 화면 높이 {houseH:0.00}타일 — 한 칸 건물이 아니다");
+            AssertStandsOnTile(house, houseH);
+            float fireH = fire.MarkerSprite.rect.height * fire.FallbackSize
+                          / fire.MarkerSprite.pixelsPerUnit;
+            AssertStandsOnTile(fire, fireH);
         }
 
         [Test]

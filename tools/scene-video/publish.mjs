@@ -784,10 +784,34 @@ if (PREPARE) {
       `           node tools/scene-video/srt.mjs ${EP}`];
   }
 
+  /* ── 유튜브 챕터 (롱폼, 2026-08-09 사용자 요청) ─────
+     설명란에 타임스탬프 줄이 있으면 진행바가 구간으로 갈리고 시청자가 구간을 골라
+     본다. 규칙: 첫 줄 0:00 · 최소 3개 · 구간당 10초 이상. 쇼츠(30초대)엔 무의미해서
+     wide 만. 시각은 timed.json 실측 — 산정치로 만들면 뒤로 갈수록 민다(실측의 82%). */
+  let chapterRows = [];
+  const timedFile = epBuild(EP, 'timed.json');
+  if (scene.format === 'wide' && fs.existsSync(timedFile)) {
+    const timedCh = JSON.parse(fs.readFileSync(timedFile, 'utf8'));
+    let t = 0;
+    scene.shots.forEach((s, i) => {
+      const ch = s.chapter || '';
+      if (!chapterRows.length || chapterRows.at(-1).ch !== ch) chapterRows.push({ ch, t });
+      t += timedCh.shots[i].lines.reduce((a, l) => a + l.dur + (l.pause || 0), 0) / 1000 + 0.35;
+    });
+    chapterRows = chapterRows.length >= 3
+      ? chapterRows.map(r =>
+        `${Math.floor(r.t / 60)}:${String(Math.floor(r.t % 60)).padStart(2, '0')} ${r.ch}`)
+      : [];
+  }
+
   const txt = epBuild(EP, 'upload.txt');
   fs.writeFileSync(txt, [
     '── 제목 ────────────────────────────────', meta.snippet.title, '',
-    '── 설명 ────────────────────────────────', meta.snippet.description, '',
+    chapterRows.length
+      ? '── 설명 (챕터 줄까지 통째로 붙여넣기 — 진행바가 구간으로 갈린다) ──'
+      : '── 설명 ────────────────────────────────',
+    meta.snippet.description,
+    ...(chapterRows.length ? ['', ...chapterRows] : []), '',
     '── 태그 (쉼표로 붙여넣기) ───────────────', meta.snippet.tags.join(', '), '',
     ...enBlock, '',
     '── 설정 ────────────────────────────────',

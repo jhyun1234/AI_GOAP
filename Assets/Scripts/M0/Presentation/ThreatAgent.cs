@@ -69,6 +69,14 @@ namespace AIVillage.M0
         /// 도주선 판정이 `MaxHp × 배율`을 분모로 써야 하므로 개체가 기억한다.</summary>
         public float GradeMult { get; private set; } = 1f;
 
+        /// <summary>이 개체가 쓰는 수 (M24-1차 W5) — **스폰 시점에 굳는다.**
+        /// 편성이 예고 시점에 굳는 것과 같은 규약(ADR-M24-3): 싸우는 중에 압력이 올랐다고
+        /// 갑자기 새 수를 쓰기 시작하면 플레이어가 인과를 짚을 수 없다.</summary>
+        public InvaderTraitId[] Traits { get; private set; } = System.Array.Empty<InvaderTraitId>();
+
+        /// <summary>이 개체가 이 수를 쓰는가.</summary>
+        public bool HasTrait(InvaderTraitId id) => ThreatService.Has(Traits, id);
+
         /// <summary>도주 전환 여부 (M21-W2) — 격퇴 사건의 표식. 도주한 개체는 다시 싸우지 않는다.</summary>
         public bool IsFleeing { get; private set; }
 
@@ -104,8 +112,9 @@ namespace AIVillage.M0
         /// 거기까지 가면 압력이 오를수록 플레이어가 반응할 시간이 사라진다.</param>
         public void Init(ThreatSO so, ThreatService svc, Vector2Int entry, Vector2Int target,
                          List<Vector2Int> waypoints, IPathfinder pathfinder, bool targetsVillagers,
-                         int groupKey, float gradeMult = 1f)
+                         int groupKey, float gradeMult = 1f, InvaderTraitId[] traits = null)
         {
+            Traits = traits ?? System.Array.Empty<InvaderTraitId>();
             So = so;
             _svc = svc;
             EntryTile = entry;

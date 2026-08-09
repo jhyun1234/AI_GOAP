@@ -46,6 +46,10 @@ namespace AIVillage.M0
         private readonly Dictionary<string, int> _encounters = new Dictionary<string, int>(4);
         private readonly HashSet<string> _seenBuf = new HashSet<string>();  // 편성 내 종족 중복 제거용
         private readonly Func<int> _peakPopulation;                          // 역대 최고 인구 (예산의 성장 항)
+        // 함정을 밟아 본 종족 (M24-1차 W5, TrapLearning) — 키 = 에셋 이름. 세이브 대상 (ADR-M0-10).
+        // 🔑 "학습"을 확률이 아니라 **경험**으로 둔 이유: 결정성(ADR-M10R-2)을 지키면서
+        // 플레이어가 인과를 짚을 수 있게 — "한 번 걸렸더니 그 뒤로 피한다".
+        private readonly HashSet<string> _trapped = new HashSet<string>();
         // 예고~발동 사이 고정 (ADR-M24-3: 편성은 예고 시점에 확정된다 — 예고한 그 편성이 온다).
         // 발동 시점에 다시 계산하면 "3일 뒤 오크"라고 알려 놓고 고블린이 오는 일이 생긴다.
         private List<WaveEntry> _pendingWave;
@@ -207,7 +211,12 @@ namespace AIVillage.M0
         public void NoteThreatEnteredTile(ThreatAgent agent, Vector2Int tile)
         {
             if (agent == null || agent.So == null || agent.IsExiting) return;
+            // 함정 학습 (M24-1차 W5) — 이 종족이 예전에 밟아 봤으면 이번엔 피한다.
+            // 함정은 그대로 남는다(소모되지 않는다): 안 밟았으니 발동한 적이 없다.
+            // → 플레이어의 답은 "함정을 더 까는 것"이 아니라 **재배치**다.
+            if (agent.HasTrait(InvaderTraitId.TrapLearning) && _trapped.Contains(agent.So.name)) return;
             if (_defense == null || !_defense.TryTriggerTrapAt(tile, out float damage)) return;
+            _trapped.Add(agent.So.name); // 밟았다 = 배웠다 (다음 출몰부터 유효)
 
             _construction.RemoveCountableAt(SlotId.TrapCount, tile.x, tile.y); // 제거의 유일한 문 (ADR-M0-3)
             Debug.Log($"[Threat] 함정 발동 — ({tile.x},{tile.y}) {agent.So.DisplayName}에게 {damage:0.#} 피해");
@@ -435,6 +444,42 @@ namespace AIVillage.M0
             return wave;
         }
 
+        // ── 침입 특성 (M24-1차 W5 — ADR-M24-4) ───────────────────────────────
+
+        /// <summary>이 압력에서 이 종족이 쓰는 수 (순수 — 게이트 M24-T4).
+        /// Traits 미배선이면 빈 배열 = 배선 전과 동일한 동작 (중립 불변식).</summary>
+        public static InvaderTraitId[] ActiveTraits(ThreatSO so, int effectivePressure)
+        {
+            if (so?.Traits == null || so.Traits.Length == 0) return Array.Empty<InvaderTraitId>();
+            int n = 0;
+            foreach (InvaderTrait t in so.Traits)
+                if (t.Id != InvaderTraitId.None && t.UnlockPressure <= effectivePressure) n++;
+            if (n == 0) return Array.Empty<InvaderTraitId>();
+            var arr = new InvaderTraitId[n];
+            int i = 0;
+            foreach (InvaderTrait t in so.Traits)
+                if (t.Id != InvaderTraitId.None && t.UnlockPressure <= effectivePressure) arr[i++] = t.Id;
+            return arr;
+        }
+
+        /// <summary>특성 목록에 이 수가 있는가 (순수).</summary>
+        public static bool Has(InvaderTraitId[] traits, InvaderTraitId id)
+        {
+            if (traits == null) return false;
+            foreach (InvaderTraitId t in traits) if (t == id) return true;
+            return false;
+        }
+
+        /// <summary>이 종족의 지금 유효압력 — 전역압력 + 조우 가산 (W3의 두 함수를 잇는 자리).</summary>
+        public int PressureOf(ThreatSO so)
+            => so == null ? 0
+             : EffectivePressure(CurrentGlobalPressure(_peakPopulation()),
+                                 EncountersOf(so), so.EncounterPressureK);
+
+        /// <summary>이 종족이 함정을 밟아 본 적이 있는가 — `TrapLearning`의 유일한 원천.
+        /// 세이브 대상 (ADR-M0-10): "배웠다"는 판을 이어 받아도 유지돼야 한다.</summary>
+        public bool HasTastedTrap(ThreatSO so) => so != null && _trapped.Contains(so.name);
+
         /// <summary>단독 웨이브 종족 (순수) — `SoloWave` 표시가 붙은 첫 종족. 없으면 null.
         /// 코드에 "악마"를 박지 않기 위한 조회다 (ADR-M24-4).</summary>
         public static ThreatSO SoloRace(ThreatSO[] races)
@@ -631,6 +676,10 @@ namespace AIVillage.M0
                 // 정찰이 바꾸는 것은 "언제 오는가"가 아니라 **"언제 아는가"**다.
                 ThreatSO warnSrc = soloDue ? solo : pool[0];
                 float warn = warnSrc.WarnDays + ScoutWarnBonus();
+                // 야습 (M24-1차 W5, ShortWarning) — 예고가 짧아진다. **발동 시각은 그대로다**:
+                // 이 수가 바꾸는 것은 "언제 오는가"가 아니라 정찰의 거울상, "언제 아는가"다.
+                if (Has(ActiveTraits(warnSrc, PressureOf(warnSrc)), InvaderTraitId.ShortWarning))
+                    warn = Mathf.Max(0f, warn * 0.4f);
                 if (gameTime < _lastStrikeDay + WavePeriod + _delayDays - warn) return;
 
                 // 편성 확정 (ADR-M24-3). 완충(M21-W7)은 **예산에서** 깎는다 — 舊 구조는 마릿수를
@@ -704,6 +753,31 @@ namespace AIVillage.M0
 
             PathResult path = _pathfinder().FindPath(entry.x, entry.y, target.x, target.y);
             bool siege = false;
+
+            // 시설 우선 (M24-1차 W5, TargetDefense) — 길이 막히지 않아도 **먼저** 방어 시설을 노린다.
+            // 舊 공성(M22-W5)은 "막혔을 때의 대안"이었는데, 이 수를 쓰는 종족에게는 그게 목적이다.
+            // 🔑 그래서 답이 갈린다: 늑대 시절 답은 "울타리를 두껍게"였지만, 여기 답은 **분산·이중화**다
+            //    (한 곳에 몰아 지으면 그 한 곳이 통째로 목표가 된다).
+            InvaderTraitId[] primaryTraits = ActiveTraits(so, PressureOf(so));
+            if (Has(primaryTraits, InvaderTraitId.TargetDefense)
+                && _defense != null && _defense.HasStructures && so.StructureDamage > 0f
+                && _defense.TryGetNearestStructure(entry, out SlotId dslot, out Vector2Int dtile))
+            {
+                Vector2Int approach = ApproachTileOf(dtile, entry);
+                PathResult dpath = _pathfinder().FindPath(entry.x, entry.y, approach.x, approach.y);
+                if (dpath.Kind != PathResultKind.Unreachable)
+                {
+                    _groupSiege[_strikeOrdinal] = new SiegeInfo
+                    {
+                        Slot = dslot, Tile = dtile,
+                        OrigTargetsVillagers = targetsVillagers, OrigTarget = target,
+                    };
+                    target = approach;
+                    path = dpath;
+                    siege = true;
+                    Debug.Log($"[Threat] 시설 우선 — {so.DisplayName}이(가) ({dtile.x},{dtile.y})을(를) 먼저 노린다");
+                }
+            }
             if (path.Kind == PathResultKind.Unreachable)
             {
                 // 공성 전환 (M22-W5, ADR-M22-2) — 방어 시설이 길을 막았으면 출몰을 접지 않고
@@ -770,7 +844,8 @@ namespace AIVillage.M0
                            p.Kind == PathResultKind.PathFound ? p.Waypoints : null,
                            _pathfinder(), targetsVillagers, // 추격 재경로용 + 이번 출몰 타깃 종류 (M10R)
                            _strikeOrdinal,                  // 무리 키 (M21-W6)
-                           mult);                           // 등급 배율 (M24-1차 W4)
+                           mult,                            // 등급 배율 (M24-1차 W4)
+                           ActiveTraits(race, PressureOf(race))); // 쓰는 수 (M24-1차 W5, 스폰 시 고정)
                 _active.Add(agent);
                 spawned++;
             }
@@ -1002,6 +1077,11 @@ namespace AIVillage.M0
             ExecuteStrike(agent.So, agent.TargetsVillagers, here);
             agent.PlayAttack(); // 공격 몸짓 (M22-3차 W5c — 표현 전용, 판정과 무관)
             agent.MarkStruck(_gameTime);
+
+            // 치고 빠지기 (M24-1차 W5, ExitOnGoal) — 한 대 치면 목적을 이룬 것이라 곧장 물러난다.
+            // 🔑 이 수가 만드는 질문은 "어떻게 버티나"가 아니라 **"어떻게 잡나"**다: 체류하지
+            // 않으므로 주민이 모여서 때릴 시간이 없고, 답은 추격이거나 길목의 망루다.
+            if (agent.HasTrait(InvaderTraitId.ExitOnGoal)) BeginExit(agent, "목적을 이뤘다");
         }
 
         /// <summary>사거리 안에 밭이 있는가 (M21-W2R). 반경 규칙은 ExecuteStrike의 후보 수집과

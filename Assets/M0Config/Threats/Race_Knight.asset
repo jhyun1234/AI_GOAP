@@ -35,6 +35,13 @@ MonoBehaviour:
   HungrySeasonChanceMult: 2
   HungrySeasonStayMult: 2
   MoveSpeed: 2.5
+  Traits:
+  - Id: 7
+    UnlockPressure: 6   # TargetDefense
+  - Id: 3
+    UnlockPressure: 12   # ApproachMultiPoint
+  - Id: 2
+    UnlockPressure: 20   # ApproachFlank
   SoloWave: 0
   Grades:
   - DisplayName: "종자"

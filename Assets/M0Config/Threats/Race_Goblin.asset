@@ -35,6 +35,15 @@ MonoBehaviour:
   HungrySeasonChanceMult: 2
   HungrySeasonStayMult: 2
   MoveSpeed: 2.5
+  Traits:
+  - Id: 4
+    UnlockPressure: 0   # ExitOnGoal
+  - Id: 6
+    UnlockPressure: 8   # ShortWarning
+  - Id: 2
+    UnlockPressure: 14   # ApproachFlank
+  - Id: 9
+    UnlockPressure: 22   # TrapLearning
   SoloWave: 0
   Grades:
   - DisplayName: "잡졸"

@@ -228,6 +228,105 @@ namespace AIVillage.Tests.EditMode
                 $"ThreatService가 SpawnCount를 아직 {calls}곳에서 부른다 — 마릿수 산식이 둘이 됐다 (ADR-M24-2)");
         }
 
+        // ── T4: 침입 특성 축 + 공정성 (W5) ────────────────────────────────────
+
+        /// <summary>이번 차수에 **답이 존재하는** 특성. 답이 없는 수는 에셋에 넣는 순간 red 여야 한다.
+        /// 🔑 이 목록이 명세의 순서를 기계로 강제한다 — 고블린의 창고 탈취는 창고 잠금(2차)이
+        /// 생기기 전에는 못 들어오고, 악마의 천사 저격은 천사(3차)가 생기기 전에는 못 들어온다.</summary>
+        private static readonly InvaderTraitId[] AnsweredInPhase1 =
+        {
+            InvaderTraitId.ExitOnGoal,          // 답 = 추격·망루 요격 (M22 3차 완료)
+            InvaderTraitId.NoFlee,              // 답 = 함정·다수 무장 (M22 3차 완료)
+            InvaderTraitId.ShortWarning,        // 답 = 상시 방어선 (M22 완료)
+            InvaderTraitId.TargetDefense,       // 답 = 망루 분산·이중화 (M22 3차 완료)
+            InvaderTraitId.ApproachFlank,       // 답 = 망루 재배치 (M22 3차 완료)
+            InvaderTraitId.ApproachMultiPoint,  // 답 = 전 방향 방어 (M22 완료)
+            InvaderTraitId.TrapLearning,        // 답 = 함정 재배치 (M22 3차 완료)
+        };
+
+        [Test]
+        public void M24_T4_ShippedTraits_HaveAnAnswerInThisPhase()
+        {
+            // 실패 가능성 증명 (M17 "실패 불가능한 테스트" 교훈) — **답이 없는 수는 실제로
+            // 목록 밖**이어야 한다. 이게 참이 아니면 아래 Assert.Contains 는 무엇이든
+            // 통과시키는 빈 검사가 되고, 게이트가 차수 순서를 전혀 못 막게 된다.
+            Assert.IsFalse(System.Array.IndexOf(AnsweredInPhase1, InvaderTraitId.TargetStorage) >= 0,
+                "창고 탈취(2차 몫, 답 = 창고 잠금)가 1차 답 목록에 있다 — 순서 강제가 무력화됐다");
+            Assert.IsFalse(System.Array.IndexOf(AnsweredInPhase1, InvaderTraitId.CommanderRout) >= 0,
+                "지휘관 붕괴(미배선)가 1차 답 목록에 있다");
+
+            int traits = 0;
+            foreach (string guid in AssetDatabase.FindAssets("t:ThreatSO"))
+            {
+                var so = AssetDatabase.LoadAssetAtPath<ThreatSO>(AssetDatabase.GUIDToAssetPath(guid));
+                if (so?.Traits == null) continue;
+                foreach (InvaderTrait t in so.Traits)
+                {
+                    if (t.Id == InvaderTraitId.None) continue;
+                    traits++;
+                    Assert.Contains(t.Id, AnsweredInPhase1,
+                        $"{so.name}: 특성 {t.Id} 의 답이 이번 차수에 없다 — 플레이어에게 대응 수단이 " +
+                        "없는 난이도가 된다. 답이 생기는 차수로 미룰 것 (명세 §4.2).");
+                    Assert.GreaterOrEqual(t.UnlockPressure, 0,
+                        $"{so.name}: {t.Id} 해금 압력이 음수다");
+                }
+            }
+            Assert.Greater(traits, 0, "배포 종족에 특성이 하나도 없다 — 축이 값에 없다");
+        }
+
+        [Test]
+        public void M24_T4_ActiveTraits_IsNeutralWhenUnwired()
+        {
+            // 중립 불변식 — 특성을 안 준 종족은 배선 전과 똑같이 군다.
+            ThreatSO bare = Race("BARE", 0f, 1);
+            Assert.AreEqual(0, ThreatService.ActiveTraits(bare, 999).Length,
+                "Traits 미배선인데 수가 생겼다 (중립 불변식 위반)");
+            Assert.IsFalse(ThreatService.Has(ThreatService.ActiveTraits(bare, 999), InvaderTraitId.NoFlee));
+            Object.DestroyImmediate(bare);
+        }
+
+        [Test]
+        public void M24_T4_ActiveTraits_UnlockMonotonicallyWithPressure()
+        {
+            // 압력이 오르면 수는 늘기만 한다 — 줄면 "세지다 말고 순해지는 적"이 된다.
+            ThreatSO r = Race("R", 0f, 1);
+            r.Traits = new[]
+            {
+                new InvaderTrait { Id = InvaderTraitId.ExitOnGoal,  UnlockPressure = 0 },
+                new InvaderTrait { Id = InvaderTraitId.ShortWarning, UnlockPressure = 8 },
+                new InvaderTrait { Id = InvaderTraitId.NoFlee,       UnlockPressure = 20 },
+            };
+            int prev = 0;
+            for (int p = 0; p <= 30; p++)
+            {
+                int n = ThreatService.ActiveTraits(r, p).Length;
+                Assert.GreaterOrEqual(n, prev, $"압력 {p}: 쓰는 수가 줄었다");
+                prev = n;
+            }
+            Assert.AreEqual(1, ThreatService.ActiveTraits(r, 0).Length, "압력 0 = 0짜리 하나");
+            Assert.AreEqual(3, ThreatService.ActiveTraits(r, 20).Length, "압력 20 = 셋 다");
+            Object.DestroyImmediate(r);
+        }
+
+        [Test]
+        public void M24_T4_NoRaceNameBranchingInCode()
+        {
+            // ADR-M24-4 — 종족 차이는 데이터다. 코드가 종족 이름으로 분기하면 새 종족이
+            // "에셋 1개"로 안 끝난다. 게임은 정상 동작하므로 이 게이트가 아니면 못 잡는다.
+            foreach (string path in new[]
+            {
+                "Assets/Scripts/M0/World/ThreatService.cs",
+                "Assets/Scripts/M0/World/CombatService.cs",
+                "Assets/Scripts/M0/Presentation/ThreatAgent.cs",
+            })
+            {
+                string src = System.IO.File.ReadAllText(path);
+                foreach (string race in new[] { "Race_Goblin", "Race_Orc", "Race_Knight", "Race_Demon" })
+                    Assert.IsFalse(src.Contains(race),
+                        $"{path}: 종족 이름 '{race}' 이 코드에 박혔다 (ADR-M24-4)");
+            }
+        }
+
         // ── 조우 카운트 규약 (ADR-M24-5) ──────────────────────────────────────
 
         [Test]

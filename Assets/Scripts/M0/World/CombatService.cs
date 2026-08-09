@@ -167,7 +167,11 @@ namespace AIVillage.M0
             // 🔑 분모는 **등급 배율이 곱해진 최대 체력**이다 (M24-1차 W4) — 종족 기본값을 그대로
             // 쓰면 두목(배율 2)은 절반만 깎여도 도주선 아래로 판정돼 잡졸보다 먼저 물러난다.
             float maxHp = so.MaxHp * target.GradeMult;
-            if (!target.IsFleeing && ShouldFlee(remain, maxHp, so.FleeBelowHpPct))
+            // 결사 (M24-1차 W5, NoFlee) — 이 수를 쓰는 개체는 물러나지 않는다. 격퇴가 아니라
+            // 전멸만이 끝이다. 🔑 도주선을 지우는 것이지 체력을 올리는 게 아니다 — 플레이어가
+            // 때린 만큼 진도가 나가는 감각은 그대로 두고, "언제 끝나는가"만 바꾼다.
+            if (!target.IsFleeing && !target.HasTrait(InvaderTraitId.NoFlee)
+                && ShouldFlee(remain, maxHp, so.FleeBelowHpPct))
             {
                 Debug.Log($"[Combat] 격퇴 — {so.DisplayName}이(가) 물러난다 " +
                           $"(체력 {remain:0}/{maxHp:0} < 도주선 {so.FleeBelowHpPct:P0})");

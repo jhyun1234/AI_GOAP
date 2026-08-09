@@ -35,6 +35,9 @@ MonoBehaviour:
   HungrySeasonChanceMult: 2
   HungrySeasonStayMult: 2
   MoveSpeed: 2.4
+  Traits:
+  - Id: 5
+    UnlockPressure: 0   # NoFlee
   SoloWave: 1
   Grades:
   - DisplayName: "타락천사"

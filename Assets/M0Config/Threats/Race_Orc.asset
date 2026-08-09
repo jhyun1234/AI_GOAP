@@ -35,6 +35,9 @@ MonoBehaviour:
   HungrySeasonChanceMult: 2
   HungrySeasonStayMult: 2
   MoveSpeed: 2.5
+  Traits:
+  - Id: 5
+    UnlockPressure: 10   # NoFlee
   SoloWave: 0
   Grades:
   - DisplayName: "전사"

@@ -21,25 +21,39 @@ namespace AIVillage.Tests.EditMode
             return t;
         }
 
+        // 🪦 M10_T3_PickTier_LadderAndPlateau — **M24-1차 W4에서 삭제.**
+        //
+        // 검사 대상(밴드 사다리)이 설계상 소멸했다: 예산제로 바뀌면서 "이번에 오는 것 = 활성
+        // 밴드 1개"라는 개념 자체가 없어졌다. 그 게이트가 지키던 두 성질은 흩어져 계승됐다:
+        //   ① 게임일 래칫(열린 종족은 안 닫힌다) → `UnlockedRaces`가 유지, M24_T5가 감시
+        //   ② 결정성(같은 입력 = 같은 결과)      → M24_T5_BuyWave_IsDeterministic
+        // 舊 "플래토"(등록 밖 상위가 없으면 최신 밴드 반복)는 폐기다 — 예산제에서는 상위가
+        // 없어도 **같은 종족이 더 많이** 오므로 곡선이 평평해지지 않는다.
+
         [Test]
-        public void M10_T3_PickTier_LadderAndPlateau()
+        public void M24_UnlockedRaces_IsRatchetAndOrderStable()
         {
-            // 축 = 게임일 (ADR-M10R-1 시간 래칫). 0/12/16 은 잠금 게임일.
+            // ①의 계승 — 게임일이 오르면 후보가 늘기만 하고 줄지 않는다 (ADR-M10R-1의 잔존분).
             ThreatSO t1 = Tier("T1", 0), t2 = Tier("T2", 12), t3 = Tier("T3", 16);
-            var threats = new[] { t1, t2, t3 };
+            var races = new[] { t1, t2, t3 };
 
-            Assert.AreSame(t1, ThreatService.PickTier(threats, 10f), "Day 10 = 밴드1 (12 미달)");
-            Assert.AreSame(t2, ThreatService.PickTier(threats, 12f), "잠금일 도달 = 밴드2");
-            Assert.AreSame(t3, ThreatService.PickTier(threats, 16f), "Day 16 = 밴드3");
-            Assert.AreSame(t3, ThreatService.PickTier(threats, 999f), "등록 밖 상위 없음 = 최신 밴드 반복 (플래토, ADR-M10R-1)");
-            Assert.IsNull(ThreatService.PickTier(new ThreatSO[0], 10f), "빈 등록 = 위협 없음 (중립 불변식)");
-            Assert.IsNull(ThreatService.PickTier(new[] { Tier("T5", 50f) }, 10f), "전 밴드 미달 = null");
+            Assert.AreEqual(1, ThreatService.UnlockedRaces(races, 10f).Count, "Day 10 = T1만");
+            Assert.AreEqual(2, ThreatService.UnlockedRaces(races, 12f).Count, "잠금일 도달 = 둘");
+            Assert.AreEqual(3, ThreatService.UnlockedRaces(races, 999f).Count, "먼 미래 = 전부");
+            Assert.AreEqual(0, ThreatService.UnlockedRaces(new ThreatSO[0], 10f).Count,
+                "빈 등록 = 위협 없음 (중립 불변식)");
 
-            // 동률 = 배열 앞 우선 (결정적)
-            ThreatSO dupA = Tier("A", 5f), dupB = Tier("B", 5f);
-            Assert.AreSame(dupA, ThreatService.PickTier(new[] { dupA, dupB }, 10f), "UnlockDay 동률 = 배열 앞");
+            int prev = 0;
+            for (float d = 0f; d <= 40f; d += 1f)
+            {
+                int n = ThreatService.UnlockedRaces(races, d).Count;
+                Assert.GreaterOrEqual(n, prev, $"Day {d}: 해금된 종족이 줄었다 — 래칫 위반");
+                prev = n;
+            }
+            // 배열 순서 보존 (결정성의 전제)
+            Assert.AreSame(t1, ThreatService.UnlockedRaces(races, 999f)[0], "순서가 흔들리면 편성도 흔들린다");
 
-            foreach (ThreatSO t in new[] { t1, t2, t3, dupA, dupB }) Object.DestroyImmediate(t);
+            foreach (ThreatSO t in races) Object.DestroyImmediate(t);
         }
 
         [Test]

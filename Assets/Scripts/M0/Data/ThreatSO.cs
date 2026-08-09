@@ -112,6 +112,35 @@ namespace AIVillage.M0
                  "게임일 래칫(ADR-M10R-1)이 그대로 소유한다.")]
         public float HungrySeasonStayMult = 2f;
 
+        /// <summary>개체 등급 한 칸 (M24-1차 W4) — 팩의 종족별 4변종이 그대로 등급이 된다
+        /// (고블린 잡졸·정찰병·두목·대두목). 예산이 이 목록에서 개체를 산다.</summary>
+        [System.Serializable]
+        public struct Grade
+        {
+            [Tooltip("표시명 (예: 두목). 로그·예고에 쓰인다.")]
+            public string DisplayName;
+
+            [Tooltip("이 개체를 사는 데 드는 압력 점수. 클수록 드물게, 대신 강하게 온다.")]
+            public int PointCost;
+
+            [Tooltip("체력·타격 피해 배율. 1 = 종족 기본값 그대로. " +
+                     "⚠️ 이동·공격 속도에는 안 걸린다 — 개입 창 불변식(I1)을 지키기 위해서다.")]
+            public float StatMult;
+        }
+
+        [Tooltip("이 종족은 **단독 웨이브로만** 온다 (M24-1차 W4). 정규 편성(예산 구매)에 섞이지 않고, " +
+                 "WorldConfig.DemonWaveEveryDays 주기에 그 회차를 통째로 가져간다.\n" +
+                 "🔑 코드에 '악마'를 박지 않기 위한 칸이다 (ADR-M24-4: 종족 차이는 데이터다) — " +
+                 "나중에 다른 보스 종족이 생겨도 이 체크 하나면 된다.")]
+        public bool SoloWave;
+
+        [Header("등급 (M24-1차 W4 — 예산이 여기서 개체를 산다)")]
+        [Tooltip("등급 목록. **비어 있으면 종족 기본값 1등급(비용 1·배율 1)으로 취급**한다 — " +
+                 "배선 전과 동일한 동작(중립 불변식).\n" +
+                 "🔑 구매 절차는 '상위 1(지휘관) + 나머지 하위 채움'이라, 지휘관/졸개 구조가 " +
+                 "값에서 저절로 나온다. 비용을 오름차순으로 적을 것.")]
+        public Grade[] Grades;
+
         [Header("압력 (M24-1차 W3 — ADR-M24-1)")]
         [Tooltip("조우 1회가 이 종족의 유효압력에 얹는 점수 (k). 유효압력 = 전역압력 + ⌊조우 × k⌋.\n" +
                  "이 값이 **'나에게 적응하는 적'의 체감 속도**다 — 크면 몇 번만 만나도 새 수를 쓰고, " +

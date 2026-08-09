@@ -35,6 +35,11 @@ MonoBehaviour:
   HungrySeasonChanceMult: 2
   HungrySeasonStayMult: 2
   MoveSpeed: 2.4
+  SoloWave: 1
+  Grades:
+  - DisplayName: "타락천사"
+    PointCost: 10
+    StatMult: 1
   EncounterPressureK: 0.2
   BodyColor: {r: 0.55, g: 0.15, b: 0.45, a: 1}
   ForecastLines:

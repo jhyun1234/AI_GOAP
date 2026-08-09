@@ -163,11 +163,14 @@ namespace AIVillage.M0
                 return HitOutcome.Killed;
             }
 
-            // 전이 순간 1회만 — 이미 도주 중이면 계속 때려도 격퇴 사건을 다시 부르지 않는다
-            if (!target.IsFleeing && ShouldFlee(remain, so.MaxHp, so.FleeBelowHpPct))
+            // 전이 순간 1회만 — 이미 도주 중이면 계속 때려도 격퇴 사건을 다시 부르지 않는다.
+            // 🔑 분모는 **등급 배율이 곱해진 최대 체력**이다 (M24-1차 W4) — 종족 기본값을 그대로
+            // 쓰면 두목(배율 2)은 절반만 깎여도 도주선 아래로 판정돼 잡졸보다 먼저 물러난다.
+            float maxHp = so.MaxHp * target.GradeMult;
+            if (!target.IsFleeing && ShouldFlee(remain, maxHp, so.FleeBelowHpPct))
             {
                 Debug.Log($"[Combat] 격퇴 — {so.DisplayName}이(가) 물러난다 " +
-                          $"(체력 {remain:0}/{so.MaxHp:0} < 도주선 {so.FleeBelowHpPct:P0})");
+                          $"(체력 {remain:0}/{maxHp:0} < 도주선 {so.FleeBelowHpPct:P0})");
                 OnRepelled?.Invoke(so, attackerId, day);
                 target.BeginFlee(); // 도주 전환의 문 — 퇴장 경로는 ThreatService가 부여한다
                 EvaluateRout(so, target.GroupKey, attackerId, day);

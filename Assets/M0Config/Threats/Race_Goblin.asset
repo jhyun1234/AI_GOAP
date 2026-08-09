@@ -35,6 +35,20 @@ MonoBehaviour:
   HungrySeasonChanceMult: 2
   HungrySeasonStayMult: 2
   MoveSpeed: 2.5
+  SoloWave: 0
+  Grades:
+  - DisplayName: "잡졸"
+    PointCost: 1
+    StatMult: 1
+  - DisplayName: "정찰병"
+    PointCost: 2
+    StatMult: 1.2
+  - DisplayName: "두목"
+    PointCost: 4
+    StatMult: 1.8
+  - DisplayName: "대두목"
+    PointCost: 7
+    StatMult: 2.6
   EncounterPressureK: 0.5
   BodyColor: {r: 0.35, g: 0.65, b: 0.25, a: 1}
   ForecastLines:

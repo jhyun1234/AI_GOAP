@@ -772,26 +772,34 @@ namespace AIVillage.Tests.EditMode
             // W7 DoD ② 기구 — 사망 후 다음 발동(과 예고)이 +2일 늦다. 예고 시각으로 검산한다:
             // 예고와 발동은 한 시계(Tick)라 예고가 밀리면 발동도 민다 (Spawn까지 가면 경로탐색이
             // 필요해 순수 검산이 안 된다 — 예고가 관측 가능한 가장 이른 지점).
+            // 🔁 M24-1차 W4: 주기의 원천이 **종족 PeriodDays 에서 전역 WavePeriodDays 로** 옮겨졌다
+            // (밴드 폐지). 舊 판은 늑대의 6일을 손으로 박아 Day 5/7 을 기대했는데, 그러면 계수를
+            // 만질 때마다 이 게이트가 red 가 된다. 지키려던 것은 특정 날짜가 아니라
+            // **"사망이 예고를 정확히 ReliefDelayDays 만큼 민다"**이므로 그 관계로 다시 쓴다.
             var cfg = ScriptableObject.CreateInstance<WorldConfigSO>();
-            var tier = NewTier(0f, 6f, 1f); // 예고 = 발동 1일 전 = Day 5
+            var tier = NewTier(0f, 6f, 1f); // PeriodDays 6 은 이제 휴면 — 주기는 cfg 가 준다
+            float warn = tier.WarnDays;
+            float t0 = cfg.WavePeriodDays - warn;                 // 평시 예고 시각
+            float t1 = cfg.WavePeriodDays + cfg.ThreatReliefDelayDays - warn; // 사망 후 예고 시각
 
             var plain = new ThreatService(new[] { tier }, null, null, null, cfg, null, null, null);
-            plain.Tick(4.9f);
-            Assert.IsNull(plain.Forecasting, "기준선: Day 4.9 는 아직 예고 전");
-            plain.Tick(5.0f);
-            Assert.IsNotNull(plain.Forecasting, "기준선: Day 5.0 예고 (6 − 1)");
+            plain.Tick(t0 - 0.1f);
+            Assert.IsNull(plain.Forecasting, $"기준선: Day {t0 - 0.1f} 는 아직 예고 전");
+            plain.Tick(t0);
+            Assert.IsNotNull(plain.Forecasting, $"기준선: Day {t0} 예고 (주기 − 예고일)");
 
             var grieving = new ThreatService(new[] { tier }, null, null, null, cfg, null, null, null);
-            grieving.NotifyVillagerDeath(); // +2일
-            grieving.Tick(5.0f);
-            Assert.IsNull(grieving.Forecasting, "사망 후엔 Day 5 에 예고가 없다 — 발동이 밀렸다");
-            grieving.Tick(6.9f);
-            Assert.IsNull(grieving.Forecasting, "Day 6.9 도 아직 (6 + 2 − 1 = 7)");
-            grieving.Tick(7.0f);
-            Assert.IsNotNull(grieving.Forecasting, "Day 7.0 예고 — 정확히 +2일 (DoD ②)");
+            grieving.NotifyVillagerDeath(); // +ReliefDelayDays
+            grieving.Tick(t0);
+            Assert.IsNull(grieving.Forecasting, "사망 후엔 평시 예고 시각에 예고가 없다 — 발동이 밀렸다");
+            grieving.Tick(t1 - 0.1f);
+            Assert.IsNull(grieving.Forecasting, $"Day {t1 - 0.1f} 도 아직");
+            grieving.Tick(t1);
+            Assert.IsNotNull(grieving.Forecasting,
+                $"Day {t1} 예고 — 정확히 +{cfg.ThreatReliefDelayDays}일 (DoD ②)");
 
             // HUD 카운트다운도 같은 시계를 읽는다 — 판정과 표시가 갈리면 "1일 후"가 거짓말이 된다
-            Assert.AreEqual(1f, grieving.DaysToStrike(7.0f), 1e-3f, "예고 시점 잔여 = WarnDays");
+            Assert.AreEqual(warn, grieving.DaysToStrike(t1), 1e-3f, "예고 시점 잔여 = WarnDays");
 
             Object.DestroyImmediate(tier);
             Object.DestroyImmediate(cfg);

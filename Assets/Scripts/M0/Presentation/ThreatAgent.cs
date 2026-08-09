@@ -65,6 +65,10 @@ namespace AIVillage.M0
         /// 정한다 (ADR-M21-8: 위협의 죽음도 문 하나).</summary>
         public float Hp { get; private set; }
 
+        /// <summary>등급 배율 (M24-1차 W4) — 체력·타격 피해에 곱해진 값. 1 = 종족 기본.
+        /// 도주선 판정이 `MaxHp × 배율`을 분모로 써야 하므로 개체가 기억한다.</summary>
+        public float GradeMult { get; private set; } = 1f;
+
         /// <summary>도주 전환 여부 (M21-W2) — 격퇴 사건의 표식. 도주한 개체는 다시 싸우지 않는다.</summary>
         public bool IsFleeing { get; private set; }
 
@@ -95,9 +99,12 @@ namespace AIVillage.M0
         private Vector2Int _lastChaseTile;
         private float _nextWanderAt;    // 배회 재선정 쿨다운 (WANDER_REPICK_SEC)
 
+        /// <param name="gradeMult">등급 배율 (M24-1차 W4) — 체력·타격 피해에만 곱한다.
+        /// ⚠️ 이동·공격 속도에는 안 건다: 개입 창 불변식(I1)이 그 둘에 걸려 있어서, 배율이
+        /// 거기까지 가면 압력이 오를수록 플레이어가 반응할 시간이 사라진다.</param>
         public void Init(ThreatSO so, ThreatService svc, Vector2Int entry, Vector2Int target,
                          List<Vector2Int> waypoints, IPathfinder pathfinder, bool targetsVillagers,
-                         int groupKey)
+                         int groupKey, float gradeMult = 1f)
         {
             So = so;
             _svc = svc;
@@ -110,7 +117,11 @@ namespace AIVillage.M0
             _pathfinder = pathfinder;
             _lastChaseTile = target;
             _chaseGiveUpAt = Time.time + CHASE_GIVEUP_SEC;
-            Hp = so.MaxHp; // M21-W2 — 개체 편차 없음 (몸값 불가침, 주민 체력과 같은 사상)
+            // M21-W2 — 개체 편차 없음 (몸값 불가침, 주민 체력과 같은 사상).
+            // M24-1차 W4: 편차가 아니라 **등급**은 있다 (두목은 잡졸보다 단단하다). 배율은
+            // 예산이 산 등급에서 오고, 같은 등급끼리는 여전히 편차가 0이다.
+            GradeMult = Mathf.Max(0.01f, gradeMult);
+            Hp = so.MaxHp * GradeMult;
 
             // 시각 (M22-3차 W5c): 스프라이트 세트가 있으면 주민과 **같은 애니메이터**를 쓴다
             // (AgentAnimator는 주민 타입을 모른다 — 후반 확장 규칙 ①의 배당금).

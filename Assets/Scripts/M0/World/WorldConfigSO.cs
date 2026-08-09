@@ -96,6 +96,24 @@ namespace AIVillage.M0
                  "ADR-M10R-1이 고친 음성 피드백 루프가 그대로 돌아온다 (게이트 M24-T2가 감시).")]
         public int PressurePopPerPoint = 4;
 
+        [Tooltip("웨이브 주기 (게임일) — **전역 고정**. 압력은 편성 규모만 키우고 빈도는 안 건드린다.\n" +
+                 "🔑 사용자 결정(2026-08-10): 舊 밴드는 위로 갈수록 주기가 짧아졌지만(6→5→4) 그 축을 " +
+                 "가져오지 않는다. 울타리 수리(1:5)·목수·재건은 **출몰 사이의 시간**을 전제로 만든 " +
+                 "장치라, 주기를 압력에 걸면 M22 자산이 후반에 조용히 죽는다.\n" +
+                 "제안 5 — 舊 밴드 6/5/5/4의 가운데 (새로 발명한 수가 아니다).")]
+        public float WavePeriodDays = 5f;
+
+        [Tooltip("악마 웨이브 간격 (게임일). 이 주기마다 정규 편성 **대신** 악마만 온다 — 예산을 " +
+                 "쓰지 않는 단독 편성이다. 첫 등장은 악마 종족의 UnlockDay와 이 값 중 늦은 쪽.\n" +
+                 "빈도의 리듬을 여기 하나에 몰아 둔 이유는 위 WavePeriodDays 주석 참조. 제안 25.")]
+        public float DemonWaveEveryDays = 25f;
+
+        [Tooltip("악마 마릿수가 1 늘어나는 데 걸리는 게임일 (첫 등장일 기준). 제안 30.")]
+        public float DemonCountGrowthDays = 30f;
+
+        [Tooltip("악마 마릿수 상한. 제안 4.")]
+        public int DemonCountMax = 4;
+
         // (M22-W3R의 DefenseZoneMinSide는 W3R2 줄 누적 모델로 폐기=삭제 — 줄 최소 길이 2는
         //  밸런스가 아니라 알고리즘 상수라 코드에 있다. 나무 재고가 자연 상한.)
 

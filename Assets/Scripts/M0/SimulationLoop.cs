@@ -1050,7 +1050,10 @@ namespace AIVillage.M0
                                             _agents, _worldConfig, () => ThreatPathfinder,
                                             (x, y) => MapBounds.ToArrayIndex(x, y, out int ax, out int ay)
                                                       && ThreatWalkable[ax, ay],
-                                            transform, Defense); // Defense = 공성 대상 조회 (M22-W5)
+                                            transform, Defense, // Defense = 공성 대상 조회 (M22-W5)
+                                            // 예산의 성장 항 (M24-1차 W4) — **역대 최고** 인구다.
+                                            // 현재 인구(_agents.Count)를 넘기면 ADR-M24-1 위반.
+                                            () => PeakPopulation);
                 // 공성 표현 (M22-W5) — 판정은 서비스, 여기는 알림·대사만 (M10-C ⚠️③)
                 Threats.OnStructureStruck += (t, slot, tile, remain, max) =>
                 {
@@ -1379,8 +1382,11 @@ namespace AIVillage.M0
                         int farms = World.GetStock(SlotId.FarmPlotCount);
                         int houses = World.GetStock(SlotId.HouseCount);
                         int scale = ThreatService.VillageScale(alive, farms, houses); // 정보용 — 게이팅 아님
-                        ThreatSO tier = ThreatService.PickTier(_worldConfig.Threats, GameTime); // 시간 래칫
-                        threatStr = $"마을{scale}(주민{alive}+밭{farms}+집{houses}) 활성위협={(tier != null ? tier.DisplayName : "없음")}(Day{day})";
+                        // M24-1차 W4: 밴드(PickTier)가 사라졌다. 일지에 남길 것은 "지금 활성 밴드"가
+                        // 아니라 **압력**이다 — 예산·스탯·전략 해금이 전부 그 하나를 읽는다.
+                        int pressure = Threats != null ? Threats.CurrentGlobalPressure(PeakPopulation) : 0;
+                        threatStr = $"마을{scale}(주민{alive}+밭{farms}+집{houses}) 압력={pressure} " +
+                                    $"최고인구={PeakPopulation}(Day{day})";
                     }
                     // 성격별 행동 프로파일 (M12-J) — 하루 경계에 얹되 자체 주기로 스스로 솎는다.
                     Profiler.Tick(GameTime, _worldConfig.ProfilerIntervalDays, _agents);

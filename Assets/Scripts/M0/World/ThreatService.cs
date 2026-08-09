@@ -44,7 +44,14 @@ namespace AIVillage.M0
         // 🔑 조우 = **출몰**이다 (ADR-M24-5). 격퇴 성공만 세면 지는 판에서 압력이 멈춰
         // "약한 마을은 영영 안 배우는 적을 만난다"가 되고, 무엇보다 단조가 깨질 여지가 생긴다.
         private readonly Dictionary<string, int> _encounters = new Dictionary<string, int>(4);
-        private ThreatSO _pending;      // 예고~발동 사이 고정 — 예고한 그 위협이 온다
+        private readonly HashSet<string> _seenBuf = new HashSet<string>();  // 편성 내 종족 중복 제거용
+        private readonly Func<int> _peakPopulation;                          // 역대 최고 인구 (예산의 성장 항)
+        // 예고~발동 사이 고정 (ADR-M24-3: 편성은 예고 시점에 확정된다 — 예고한 그 편성이 온다).
+        // 발동 시점에 다시 계산하면 "3일 뒤 오크"라고 알려 놓고 고블린이 오는 일이 생긴다.
+        private List<WaveEntry> _pendingWave;
+        private ThreatSO _pendingPrimary;  // 편성의 주력 (예산 최다) — 화면 문구·술렁임의 화자
+        private bool _pendingSolo;         // 악마 단독 웨이브인가
+        private float _lastSoloDay = -1f;  // 마지막 단독 웨이브 게임일. 세이브 대상 (ADR-M0-10)
         private float _gameTime;        // 최근 틱의 게임일 (M21-W2) — 체류·재타격 판정의 시계.
                                         // 개체는 Update(실시간)로 돌지만 주기는 게임일이라 여기서 받아 쓴다
 
@@ -107,22 +114,38 @@ namespace AIVillage.M0
         private static readonly VillagerAgent[] EmptyVictims = Array.Empty<VillagerAgent>();
         private readonly List<VillagerAgent> _struckBuf = new List<VillagerAgent>(8);
 
-        /// <summary>예고 구간 진행 중인 위협 (주민 술렁임 판독용 — Season.NextCrisis 패턴). null = 평시.</summary>
-        public ThreatSO Forecasting => _pending;
+        /// <summary>예고 구간의 **주력 종족** (주민 술렁임·HUD 판독용 — Season.NextCrisis 패턴).
+        /// null = 평시. 편성이 여럿이어도 화면 문구는 하나를 골라야 하므로 예산을 가장 많이 쓴
+        /// 종족을 내보낸다 (M24-1차 W4 — 舊 단일 밴드 자리의 계승).</summary>
+        public ThreatSO Forecasting => _pendingPrimary;
+
+        /// <summary>예고 구간의 **전체 편성** (M24-1차 W4) — 예고 UI(W8)가 읽는다. null = 평시.</summary>
+        public IReadOnlyList<WaveEntry> ForecastingWave => _pendingWave;
+
+        /// <summary>이번 예고가 악마 단독 웨이브인가 (M24-1차 W4).</summary>
+        public bool ForecastingSolo => _pendingSolo;
 
         /// <summary>발동까지 남은 게임일 (M13-B) — 예고 중이 아니면 음수. 표시 전용 파생값:
         /// 쓰기 없음, 예고·발동 판정은 Tick이 그대로 소유한다 (ADR-M0-3 상태 쓰기 단일 지점).
-        /// 기존 예고 알림(WarnDays 상수 1회)과 달리 매일 줄어드는 카운트다운의 원천.</summary>
+        /// 주기는 이제 **전역 고정**이다 (M24-1차 W4 — 밴드가 사라져 종족별 PeriodDays는 휴면).</summary>
         public float DaysToStrike(float gameTime)
-            => _pending == null ? -1f
-                                : _lastStrikeDay + _pending.PeriodDays + _delayDays - gameTime; // 지연 포함 (M21-W7) — 판정(Tick)과 같은 시계
+            => _pendingWave == null ? -1f
+                                    : _lastStrikeDay + WavePeriod + _delayDays - gameTime; // 지연 포함 (M21-W7)
+
+        /// <summary>전역 웨이브 주기 — 미배선이면 5 (에셋 기본값과 같은 수, 중립).</summary>
+        private float WavePeriod => _config != null && _config.WavePeriodDays > 0f
+                                  ? _config.WavePeriodDays : 5f;
 
         public ThreatService(ThreatSO[] threats, SeasonService season,
                              ConstructionService construction, IReadOnlyList<VillagerAgent> agents,
                              WorldConfigSO config, Func<IPathfinder> pathfinder,
                              Func<int, int, bool> isWalkable, Transform parent,
-                             DefenseService defense = null)
+                             DefenseService defense = null,
+                             Func<int> peakPopulation = null)
         {
+            // 역대 최고 인구 (M24-1차 W3·W4) — 예산의 성장 항. 미배선이면 0 = 시간 항만 (중립).
+            // 🔴 현재 인구를 넘기면 ADR-M24-1 위반이다 (게이트 M24-T2가 그 계약을 지킨다).
+            _peakPopulation = peakPopulation ?? (() => 0);
             _threats = threats ?? Array.Empty<ThreatSO>();
             _season = season;
             _construction = construction;
@@ -321,20 +344,149 @@ namespace AIVillage.M0
              : GlobalPressure(_gameTime, peakPopulation,
                               _config.PressureDaysPerPoint, _config.PressurePopPerPoint);
 
-        /// <summary>활성 밴드 (순수, ADR-M10R-1): UnlockDay ≤ day 중 최신(최대 UnlockDay). 동률은 배열 앞.
-        /// 충족 밴드가 없으면 null. 게임일은 단조 증가 → 한 번 열린 밴드는 닫히지 않는다(래칫 — 사망해도
-        /// 위협이 강등되지 않는다, §0 음성 피드백 루프 해소).</summary>
-        public static ThreatSO PickTier(ThreatSO[] threats, float day)
+        // ── 편성 구매 (M24-1차 W4 — 舊 PickTier의 자리) ───────────────────────
+        //
+        // 舊 구조는 "활성 밴드 1개 = 이번에 오는 것"이었다(PickTier). 밴드는 게임일 래칫으로
+        // 한 번 열리면 안 닫혔고, 그래서 **후반엔 초반 종족을 다시 못 봤다**.
+        // 예산제는 그 자리를 바꾼다: 압력이 점수를 주고, 스케줄러가 그 점수로 개체를 산다.
+        // 후반 고블린은 사라지는 대신 **여럿이 되어** 돌아온다.
+
+        /// <summary>이번 웨이브의 한 칸 — 어느 종족의 몇 등급이 몇 마리인가.</summary>
+        public readonly struct WaveEntry
         {
-            ThreatSO best = null;
-            if (threats != null)
-                foreach (ThreatSO t in threats)
+            public readonly ThreatSO Race;
+            public readonly int Grade;   // Race.Grades 인덱스 (Grades가 비면 0 = 기본)
+            public readonly int Count;
+            public WaveEntry(ThreatSO race, int grade, int count) { Race = race; Grade = grade; Count = count; }
+        }
+
+        /// <summary>등급 비용 (순수) — Grades 미배선이면 1 (중립: 예산 = 마릿수).</summary>
+        public static int GradeCost(ThreatSO so, int grade)
+            => so?.Grades == null || so.Grades.Length == 0 ? 1
+             : Mathf.Max(1, so.Grades[Mathf.Clamp(grade, 0, so.Grades.Length - 1)].PointCost);
+
+        /// <summary>등급 배율 (순수) — Grades 미배선이면 1 (중립: 종족 기본 스탯 그대로).</summary>
+        public static float GradeMult(ThreatSO so, int grade)
+            => so?.Grades == null || so.Grades.Length == 0 ? 1f
+             : Mathf.Max(0.01f, so.Grades[Mathf.Clamp(grade, 0, so.Grades.Length - 1)].StatMult);
+
+        /// <summary>해금된 종족만 (순수) — UnlockDay ≤ day. 배열 순서 보존(결정성).</summary>
+        public static List<ThreatSO> UnlockedRaces(ThreatSO[] races, float day, ThreatSO exclude = null)
+        {
+            var list = new List<ThreatSO>(4);
+            if (races == null) return list;
+            foreach (ThreatSO r in races)
+                if (r != null && r != exclude && r.UnlockDay <= day) list.Add(r);
+            return list;
+        }
+
+        /// <summary>
+        /// 이번 웨이브 편성 (순수·결정적 — 게이트 M24-T5). 시드는 출몰 서수 (ADR-M10R-2 계승:
+        /// 같은 판 같은 서수 = 같은 편성).
+        ///
+        /// 절차: ①종족 수를 뽑는다(압력이 클수록 여럿) ②예산을 나눈다
+        ///       ③각 종족은 **살 수 있는 가장 비싼 등급 1(지휘관) + 남은 예산을 최하 등급으로 채움**
+        ///
+        /// 🔴 "비싼 것부터 계속 산다"로 짜면 **항상 최고 등급 1마리**만 나와 편성이 하나로 굳는다
+        /// (예산제의 고전적 함정 — 게이트 M24-T5가 감시). 지휘관을 하나만 사는 이유가 그것이고,
+        /// 남은 예산을 버리지 않고 최하 등급으로 채우는 이유는 압력이 올라도 마릿수가 안 늘면
+        /// 곡선이 계단으로 끊기기 때문이다.
+        /// </summary>
+        public static List<WaveEntry> BuyWave(IReadOnlyList<ThreatSO> races, int budget, int ordinal)
+        {
+            var wave = new List<WaveEntry>(3);
+            if (races == null || races.Count == 0 || budget <= 0) return wave;
+
+            // ① 종족 수 — 예산이 커질수록 섞인다. 상한은 해금된 종족 수.
+            int kinds = Mathf.Clamp(1 + budget / 8, 1, races.Count);
+
+            // 시작 종족을 서수로 회전시킨다 — 같은 예산이라도 서수가 다르면 다른 조합이 나온다.
+            uint h = StableHash.Fnv1a(ordinal.ToString(), "wave");
+            int start = races.Count == 0 ? 0 : (int)(h % (uint)races.Count);
+
+            int left = budget;
+            for (int i = 0; i < kinds && left > 0; i++)
+            {
+                ThreatSO race = races[(start + i) % races.Count];
+                // ② 남은 종족 수로 예산을 나눈다 (마지막 종족이 잔액을 전부 받는다)
+                int share = i == kinds - 1 ? left : Mathf.Max(1, left / (kinds - i));
+
+                // ③ 지휘관 1 — share 로 살 수 있는 가장 비싼 등급
+                int top = -1, topCost = 0;
+                int gradeCount = race.Grades == null || race.Grades.Length == 0 ? 1 : race.Grades.Length;
+                for (int g = 0; g < gradeCount; g++)
                 {
-                    if (t == null || t.UnlockDay > day) continue;
-                    if (best == null || t.UnlockDay > best.UnlockDay) best = t;
+                    int c = GradeCost(race, g);
+                    if (c <= share && c >= topCost) { top = g; topCost = c; }
                 }
+                if (top < 0) continue;      // 최하 등급조차 못 산다 — 이 종족은 이번엔 안 온다
+                left -= topCost;
+                share -= topCost;
+
+                // 졸개 — 최하 등급(0)으로 남은 몫을 채운다
+                int baseCost = GradeCost(race, 0);
+                int minions = top == 0 ? 0 : share / Mathf.Max(1, baseCost);
+                left -= minions * baseCost;
+
+                if (top != 0) wave.Add(new WaveEntry(race, top, 1));
+                if (minions > 0) wave.Add(new WaveEntry(race, 0, minions));
+                if (top == 0) wave.Add(new WaveEntry(race, 0, 1));
+            }
+            return wave;
+        }
+
+        /// <summary>단독 웨이브 종족 (순수) — `SoloWave` 표시가 붙은 첫 종족. 없으면 null.
+        /// 코드에 "악마"를 박지 않기 위한 조회다 (ADR-M24-4).</summary>
+        public static ThreatSO SoloRace(ThreatSO[] races)
+        {
+            if (races == null) return null;
+            foreach (ThreatSO r in races) if (r != null && r.SoloWave) return r;
+            return null;
+        }
+
+        /// <summary>편성의 주력 (순수) — 점수를 가장 많이 쓴 종족. 동률은 앞선 칸 (결정적).</summary>
+        public static ThreatSO PrimaryOf(IReadOnlyList<WaveEntry> wave)
+        {
+            if (wave == null) return null;
+            ThreatSO best = null; int bestSpend = -1;
+            foreach (WaveEntry e in wave)
+            {
+                int total = 0;                      // 같은 종족이 여러 칸(지휘관+졸개)이라 합산한다
+                foreach (WaveEntry f in wave)
+                    if (f.Race == e.Race) total += GradeCost(f.Race, f.Grade) * f.Count;
+                if (total > bestSpend) { bestSpend = total; best = e.Race; }
+            }
             return best;
         }
+
+        /// <summary>편성 한 줄 요약 (로그·예고용).</summary>
+        public static string Describe(IReadOnlyList<WaveEntry> wave)
+        {
+            if (wave == null || wave.Count == 0) return "(빈 편성)";
+            var sb = new System.Text.StringBuilder(48);
+            for (int i = 0; i < wave.Count; i++)
+            {
+                WaveEntry e = wave[i];
+                string grade = e.Race.Grades != null && e.Race.Grades.Length > e.Grade
+                             && !string.IsNullOrEmpty(e.Race.Grades[e.Grade].DisplayName)
+                             ? " " + e.Race.Grades[e.Grade].DisplayName : "";
+                if (i > 0) sb.Append(" · ");
+                sb.Append(e.Race.DisplayName).Append(grade);
+                if (e.Count > 1) sb.Append(" ×").Append(e.Count);
+            }
+            return sb.ToString();
+        }
+
+        /// <summary>단독 웨이브 간격 — 미배선이면 25 (에셋 기본값과 같은 수, 중립).</summary>
+        private float SoloEvery => _config != null && _config.DemonWaveEveryDays > 0f
+                                 ? _config.DemonWaveEveryDays : 25f;
+
+        /// <summary>악마 웨이브 마릿수 (순수 — 게이트 M24-T5). 게임일 함수라 단조다.</summary>
+        public static int DemonCount(float gameDay, float firstDay, float growEveryDays, int max)
+            => growEveryDays <= 0f
+             ? Mathf.Clamp(1, 1, Mathf.Max(1, max))
+             : Mathf.Clamp(1 + Mathf.FloorToInt(Mathf.Max(0f, gameDay - firstDay) / growEveryDays),
+                           1, Mathf.Max(1, max));
 
         /// <summary>이번 출몰이 주민을 노리는가 (순수·결정적, ADR-M10R-2·3): 출몰 서수 시드로 [0,1) 분수를
         /// 만들어 chance와 비교. 진입점 시드와 다른 솔트("|tgt")로 상관 차단 (동쪽=항상 주민 같은 편향 방지).
@@ -465,42 +617,81 @@ namespace AIVillage.M0
             // 예고 진입 — 밴드는 예고 시점 게임일로 확정하고 발동까지 고정 (예고한 그놈이 온다).
             // 지연(_delayDays, M21-W7)은 예고·발동 **둘 다**에 얹는다 — 예고만 제때 나가고 발동이
             // 늦으면 "1일 후"가 거짓말이 된다 (예고 문구와 실제 간격은 한 값이어야 한다).
-            if (_pending == null)
+            if (_pendingWave == null)
             {
-                ThreatSO tier = PickTier(_threats, gameTime); // 규모 아님 — 시간 래칫 (ADR-M10R-1)
-                if (tier == null) return; // 전 밴드 미달 — 위협 없음 (스케줄도 흐르지 않는다)
+                // 해금 판정만 게임일 래칫을 그대로 쓴다 (ADR-M10R-1) — 열린 종족은 안 닫힌다.
+                ThreatSO solo = SoloRace(_threats);
+                List<ThreatSO> pool = UnlockedRaces(_threats, gameTime, solo);
+                // 단독 웨이브: 해금되면 첫 회, 이후 DemonWaveEveryDays 마다 그 회차를 통째로 가져간다.
+                bool soloDue = solo != null && gameTime >= solo.UnlockDay
+                             && (_lastSoloDay < 0f || gameTime >= _lastSoloDay + SoloEvery);
+                if (!soloDue && pool.Count == 0) return; // 아직 아무 종족도 안 열렸다 (스케줄 정지 — 중립)
+
                 // 정찰 연장 (M21-W8) — 생존 정찰꾼이 있으면 예고가 이르다. 발동 시각은 불변 —
                 // 정찰이 바꾸는 것은 "언제 오는가"가 아니라 **"언제 아는가"**다.
-                float warn = tier.WarnDays + ScoutWarnBonus();
-                if (gameTime >= _lastStrikeDay + tier.PeriodDays + _delayDays - warn)
+                ThreatSO warnSrc = soloDue ? solo : pool[0];
+                float warn = warnSrc.WarnDays + ScoutWarnBonus();
+                if (gameTime < _lastStrikeDay + WavePeriod + _delayDays - warn) return;
+
+                // 편성 확정 (ADR-M24-3). 완충(M21-W7)은 **예산에서** 깎는다 — 舊 구조는 마릿수를
+                // 깎았는데, 예산제에서는 편성 자체가 예고 시점에 굳으므로 그 전에 반영해야
+                // 예고가 진실을 말한다 ("완충으로 작아진 편성"을 예고가 보여준다).
+                int relief = _reliefStacks;
+                _reliefStacks = 0;
+                if (soloDue)
                 {
-                    _pending = tier;
-                    float lead = _lastStrikeDay + tier.PeriodDays + _delayDays - gameTime;
-                    Debug.Log($"[Threat] 예고 — {tier.DisplayName} ({lead:0.#}일 후" +
-                              $"{(warn > tier.WarnDays ? " · 정찰 연장" : "")})");
-                    OnForecast?.Invoke(tier);
+                    int n = DemonCount(gameTime, solo.UnlockDay,
+                                       _config.DemonCountGrowthDays, _config.DemonCountMax);
+                    _pendingWave = new List<WaveEntry> { new WaveEntry(solo, 0, Mathf.Max(1, n - relief)) };
+                    _pendingPrimary = solo;
+                    _pendingSolo = true;
                 }
+                else
+                {
+                    int budget = Mathf.Max(1, CurrentGlobalPressure(_peakPopulation()) - relief);
+                    _pendingWave = BuyWave(pool, budget, _strikeOrdinal + 1);
+                    if (_pendingWave.Count == 0) { _pendingWave = null; return; } // 아무것도 못 샀다
+                    _pendingPrimary = PrimaryOf(_pendingWave);
+                    _pendingSolo = false;
+                }
+
+                float lead = _lastStrikeDay + WavePeriod + _delayDays - gameTime;
+                Debug.Log($"[Threat] 예고 — {Describe(_pendingWave)} ({lead:0.#}일 후" +
+                          $"{(warn > warnSrc.WarnDays ? " · 정찰 연장" : "")}" +
+                          $"{(relief > 0 ? $" · 완충 −{relief}" : "")})");
+                OnForecast?.Invoke(_pendingPrimary);
                 return;
             }
 
             // 발동
-            if (gameTime >= _lastStrikeDay + _pending.PeriodDays + _delayDays)
+            if (gameTime >= _lastStrikeDay + WavePeriod + _delayDays)
             {
                 _lastStrikeDay = gameTime;
-                ThreatSO striking = _pending;
-                _pending = null; // 예고 해제 — 개체가 맵에 있는 동안 술렁임은 도망(M10-D)이 대신한다
-                Spawn(striking);
+                List<WaveEntry> striking = _pendingWave;
+                ThreatSO primary = _pendingPrimary;
+                if (_pendingSolo) _lastSoloDay = gameTime;
+                _pendingWave = null; _pendingPrimary = null; _pendingSolo = false;
+                Spawn(primary, striking);
             }
         }
 
         // ── 출몰·타격 (개체는 표현+이동, 판정은 여기 — 명세 M10-C ⚠️③) ─────────
 
-        private void Spawn(ThreatSO so)
+        /// <param name="so">주력 종족 — 타깃 종류·진입점·공성 판정이 이 하나를 따른다
+        /// (한 웨이브는 한 곳을 노린다. 다지점 진입은 W7 몫).</param>
+        /// <param name="wave">편성 — (종족, 등급, 마릿수) 칸들. 이 목록이 곧 태어날 개체다.</param>
+        private void Spawn(ThreatSO so, List<WaveEntry> wave)
         {
             _strikeOrdinal++;
-            // 조우 누적 (M24-1차 W3) — 이 종족을 한 번 더 만났다. 이겨도 져도 배운다.
-            _encounters.TryGetValue(so.name, out int seen);
-            _encounters[so.name] = seen + 1;
+            // 조우 누적 (M24-1차 W3) — 편성에 든 **종족마다 1회씩**. 이겨도 져도 배운다.
+            // ⚠️ 한 종족이 지휘관·졸개 두 칸으로 나뉘어 있으므로 칸이 아니라 **종족** 단위로 센다.
+            _seenBuf.Clear();
+            foreach (WaveEntry e in wave)
+                if (e.Race != null && _seenBuf.Add(e.Race.name))
+                {
+                    _encounters.TryGetValue(e.Race.name, out int prev);
+                    _encounters[e.Race.name] = prev + 1;
+                }
             // 타깃 종류는 출몰 시 1회 확정 (ADR-M10R-4). 확률만 계절 보정을 받는다 (M21-W2R) —
             // 겨울엔 위협이 굶어 주민 쪽으로 기운다. 시드는 그대로라 결정성은 유지된다.
             bool hungry = PredatorHungryNow;
@@ -547,18 +738,18 @@ namespace AIVillage.M0
                 }
             }
 
-            // 마릿수 (M21-W6, ADR-M21-6) — 완충(M21-W7)은 여기서 전부 소모된다 (1회성):
-            // 스택은 마릿수 감산으로, 지연은 이미 발동 시각에 반영됐다. 예고는 마릿수를 말하지
-            // 않았다 (DoD ④ — 정찰 재탄생의 여지): 몇 마리인지는 여기 도착해서야 드러난다.
-            int relief = _reliefStacks;
-            _reliefStacks = 0;
+            // 완충(M21-W7)은 이제 **예고 시점에 예산에서** 깎였다 (ADR-M24-3 — 편성이 거기서 굳는다).
+            // 남은 것은 지연 소모뿐. 마릿수는 편성이 이미 정했다 (ADR-M24-2 — SpawnCount 미사용).
             _delayDays = 0f;
-            int count = SpawnCount(so.SpawnCountBase, so.UnlockDay, _gameTime,
-                                   so.CountGrowthEveryDays, so.SpawnCountMax, relief);
             int spawned = 0;
-            for (int i = 0; i < count; i++)
+            int i = -1;
+            foreach (WaveEntry entryDef in wave)
+            for (int n = 0; n < entryDef.Count; n++)
             {
-                // 첫 마리 = 진입점 그대로 (count=1 이면 기존과 완전 동일 — 중립 불변식, DoD ③).
+                i++;
+                ThreatSO race = entryDef.Race;
+                float mult = GradeMult(race, entryDef.Grade);
+                // 첫 마리 = 진입점 그대로 (1마리면 기존과 완전 동일 — 중립 불변식, DoD ③).
                 // 나머지 = 진입점 곁 산개 (겹침 방지 오프셋 — 표현이므로 난수 허용, ADR-M21-10).
                 Vector2Int at = i == 0 || _isWalkable == null
                     ? entry : MapBounds.PickWalkableNear(_isWalkable, entry.x, entry.y, 2);
@@ -567,27 +758,27 @@ namespace AIVillage.M0
                 if (p.Kind == PathResultKind.Unreachable)
                 {
                     // 이 마리만 생략 (⚠️③ — Unreachable 생략 규약을 마리 단위로). 분모에도 안 센다.
-                    Debug.LogWarning($"[Threat] {so.DisplayName}: 산개 지점 ({at.x},{at.y}) 경로 없음 — 개체 1 생략");
+                    Debug.LogWarning($"[Threat] {race.DisplayName}: 산개 지점 ({at.x},{at.y}) 경로 없음 — 개체 1 생략");
                     continue;
                 }
 
-                var go = new GameObject($"Threat_{so.name}_{_strikeOrdinal}_{i}");
+                var go = new GameObject($"Threat_{race.name}_{_strikeOrdinal}_{i}");
                 go.transform.SetParent(_parent, worldPositionStays: false);
                 go.transform.position = new Vector3(at.x, at.y, 0f); // ADR-M0-9 — X-Y 평면
                 ThreatAgent agent = go.AddComponent<ThreatAgent>();
-                agent.Init(so, this, at, target,
+                agent.Init(race, this, at, target,
                            p.Kind == PathResultKind.PathFound ? p.Waypoints : null,
                            _pathfinder(), targetsVillagers, // 추격 재경로용 + 이번 출몰 타깃 종류 (M10R)
-                           _strikeOrdinal);                 // 무리 키 (M21-W6)
+                           _strikeOrdinal,                  // 무리 키 (M21-W6)
+                           mult);                           // 등급 배율 (M24-1차 W4)
                 _active.Add(agent);
                 spawned++;
             }
             if (spawned == 0) { _groupSiege.Remove(_strikeOrdinal); return; } // 전 개체 생략 — 공성 등록도 회수
             _groupSpawned[_strikeOrdinal] = spawned; // 무리 도주선의 분모 = 실제 태어난 수
-            Debug.Log($"[Threat] 출몰 — {so.DisplayName}{(spawned > 1 ? $" ×{spawned}" : "")} " +
+            Debug.Log($"[Threat] 출몰 — {Describe(wave)} (총 {spawned}) " +
                       $"@ ({entry.x},{entry.y}) → ({target.x},{target.y}) " +
-                      $"[{(targetsVillagers ? "주민" : "밭")} 타깃]{(hungry ? " · 배고픈 계절" : "")}" +
-                      $"{(relief > 0 ? $" · 완충 −{relief}" : "")}");
+                      $"[{(targetsVillagers ? "주민" : "밭")} 타깃]{(hungry ? " · 배고픈 계절" : "")}");
         }
 
         /// <summary>목표 타일: 주민 타격 = 진입점 최근접 생존 주민, 밭 타격 = 진입점 최근접 **실제 밭 타일**.

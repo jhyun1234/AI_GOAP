@@ -504,7 +504,7 @@ namespace AIVillage.M0
                 // 식량 나눔 (M19-W3) — 생존 서사의 계승: "굶다가 얻어먹고 살았다"
                 case EventId.FoodShared:
                     return $"식량 얻어먹음({e.Value}개)";
-                // 격퇴 (M21-W9) — ADR-M21-1 검증 문장의 재료: "늑대 무리 3마리 격퇴"
+                // 격퇴 (M21-W9) — ADR-M21-1 검증 문장의 재료: "침입 무리 3마리 격퇴"
                 case EventId.Repelled:
                     return string.IsNullOrEmpty(e.OtherId)
                         ? "적습 격퇴"

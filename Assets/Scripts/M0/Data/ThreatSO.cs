@@ -15,7 +15,7 @@ namespace AIVillage.M0
     [CreateAssetMenu(menuName = "AIVillage/M0/Threat", fileName = "Threat")]
     public sealed class ThreatSO : ScriptableObject
     {
-        [Tooltip("한국어 표시명 (예: 외로운 늑대)")]
+        [Tooltip("한국어 표시명 (예: 고블린 무리)")]
         public string DisplayName;
 
         [Tooltip("이 밴드가 열리는 최소 게임일(GameTime). 활성 = UnlockDay ≤ 현재 게임일 중 최신 1개 " +
@@ -29,7 +29,7 @@ namespace AIVillage.M0
         public float WarnDays = 1f;
 
         [Tooltip("매 출몰이 주민을 타깃할 확률(0~1). 나머지 확률은 밭 타격. 출몰 서수 시드로 결정 " +
-                 "(ADR-M10R-2·3 — 곰도 <1이면 밭을 칠 수 있다). 0=밭만, 1=주민만.")]
+                 "(ADR-M10R-2·3 — 상위 티어도 <1이면 밭을 칠 수 있다). 0=밭만, 1=주민만.")]
         [Range(0f, 1f)] public float VillagerTargetChance;
 
         [Tooltip("타격 반경 (타일, 맨해튼) — 도착 지점 기준 이 안의 주민만 부상 후보. " +
@@ -104,7 +104,7 @@ namespace AIVillage.M0
         [Tooltip("배고픈 계절(SeasonSO.ForageFrozen)의 주민 타깃 확률 배율 — 겨울엔 타깃이 주민 쪽으로 " +
                  "기운다. 결과는 [0,1] 클램프. 1 미만은 무시된다(배고픈 계절이 더 순해질 수는 없다).\n" +
                  "⚠️ 판정은 IsCrisis가 아니라 ForageFrozen이다 (ADR-M21-9) — 여름도 IsCrisis라 " +
-                 "그걸 쓰면 여름 늑대가 사나워진다.")]
+                 "그걸 쓰면 여름 위협이 사나워진다.")]
         public float HungrySeasonChanceMult = 2f;
 
         [Tooltip("배고픈 계절의 체류 상한 배율 — 겨울엔 더 집요하게 머문다. 0.75 × 2 = 1.5일(최대 6회 타격). " +
@@ -124,7 +124,7 @@ namespace AIVillage.M0
 
         [Tooltip("주민이 실제로 다친 순간 **다친 본인**이 내뱉는 대사 (예: 물렸어! 도망쳐!). " +
                  "⚠️ 타깃은 출몰마다 롤되므로(ADR-M10R-3) 밭 대사와 반드시 분리해야 한다 — 한 필드로 두면 " +
-                 "밭을 친 늑대 무리가 '물렸어!'라고 외친다. 부상 0명이면 재생되지 않는다.")]
+                 "밭을 친 침입 무리가 '물렸어!'라고 외친다. 부상 0명이면 재생되지 않는다.")]
         public string[] StrikeLinesVillager;
 
         [Tooltip("밭이 소실된 순간 **근처 주민**이 내뱉는 대사 (예: 밭이 엉망이 됐어!). " +
@@ -133,7 +133,7 @@ namespace AIVillage.M0
 
         [Header("공성 (M22-W5, ADR-M22-2 — 방어 시설은 안전을 팔지 않는다)")]
         [Tooltip("방어 시설 타격당 내구도 차감 (절대값 — StrikeDamage와 같은 층). 티어 압박은 " +
-                 "에셋 값 차등으로만 (늑대 34 = 3타로 울타리 100 관통, 곰 100 = 일격). " +
+                 "에셋 값 차등으로만 (티어1 34 = 3타로 울타리 100 관통, 최상위 100 = 일격). " +
                  "0 = 시설을 못 부순다 — 막히면 기존 출몰 생략 동작으로 돌아간다 (중립).")]
         public float StructureDamage = 34f;
 

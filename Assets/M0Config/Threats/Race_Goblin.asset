@@ -10,9 +10,9 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 64a460f4837e45e9b79ca78696036c35, type: 3}
-  m_Name: Threat_Tier1_Wolf
+  m_Name: Race_Goblin
   m_EditorClassIdentifier:
-  DisplayName: "외로운 늑대"
+  DisplayName: "고블린 무리"
   UnlockDay: 0
   PeriodDays: 6
   WarnDays: 1
@@ -35,25 +35,25 @@ MonoBehaviour:
   HungrySeasonChanceMult: 2
   HungrySeasonStayMult: 2
   MoveSpeed: 2.5
-  BodyColor: {r: 0.75, g: 0.3, b: 0.2, a: 1}
+  BodyColor: {r: 0.35, g: 0.65, b: 0.25, a: 1}
   ForecastLines:
-  - "숲에서 늑대 울음이 들려…"
-  - "요즘 밭 근처에 짐승 발자국이 있어."
+  - "숲 쪽에서 낄낄대는 소리가 들려…"
+  - "창고 근처에 발자국이 있어. 사람 것보다 작아."
   - "밤에 뭔가 어슬렁거리는 걸 봤어."
   StrikeLinesVillager:
-  - "한 마리야! 혼자 있을 때를 노렸어…!"
-  - "아악! 팔을… 이 녀석이 안 놓아!"
-  - "늑대가 나를 물었어! 누가 좀…!"
+  - "한 놈이야! 혼자 있을 때를 노렸어…!"
+  - "아악! 이 녀석이 안 놓아!"
+  - "고블린이 나를 찔렀어! 누가 좀…!"
   StrikeLinesFarm:
-  - "늑대다! 밭이 엉망이 됐어!"
-  - "저 짐승이 밭을 파헤쳤어…"
+  - "고블린이다! 밭이 엉망이 됐어!"
+  - "저놈들이 밭을 파헤쳤어…"
   StructureDamage: 34
   StrikeLinesStructure:
-  - "늑대가 울타리를 물어뜯고 있어!"
+  - "고블린이 울타리를 두드리고 있어!"
   - "울타리가 버티고 있어… 아직은."
   - "저러다 뚫리겠어, 누가 좀 고쳐!"
   TrapHitLines:
-  - "늑대가 함정에 걸렸다!"
+  - "고블린이 함정에 걸렸다!"
   - "그쪽은 밟으면 안 되지 — 잘 걸렸어!"
-  - "깨갱거리는군, 함정이 통했어!"
-  SpriteSet: {fileID: 11400000, guid: 201e7204ca99a8a3b3e7a4d6eec54569, type: 2}
+  - "비명을 지르는군, 함정이 통했어!"
+  SpriteSet: {fileID: 0}

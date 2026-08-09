@@ -17,7 +17,7 @@ namespace AIVillage.M0
     /// 확정 발동·확정 착탄 (ADR-M10-1): 스케줄·희생 선정에 확률 없음 — 주민 희생은 거리순
     /// (도망 행동과의 인과), 밭 희생은 StableHash 시드 셔플 (재해와 동일).
     /// 활성 밴드 = 게임일 UnlockDay 충족 중 최신 1개 (ADR-M10R-1 시간 래칫 — 사망해도 강등 없음).
-    /// 타깃 종류(밭/주민)는 밴드 고정이 아니라 출몰별 시드 롤 (ADR-M10R-3 — 곰도 밭을 칠 수 있다).
+    /// 타깃 종류(밭/주민)는 밴드 고정이 아니라 출몰별 시드 롤 (ADR-M10R-3 — 상위 티어도 밭을 칠 수 있다).
     /// Threats가 비면 SimulationLoop이 서비스 자체를 null로 둔다 (중립 불변식, DisasterService 패턴).
     /// 세이브 대상 = _lastStrikeDay·_strikeOrdinal·**_reliefStacks·_delayDays**(M21-W7) (ADR-M10-10).
     /// 진행 중 개체·예고 상태는 저장 안 함 (로드 후 다음 스케줄에서 재출몰).
@@ -304,10 +304,13 @@ namespace AIVillage.M0
 
         // ── 계절 연동 (M21-W2R — ADR-M21-9) ──────────────────────────────────
 
-        /// <summary>이 계절에 야수가 굶는가 (순수 — 게이트 M21-T7). 야생 먹이가 어는 계절이면 늑대도 굶는다.
-        /// 🔴 IsCrisis가 **아니다**: Season_Summer도 IsCrisis:1 이라 그걸 쓰면 여름 늑대가 사나워진다.
+        /// <summary>이 계절에 침입자가 궁해지는가 (순수 — 게이트 M21-T7). 들에서 걷을 것이 없는
+        /// 계절이면 그들도 굶고, 그래서 마을 쪽으로 기운다.
+        /// 🔴 IsCrisis가 **아니다**: Season_Summer도 IsCrisis:1 이라 그걸 쓰면 여름 위협이 사나워진다.
         /// 겨울만 참인 것은 ForageFrozen이고, 의미도 정확히 겹치므로 새 필드를 만들지 않는다 (기존 통로 우선).
-        /// ⚠️ 갈라지는 조건: "채집은 막히는데 야수는 안 굶는" 계절이 생기면 그때 전용 필드로 분리한다.</summary>
+        /// ⚠️ 갈라지는 조건: "채집은 막히는데 침입자는 안 궁한" 계절이 생기면 그때 전용 필드로 분리한다.
+        /// 📌 M24-1차 이월: 메서드 이름 `IsPredatorHungry`("포식자")는 종족 전환 뒤 부정확하다 —
+        /// 게이트가 참조하는 공개 API라 개명은 별도 항목으로 남긴다.</summary>
         public static bool IsPredatorHungry(SeasonSO s) => s != null && s.ForageFrozen;
 
         /// <summary>계절 반영 주민 타깃 확률 (순수 — 게이트 M21-T7). 클램프 [0,1].
@@ -443,7 +446,7 @@ namespace AIVillage.M0
         {
             _strikeOrdinal++;
             // 타깃 종류는 출몰 시 1회 확정 (ADR-M10R-4). 확률만 계절 보정을 받는다 (M21-W2R) —
-            // 겨울엔 늑대가 굶어 주민 쪽으로 기운다. 시드는 그대로라 결정성은 유지된다.
+            // 겨울엔 위협이 굶어 주민 쪽으로 기운다. 시드는 그대로라 결정성은 유지된다.
             bool hungry = PredatorHungryNow;
             float chance = EffectiveVillagerChance(so.VillagerTargetChance, hungry, so.HungrySeasonChanceMult);
             bool targetsVillagers = RollTargetsVillagers(so, _strikeOrdinal, chance);
@@ -773,7 +776,7 @@ namespace AIVillage.M0
 
         /// <summary>다음 배회 목적지 (ThreatAgent 전용, M21-W2R) — 앵커 반경 내 통행 가능 타일.
         /// 🔴 여기가 ADR-M21-10의 확률 쪽이다: **동선은 표현이라 난수를 허용한다**
-        /// (같은 판에서 늑대가 매번 같은 길로 걸으면 그게 더 이상하다). 타깃 종류·출몰 스케줄·
+        /// (같은 판에서 위협이 매번 같은 길로 걸으면 그게 더 이상하다). 타깃 종류·출몰 스케줄·
         /// 희생 선정은 여전히 시드 롤이다 — 그쪽에 난수를 넣으면 ADR-M10-1 위반이다.
         /// isWalkable 미배선이면 앵커 그대로 (배회 없음 = 舊 정지 동작, 중립 폴백).</summary>
         public Vector2Int PickWanderTile(ThreatAgent agent)
@@ -915,7 +918,7 @@ namespace AIVillage.M0
             {
                 // 대상 스냅샷 (재해 Strike 패턴 — 파괴 중 무효화 방지 복사본).
                 // **타격 반경 안만** (2026-08-06 Play): 舊 코드는 맵 전체 밭에서 시드 셔플로 골랐다.
-                // 홍수라면 옳지만(재해에서 물려받은 산식), 특정 밭까지 걸어와 눌러앉은 늑대에게는
+                // 홍수라면 옳지만(재해에서 물려받은 산식), 특정 밭까지 걸어와 눌러앉은 위협에게는
                 // "여기 서 있는데 저쪽 밭이 사라진다"가 된다. W2 체류가 이 어긋남을 처음 보이게 했다 —
                 // 예전엔 개체가 스치듯 지나가 아무도 대조할 수 없었다. 주민 타격과 같은 규칙
                 // (CollectVictimCandidates의 맨해튼 반경)으로 맞춘다.
@@ -981,7 +984,7 @@ namespace AIVillage.M0
         /// 마을 밖까지 따라간다 (§W4 DoD ④ "무한 추격 0"). 격퇴는 그 자체로 이김이라
         /// 쫓아갈 이유가 없다 — 도망가는 짐승을 잡는 것은 사냥꾼(W8)의 몫이다.
         /// TryGetNearestThreatPos(도피 방향용)와 목록은 같지만 **필터가 다르다**: 도망칠 때는
-        /// 물러나는 늑대도 무섭다.</summary>
+        /// 물러나는 위협도 무섭다.</summary>
         public bool TryGetNearestFightable(int x, int y, out ThreatAgent threat)
         {
             threat = null;

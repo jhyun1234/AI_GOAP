@@ -16,7 +16,7 @@ MonoBehaviour:
   BubbleLines:
   - "울타리를 세우자"
   - "여기는 막아야 해"
-  - "늑대는 이 앞에서 멈출 거야"
+  - "저것들도 이 앞에서는 멈출 거야"
   - "한 칸씩, 튼튼하게"
   BaseCost: 8
   DurationSec: 3

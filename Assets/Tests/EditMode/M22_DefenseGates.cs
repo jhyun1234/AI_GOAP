@@ -242,10 +242,15 @@ namespace AIVillage.Tests.EditMode
             // §3 핵심 검산 — 체류 상한 안의 타격 수(0, 0.25, 0.5 = 상한/주기 회)로 울타리 한 칸을
             // 뚫을 수 있어야 한다. 못 뚫으면 "완성되면 안전" = ADR-M22-2 위반 (34→25로 내리면 red).
             var fence = AssetDatabase.LoadAssetAtPath<BuildingSO>("Assets/M0Config/Buildings/Fence.asset");
-            foreach (string name in new[] { "Threat_Tier1_Wolf", "Threat_Tier2_Pack", "Threat_Tier3_Bear" })
+            // 🔑 M24-1차 개정 — 舊 판은 위협 이름 셋을 배열로 박아 뒀다. 콘텐츠가 바뀌면
+            // 새 위협이 검사에서 조용히 빠진다(더 나쁘다: red 가 아니라 green 이 된다).
+            string[] threatGuids = AssetDatabase.FindAssets("t:ThreatSO");
+            Assert.Greater(threatGuids.Length, 0, "배포 위협 에셋이 하나도 없다");
+            foreach (string guid in threatGuids)
             {
-                var t = AssetDatabase.LoadAssetAtPath<ThreatSO>($"Assets/M0Config/Threats/{name}.asset");
-                Assert.IsNotNull(t, $"{name} 에셋 없음");
+                var t = AssetDatabase.LoadAssetAtPath<ThreatSO>(AssetDatabase.GUIDToAssetPath(guid));
+                Assert.IsNotNull(t, $"{guid} 로드 실패");
+                string name = t.name;
                 Assert.Greater(t.StructureDamage, 0f, $"{name}: 공성 없는 위협은 울타리 앞에서 무적을 만든다");
                 Assert.IsTrue(t.StrikeLinesStructure != null && t.StrikeLinesStructure.Length > 0,
                     $"{name}: 침묵 공성 금지 (W2R '내용 없는 분기' 함정)");
@@ -661,19 +666,25 @@ namespace AIVillage.Tests.EditMode
         [Test]
         public void M22_T16_ThreatSpriteSets_ShippedWiring()
         {
-            // M22-3차 W5c — 위협 그림 배선 검산. 자작 시트라 fileID가 이름 해시로 고정돼
-            // 있지만(tools/pixel-art), **실 로드**까지 봐야 한 자리 오타가 잡힌다 (M23_T1 문법).
-            // 🔑 아트 교체 지점이 여기 하나임을 박제한다 — 라이선스 팩을 구하면 세트 에셋만 갈린다.
-            foreach ((string threat, string set) in new[]
+            // M22-3차 W5c — 위협 그림 배선 검산. **실 로드**까지 봐야 한 자리 오타가 잡힌다 (M23_T1 문법).
+            // 🔑 아트 교체 지점이 여기 하나임을 박제한다 — 팩을 갈면 세트 에셋만 갈린다.
+            //
+            // 🔁 M24-1차 개정: 舊 판은 (위협, 세트) 이름 쌍을 박아 두고 **전원 배선**을 요구했다.
+            // 늑대·곰을 종족으로 갈아 끼우는 구간에서는 그림이 아직 없어(W6 몫) 그대로면 red 다.
+            // 그렇다고 검사를 지우면 "색 원으로 조용히 회귀"를 못 잡는다.
+            // → 지키는 것을 **"전원 배선"에서 "반쪽 배선 금지"**로 옮긴다. 0개(색 원 폴백)와
+            //   전원 배선은 둘 다 의도된 상태이고, **일부만 배선된 상태가 사고**다.
+            //   그리고 배선된 것은 예전과 똑같이 끝까지 검사한다.
+            string[] guids = AssetDatabase.FindAssets("t:ThreatSO");
+            Assert.Greater(guids.Length, 0, "배포 위협 에셋이 하나도 없다");
+            int wired = 0;
+            foreach (string guid in guids)
             {
-                ("Threat_Tier1_Wolf", "WolfSprites"), ("Threat_Tier2_Pack", "WolfSprites"),
-                ("Threat_Tier3_Bear", "BearSprites"),
-            })
-            {
-                var so = AssetDatabase.LoadAssetAtPath<ThreatSO>($"Assets/M0Config/Threats/{threat}.asset");
-                Assert.IsNotNull(so, $"{threat} 에셋 없음");
-                Assert.IsNotNull(so.SpriteSet, $"{threat}: SpriteSet 미배선 — 색 원으로 회귀");
-                Assert.AreEqual(set, so.SpriteSet.name, $"{threat}: 다른 짐승 시트가 물렸다");
+                var so = AssetDatabase.LoadAssetAtPath<ThreatSO>(AssetDatabase.GUIDToAssetPath(guid));
+                Assert.IsNotNull(so, $"{guid} 로드 실패");
+                if (so.SpriteSet == null) continue;
+                wired++;
+                string threat = so.name, set = so.SpriteSet.name;
 
                 AgentSpriteSetSO s = so.SpriteSet;
                 foreach ((string label, Sprite[] frames) in new[]
@@ -699,6 +710,12 @@ namespace AIVillage.Tests.EditMode
                     }
                 Assert.IsTrue(hasAttack, $"{set}: AnimKind.Attack 항목이 없다 — 무는 그림이 안 나온다");
             }
+
+            // 🔴 반쪽 배선 금지 — 0(색 원 폴백)이거나 전원이거나 둘 중 하나여야 한다.
+            // 일부만 배선되면 화면에서 어떤 위협은 그림이고 어떤 위협은 색 원이라 사고로 읽힌다.
+            Assert.IsTrue(wired == 0 || wired == guids.Length,
+                $"위협 {guids.Length}종 중 {wired}종만 그림이 배선됐다 — 반쪽 상태 " +
+                "(전원 배선하거나, 전원 비워 색 원 폴백으로 둘 것)");
         }
 
         [Test]
@@ -805,8 +822,14 @@ namespace AIVillage.Tests.EditMode
             Assert.AreEqual(0f, trap.MaxDurability, "함정은 소모지 내구도가 아니다 (배타·다회용 금지)");
             Assert.IsFalse(trap.BlocksMovement || trap.BlocksThreatMovement,
                 "함정은 밟혀야 한다 — 통행 양쪽 허용");
-            var wolf = AssetDatabase.LoadAssetAtPath<ThreatSO>("Assets/M0Config/Threats/Threat_Tier1_Wolf.asset");
-            Assert.IsNotNull(wolf, "늑대 에셋 없음");
+            // 🔑 M24-1차 개정 — 가장 약한 위협(UnlockDay 최소)이 구속 조건이다. 이름으로 붙잡지 않는다.
+            ThreatSO wolf = null;
+            foreach (string g in AssetDatabase.FindAssets("t:ThreatSO"))
+            {
+                var t = AssetDatabase.LoadAssetAtPath<ThreatSO>(AssetDatabase.GUIDToAssetPath(g));
+                if (t != null && (wolf == null || t.UnlockDay < wolf.UnlockDay)) wolf = t;
+            }
+            Assert.IsNotNull(wolf, "배포 위협 에셋이 하나도 없다");
             Assert.Greater(wolf.MaxHp - trap.TrapDamage, wolf.MaxHp * wolf.FleeBelowHpPct,
                 "한 방 격퇴 금지 (사용자 확정 15) — 함정은 소프트닝이다. 값을 올려 한 방이 되면 red");
 

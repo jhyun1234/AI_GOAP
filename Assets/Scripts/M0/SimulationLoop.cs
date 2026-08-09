@@ -1041,7 +1041,7 @@ namespace AIVillage.M0
             {
                 // M21-W2R: 인자 2번이 Zones → Season으로 교체됐다. 구역 참조는 b51c631 이후
                 // 죽은 코드였고(FarmPlot.ZoneRadius=0이라 등록 자체가 안 된다), 그 자리에 계절이
-                // 들어와 "겨울엔 늑대가 굶는다"를 만든다. isWalkable은 배회 목적지 필터.
+                // 들어와 "겨울엔 위협이 굶는다"를 만든다. isWalkable은 배회 목적지 필터.
                 // M22-W1: 위협의 경로·통행 원천은 위협용 배열이다 (ADR-M22-1 — 창구는 그대로,
                 // 배선의 원천만 교체. 문이 생기기 전엔 두 배열이 동일해 행동 변화 0).
                 Threats = new ThreatService(_worldConfig.Threats, Season, Construction,
@@ -1102,7 +1102,7 @@ namespace AIVillage.M0
                 Combat.OnRouted += (t, attackerId, day) =>
                     Hud?.Notify($"{t.DisplayName} 적습을 물리쳤습니다 — 무리가 달아납니다");
                 // 적습 격퇴 (M21-W9) — 무리 전원이 전투로 물러난 사건. 참여 전원의 연대기에 남고
-                // (ADR-M21-1 검증 문장: "늑대 다섯 적습을 사냥꾼이 앞장서 물리쳤다"의 재료),
+                // (ADR-M21-1 검증 문장: "침입자 다섯 적습을 사냥꾼이 앞장서 물리쳤다"의 재료),
                 // 격퇴 카운터가 오른다 (신기록 BestRepels의 원천).
                 Threats.OnRaidRepelled += (t, spawnedCount, attackers) =>
                 {
@@ -1245,7 +1245,7 @@ namespace AIVillage.M0
                 // 전멸 후 정지 (M10-F): 수락 주체(플레이어의 마을)가 없다 — 재건과 함께 M11에서 개정.
                 if (!_gameOverShown) Wanderers?.Tick(GameTime);
 
-                // 전멸 검사 (M10-F) — 1회 래치. 화면만 덮고 시뮬·위협 틱은 지속 (빈 마을의 늑대도 풍경).
+                // 전멸 검사 (M10-F) — 1회 래치. 화면만 덮고 시뮬·위협 틱은 지속 (빈 마을의 위협도 풍경).
                 if (ShouldShowGameOver(_gameOverShown, _everHadAgents, _agents.Count))
                 {
                     _gameOverShown = true;

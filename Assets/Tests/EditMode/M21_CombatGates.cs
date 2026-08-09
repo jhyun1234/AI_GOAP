@@ -292,16 +292,33 @@ namespace AIVillage.Tests.EditMode
             Assert.Greater(winter, plain, "겨울 확률이 높은데 주민 타깃이 늘지 않았다");
         }
 
+        /// <summary>티어1 위협 = 배포 에셋 중 UnlockDay 최소 (동률은 이름 사전순 — 결정적).
+        /// 🔑 **이름으로 붙잡지 않는다** (M24-1차): 舊 게이트는 `Threat_Tier1_Wolf.asset` 경로를
+        /// 직접 열어서, 콘텐츠가 늑대에서 종족으로 바뀌자 통째로 red 가 됐다. 지키려던 불변식은
+        /// "티어1은 평시에도 주민을 노린다"이지 "늑대라는 파일이 있다"가 아니었다.</summary>
+        private static ThreatSO Tier1Threat()
+        {
+            ThreatSO best = null;
+            foreach (string guid in AssetDatabase.FindAssets("t:ThreatSO"))
+            {
+                var so = AssetDatabase.LoadAssetAtPath<ThreatSO>(AssetDatabase.GUIDToAssetPath(guid));
+                if (so == null) continue;
+                if (best == null || so.UnlockDay < best.UnlockDay
+                    || (so.UnlockDay == best.UnlockDay && string.CompareOrdinal(so.name, best.name) < 0))
+                    best = so;
+            }
+            Assert.IsNotNull(best, "배포 위협 에셋이 하나도 없다 — 티어1을 고를 수 없다");
+            return best;
+        }
+
         [Test]
-        public void M21_T7_Tier1Wolf_TargetsVillagersInPlainSeasons()
+        public void M21_T7_Tier1Threat_TargetsVillagersInPlainSeasons()
         {
             // W2R DoD ④ — Tier1이 **평시에도** 주민을 노리는 출몰이 존재해야 한다.
             // M10 시절 VillagerTargetChance:0("밭 전용")의 개정이고, 0으로 되돌아가면 여기서 잡힌다.
-            var wolf = AssetDatabase.LoadAssetAtPath<ThreatSO>(
-                "Assets/M0Config/Threats/Threat_Tier1_Wolf.asset");
-            Assert.IsNotNull(wolf, "Tier1 늑대 에셋 로드");
+            ThreatSO wolf = Tier1Threat();
             Assert.Greater(wolf.VillagerTargetChance, 0f,
-                "늑대가 다시 밭 전용이 됐다 — 평시 주민 타깃이 영영 안 온다");
+                $"{wolf.name}: 티어1이 다시 밭 전용이 됐다 — 평시 주민 타깃이 영영 안 온다");
 
             int villagerRolls = 0;
             for (int ord = 1; ord <= 100; ord++)
@@ -542,15 +559,14 @@ namespace AIVillage.Tests.EditMode
             var act = AssetDatabase.LoadAssetAtPath<FightActionSO>(
                 "Assets/M0Config/Actions/Action_Fight.asset");
             Assert.IsNotNull(act, "Action_Fight 에셋 로드");
-            var wolf = AssetDatabase.LoadAssetAtPath<ThreatSO>(
-                "Assets/M0Config/Threats/Threat_Tier1_Wolf.asset");
+            ThreatSO wolf = Tier1Threat();
 
             Assert.Greater(act.HitDamage, 0f, "피해 0 = 때려도 아무 일이 없다");
             Assert.Greater(act.BaseHitSec, 0f, "간격 0 = 매 프레임 타격");
             Assert.Less(act.StrikeRangeTiles, wolf.StrikeRadiusTiles,
-                "주민 사거리가 위협보다 넓으면 늑대가 닿기 전에 맞는다 — 파고들어야 '맞으면서 때린다'");
+                "주민 사거리가 위협보다 넓으면 위협이 닿기 전에 맞는다 — 파고들어야 '맞으면서 때린다'");
 
-            // 늑대를 도주선까지 몰아붙이는 데 필요한 타격 수 — 유한해야 교전이 성립한다
+            // 티어1을 도주선까지 몰아붙이는 데 필요한 타격 수 — 유한해야 교전이 성립한다
             float toFlee = wolf.MaxHp - wolf.MaxHp * wolf.FleeBelowHpPct;
             int hits = Mathf.CeilToInt(toFlee / act.HitDamage);
             Assert.Less(hits, 12, $"늑대 격퇴에 {hits}대 필요 — 너무 길면 맨손 교전이 자살이 된다");
@@ -681,20 +697,32 @@ namespace AIVillage.Tests.EditMode
         [Test]
         public void M21_T11_ShippedThreats_CountBandsAreCoherent()
         {
-            // DoD ①: Pack 밴드 Day22 에서 3마리 (배포 에셋 검산 — UnlockDay 12 · 기본 2 · 성장 10일)
-            var pack = AssetDatabase.LoadAssetAtPath<ThreatSO>(
-                "Assets/M0Config/Threats/Threat_Tier2_Pack.asset");
-            Assert.IsNotNull(pack, "Pack 에셋 로드");
-            Assert.AreEqual(3, ThreatService.SpawnCount(pack.SpawnCountBase, pack.UnlockDay, 22f,
-                                pack.CountGrowthEveryDays, pack.SpawnCountMax, 0),
-                "Pack Day22 = 3마리 (DoD ①의 산식 검산)");
-            Assert.Greater(pack.SpawnCountBase, 1, "무리인데 기본 1마리면 이름이 거짓말이 된다");
+            // DoD ①: 성장 산식 검산. 🔑 M24-1차 개정 — 舊 판은 "Pack 에셋이 Day22에 3마리"라고
+            // **특정 에셋의 특정 날짜**를 박아 뒀다. 콘텐츠가 바뀌자 통째로 red 가 됐는데,
+            // 지키려던 것은 그 숫자가 아니라 **"성장 주기가 지나면 정확히 하나 는다"**는 산식이다.
+            int packs = 0;
+            foreach (string g in AssetDatabase.FindAssets("t:ThreatSO"))
+            {
+                var so = AssetDatabase.LoadAssetAtPath<ThreatSO>(AssetDatabase.GUIDToAssetPath(g));
+                if (so == null || so.CountGrowthEveryDays <= 0f) continue;
+                packs++;
+                Assert.AreEqual(so.SpawnCountBase,
+                    ThreatService.SpawnCount(so.SpawnCountBase, so.UnlockDay, so.UnlockDay,
+                                             so.CountGrowthEveryDays, so.SpawnCountMax, 0),
+                    $"{so.name}: 해금 당일인데 벌써 성장분이 붙었다");
+                Assert.AreEqual(Mathf.Min(so.SpawnCountBase + 1, so.SpawnCountMax),
+                    ThreatService.SpawnCount(so.SpawnCountBase, so.UnlockDay,
+                                             so.UnlockDay + so.CountGrowthEveryDays,
+                                             so.CountGrowthEveryDays, so.SpawnCountMax, 0),
+                    $"{so.name}: 성장 주기 1회가 지났는데 마릿수가 하나 늘지 않았다 (DoD ①의 산식)");
+            }
+            Assert.Greater(packs, 0, "마릿수가 자라는 위협이 하나도 없다 — 후반 압박이 사라진다");
 
-            // DoD ③: Wolf 는 count=1 고정 — 기존과 완전 동일 동작 (중립 불변식)
-            var wolf = AssetDatabase.LoadAssetAtPath<ThreatSO>(
-                "Assets/M0Config/Threats/Threat_Tier1_Wolf.asset");
-            Assert.AreEqual(1, wolf.SpawnCountBase, "외로운 늑대는 혼자 온다");
-            Assert.AreEqual(1, wolf.SpawnCountMax, "외로운 늑대가 무리가 되면 Tier2 와 구분이 사라진다");
+            // DoD ③: 티어1은 혼자 온다 — 기존과 완전 동일 동작 (중립 불변식)
+            ThreatSO wolf = Tier1Threat();
+            Assert.AreEqual(1, wolf.SpawnCountBase, $"{wolf.name}: 티어1은 혼자 온다");
+            Assert.AreEqual(1, wolf.SpawnCountMax,
+                $"{wolf.name}: 티어1이 무리가 되면 상위 티어와 구분이 사라진다");
 
             foreach (string guid in AssetDatabase.FindAssets("t:ThreatSO"))
             {

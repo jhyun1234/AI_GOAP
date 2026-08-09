@@ -10,12 +10,12 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 64a460f4837e45e9b79ca78696036c35, type: 3}
-  m_Name: Threat_Tier2_Pack
+  m_Name: Race_Knight
   m_EditorClassIdentifier:
-  DisplayName: "늑대 무리"
-  UnlockDay: 12
+  DisplayName: "약탈 기사단"
+  UnlockDay: 20
   PeriodDays: 5
-  WarnDays: 1.5
+  WarnDays: 1
   VillagerTargetChance: 0.5
   StrikeRadiusTiles: 3
   DangerRadiusTiles: 6
@@ -35,25 +35,25 @@ MonoBehaviour:
   HungrySeasonChanceMult: 2
   HungrySeasonStayMult: 2
   MoveSpeed: 2.5
-  BodyColor: {r: 0.85, g: 0.15, b: 0.15, a: 1}
+  BodyColor: {r: 0.6, g: 0.65, b: 0.8, a: 1}
   ForecastLines:
-  - "늑대가 무리를 지었대… 무서워."
-  - "울음소리가 한둘이 아니야."
-  - "마을이 커지니 짐승들도 노리나 봐."
+  - "언덕 너머에서 쇳소리가 나…"
+  - "깃발을 봤어. 우리 편은 아니야."
+  - "저건 도적이 아니라 군인이야. 대열이 있어."
   StrikeLinesVillager:
-  - "물렸어! 도망쳐!"
-  - "늑대 무리다! 숨어!"
-  - "아악! 다리를… 물렸어!"
+  - "여러 갈래로 들어와! 한쪽만 막으면 안 돼!"
+  - "아악! 창이… 누가 좀 도와줘!"
+  - "기사단이 나를 베었어!"
   StrikeLinesFarm:
-  - "늑대들이 밭을 헤집어놨어!"
-  - "밭이 엉망이야… 한둘이 아니었어."
+  - "기사단이다! 밭을 밟고 지나가!"
+  - "저들은 밭 따위 신경도 안 써…"
   StructureDamage: 34
   StrikeLinesStructure:
-  - "무리가 울타리에 달려들고 있어!"
-  - "여러 놈이 같이 물어뜯으니 버티질 못해!"
-  - "울타리가 흔들려… 서둘러야 해!"
+  - "망루를 먼저 노리고 있어!"
+  - "울타리가 버티고 있어… 아직은."
+  - "저러다 뚫리겠어, 누가 좀 고쳐!"
   TrapHitLines:
-  - "한 마리가 함정에 걸렸다!"
-  - "무리 하나가 절뚝인다!"
-  - "함정이 제 값을 했어!"
-  SpriteSet: {fileID: 11400000, guid: 201e7204ca99a8a3b3e7a4d6eec54569, type: 2}
+  - "기사 하나가 함정에 걸렸다!"
+  - "그쪽은 밟으면 안 되지 — 잘 걸렸어!"
+  - "대열이 흐트러졌어, 함정이 통했어!"
+  SpriteSet: {fileID: 0}

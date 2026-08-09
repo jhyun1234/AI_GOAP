@@ -79,7 +79,7 @@ namespace AIVillage.M0
                 if (a == null || a.State == AgentState.Dead) continue; // 이탈 직전 주민 제외 (⚠️④)
                 // 명령 수행 중 제외 (리뷰① 2026-08-08 — 촌장이 시킨 일이 잡담보다 먼저다).
                 // 화자·대상 양쪽 다: 대상으로 뽑혀도 대화 정지가 걸려 행군이 실제로 멈춘다
-                // (실측: 「싸워라」 받고 늑대에게 가던 주민이 요리사와 "밥 좀 해달라" 장면으로 정지).
+                // (실측: 「싸워라」 받고 위협에게 가던 주민이 요리사와 "밥 좀 해달라" 장면으로 정지).
                 if (a.CurrentOrder != null) continue;
                 _scratch.Add(a);
             }

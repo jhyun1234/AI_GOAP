@@ -286,7 +286,7 @@ namespace AIVillage.M0
 
         /// <summary>
         /// 내 위협 감지 반경 배율 (M10-D 성격 필드 × M12-D 성향 편향 — M12-F까지 병존).
-        /// 같은 늑대를 봐도 겁 많은 주민이 먼저 알아챈다. 성향 가중치가 비면 Threshold가 1을
+        /// 같은 위협을 봐도 겁 많은 주민이 먼저 알아챈다. 성향 가중치가 비면 Threshold가 1을
         /// 그대로 돌려주므로 현행 동작과 완전히 같다 (중립 불변식).
         /// </summary>
         private float FleeRadius()
@@ -757,7 +757,7 @@ namespace AIVillage.M0
             }
             else if (State == AgentState.Moving || State == AgentState.Acting)
                 AbortPlan("부상 — 하던 일 중단", warn: false, cooldown: false);
-            // 피격 경험은 영구다 (M11-G) — 회복해도 잊지 않는다. "노숙자가 늑대에 물리고
+            // 피격 경험은 영구다 (M11-G) — 회복해도 잊지 않는다. "노숙자가 위협에 물리고
             // 나서야 집을 원한다"는 서사의 실체 (결정 6). 세이브 대상 (ADR-M11-10).
             MyWasAttacked = true;
             _sim.Chronicle.RecordEvent(AgentId, EventId.Injured, _sim.GameTime); // 연대기 (M13-C2)
@@ -1170,7 +1170,7 @@ namespace AIVillage.M0
                 // 🔴 조건 없는 명령의 완수 지점 (M21-W4, 2026-08-07 Play에서 잡았다).
                 // TickIdle의 완수 판정은 `_order.GoalConditions`가 **있을 때만** 돈다. 그런데
                 // DirectActionPool goal은 규약상 그 배열이 비어 있어("항상 미달성" 특례), 명령으로
-                // 주면 완수 판정이 통째로 건너뛰어져 **명령이 영영 안 비워진다** — 실측: 늑대가 다
+                // 주면 완수 판정이 통째로 건너뛰어져 **명령이 영영 안 비워진다** — 실측: 위협이 다
                 // 물러난 뒤에도 D가 「싸워라」를 쥔 채 노동으로 돌아갔고, 쿨다운이 풀릴 때마다 다시
                 // 교전 goal을 집었다. 이런 goal에서는 **플랜 완료가 곧 완수**다 (끝이 슬롯 밖에
                 // 있으니 슬롯으로 판정할 수가 없다 — DirectActionPool 자격 ⓐ의 귀결).

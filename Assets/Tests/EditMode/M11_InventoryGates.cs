@@ -168,7 +168,7 @@ namespace AIVillage.Tests.EditMode
             Assert.IsFalse(SlotIds.IsPersonalStock(SlotId.MyHomeRawFood), "집 저장은 별도 판정 (ADR-M11-2)");
             Assert.IsTrue(SlotIds.IsHomeStock(SlotId.MyHomeRawFood));
             Assert.IsTrue(SlotIds.IsHomeStock(SlotId.MyHomeCookedFood));
-            Assert.IsFalse(SlotIds.IsPersonalStock(SlotId.MyDebt),
+            Assert.IsFalse(SlotIds.IsPersonalStock(SlotId.TreasureValue),
                 "빚은 소지품이 아니다 (M17-W7) — 넣으면 TransferTo가 '빚을 남에게 주는' 경로를 연다");
             Assert.AreEqual(50, SlotIds.Count,
                 "슬롯 예산 50/52 (M22-3차 W1 망루·함정 4종 추가 — 2026-08-09. 잔여 2칸 = " +

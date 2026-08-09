@@ -1823,7 +1823,9 @@ namespace AIVillage.M0
         /// <summary>몸 소지 조리식.</summary>
         public int MyCooked { get; private set; }
 
-        // (M19-W5: 지갑 MyMoney·빚 MyDebt·SetDebt·첫 임금 표식은 화폐와 함께 철거 — ADR-M19-1)
+        // (M19-W5: 지갑·빚·SetDebt·첫 임금 표식은 화폐와 함께 철거 — ADR-M19-1.
+        //  M24-1차 W2: 그 슬롯 3칸은 종족 축이 재사용했고, 화폐 재발은 이제 게이트 M19-T1이
+        //  번호가 아니라 **개념**으로 감시한다.)
 
         /// <summary>슬롯별 잔량 — EffectApplier 선검사·스냅샷 주입 공용 (판정 단일).</summary>
         public int GetPersonalStock(SlotId slot)

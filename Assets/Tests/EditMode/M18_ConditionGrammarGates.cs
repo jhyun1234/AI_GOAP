@@ -28,23 +28,23 @@ namespace AIVillage.Tests.EditMode
             // 위반 ①: 슬롯 비교
             Assert.IsTrue(SlotCondition.UsesTriggerOnlyGrammar(new[]
             {
-                new SlotCondition { Slot = SlotId.MyMoney, Op = CompareOp.GreaterOrEqual, CompareToSlot = true, RightSlot = SlotId.MyDebt },
+                new SlotCondition { Slot = SlotId.TreasureValue, Op = CompareOp.GreaterOrEqual, CompareToSlot = true, RightSlot = SlotId.ThreatEncounterMax },
             }), "CompareToSlot 미탐지");
 
             // 위반 ②·③: 새 연산자 (상수라도 금지 칸에선 불가 — 잡이 모르는 값 3·4)
             Assert.IsTrue(SlotCondition.UsesTriggerOnlyGrammar(new[]
             {
-                new SlotCondition { Slot = SlotId.MyMoney, Op = CompareOp.Less, Value = 50 },
+                new SlotCondition { Slot = SlotId.TreasureValue, Op = CompareOp.Less, Value = 50 },
             }), "Less 미탐지");
             Assert.IsTrue(SlotCondition.UsesTriggerOnlyGrammar(new[]
             {
-                new SlotCondition { Slot = SlotId.MyMoney, Op = CompareOp.Greater, Value = 50 },
+                new SlotCondition { Slot = SlotId.TreasureValue, Op = CompareOp.Greater, Value = 50 },
             }), "Greater 미탐지");
 
             // 무혐의: 기존 3연산 상수 조건·빈 배열·null — 오탐이 있으면 기존 에셋 전체가 red가 된다
             Assert.IsFalse(SlotCondition.UsesTriggerOnlyGrammar(new[]
             {
-                new SlotCondition { Slot = SlotId.MyMoney, Op = CompareOp.LessOrEqual, Value = 49 },
+                new SlotCondition { Slot = SlotId.TreasureValue, Op = CompareOp.LessOrEqual, Value = 49 },
             }), "기존 문법 오탐");
             Assert.IsFalse(SlotCondition.UsesTriggerOnlyGrammar(new SlotCondition[0]), "빈 배열 오탐");
             Assert.IsFalse(SlotCondition.UsesTriggerOnlyGrammar(null), "null 오탐");
@@ -84,30 +84,33 @@ namespace AIVillage.Tests.EditMode
 
         // ── T1c: AllHold 의미론 (순수) — 경계에서 미만/초과가 상수·슬롯 양쪽 모두 옳은가 ──
 
-        private static WorldSnapshot Snap(int myMoney, int myDebt)
+        /// <summary>슬롯 비교 문법 검사용 더미 스냅샷. 어떤 수치형 슬롯이든 상관없다 —
+        /// 이 게이트가 보는 것은 슬롯의 의미가 아니라 **조건 문법**이다.
+        /// (M24-1차 W2: 舊 화폐 슬롯이 재사용되며 이름만 갈렸다. 의미는 원래 무관했다.)</summary>
+        private static WorldSnapshot Snap(int left, int right)
         {
             int[] slots = new int[PlanningConfig.TotalSlots];
-            slots[(int)SlotId.MyMoney] = myMoney;
-            slots[(int)SlotId.MyDebt]  = myDebt;
+            slots[(int)SlotId.TreasureValue]      = left;
+            slots[(int)SlotId.ThreatEncounterMax] = right;
             return new WorldSnapshot(slots);
         }
 
-        private static SlotCondition MoneyVsDebt(CompareOp op) => new SlotCondition
-        { Slot = SlotId.MyMoney, Op = op, CompareToSlot = true, RightSlot = SlotId.MyDebt };
+        private static SlotCondition SlotVsSlot(CompareOp op) => new SlotCondition
+        { Slot = SlotId.TreasureValue, Op = op, CompareToSlot = true, RightSlot = SlotId.ThreatEncounterMax };
 
         [Test]
         public void M18_T1c_AllHold_SlotCompare_BoundaryExact()
         {
             // 경계(같은 값): 미만 false · 이상 true — "그만 모으기 vs 사러 가기" 동시 발동 방지의 핵심
             WorldSnapshot eq = Snap(70, 70);
-            Assert.IsFalse(GoalSelector.AllHold(new[] { MoneyVsDebt(CompareOp.Less) }, eq), "70 < 70");
-            Assert.IsTrue(GoalSelector.AllHold(new[] { MoneyVsDebt(CompareOp.GreaterOrEqual) }, eq), "70 ≥ 70");
-            Assert.IsFalse(GoalSelector.AllHold(new[] { MoneyVsDebt(CompareOp.Greater) }, eq), "70 > 70");
+            Assert.IsFalse(GoalSelector.AllHold(new[] { SlotVsSlot(CompareOp.Less) }, eq), "70 < 70");
+            Assert.IsTrue(GoalSelector.AllHold(new[] { SlotVsSlot(CompareOp.GreaterOrEqual) }, eq), "70 ≥ 70");
+            Assert.IsFalse(GoalSelector.AllHold(new[] { SlotVsSlot(CompareOp.Greater) }, eq), "70 > 70");
 
             // 한 칸 아래: 미만 true (빚 축 — "돈이 빚보다 적으면 벌어라")
-            Assert.IsTrue(GoalSelector.AllHold(new[] { MoneyVsDebt(CompareOp.Less) }, Snap(69, 70)), "69 < 70");
+            Assert.IsTrue(GoalSelector.AllHold(new[] { SlotVsSlot(CompareOp.Less) }, Snap(69, 70)), "69 < 70");
             // 한 칸 위: 초과 true (대칭 확인)
-            Assert.IsTrue(GoalSelector.AllHold(new[] { MoneyVsDebt(CompareOp.Greater) }, Snap(71, 70)), "71 > 70");
+            Assert.IsTrue(GoalSelector.AllHold(new[] { SlotVsSlot(CompareOp.Greater) }, Snap(71, 70)), "71 > 70");
         }
 
         [Test]
@@ -117,11 +120,11 @@ namespace AIVillage.Tests.EditMode
             // RightSlot=0=WoodStock)의 동작 불변 증명. WoodStock=0인 스냅샷에서 상수 49와 비교.
             WorldSnapshot snap = Snap(49, 0);
             var legacy = new SlotCondition
-            { Slot = SlotId.MyMoney, Op = CompareOp.LessOrEqual, Value = 49, RightSlot = SlotId.WoodStock };
+            { Slot = SlotId.TreasureValue, Op = CompareOp.LessOrEqual, Value = 49, RightSlot = SlotId.WoodStock };
             Assert.IsTrue(GoalSelector.AllHold(new[] { legacy }, snap), "상수 경로가 RightSlot(0)을 읽으면 49 ≤ 0으로 깨진다");
 
             // 새 연산자 + 상수 (허용 칸에서 유효한 조합)
-            var lessConst = new SlotCondition { Slot = SlotId.MyMoney, Op = CompareOp.Less, Value = 50 };
+            var lessConst = new SlotCondition { Slot = SlotId.TreasureValue, Op = CompareOp.Less, Value = 50 };
             Assert.IsTrue(GoalSelector.AllHold(new[] { lessConst }, snap), "49 < 50");
             Assert.IsFalse(GoalSelector.AllHold(new[] { lessConst }, Snap(50, 0)), "50 < 50");
         }
@@ -180,7 +183,7 @@ namespace AIVillage.Tests.EditMode
         {
             // GoalSO — private OnValidate를 리플렉션 호출 (에디터 저장 경로 재현)
             var goal = ScriptableObject.CreateInstance<GoalSO>();
-            goal.GoalConditions = new[] { MoneyVsDebt(CompareOp.GreaterOrEqual) };
+            goal.GoalConditions = new[] { SlotVsSlot(CompareOp.GreaterOrEqual) };
             LogAssert.Expect(LogType.Error, new Regex("ADR-M18-1"));
             typeof(GoalSO).GetMethod("OnValidate", BindingFlags.Instance | BindingFlags.NonPublic)
                           .Invoke(goal, null);
@@ -188,7 +191,7 @@ namespace AIVillage.Tests.EditMode
 
             // ActionSO — protected virtual OnValidate (자기 OnValidate가 없는 RestActionSO로)
             var action = ScriptableObject.CreateInstance<RestActionSO>();
-            action.Preconditions = new[] { new SlotCondition { Slot = SlotId.MyMoney, Op = CompareOp.Less, Value = 50 } };
+            action.Preconditions = new[] { new SlotCondition { Slot = SlotId.TreasureValue, Op = CompareOp.Less, Value = 50 } };
             LogAssert.Expect(LogType.Error, new Regex("ADR-M18-1"));
             typeof(ActionSO).GetMethod("OnValidate", BindingFlags.Instance | BindingFlags.NonPublic)
                             .Invoke(action, null);

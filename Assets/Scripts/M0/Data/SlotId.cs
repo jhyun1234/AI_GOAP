@@ -89,13 +89,21 @@ namespace AIVillage.M0
                                 // ⚠️ 액션 효과 금지 — ForageFrozen(33) 규약 동형 (위조 가능하면 겨울 파종이 뚫린다).
                                 // 예산 52칸 중 37.
 
-        // ── 🪦 M16~M18 화폐 유산 — M19 화폐 전면 철거로 **휴면** (ADR-M19-1) ──
-        // 번호 재사용 금지 (append-only, ADR-M0-9): 지우면 뒤 슬롯 인덱스가 밀려 기존 에셋이
-        // 전부 다른 슬롯을 가리킨다. 예산 3칸(38~40번째)은 소모된 채 유지된다.
-        // 읽기·쓰기 지점 0 — 스냅샷은 항상 0을 담는다. 게이트 M19-T1이 에셋 참조 0을 감시한다.
-        MyMoney           = 37, // 휴면 — 舊 몸 소지 돈(동)
-        MyDebt            = 38, // 휴면 — 舊 화폐 빚(동)
-        HomePriceNow      = 39, // 휴면 — 舊 집 실가격(동)
+        // ── ♻️ M24-1차 W2 — 舊 화폐 유산 3칸 **재사용** (ADR-M0-9 개정) ──
+        //
+        // 이 셋은 M16~M18 화폐 축의 잔재(MyMoney·MyDebt·HomePriceNow)로, M19 화폐 전면
+        // 철거 뒤 **읽기·쓰기 지점 0**인 채 자리만 차지하고 있었다.
+        //
+        // `ADR-M0-9`는 번호 재사용을 금지한다 — 지우면 뒤 슬롯 인덱스가 밀려 기존 에셋이
+        // 전부 다른 슬롯을 가리키기 때문이다. 개정 사유: **그 위험이 여기엔 없다.**
+        // 게이트 `M19-T1`이 이 셋에 대한 **에셋 참조 0을 지속 감시**해 왔으므로, 밀릴 참조
+        // 자체가 존재하지 않음이 증명돼 있다. 인덱스도 그대로라 뒤 슬롯은 움직이지 않는다.
+        // ⚠️ 옛 세이브는 이 자리에 항상 0을 담고 있다 → 새 의미로도 0에서 시작한다 (무해).
+        //
+        // 🔴 재사용은 이 셋이 마지막이다. 다음 슬롯은 뒤에 append 하거나 예산을 늘려야 한다.
+        ThreatEncounterMax = 37, // 수치형 파생 — 종족별 조우횟수 중 최대 (W3 배선. 그전까지 0)
+        AltarPlannedCount  = 38, // 수치형 파생 — 미건설 제단 계획 수 (3차 배선. 그전까지 0)
+        TreasureValue      = 39, // 수치형 — 창고 광물 총 가치 (2차 배선. 그전까지 0)
 
         // ── M21-W5 확장 (원시 무기 — 기존 인덱스 뒤에만 추가, 에셋 호환 유지) ──
         MyHasWeapon       = 40, // 논리형 — 내 무기 소유 (원천 = VillagerAgent.AcquireWeapon,
@@ -131,7 +139,8 @@ namespace AIVillage.M0
                                   // 계획 복귀 없음 — ADR-M22-13). 예산 52칸 중 49.
         WatchtowerCount     = 49, // 수치형 — 완공 망루 수. 빈 망루는 탑일 뿐 (ADR-M22-11) —
                                   // 어떤 goal도 이 슬롯을 안전 전제로 걸면 안 된다.
-                                  // 예산 52칸 중 50 (잔여 2칸 — 후반 전투·종족 몫).
+                                  // 예산 52칸 중 50 (잔여 2칸 — M24 2·3차 몫. 종족 축이 쓸
+                                  // 3칸은 舊 화폐 자리를 재사용했다, 위 M24-1차 W2 절).
     }
 
     public static class SlotIds
@@ -176,8 +185,9 @@ namespace AIVillage.M0
             || slot == SlotId.DefensePlannedCount || slot == SlotId.DefenseDamagedCount
             || slot == SlotId.GatePlannedCount                                  // M22-W3R2
             || slot == SlotId.TrapPlannedCount || slot == SlotId.TowerPlannedCount
-            || slot == SlotId.TrapCount || slot == SlotId.WatchtowerCount;      // M22-3차 W1
-            // (M19-W5: 화폐 슬롯 37~39는 휴면 — 수치형 분류에서도 제외)
+            || slot == SlotId.TrapCount || slot == SlotId.WatchtowerCount       // M22-3차 W1
+            || slot == SlotId.ThreatEncounterMax || slot == SlotId.AltarPlannedCount
+            || slot == SlotId.TreasureValue;                                    // M24-1차 W2
             // (M21-W5: MyHasWeapon(40)은 논리형이라 제외)
 
         /// <summary>자원 타입 → 스톡 슬롯. M0 미지원 타입이면 null (Iron/Copper/Silver는 M1).</summary>

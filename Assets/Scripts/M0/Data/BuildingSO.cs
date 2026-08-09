@@ -81,6 +81,15 @@ namespace AIVillage.M0
                  "비면 MarkerSprite/원형 폴백 (중립 — 기존 건물 무변).")]
         public Sprite[] TileSprites;
 
+        [Tooltip("탑승 주민의 교전 사거리 (M22-3차, ADR-M22-11). 0 = 탑승 불가 시설. " +
+                 "빈 망루는 탑일 뿐 — 사거리는 탑승 중인 주민에게만 적용되고 시설 자체는 싸우지 않는다.")]
+        public int TowerRangeTiles;
+
+        [Tooltip("위협이 밟으면 주는 피해 (M22-3차, ADR-M22-13). 0보다 크면 소모형 함정 — " +
+                 "발동 시 소멸하고 계획으로 돌아가지 않는다 (재설치는 플레이어 몫). " +
+                 "MaxDurability와 배타 — 함정은 소모지 내구도가 아니다.")]
+        public float TrapDamage;
+
         [Tooltip("완공 시 스폰할 프리팹. 비우면 MarkerSprite → 원형 마커 순으로 폴백.")]
         public GameObject Prefab;
 
@@ -122,6 +131,10 @@ namespace AIVillage.M0
             if (RepairCost > 0 && MaxDurability <= 0f)
                 Debug.LogWarning($"[BuildingSO] {name}: RepairCost({RepairCost})는 MaxDurability > 0일 때만 " +
                                  "쓰입니다 — 무시됨.", this);
+            // 함정은 소모지 내구도가 아니다 (M22-3차 W1, ADR-M22-13 ⚠️) — 다회용 함정 금지
+            if (TrapDamage > 0f && MaxDurability > 0f)
+                Debug.LogError($"[BuildingSO] {name}: TrapDamage(소모형 함정)와 MaxDurability(내구도)는 " +
+                               "배타입니다 — 함정은 발동 시 소멸합니다 (ADR-M22-13).", this);
         }
     }
 }

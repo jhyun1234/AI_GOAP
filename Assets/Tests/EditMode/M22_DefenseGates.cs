@@ -568,6 +568,43 @@ namespace AIVillage.Tests.EditMode
         }
 
         [Test]
+        public void M22_T12_TowerTrap_ShippedAssets()
+        {
+            // M22-3차 W1 — 배포 에셋 검산 (T2 동형). YAML 필드명 오타면 기본값 0으로 풀려 red.
+            var tower = AssetDatabase.LoadAssetAtPath<BuildingSO>("Assets/M0Config/Buildings/Watchtower.asset");
+            var trap = AssetDatabase.LoadAssetAtPath<BuildingSO>("Assets/M0Config/Buildings/Trap.asset");
+            Assert.IsNotNull(tower, "Watchtower 에셋 없음");
+            Assert.IsNotNull(trap, "Trap 에셋 없음");
+
+            // 망루: 내구도 있는 공성 대상 + 탑승 사거리 (ADR-M22-11)
+            Assert.AreEqual(SlotId.WatchtowerCount, tower.CountSlot);
+            Assert.IsTrue(tower.IsCountable && tower.PlaceOnDefensePlan, "망루 = 방어 계획 수량형");
+            Assert.Greater(tower.MaxDurability, 100f, "망루는 울타리(100)보다 단단 — 공성이 시간을 사게");
+            Assert.Greater(tower.RepairCost, 0, "망루도 수리 대상");
+            Assert.IsTrue(tower.BlocksMovement && !tower.BlocksThreatMovement, "망루 = 양쪽 차단 몸체");
+            Assert.AreEqual(0f, tower.TrapDamage, "망루는 함정이 아니다 (배타)");
+            // 탑승 사거리 > 기존 지상 교전 사거리 (FightActionSO.StrikeRangeTiles, 기본 2) —
+            // 망루가 맨몸 교전보다 멀리 닿아야 올라갈 이유가 있다 (명세 전제 ③ 정정:
+            // 주민 사거리의 실물은 ThreatSO가 아니라 FightActionSO다)
+            var fight = AssetDatabase.LoadAssetAtPath<FightActionSO>("Assets/M0Config/Actions/Action_Fight.asset");
+            Assert.IsNotNull(fight, "Action_Fight 에셋 없음");
+            Assert.Greater(tower.TowerRangeTiles, fight.StrikeRangeTiles,
+                "망루 사거리는 지상 교전 사거리보다 길어야 존재 이유가 있다");
+
+            // 함정: 소모형 소프트닝 (ADR-M22-13 + 사용자 확정 15 — 한 방 격퇴 금지)
+            Assert.AreEqual(SlotId.TrapCount, trap.CountSlot);
+            Assert.IsTrue(trap.IsCountable && trap.PlaceOnDefensePlan, "함정 = 방어 계획 수량형");
+            Assert.Greater(trap.TrapDamage, 0f, "함정은 피해를 준다");
+            Assert.AreEqual(0f, trap.MaxDurability, "함정은 소모지 내구도가 아니다 (배타·다회용 금지)");
+            Assert.IsFalse(trap.BlocksMovement || trap.BlocksThreatMovement,
+                "함정은 밟혀야 한다 — 통행 양쪽 허용");
+            var wolf = AssetDatabase.LoadAssetAtPath<ThreatSO>("Assets/M0Config/Threats/Threat_Tier1_Wolf.asset");
+            Assert.IsNotNull(wolf, "늑대 에셋 없음");
+            Assert.Greater(wolf.MaxHp - trap.TrapDamage, wolf.MaxHp * wolf.FleeBelowHpPct,
+                "한 방 격퇴 금지 (사용자 확정 15) — 함정은 소프트닝이다. 값을 올려 한 방이 되면 red");
+        }
+
+        [Test]
         public void M22_T11_ResourceHud_ShippedConfig()
         {
             // 자원 HUD (M22-2차 W4, Play 피드백 "보유 자원이 안 보인다") — 배포 에셋 검산.

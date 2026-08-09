@@ -5,7 +5,7 @@ namespace AIVillage.M0
 {
     /// <summary>
     /// 조리 중인 모닥불 갈아입히기 (M22-3차 W5d, 표현 전용) — 주민이 그 모닥불에서 끓이는 동안
-    /// BuildingSO.BusyFrames(솥 걸린 그림)로 바뀌고, 끝나면 평상 불꽃으로 돌아온다.
+    /// BuildingSO.AltFrames(솥 걸린 그림)로 바뀌고, 끝나면 평상 불꽃으로 돌아온다.
     /// 몸(GameObject)은 BuildingVisualizer가 스폰하고 여기는 **옷만 바꾼다** (ADR-M23-3 —
     /// 두 번째 스폰 경로 금지, DefenseFenceView와 같은 규약). 시뮬 쓰기 0.
     ///
@@ -42,7 +42,7 @@ namespace AIVillage.M0
                 if (at.HasValue) _cooking.Add(at.Value);
             }
             foreach (KeyValuePair<Vector2Int, BuildingFlipbook> kv in _fires)
-                if (kv.Value != null) kv.Value.SetBusy(_cooking.Contains(kv.Key));
+                if (kv.Value != null) kv.Value.SetAlt(_cooking.Contains(kv.Key));
         }
     }
 }

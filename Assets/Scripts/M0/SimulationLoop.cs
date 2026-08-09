@@ -927,12 +927,14 @@ namespace AIVillage.M0
                 // 몸은 visualizer, 옷은 뷰 (ADR-M23-3 — 이중 스폰 금지). 방어물 아니면 무시.
                 _defenseFenceView.Dress(b, body, new Vector2Int(x, y));
                 _campfireCookView.Register(b, body, new Vector2Int(x, y)); // 모닥불 아니면 무시
+                _gateLockView?.Register(b, body, new Vector2Int(x, y));    // 문 아니면 무시
             };
             Construction.OnRemoved += (slot, x, y) =>
             {
                 _visualizer.Remove(slot, x, y); // M9-B 시각 파괴
                 _defenseFenceView.NotifyRemoved(slot, new Vector2Int(x, y)); // 구멍 양옆 끝단 갱신
                 _campfireCookView.NotifyRemoved(slot, new Vector2Int(x, y));
+                _gateLockView?.NotifyRemoved(slot, new Vector2Int(x, y));
             };
             // 밭 시설 소실 → FarmService.RemovePlot (RemovePlot의 유일한 호출 경로, ADR-M9-3 대칭)
             Construction.OnRemoved += (slot, x, y) =>
@@ -969,12 +971,14 @@ namespace AIVillage.M0
             EnsureDefenseWoodCosts(); // 고스트 그림의 원천(BuildingSO) 캐시
             _defensePlanView = new DefensePlanView(transform, Defense, _fenceBuildingSO, _gateBuildingSO,
                                                    _trapBuildingSO, _towerBuildingSO); // M22-3차 W2
-            // 시설 손상 오버레이 (M22-W7, 표현 전용) — 깎일수록 짙어지는 검붉은 마커.
-            // 헌장 표현 조항(ADR-M20-1): "색 바랜 울타리가 늘어나는 것"이 목수 부재의 화면이다.
-            _defenseDurabilityView = new DefenseDurabilityView(transform, Defense);
-            // 문 잠금 마커 (M22-2차 W1, 표현 전용) — 잠금 중 서 있는 문 위에 자물쇠 표식.
-            // 잠긴 문이 안 보이면 "L을 눌렀는데 아무 일도 없다"가 된다 (계획 마커와 같은 원리).
-            _gateLockView = new GateLockView(transform, Defense);
+            // 시설 손상 (M22-W7 → 2026-08-09 개정, 표현 전용) — 덧붙인 점이 아니라 **건물 자체가**
+            // 깎일수록 바래진다. 헌장 표현 조항(ADR-M20-1)이 쓴 말 그대로 "색 바랜 울타리가
+            // 늘어나는 것"이 목수 부재의 화면이다.
+            _defenseDurabilityView = new DefenseDurabilityView(_visualizer, Defense);
+            // 문 잠금 표현 (M22-2차 W1 → 2026-08-09 개정) — 표식이 아니라 **문 그림 자체**가
+            // 잠금을 말한다 (잠그면 닫히고 풀면 열린다). 잠긴 문이 안 보이면 "L을 눌렀는데
+            // 아무 일도 없다"가 되는 건 그대로라, 말하는 방식만 바뀌었다.
+            _gateLockView = new GateLockView(Defense);
             // 수리 완료 정보줄 (W7) — 등록(완공)과 분리된 전용 이벤트 (완공마다 "수리" 거짓말 방지)
             Defense.OnRepaired += (slot, tile, actor) =>
                 Hud?.Notify($"{(string.IsNullOrEmpty(actor) ? "누군가" : actor)}이(가) " +

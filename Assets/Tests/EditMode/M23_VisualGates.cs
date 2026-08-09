@@ -82,16 +82,14 @@ namespace AIVillage.Tests.EditMode
             for (int i = 0; i < 16; i++)
                 Assert.IsNotNull(fence.TileSprites[i], $"울타리 조각[{i}] null — fileID 손배선 오류");
             Assert.IsNotNull(fence.MarkerSprite, "울타리 대표(폴백) 스프라이트");
-            Assert.IsNotNull(gate.MarkerSprite, "문 대표 스프라이트 (고스트·폴백용 — 닫힌 문)");
-            // 문 오토타일 (M22-2차 W3, Play 피드백 "문이 뜬금없다") — 같은 시트 조각 16장 실 로드.
-            // 울타리와 같은 fileID를 손배선했으므로 오타 한 자리 = null = red (M23_T1 침묵 배선 방지).
-            Assert.IsTrue(gate.TileSprites != null && gate.TileSprites.Length == 16, "문 조각 16장");
-            for (int i = 0; i < 16; i++)
-            {
-                Assert.IsNotNull(gate.TileSprites[i], $"문 조각[{i}] null — fileID 손배선 오류");
-                Assert.AreEqual(fence.TileSprites[i], gate.TileSprites[i],
-                    $"문 조각[{i}]은 울타리와 같은 시트다 — 어긋나면 줄과 안 맞는 그림으로 회귀");
-            }
+            Assert.IsNotNull(gate.MarkerSprite, "문 대표 스프라이트 (고스트·폴백용)");
+            // 🔁 2026-08-09 개정 — 舊 규약은 "문도 울타리 조각 16장을 입고 금빛 색조로 구분"이었다
+            // (M22-2차 W3, Play 피드백 "문이 뜬금없다"). 그 규약의 전제는 **문에 제 그림이 없다**는
+            // 것이었고, 같은 팩의 여닫는 문 그림이 들어오면서 전제가 사라졌다. 이제 문은 제 그림으로
+            // 잠금까지 말한다 — 조각을 다시 채우면 그 표현이 덮이므로 여기서 막는다.
+            // (문 그림 자체의 전수 검산은 M22_T17 이 맡는다 — 검사 소유를 한 곳에 둔다.)
+            Assert.IsTrue(gate.TileSprites == null || gate.TileSprites.Length == 0,
+                "문은 이제 울타리 조각을 입지 않는다 — 채우면 문 그림이 덮인다 (M22_T17 참조)");
         }
 
         [Test]

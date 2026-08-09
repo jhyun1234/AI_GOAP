@@ -1,53 +1,41 @@
-using System.Collections.Generic;
 using UnityEngine;
 
 namespace AIVillage.M0
 {
     /// <summary>
-    /// 시설 손상 오버레이 (M22-W7, 표현 전용) — DefenseService.OnDurabilityChanged 구독.
-    /// 손상된(0 < 내구도 < 최대) 시설 위에 검붉은 반투명 마커를 얹는다 — 깎일수록 짙어진다.
-    /// 헌장 표현 조항(ADR-M20-1)의 이행 지점: "색 바랜 울타리가 늘어나는 것"이 곧 목수 부재의
-    /// 화면이다. 만복(수리·완공)·소멸(파괴, max=0 신호)이면 마커를 걷는다. 시뮬 쓰기 0.
+    /// 시설 손상 표현 (M22-W7 → 2026-08-09 개정, 표현 전용) — DefenseService.OnDurabilityChanged 구독.
+    ///
+    /// 🔁 **개정 이유**: 舊 방식은 시설 위에 검붉은 반투명 원을 얹는 것이었다. 임시 색 마커
+    /// 시절엔 그게 유일한 방법이었지만, 헌장 표현 조항(ADR-M20-1)이 실제로 쓴 말은
+    /// *"색 바랜 울타리가 늘어나는 것"* 이다 — 덧붙인 점이 아니라 **물건 자체가 상하는 것**.
+    /// 실그림이 들어온 지금은 그 말대로 할 수 있다: 깎일수록 울타리가 어둡고 바래진다.
+    /// 화면에서 표식 하나가 사라지고, 목수 부재는 마을 색으로 읽힌다.
+    ///
+    /// 몸은 BuildingVisualizer가 소유하고 여기는 **색만 만진다** (ADR-M23-3 — 두 번째 스폰 경로
+    /// 금지). 만복(수리·완공)·소멸이면 원래 색으로 되돌린다. 시뮬 쓰기 0.
     /// </summary>
     public sealed class DefenseDurabilityView
     {
-        private readonly Transform _parent;
-        private readonly Dictionary<(SlotId slot, Vector2Int tile), SpriteRenderer> _overlays
-            = new Dictionary<(SlotId, Vector2Int), SpriteRenderer>();
+        // 다 깎였을 때의 색 — 어둡고 채도가 빠진 쪽으로. 붉게 물들이지 않는다:
+        // 팩 그림이 이미 나무색이라 붉은 색조를 얹으면 "불탄 것"으로 읽힌다.
+        private static readonly Color Worn = new Color(0.45f, 0.40f, 0.38f, 1f);
 
-        public DefenseDurabilityView(Transform parent, DefenseService defense)
+        private readonly BuildingVisualizer _visualizer;
+
+        public DefenseDurabilityView(BuildingVisualizer visualizer, DefenseService defense)
         {
-            _parent = parent;
+            _visualizer = visualizer;
             if (defense != null) defense.OnDurabilityChanged += OnChanged;
         }
 
         private void OnChanged(SlotId slot, Vector2Int tile, float cur, float max)
         {
-            var key = (slot, tile);
-            bool damaged = max > 0f && cur < max;
-            if (!damaged)
-            {
-                if (_overlays.TryGetValue(key, out SpriteRenderer gone))
-                {
-                    if (gone != null) Object.Destroy(gone.gameObject);
-                    _overlays.Remove(key);
-                }
-                return;
-            }
+            if (_visualizer == null) return;
+            if (!_visualizer.TryGetRenderer(slot, tile, out SpriteRenderer sr)) return;
 
-            if (!_overlays.TryGetValue(key, out SpriteRenderer sr) || sr == null)
-            {
-                var go = new GameObject($"DefenseDamage_{tile.x}_{tile.y}");
-                go.transform.SetParent(_parent, worldPositionStays: false);
-                go.transform.position = new Vector3(tile.x, tile.y, 0f); // ADR-M0-9 — X-Y 평면
-                go.transform.localScale = Vector3.one * 0.55f;
-                sr = go.AddComponent<SpriteRenderer>();
-                sr.sprite = M0Sprites.Circle;
-                sr.sortingOrder = WorldSort.Order(tile.y, WorldSort.Damage); // 제 건물 위
-                _overlays[key] = sr;
-            }
-            float dmg = 1f - cur / max; // 0(멀쩡)~1(파괴 직전)
-            sr.color = new Color(0.6f, 0.08f, 0.05f, 0.2f + 0.55f * dmg); // 깎일수록 짙은 검붉음
+            // max <= 0 = 소멸 신호. 몸이 곧 파괴되므로 색만 원복하고 끝낸다.
+            float dmg = max > 0f ? Mathf.Clamp01(1f - cur / max) : 0f;
+            sr.color = Color.Lerp(Color.white, Worn, dmg);
         }
     }
 }

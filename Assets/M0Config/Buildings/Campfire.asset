@@ -34,7 +34,7 @@ MonoBehaviour:
   - {fileID: 85423246, guid: c550f469f9e01234a9b12f1c3606b4b6, type: 3}
   - {fileID: 1164931971, guid: c550f469f9e01234a9b12f1c3606b4b6, type: 3}
   - {fileID: -481223667, guid: c550f469f9e01234a9b12f1c3606b4b6, type: 3}
-  BusyFrames:
+  AltFrames:
   - {fileID: -1054225571, guid: f3e5053d3647ccd48bbc8a5ec5e80f46, type: 3}
   - {fileID: 1202027989, guid: f3e5053d3647ccd48bbc8a5ec5e80f46, type: 3}
   - {fileID: 1730686132, guid: f3e5053d3647ccd48bbc8a5ec5e80f46, type: 3}

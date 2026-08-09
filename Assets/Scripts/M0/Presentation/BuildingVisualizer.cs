@@ -28,6 +28,17 @@ namespace AIVillage.M0
             return go;
         }
 
+        /// <summary>완공 건물의 몸 스프라이트 조회 (2026-08-09) — 손상 표현이 **건물 자체를**
+        /// 바래게 하려면 그 렌더러가 필요하다. 두 번째 스폰 경로를 만들지 않기 위한 창구
+        /// (ADR-M23-3) — 뷰는 옷만 갈아입히고 몸은 여전히 여기 하나가 소유한다.</summary>
+        public bool TryGetRenderer(SlotId slot, Vector2Int tile, out SpriteRenderer sr)
+        {
+            sr = null;
+            if (!_spawned.TryGetValue((slot, tile), out GameObject go) || go == null) return false;
+            sr = go.GetComponentInChildren<SpriteRenderer>();
+            return sr != null;
+        }
+
         /// <summary>수량형 건물 제거 시각 (M9-B) — ConstructionService.OnRemoved 구독. 추적 GameObject 파괴.</summary>
         public void Remove(SlotId countSlot, int tileX, int tileY)
         {
@@ -58,10 +69,10 @@ namespace AIVillage.M0
                 sr.sprite = building.MarkerSprite; // 원본색 그대로 (M3-D 시각 보강)
                 // 애니 프레임이 있으면 재생기를 얹는다 (모닥불·조리 전환). 없으면 정지 그림 그대로.
                 bool anim = (building.MarkerFrames != null && building.MarkerFrames.Length > 0)
-                            || (building.BusyFrames != null && building.BusyFrames.Length > 0);
+                            || (building.AltFrames != null && building.AltFrames.Length > 0);
                 if (anim)
                     go.AddComponent<BuildingFlipbook>()
-                      .Setup(sr, building.MarkerFrames, building.BusyFrames, building.MarkerFps);
+                      .Setup(sr, building.MarkerFrames, building.AltFrames, building.MarkerFps);
             }
             else
             {

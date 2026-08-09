@@ -29,25 +29,14 @@ MonoBehaviour:
   RepairCost: 1
   PlaceNearOwnedHome: 0
   Prefab: {fileID: 0}
-  TileSprites:
-  - {fileID: -1368779858, guid: 574beee4d8df72d43bfdcd7c5b72dc8a, type: 3}
-  - {fileID: 1189501798, guid: 574beee4d8df72d43bfdcd7c5b72dc8a, type: 3}
-  - {fileID: 1189501798, guid: 574beee4d8df72d43bfdcd7c5b72dc8a, type: 3}
-  - {fileID: 1189501798, guid: 574beee4d8df72d43bfdcd7c5b72dc8a, type: 3}
-  - {fileID: -1368779858, guid: 574beee4d8df72d43bfdcd7c5b72dc8a, type: 3}
-  - {fileID: 1189501798, guid: 574beee4d8df72d43bfdcd7c5b72dc8a, type: 3}
-  - {fileID: 1189501798, guid: 574beee4d8df72d43bfdcd7c5b72dc8a, type: 3}
-  - {fileID: 1189501798, guid: 574beee4d8df72d43bfdcd7c5b72dc8a, type: 3}
-  - {fileID: -1368779858, guid: 574beee4d8df72d43bfdcd7c5b72dc8a, type: 3}
-  - {fileID: -1368779858, guid: 574beee4d8df72d43bfdcd7c5b72dc8a, type: 3}
-  - {fileID: 1189501798, guid: 574beee4d8df72d43bfdcd7c5b72dc8a, type: 3}
-  - {fileID: -1368779858, guid: 574beee4d8df72d43bfdcd7c5b72dc8a, type: 3}
-  - {fileID: -810548156, guid: 574beee4d8df72d43bfdcd7c5b72dc8a, type: 3}
-  - {fileID: 1189501798, guid: 574beee4d8df72d43bfdcd7c5b72dc8a, type: 3}
-  - {fileID: 1189501798, guid: 574beee4d8df72d43bfdcd7c5b72dc8a, type: 3}
-  - {fileID: 1189501798, guid: 574beee4d8df72d43bfdcd7c5b72dc8a, type: 3}
-  MarkerSprite: {fileID: 1189501798, guid: 574beee4d8df72d43bfdcd7c5b72dc8a, type: 3}
-  MarkerOffsetTiles: {x: 0, y: 0}
+  TileSprites: []
+  MarkerSprite: {fileID: 667524338, guid: 03d2f96908c90e44f9f341b10d8ae046, type: 3}
+  MarkerOffsetTiles: {x: 0, y: 0.05}
+  MarkerFps: 6
+  MarkerFrames:
+  - {fileID: 667524338, guid: 03d2f96908c90e44f9f341b10d8ae046, type: 3}
+  AltFrames:
+  - {fileID: 397537649, guid: 03d2f96908c90e44f9f341b10d8ae046, type: 3}
   FallbackColor: {r: 0.85, g: 0.7, b: 0.4, a: 1}
-  FallbackSize: 1
+  FallbackSize: 0.55
   SortingOrder: 5

@@ -32,12 +32,41 @@ namespace AIVillage.M0
             _wp = 0;
             _onArrived = onArrived;
 
-            var sr = gameObject.AddComponent<SpriteRenderer>();
-            sr.sprite = M0Sprites.Circle;
-            sr.color = new Color(0.4f, 0.75f, 0.4f, 1f); // 초록 마커 — 우호적 방문자 (아트는 후속 에셋)
-            _sr = sr; // 걸어오니까 깊이는 매 프레임 (WorldSort)
-            transform.localScale = Vector3.one * 0.8f;
+            // 그림 (2026-08-09) — 걸어오는 건 사람이지 점이 아니다. 주민과 **같은 시트·같은
+            // 애니메이터**를 쓰되(ThreatAgent가 먼저 낸 길), 연한 초록 색조로 "아직 주민이
+            // 아니다"를 남긴다 — 문의 금빛 색조와 같은 문법이다.
+            // 시트가 없으면 舊 초록 원 폴백 (중립 불변식).
+            AgentSpriteSetSO set = M0SimulationLoop.Instance != null
+                ? M0SimulationLoop.Instance.SpriteSet : null;
+            if (set != null)
+            {
+                // Kenmi 조각은 피벗이 좌하단 — 자식 오프셋으로 타일 중앙 정렬 (VillagerAgent와 동형)
+                var view = new GameObject("View");
+                view.transform.SetParent(transform, worldPositionStays: false);
+                view.transform.localScale = Vector3.one * set.Scale;
+                view.transform.localPosition = new Vector3(-set.Scale, -set.Scale, 0f);
+                _sr = view.AddComponent<SpriteRenderer>();
+                _anim = new AgentAnimator(_sr, set, Color.white);
+                _sr.color = Color.Lerp(Color.white, VisitorTint, 0.3f); // 애니메이터 틴트 위에 덮어쓴다
+
+                // ⚠️ 색조만으로는 부족하다 (2026-08-09 실측): 배경이 초록 들판이라 초록 색조는
+                // 눈에 덜 띈다. 이 게임이 "누구인가"를 말하는 방식은 원래 이름표다 —
+                // 주민이 이름·직업을 달듯 방문자는 그렇게 달아 준다.
+                M0SimulationLoop sim = M0SimulationLoop.Instance;
+                if (sim != null && sim.AgentConfig != null)
+                    new NameTag(transform, sim.BubbleFont, sim.AgentConfig, "방랑자");
+            }
+            else
+            {
+                _sr = gameObject.AddComponent<SpriteRenderer>();
+                _sr.sprite = M0Sprites.Circle;
+                _sr.color = VisitorTint;
+                transform.localScale = Vector3.one * 0.8f;
+            }
         }
+
+        // 방문자 색조 — 주민과 한눈에 갈리되 초록 원 시절의 뜻(우호적 손님)을 잇는다
+        private static readonly Color VisitorTint = new Color(0.4f, 0.85f, 0.45f, 1f);
 
         /// <summary>퇴장 (WandererService 전용) — 왔던 길로 걷다 소멸. waypoints null = 즉시 소멸.</summary>
         public void Leave(List<Vector2Int> waypoints)
@@ -49,12 +78,17 @@ namespace AIVillage.M0
             if (_path == null) Destroy(gameObject);
         }
 
-        private SpriteRenderer _sr; // 깊이 갱신 대상
+        private SpriteRenderer _sr;  // 깊이 갱신 대상
+        private AgentAnimator _anim; // null = 색 원 폴백
+        private Vector2 _facing = Vector2.down; // 멈춰도 마지막으로 보던 쪽을 본다
 
         private void Update()
         {
             if (_sr != null) _sr.sortingOrder = WorldSort.Order(transform.position.y, WorldSort.Agent);
-            if (_path == null || _wp >= _path.Count)
+            bool walking = !(_path == null || _wp >= _path.Count);
+            if (_anim != null) _anim.Tick(Time.deltaTime, walking, _facing);
+
+            if (!walking)
             {
                 if (_leaving) { Destroy(gameObject); return; }
                 if (_onArrived != null) { Action cb = _onArrived; _onArrived = null; cb(); }
@@ -62,6 +96,8 @@ namespace AIVillage.M0
             }
 
             var target = new Vector3(_path[_wp].x, _path[_wp].y, 0f); // ADR-M0-9 — X-Y 평면
+            Vector3 delta = target - transform.position;
+            if (delta.sqrMagnitude > ARRIVE_EPSILON_SQR) _facing = new Vector2(delta.x, delta.y).normalized;
             transform.position = Vector3.MoveTowards(transform.position, target, MOVE_SPEED * Time.deltaTime);
             if ((transform.position - target).sqrMagnitude <= ARRIVE_EPSILON_SQR) _wp++;
         }

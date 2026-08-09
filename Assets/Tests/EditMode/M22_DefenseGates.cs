@@ -856,21 +856,37 @@ namespace AIVillage.Tests.EditMode
             BuildingSO Load(string n) =>
                 AssetDatabase.LoadAssetAtPath<BuildingSO>($"Assets/M0Config/Buildings/{n}.asset");
 
-            // ── 울타리·문: 16조각 전수 + 가로/세로 분화 ──
+            // ── 울타리: 16조각 전수 + 가로/세로 분화 ──
             // 조각 종류가 3개로 줄어도(팰리세이드 판독) **가로와 세로는 반드시 달라야** 한다 —
             // 같아지면 오토타일이 죽고 줄이 한 방향으로만 읽힌다.
-            foreach (string n in new[] { "Fence", "Gate" })
-            {
-                BuildingSO b = Load(n);
-                Assert.IsNotNull(b, $"{n} 에셋 없음");
-                Assert.IsNotNull(b.TileSprites, $"{n}: TileSprites 미배선");
-                Assert.AreEqual(16, b.TileSprites.Length, $"{n}: 4방 마스크는 16칸이다");
-                for (int i = 0; i < 16; i++)
-                    Assert.IsNotNull(b.TileSprites[i], $"{n}: TileSprites[{i}] null — fileID 오배선");
-                Assert.AreNotSame(b.TileSprites[2], b.TileSprites[4],
-                    $"{n}: 가로중간(2)과 세로중간(4)이 같은 그림 — 오토타일이 죽었다");
-                Assert.IsNotNull(b.MarkerSprite, $"{n}: 대표 그림 미배선 — 계획 고스트가 원으로 떨어진다");
-            }
+            BuildingSO fence = Load("Fence");
+            Assert.IsNotNull(fence, "Fence 에셋 없음");
+            Assert.IsNotNull(fence.TileSprites, "울타리: TileSprites 미배선");
+            Assert.AreEqual(16, fence.TileSprites.Length, "울타리: 4방 마스크는 16칸이다");
+            for (int i = 0; i < 16; i++)
+                Assert.IsNotNull(fence.TileSprites[i], $"울타리: TileSprites[{i}] null — fileID 오배선");
+            Assert.AreNotSame(fence.TileSprites[2], fence.TileSprites[4],
+                "울타리: 가로중간(2)과 세로중간(4)이 같은 그림 — 오토타일이 죽었다");
+            Assert.IsNotNull(fence.MarkerSprite, "울타리: 대표 그림 미배선 — 계획 고스트가 원으로 떨어진다");
+
+            // ── 문: 제 그림이 상태를 말한다 (2026-08-09 개정) ──
+            // 舊 규약은 "문도 울타리 조각을 입고 금빛 색조로 구분"이었다(M22-2차 W3). 그때는 문에
+            // 제 그림이 없어 그게 최선이었지만, 같은 팩에 여닫는 문 그림이 들어오면서 **잠금 표식을
+            // 지우고 문이 스스로 말하게** 바꿨다. 조각을 다시 채우면 그 표현이 죽으므로 red 로 잡는다.
+            BuildingSO gate = Load("Gate");
+            Assert.IsNotNull(gate, "Gate 에셋 없음");
+            Assert.IsTrue(gate.TileSprites == null || gate.TileSprites.Length == 0,
+                "문은 제 그림을 쓴다 — TileSprites를 채우면 울타리 조각이 문 그림을 덮는다");
+            Assert.IsNotNull(gate.MarkerSprite, "문: 대표 그림 미배선 — 계획 고스트가 원으로 떨어진다");
+            Assert.IsTrue(gate.MarkerFrames != null && gate.MarkerFrames.Length > 0
+                          && gate.MarkerFrames[0] != null, "문: 평상(열린 문) 프레임 미배선");
+            Assert.IsTrue(gate.AltFrames != null && gate.AltFrames.Length > 0
+                          && gate.AltFrames[0] != null, "문: 잠김(닫힌 문) 프레임 미배선 — L이 화면에서 사라진다");
+            Assert.AreNotSame(gate.MarkerFrames[0], gate.AltFrames[0],
+                "문: 열림과 잠김이 같은 그림 — 잠갔는지 알 수 없다");
+            // 밑동이 같아야 갈아입을 때 문이 튀지 않는다 (평상·대체 규격 규약)
+            Assert.AreEqual(gate.MarkerFrames[0].rect.height, gate.AltFrames[0].rect.height, 1e-3f,
+                "문: 열림·잠김 프레임의 세로 규격이 다르다 — 갈아입을 때 밑동이 튄다");
 
             // ── 모닥불: 평상 애니 + 조리 전환 ──
             // BusyFrames가 비면 "요리를 시작하면 솥이 걸린다"가 조용히 사라진다 (사용자 요청 지점).
@@ -879,13 +895,13 @@ namespace AIVillage.Tests.EditMode
             Assert.IsNotNull(fire.MarkerSprite, "모닥불: 대표 그림 미배선 — 주황 원으로 회귀");
             Assert.IsTrue(fire.MarkerFrames != null && fire.MarkerFrames.Length >= 2,
                 "모닥불: 평상 프레임 2장 미만 — 불이 안 흔들린다");
-            Assert.IsTrue(fire.BusyFrames != null && fire.BusyFrames.Length >= 1,
-                "모닥불: BusyFrames 미배선 — 조리 중 솥 전환이 사라진다");
+            Assert.IsTrue(fire.AltFrames != null && fire.AltFrames.Length >= 1,
+                "모닥불: AltFrames 미배선 — 조리 중 솥 전환이 사라진다");
             foreach (Sprite s in fire.MarkerFrames) Assert.IsNotNull(s, "모닥불 평상 프레임에 null");
-            foreach (Sprite s in fire.BusyFrames) Assert.IsNotNull(s, "모닥불 조리 프레임에 null");
+            foreach (Sprite s in fire.AltFrames) Assert.IsNotNull(s, "모닥불 조리 프레임에 null");
             Assert.Greater(fire.MarkerFps, 0f, "모닥불: FPS 0이면 첫 프레임에 굳는다");
             // 평상/조리는 세로 규격이 같아야 밑동이 안 튄다 (갈아입을 때 불이 뛰어오르면 안 된다)
-            Assert.AreEqual(fire.MarkerFrames[0].rect.height, fire.BusyFrames[0].rect.height, 1e-3f,
+            Assert.AreEqual(fire.MarkerFrames[0].rect.height, fire.AltFrames[0].rect.height, 1e-3f,
                 "모닥불: 평상·조리 프레임 높이가 다르다 — 갈아입을 때 밑동이 튄다");
 
             // ── 집: 실그림 + 파묻힘 방지 ──

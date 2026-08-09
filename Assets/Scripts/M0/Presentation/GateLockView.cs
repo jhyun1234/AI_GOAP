@@ -4,51 +4,58 @@ using UnityEngine;
 namespace AIVillage.M0
 {
     /// <summary>
-    /// 문 잠금 자물쇠 마커 (M22-2차 W1, 표현 전용) — DefenseService.OnGateLockChanged 구독.
-    /// 잠금 중 서 있는 문 위에 노란 표식을 얹는다 — 잠긴 문이 안 보이면 "L을 눌렀는데 아무 일도
-    /// 없다"가 된다 (DefensePlanView와 같은 원리). 내구도 이벤트도 구독한다 — 잠금 중 신규 문
-    /// 완공(마커 추가)·파괴(마커 제거)를 따라간다. 시뮬 쓰기 0.
+    /// 문 잠금 표현 (M22-2차 W1 → 2026-08-09 개정, 표현 전용) — DefenseService.OnGateLockChanged 구독.
+    ///
+    /// 🔁 **개정 이유**: 舊 방식은 문 위에 노란 원 표식을 얹는 것이었다. 그때는 문에 제 그림이
+    /// 없어(울타리 조각 + 금빛 색조) 상태를 말할 방법이 표식뿐이었다. 구매 팩에 여닫는 문 그림
+    /// (Palisade_Gate_Anim)이 들어오면서 **상태를 물건 자체가 말할 수 있게** 됐다 —
+    /// 잠그면 닫히고 풀면 열린다. 화면에서 표식 하나가 사라지고 뜻은 더 분명해진다.
+    ///
+    /// 그림 교체는 BuildingFlipbook이 하고(평상=열린 문 / 대체=닫힌 문), 여기는 **어느 쪽인지만**
+    /// 알려준다 — CampfireCookView와 같은 규약이다. 문 에셋에 AltFrames가 없으면 아무 일도
+    /// 일어나지 않는다 (중립: 그림 미배선 판은 배선 전과 동일).
+    ///
+    /// 내구도 이벤트도 구독한다 — 잠금 중 신규 문 완공·파괴를 따라가야 새 문도 닫힌다. 시뮬 쓰기 0.
     /// </summary>
     public sealed class GateLockView
     {
-        private readonly Transform _parent;
         private readonly DefenseService _defense;
-        private readonly List<GameObject> _markers = new List<GameObject>();
+        // 문 몸체의 재생기 — 등록은 완공 배선(SimulationLoop)이, 해제는 소멸 통지가 한다.
+        private readonly Dictionary<Vector2Int, BuildingFlipbook> _gates
+            = new Dictionary<Vector2Int, BuildingFlipbook>();
 
-        public GateLockView(Transform parent, DefenseService defense)
+        public GateLockView(DefenseService defense)
         {
-            _parent = parent;
             _defense = defense;
             if (defense == null) return;
-            defense.OnGateLockChanged += locked => Rebuild();
+            defense.OnGateLockChanged += _ => Apply();
             // 내구도 변화 = 문 생사의 유일한 신호 (등록·소멸이 같은 이벤트로 나간다).
-            // 잠금 해제 상태면 Rebuild가 즉시 반환하므로 공성 중 손상 이벤트 비용은 무시 가능.
             defense.OnDurabilityChanged += (slot, tile, cur, max) =>
             {
-                if (slot == SlotId.GateCount) Rebuild();
+                if (slot == SlotId.GateCount) Apply();
             };
         }
 
-        /// <summary>마커 전량 재구성 — 문은 소수라 부분 갱신의 장부 관리보다 싸고 결정적이다.</summary>
-        private void Rebuild()
+        /// <summary>완공 등록 — 문이 아니거나 그림 미배선이면 무시 (중립).</summary>
+        public void Register(BuildingSO b, GameObject body, Vector2Int tile)
         {
-            foreach (GameObject go in _markers)
-                if (go != null) Object.Destroy(go);
-            _markers.Clear();
-            if (!_defense.GatesLocked) return;
+            if (b == null || body == null || b.CountSlot != SlotId.GateCount) return;
+            var fb = body.GetComponentInChildren<BuildingFlipbook>();
+            if (fb == null) return;
+            _gates[tile] = fb;
+            fb.SetAlt(_defense != null && _defense.GatesLocked); // 잠금 중에 세워진 문도 닫혀서 선다
+        }
 
-            foreach (Vector2Int t in _defense.BuiltGateTiles)
-            {
-                var go = new GameObject($"GateLock_{t.x}_{t.y}");
-                go.transform.SetParent(_parent, worldPositionStays: false);
-                go.transform.position = new Vector3(t.x, t.y, 0f); // ADR-M0-9 — X-Y 평면
-                go.transform.localScale = Vector3.one * 0.35f;
-                var sr = go.AddComponent<SpriteRenderer>();
-                sr.sprite = M0Sprites.Circle;
-                sr.sortingOrder = WorldSort.Order(t.y, WorldSort.Lock); // 제 문·손상 오버레이 위
-                sr.color = new Color(0.95f, 0.8f, 0.15f, 0.9f); // 자물쇠 노랑 — 손상 검붉음과 구분
-                _markers.Add(go);
-            }
+        public void NotifyRemoved(SlotId slot, Vector2Int tile)
+        {
+            if (slot == SlotId.GateCount) _gates.Remove(tile);
+        }
+
+        private void Apply()
+        {
+            bool locked = _defense.GatesLocked;
+            foreach (KeyValuePair<Vector2Int, BuildingFlipbook> kv in _gates)
+                if (kv.Value != null) kv.Value.SetAlt(locked);
         }
     }
 }

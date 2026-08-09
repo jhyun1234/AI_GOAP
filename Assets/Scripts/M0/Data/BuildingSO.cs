@@ -114,10 +114,10 @@ namespace AIVillage.M0
         [Tooltip("마커 애니메이션 초당 프레임. MarkerFrames가 2장 이상일 때만 쓰인다.")]
         public float MarkerFps = 6f;
 
-        [Tooltip("**사용 중** 프레임 (모닥불 조리 = 솥 걸린 그림). 채우면 그 건물을 쓰는 주민이 " +
-                 "있는 동안 이 프레임들로 갈아입는다 — 판정은 표현 뷰의 몫이고 시뮬은 모른다. " +
-                 "비우면 전환 없음 (중립).")]
-        public Sprite[] BusyFrames;
+        [Tooltip("**대체 상태** 프레임. 무엇이 대체 상태인지는 **뷰가 정한다** — 모닥불은 조리 중" +
+                 "(솥 걸린 그림), 문은 잠김(닫힌 문). 시뮬은 이 칸을 모른다. 비우면 전환 없음 (중립).\n" +
+                 "⚠️ 평상 프레임과 세로 규격을 맞춰라 — 다르면 갈아입을 때 밑동이 튄다.")]
+        public Sprite[] AltFrames;
 
         [Tooltip("원형 마커 폴백 색. 알파 0이면 런타임에서 1로 자동 보정 (舊 BC5 함정 방어). MarkerSprite에는 미적용(원본색).")]
         public Color FallbackColor = new Color(1f, 0.55f, 0.15f, 1f);

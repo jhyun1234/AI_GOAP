@@ -126,24 +126,40 @@ namespace AIVillage.M0
         public DefenseService Defense { get; private set; }
 
         private int _fenceWoodCost = -1, _gateWoodCost = -1; // 카탈로그 파생 캐시 (−1 = 미계산)
+        private int _trapWoodCost = -1, _towerWoodCost = -1, _towerStoneCost = -1; // M22-3차 W2
         private BuildingSO _fenceBuildingSO, _gateBuildingSO; // 고스트 그림·비용의 원천 (M23-W3)
+        private BuildingSO _trapBuildingSO, _towerBuildingSO; // M22-3차 W2 — 고스트·철거 회수의 원천
 
         private void EnsureDefenseWoodCosts()
         {
             if (_fenceWoodCost >= 0) return;
             _fenceWoodCost = 0;
             _gateWoodCost = 0;
+            _trapWoodCost = 0;
+            _towerWoodCost = 0;
+            _towerStoneCost = 0;
             if (_catalog != null && _catalog.Actions != null)
                 foreach (ActionSO a in _catalog.Actions)
                 {
                     if (!(a is BuildActionSO b) || b.Building == null || !b.Building.PlaceOnDefensePlan)
                         continue;
-                    int wood = 0;
+                    int wood = 0, stone = 0;
                     if (b.Building.Costs != null)
                         foreach (ResourceCost c in b.Building.Costs)
+                        {
                             if (c.StockSlot == SlotId.WoodStock) wood += c.Amount;
-                    if (b.Building.CountSlot == SlotId.GateCount) { _gateWoodCost = wood; _gateBuildingSO = b.Building; }
-                    else { _fenceWoodCost = wood; _fenceBuildingSO = b.Building; }
+                            if (c.StockSlot == SlotId.StoneStock) stone += c.Amount;
+                        }
+                    // M22-3차 W2: CountSlot 4분기 — 舊 else(울타리 아니면 전부 울타리)는 함정·망루가
+                    // 카탈로그에 들어오는 순간 울타리 비용을 덮어써 오염시킨다 (구현 중 발견)
+                    switch (b.Building.CountSlot)
+                    {
+                        case SlotId.GateCount: _gateWoodCost = wood; _gateBuildingSO = b.Building; break;
+                        case SlotId.TrapCount: _trapWoodCost = wood; _trapBuildingSO = b.Building; break;
+                        case SlotId.WatchtowerCount:
+                            _towerWoodCost = wood; _towerStoneCost = stone; _towerBuildingSO = b.Building; break;
+                        default: _fenceWoodCost = wood; _fenceBuildingSO = b.Building; break;
+                    }
                 }
         }
 
@@ -153,6 +169,22 @@ namespace AIVillage.M0
 
         /// <summary>문 1칸의 나무 비용 (〃).</summary>
         public int DefenseGateWood { get { EnsureDefenseWoodCosts(); return _gateWoodCost; } }
+
+        /// <summary>함정 1칸의 나무 비용 (M22-3차 W2 — 브러시 2 프리뷰 판정).</summary>
+        public int DefenseTrapWood { get { EnsureDefenseWoodCosts(); return _trapWoodCost; } }
+
+        /// <summary>망루 1기의 나무/돌 비용 (M22-3차 W2 — 브러시 3 프리뷰 판정, 둘 다 필요).</summary>
+        public int DefenseTowerWood { get { EnsureDefenseWoodCosts(); return _towerWoodCost; } }
+        public int DefenseTowerStone { get { EnsureDefenseWoodCosts(); return _towerStoneCost; } }
+
+        /// <summary>함정 줄 계획 추가의 유일한 창구 (M22-3차 W2, PlayerInput 전용 — 브러시 2).</summary>
+        public int AddDefenseTrapLine(Vector2Int start, Vector2Int snappedEnd)
+            => Defense == null ? 0
+               : Defense.AddTrapPlan(DefenseService.LineTiles(start, snappedEnd), DefenseTileBuildable);
+
+        /// <summary>망루 계획 추가의 유일한 창구 (M22-3차 W2, PlayerInput 전용 — 브러시 3, 1칸).</summary>
+        public bool TryAddDefenseTower(Vector2Int tile)
+            => Defense != null && Defense.TryAddTowerPlan(tile, DefenseTileBuildable);
 
         // 계획 입력 필터 (M22-W3R2) — 맵 안 + 빈 타일 + 노드 없음 + 통행 가능.
         // 노드 포함은 M5 자가 재검토 🔴의 계승: 계획과 시공의 점유 어휘가 갈리면 goal이 공회전한다.
@@ -183,13 +215,31 @@ namespace AIVillage.M0
             if (Defense.RemovePlanAt(tile)) return true; // 계획 취소 — 자재 안 썼으니 무료
 
             EnsureDefenseWoodCosts();
-            foreach (SlotId slot in new[] { SlotId.FenceCount, SlotId.GateCount })
+            // M22-3차 W2: 4종 철거 — 함정은 내구도 등록부가 아니라 설치 등록부(HasTrapAt)를 본다
+            foreach (SlotId slot in new[] { SlotId.FenceCount, SlotId.GateCount,
+                                            SlotId.TrapCount, SlotId.WatchtowerCount })
             {
-                if (!Defense.HasStructureAt(slot, tile)) continue;
+                bool exists = slot == SlotId.TrapCount
+                    ? Defense.HasTrapAt(tile)
+                    : Defense.HasStructureAt(slot, tile);
+                if (!exists) continue;
                 Defense.Demolish(slot, tile);
                 Construction.RemoveCountableAt(slot, tile.x, tile.y); // → OnRemoved: 통행 복구 (계획 복귀는 무장해제됨)
-                refund = slot == SlotId.GateCount ? _gateWoodCost : _fenceWoodCost;
-                if (refund > 0) World.AddStock(SlotId.WoodStock, refund); // 스톡 쓰기 문 (ADR-M0-3)
+                // 회수 = 에셋 비용 전액 (W8 규약 — 망루는 돌까지, 정보줄 숫자는 나무 몫만)
+                BuildingSO so = slot switch
+                {
+                    SlotId.GateCount => _gateBuildingSO,
+                    SlotId.TrapCount => _trapBuildingSO,
+                    SlotId.WatchtowerCount => _towerBuildingSO,
+                    _ => _fenceBuildingSO,
+                };
+                if (so != null && so.Costs != null)
+                    foreach (ResourceCost c in so.Costs)
+                    {
+                        if (c.Amount <= 0) continue;
+                        World.AddStock(c.StockSlot, c.Amount); // 스톡 쓰기 문 (ADR-M0-3)
+                        if (c.StockSlot == SlotId.WoodStock) refund += c.Amount;
+                    }
                 return true;
             }
             return false;
@@ -824,7 +874,10 @@ namespace AIVillage.M0
                                          // 생성되지만 지연 조회라 순서 무관 (Snapshot 시점 평가)
                                          () => Defense != null ? Defense.PlannedCount : 0,
                                          () => Defense != null ? Defense.DamagedCount : 0,
-                                         () => Defense != null ? Defense.GatePlannedCount : 0);
+                                         () => Defense != null ? Defense.GatePlannedCount : 0,
+                                         // 함정·망루 계획 수 (M22-3차 W2) — BuildTrap/BuildTower 전제의 원천
+                                         () => Defense != null ? Defense.TrapPlannedCount : 0,
+                                         () => Defense != null ? Defense.TowerPlannedCount : 0);
             Construction = new ConstructionService(World);
             Zones        = new ZoneService(); // M9-A — 배치 결정자 (군집 휴리스틱 대체, ADR-M9-1)
             Defense      = new DefenseService(); // M22-W3 — 방어 계획 (W5에서 내구도까지)
@@ -900,7 +953,8 @@ namespace AIVillage.M0
             // 방어 계획 마커 (M22-W3R2 → M23-W3 고스트) — 계획된 울타리·문 칸을 반투명 실물
             // 그림으로. 지어지기 전의 계획이 화면에 안 보이면 "그었는데 아무 일도 없다"가 된다.
             EnsureDefenseWoodCosts(); // 고스트 그림의 원천(BuildingSO) 캐시
-            _defensePlanView = new DefensePlanView(transform, Defense, _fenceBuildingSO, _gateBuildingSO);
+            _defensePlanView = new DefensePlanView(transform, Defense, _fenceBuildingSO, _gateBuildingSO,
+                                                   _trapBuildingSO, _towerBuildingSO); // M22-3차 W2
             // 시설 손상 오버레이 (M22-W7, 표현 전용) — 깎일수록 짙어지는 검붉은 마커.
             // 헌장 표현 조항(ADR-M20-1): "색 바랜 울타리가 늘어나는 것"이 목수 부재의 화면이다.
             _defenseDurabilityView = new DefenseDurabilityView(transform, Defense);

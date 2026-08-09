@@ -568,6 +568,97 @@ namespace AIVillage.Tests.EditMode
         }
 
         [Test]
+        public void M22_T13_Planner_TrapTowerKinds_NoStarvation()
+        {
+            // M22-3차 W2 — 종류별 계획 전제 + BaseCost 서열이 기아를 막는다.
+            // 🔴 울타리는 전용 계획 슬롯이 없어 전제도 없다 — 다른 종이 울타리보다 비싸면
+            // "망루 계획만 남은 판"에서 플래너가 영원히 울타리(풀 없음)를 골라 공회전한다.
+            // 처방 = 전제 있는 종(문·함정·망루)은 전부 울타리보다 싸다 (구현 중 발견·박제).
+            var catalog = AssetDatabase.LoadAssetAtPath<ActionCatalog>("Assets/M0Config/ActionCatalog.asset");
+            var goal = AssetDatabase.LoadAssetAtPath<GoalSO>("Assets/M0Config/Goals/Goal_BuildDefense.asset");
+            var fenceA = AssetDatabase.LoadAssetAtPath<ActionSO>("Assets/M0Config/Actions/BuildFence.asset");
+            var gateA = AssetDatabase.LoadAssetAtPath<ActionSO>("Assets/M0Config/Actions/BuildGate.asset");
+            var trapA = AssetDatabase.LoadAssetAtPath<ActionSO>("Assets/M0Config/Actions/BuildTrap.asset");
+            var towerA = AssetDatabase.LoadAssetAtPath<ActionSO>("Assets/M0Config/Actions/BuildTower.asset");
+            Assert.IsNotNull(trapA); Assert.IsNotNull(towerA);
+            Assert.Less(gateA.BaseCost, trapA.BaseCost, "서열: 문 < 함정");
+            Assert.Less(trapA.BaseCost, towerA.BaseCost, "서열: 함정 < 망루");
+            Assert.Less(towerA.BaseCost, fenceA.BaseCost,
+                "서열: 망루 < 울타리 — 뒤집으면 망루 계획만 남은 판이 공회전한다 (기아 방지)");
+
+            var gw = new PlannerGateway(catalog);
+            ActionSO[] PlanWith(int planned, int traps, int towers)
+            {
+                var slots = new int[PlanningConfig.TotalSlots];
+                slots[(int)SlotId.MySatiety] = 80;
+                slots[(int)SlotId.WoodStock] = 50;
+                slots[(int)SlotId.StoneStock] = 50;
+                slots[(int)SlotId.DefensePlannedCount] = planned;
+                slots[(int)SlotId.TrapPlannedCount] = traps;
+                slots[(int)SlotId.TowerPlannedCount] = towers;
+                GoalSO resolved = ScriptableObject.Instantiate(goal);
+                resolved.RelativeToCurrent = false;
+                resolved.GoalConditions[0].Value = VillagerAgent.ResolveRelativeTarget(
+                    planned, goal.GoalConditions[0].Value, 0);
+                PlannerGateway.PendingPlan pending = gw.RequestPlan(new WorldSnapshot(slots), resolved);
+                gw.CompleteNow(pending);
+                Assert.IsTrue(gw.TryGetResult(pending, out PlanStatus status, out ActionSO[] plan, out _));
+                Assert.AreEqual(PlanStatus.Success, status, $"planned={planned} tr={traps} tw={towers}");
+                return plan;
+            }
+
+            Assert.AreEqual("BuildTrap", PlanWith(planned: 3, traps: 1, towers: 0)[0].name,
+                "함정 계획이 있으면 함정이 울타리보다 먼저 (6 < 8)");
+            Assert.AreEqual("BuildTower", PlanWith(planned: 1, traps: 0, towers: 1)[0].name,
+                "망루 계획만 남은 판 — 울타리가 아니라 망루가 뽑힌다 (기아 방지의 실전형)");
+            Assert.AreEqual("BuildFence", PlanWith(planned: 2, traps: 0, towers: 0)[0].name,
+                "종류 전제가 다 꺼지면 울타리 (기존 동작 무변)");
+        }
+
+        [Test]
+        public void M22_T13b_TrapTowerPlans_PoolsAndConsumableRegistry()
+        {
+            // 종류별 계획·풀·함정 등록부 (M22-3차 W2) — 문 선례(T4b) 동형 + 소모 규약.
+            var d = new DefenseService();
+            var trapSO = AssetDatabase.LoadAssetAtPath<BuildingSO>("Assets/M0Config/Buildings/Trap.asset");
+            var towerSO = AssetDatabase.LoadAssetAtPath<BuildingSO>("Assets/M0Config/Buildings/Watchtower.asset");
+
+            // 함정 줄 + 망루 1칸 — 합계·종류별 수가 따로 선다
+            Assert.AreEqual(3, d.AddTrapPlan(DefenseService.LineTiles(new Vector2Int(0, 0), new Vector2Int(2, 0)), null));
+            Assert.IsTrue(d.TryAddTowerPlan(new Vector2Int(5, 5), null));
+            Assert.AreEqual(3, d.TrapPlannedCount);
+            Assert.AreEqual(1, d.TowerPlannedCount);
+            Assert.AreEqual(4, d.PlannedCount, "합계 = 네 종 총합 (Goal_BuildDefense 트리거)");
+            Assert.IsFalse(d.TryAddTowerPlan(new Vector2Int(1, 0), null), "함정 계획 칸에 망루 불가 (한 칸 = 한 계획)");
+
+            // 시공 풀 — 에셋 CountSlot이 풀을 고른다 (T4b 동형)
+            Assert.IsTrue(d.TryGetNextBuildTile(trapSO, new Vector2Int(9, 0), null, out Vector2Int tt));
+            Assert.AreEqual(new Vector2Int(2, 0), tt, "함정 에셋 = 함정 풀 최근접");
+            Assert.IsTrue(d.TryGetNextBuildTile(towerSO, new Vector2Int(0, 0), null, out Vector2Int wt));
+            Assert.AreEqual(new Vector2Int(5, 5), wt, "망루 에셋 = 망루 풀");
+
+            // 완공 — 차감 + 함정 등록부 (내구도 아님) / 망루는 내구도 등록
+            d.NotifyBuilt(trapSO, 2, 0);
+            Assert.AreEqual(2, d.TrapPlannedCount);
+            Assert.IsTrue(d.HasTrapAt(new Vector2Int(2, 0)), "함정 = 설치 등록부");
+            Assert.IsFalse(d.HasStructureAt(SlotId.TrapCount, new Vector2Int(2, 0)),
+                "함정은 내구도 등록부에 없다 (소모품 — 공성 대상 아님, ADR-M22-13)");
+            d.NotifyBuilt(towerSO, 5, 5);
+            Assert.IsTrue(d.HasStructureAt(SlotId.WatchtowerCount, new Vector2Int(5, 5)), "망루 = 내구도(공성 대상)");
+
+            // 함정 소모 (발동·철거 공통 문법): Demolish 선행 → NotifyRemoved — **계획 복귀 없음**
+            int planned = d.PlannedCount;
+            Assert.IsTrue(d.Demolish(SlotId.TrapCount, new Vector2Int(2, 0)));
+            d.NotifyRemoved(SlotId.TrapCount, 2, 0);
+            Assert.IsFalse(d.HasTrapAt(new Vector2Int(2, 0)));
+            Assert.AreEqual(planned, d.PlannedCount, "함정 소모 = 계획 복귀 없음 (재설치는 플레이어 몫)");
+
+            // 망루 파괴 = 계획 복귀 (울타리 동형 — 재건)
+            d.NotifyRemoved(SlotId.WatchtowerCount, 5, 5);
+            Assert.AreEqual(1, d.TowerPlannedCount, "망루 파괴 → 재건 계획 복귀");
+        }
+
+        [Test]
         public void M22_T12_TowerTrap_ShippedAssets()
         {
             // M22-3차 W1 — 배포 에셋 검산 (T2 동형). YAML 필드명 오타면 기본값 0으로 풀려 red.

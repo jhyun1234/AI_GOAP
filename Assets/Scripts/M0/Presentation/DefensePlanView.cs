@@ -13,20 +13,26 @@ namespace AIVillage.M0
     {
         private static readonly Color FencePlanColor = new Color(0.55f, 0.4f, 0.2f, 0.35f);  // 폴백 원 — 흐린 갈색
         private static readonly Color GatePlanColor = new Color(0.9f, 0.75f, 0.35f, 0.45f); // 폴백 원 — 흐린 노랑
+        private static readonly Color TrapPlanColor = new Color(0.5f, 0.5f, 0.58f, 0.4f);   // 폴백 원 — 흐린 강철 (M22-3차)
+        private static readonly Color TowerPlanColor = new Color(0.62f, 0.47f, 0.28f, 0.4f); // 폴백 원 — 흐린 목재 (M22-3차)
         private static readonly Color GhostTint = new Color(1f, 1f, 1f, 0.4f);              // 고스트 — 원본색 반투명
 
         private readonly Transform _parent;
         private readonly DefenseService _defense;
-        private readonly BuildingSO _fence, _gate; // 고스트 그림·스케일의 원천 (M23-W3, 에셋)
+        private readonly BuildingSO _fence, _gate;   // 고스트 그림·스케일의 원천 (M23-W3, 에셋)
+        private readonly BuildingSO _trap, _tower;   // M22-3차 W2 — 같은 문법
         private readonly List<GameObject> _markers = new List<GameObject>();
 
         public DefensePlanView(Transform parent, DefenseService defense,
-                               BuildingSO fence = null, BuildingSO gate = null)
+                               BuildingSO fence = null, BuildingSO gate = null,
+                               BuildingSO trap = null, BuildingSO tower = null)
         {
             _parent = parent;
             _defense = defense;
             _fence = fence;
             _gate = gate;
+            _trap = trap;
+            _tower = tower;
             if (_defense != null) _defense.OnPlanChanged += Rebuild;
         }
 
@@ -37,6 +43,8 @@ namespace AIVillage.M0
             _markers.Clear();
             foreach (Vector2Int t in _defense.PlannedFenceTiles) Spawn(t, _fence, FencePlanColor);
             foreach (Vector2Int t in _defense.PlannedGateTiles) Spawn(t, _gate, GatePlanColor);
+            foreach (Vector2Int t in _defense.PlannedTrapTiles) Spawn(t, _trap, TrapPlanColor);   // M22-3차
+            foreach (Vector2Int t in _defense.PlannedTowerTiles) Spawn(t, _tower, TowerPlanColor); // M22-3차
         }
 
         private void Spawn(Vector2Int tile, BuildingSO b, Color fallback)

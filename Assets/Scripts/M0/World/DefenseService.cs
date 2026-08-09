@@ -16,6 +16,12 @@ namespace AIVillage.M0
     {
         private readonly List<Vector2Int> _plannedFences = new List<Vector2Int>();
         private readonly List<Vector2Int> _plannedGates = new List<Vector2Int>();
+        // M22-3차 W2 — 종류별 계획 (문 선례: 종류별 수가 액션 전제가 되어야 goal이 공회전 안 한다)
+        private readonly List<Vector2Int> _plannedTraps = new List<Vector2Int>();
+        private readonly List<Vector2Int> _plannedTowers = new List<Vector2Int>();
+        // 설치된 함정 자리 (M22-3차, ADR-M22-13) — 함정은 내구도 0(소모품)이라 _durability에
+        // 등록되지 않는다. 발동(W4)·철거·중복 방지가 이 등록부를 본다. 세이브 대상.
+        private readonly HashSet<Vector2Int> _builtTraps = new HashSet<Vector2Int>();
         // 시설 내구도 (M22-W5, ADR-M22-3) — 타일 키 상태 (HomeStorageService·FarmService 선례).
         // 파괴(0 도달)된 항목은 NotifyRemoved가 지운다 — "파괴 = 손상"이 아니다 (소멸 + 계획 복귀).
         private readonly Dictionary<(SlotId slot, Vector2Int tile), (float cur, float max, int repairCost)> _durability
@@ -38,13 +44,27 @@ namespace AIVillage.M0
         /// <summary>미건설 문 자리들 (읽기 전용). 문은 여러 개일 수 있다 — 출입구도 플레이어가 정한다.</summary>
         public IReadOnlyList<Vector2Int> PlannedGateTiles => _plannedGates;
 
-        /// <summary>미건설 잔여 총수 — DefensePlannedCount 슬롯의 유일한 원천 (Goal_BuildDefense 트리거).</summary>
-        public int PlannedCount => _plannedFences.Count + _plannedGates.Count;
+        /// <summary>미건설 잔여 총수 — DefensePlannedCount 슬롯의 유일한 원천 (Goal_BuildDefense 트리거).
+        /// 네 종 합계 — goal은 하나, 분업은 액션 전제(종류별 계획 수)가 만든다 (W2 ⚠️).</summary>
+        public int PlannedCount => _plannedFences.Count + _plannedGates.Count
+                                 + _plannedTraps.Count + _plannedTowers.Count;
 
         /// <summary>미건설 문 수 — GatePlannedCount 슬롯의 유일한 원천 (BuildGate 액션 전제:
         /// 문 계획이 있어야만 문 액션이 후보가 된다. GateCount==0 전제는 문이 여러 개가 되며 폐기 —
         /// 그대로 두면 두 번째 문이 영영 안 서고 계획이 바닥나지 않아 goal이 공회전한다).</summary>
         public int GatePlannedCount => _plannedGates.Count;
+
+        /// <summary>미건설 함정·망루 자리 (M22-3차 W2, 읽기 전용 — 고스트 뷰·러너용).</summary>
+        public IReadOnlyList<Vector2Int> PlannedTrapTiles => _plannedTraps;
+        public IReadOnlyList<Vector2Int> PlannedTowerTiles => _plannedTowers;
+
+        /// <summary>미건설 함정/망루 수 — TrapPlannedCount/TowerPlannedCount 슬롯의 유일한 원천
+        /// (BuildTrap/BuildTower 액션 전제 — 문 선례와 같은 공회전 방지).</summary>
+        public int TrapPlannedCount => _plannedTraps.Count;
+        public int TowerPlannedCount => _plannedTowers.Count;
+
+        /// <summary>설치된 함정이 이 자리에 있는가 (M22-3차) — 발동(W4)·철거·중복 방지 판독점.</summary>
+        public bool HasTrapAt(Vector2Int tile) => _builtTraps.Contains(tile);
 
         /// <summary>서 있는 방어 시설이 하나라도 있는가 — 공성 전환(ADR-M22-2)의 전제 판독점.</summary>
         public bool HasStructures => _durability.Count > 0;
@@ -222,6 +242,14 @@ namespace AIVillage.M0
         public void NotifyRemoved(SlotId slot, int x, int y)
         {
             var tile = new Vector2Int(x, y);
+            // 함정 (M22-3차, ADR-M22-13): 등록부에서만 지운다 — **계획 복귀 없음** (소모는
+            // 파괴가 아니라 사용이다. 재설치는 플레이어가 다시 긋는다). 발동·철거 둘 다
+            // Demolish가 선행하므로 여기는 잔여 정리만 (조기 반환 방어).
+            if (slot == SlotId.TrapCount)
+            {
+                _builtTraps.Remove(tile);
+                return;
+            }
             if (!_durability.Remove((slot, tile))) return; // 방어 시설이 아니면 무관 (밭 소실 등)
             OnDurabilityChanged?.Invoke(slot, tile, 0f, 0f); // 소멸 신호 — 손상 오버레이 정리 (W7)
             if (slot == SlotId.GateCount)
@@ -231,6 +259,10 @@ namespace AIVillage.M0
             else if (slot == SlotId.FenceCount && !_plannedFences.Contains(tile))
             {
                 _plannedFences.Add(tile);
+            }
+            else if (slot == SlotId.WatchtowerCount && !_plannedTowers.Contains(tile))
+            {
+                _plannedTowers.Add(tile); // 망루 파괴 = 재건 계획 복귀 (울타리 동형, M22-3차 W2)
             }
             OnPlanChanged?.Invoke();
         }
@@ -262,24 +294,52 @@ namespace AIVillage.M0
         /// <summary>울타리 줄 계획 추가 — buildable 필터(맵 밖·기존 건물·노드·통행 불가)는 배선이
         /// 주입한다. 이미 계획됐거나(울타리·문) 시설이 선 칸은 건너뛴다 (줄이 기존 줄을 겹쳐 그어도
         /// 이중 계획이 안 된다 — "줄끼리 연결"의 실체). 추가된 칸 수를 돌려준다.</summary>
+        /// <summary>한 칸 = 한 계획 (M22-3차 W2 일반화) — 네 종 계획·서 있는 방어 시설·설치 함정
+        /// 어디에든 이미 속한 칸인가. 줄이 겹쳐 그어져도 이중 계획이 안 되는 근거.</summary>
+        private bool IsPlannedOrBuilt(Vector2Int t)
+            => _plannedFences.Contains(t) || _plannedGates.Contains(t)
+            || _plannedTraps.Contains(t) || _plannedTowers.Contains(t)
+            || _builtTraps.Contains(t)
+            || _durability.ContainsKey((SlotId.FenceCount, t))
+            || _durability.ContainsKey((SlotId.GateCount, t))
+            || _durability.ContainsKey((SlotId.WatchtowerCount, t));
+
         public int AddFencePlan(IReadOnlyList<Vector2Int> tiles, Func<int, int, bool> buildable)
+            => AddLinePlan(_plannedFences, "울타리", tiles, buildable);
+
+        /// <summary>함정 줄 계획 (M22-3차 W2) — 울타리와 같은 줄 문법, 목록만 다르다.</summary>
+        public int AddTrapPlan(IReadOnlyList<Vector2Int> tiles, Func<int, int, bool> buildable)
+            => AddLinePlan(_plannedTraps, "함정", tiles, buildable);
+
+        private int AddLinePlan(List<Vector2Int> target, string label,
+                                IReadOnlyList<Vector2Int> tiles, Func<int, int, bool> buildable)
         {
             int added = 0;
             foreach (Vector2Int t in tiles)
             {
                 if (buildable != null && !buildable(t.x, t.y)) continue;
-                if (_plannedFences.Contains(t) || _plannedGates.Contains(t)) continue;
-                if (_durability.ContainsKey((SlotId.FenceCount, t))
-                    || _durability.ContainsKey((SlotId.GateCount, t))) continue;
-                _plannedFences.Add(t);
+                if (IsPlannedOrBuilt(t)) continue;
+                target.Add(t);
                 added++;
             }
             if (added > 0)
             {
-                Debug.Log($"[Defense] 울타리 줄 계획 +{added}칸 (잔여 {PlannedCount})");
+                Debug.Log($"[Defense] {label} 줄 계획 +{added}칸 (잔여 {PlannedCount})");
                 OnPlanChanged?.Invoke();
             }
             return added;
+        }
+
+        /// <summary>망루 계획 1칸 (M22-3차 W2 — 브러시 3 좌클릭). 문과 달리 기존 계획을 전환하지
+        /// 않는다 — 빈 칸에만 선다 (망루는 줄의 일부가 아니라 독립 구조물).</summary>
+        public bool TryAddTowerPlan(Vector2Int tile, Func<int, int, bool> buildable)
+        {
+            if (IsPlannedOrBuilt(tile)) return false;
+            if (buildable != null && !buildable(tile.x, tile.y)) return false;
+            _plannedTowers.Add(tile);
+            Debug.Log($"[Defense] 망루 계획 @ ({tile.x},{tile.y})");
+            OnPlanChanged?.Invoke();
+            return true;
         }
 
         /// <summary>문 계획 추가 (우클릭 1칸 — 출입구도 플레이어가 정한다, 합의 2). 같은 칸의 울타리
@@ -287,9 +347,12 @@ namespace AIVillage.M0
         /// 철거 축이 없어 2차+).</summary>
         public bool TryAddGatePlan(Vector2Int tile, Func<int, int, bool> buildable)
         {
-            if (_plannedGates.Contains(tile)) return false;
+            // 전환 대상은 울타리 계획뿐 — 함정·망루(계획·실물)는 거부 (M22-3차 W2 확장)
+            if (_plannedGates.Contains(tile) || _plannedTraps.Contains(tile)
+                || _plannedTowers.Contains(tile) || _builtTraps.Contains(tile)) return false;
             if (_durability.ContainsKey((SlotId.FenceCount, tile))
-                || _durability.ContainsKey((SlotId.GateCount, tile))) return false;
+                || _durability.ContainsKey((SlotId.GateCount, tile))
+                || _durability.ContainsKey((SlotId.WatchtowerCount, tile))) return false;
             bool convertedFromFence = _plannedFences.Remove(tile); // 줄 위 우클릭 = 울타리 → 문 전환
             if (!convertedFromFence && buildable != null && !buildable(tile.x, tile.y)) return false;
             _plannedGates.Add(tile);
@@ -302,7 +365,8 @@ namespace AIVillage.M0
         /// 안 썼으니 무료. 있었으면 true.</summary>
         public bool RemovePlanAt(Vector2Int tile)
         {
-            bool removed = _plannedFences.Remove(tile) | _plannedGates.Remove(tile);
+            bool removed = _plannedFences.Remove(tile) | _plannedGates.Remove(tile)
+                         | _plannedTraps.Remove(tile) | _plannedTowers.Remove(tile); // M22-3차 W2
             if (removed) OnPlanChanged?.Invoke();
             return removed;
         }
@@ -316,6 +380,8 @@ namespace AIVillage.M0
         /// </summary>
         public bool Demolish(SlotId slot, Vector2Int tile)
         {
+            // 함정은 내구도 등록부가 아니라 설치 등록부에 산다 (M22-3차, ADR-M22-13 — 소모품)
+            if (slot == SlotId.TrapCount) return _builtTraps.Remove(tile);
             if (!_durability.Remove((slot, tile))) return false;
             OnDurabilityChanged?.Invoke(slot, tile, 0f, 0f); // 소멸 신호 — 손상 오버레이 정리
             return true;
@@ -356,7 +422,13 @@ namespace AIVillage.M0
         {
             tile = default;
             if (b == null || !b.PlaceOnDefensePlan) return false;
-            List<Vector2Int> pool = b.CountSlot == SlotId.GateCount ? _plannedGates : _plannedFences;
+            List<Vector2Int> pool = b.CountSlot switch // M22-3차 W2 — 4종 풀 (에셋 필드 판정, 이름 분기 아님)
+            {
+                SlotId.GateCount => _plannedGates,
+                SlotId.TrapCount => _plannedTraps,
+                SlotId.WatchtowerCount => _plannedTowers,
+                _ => _plannedFences,
+            };
             int bestDist = int.MaxValue;
             bool found = false;
             foreach (Vector2Int t in pool)
@@ -382,9 +454,16 @@ namespace AIVillage.M0
                 _durability[(b.CountSlot, tile)] = (b.MaxDurability, b.MaxDurability, Mathf.Max(0, b.RepairCost));
                 OnDurabilityChanged?.Invoke(b.CountSlot, tile, b.MaxDurability, b.MaxDurability);
             }
+            // 함정 설치 등록 (M22-3차) — 내구도 0 소모품이라 위 등록부에 안 들어간다
+            if (b.TrapDamage > 0f && b.IsCountable) _builtTraps.Add(tile);
             if (!b.PlaceOnDefensePlan) return;
-            if (b.CountSlot == SlotId.GateCount) _plannedGates.Remove(tile);
-            else _plannedFences.Remove(tile);
+            switch (b.CountSlot) // M22-3차 W2 — 4종 차감
+            {
+                case SlotId.GateCount: _plannedGates.Remove(tile); break;
+                case SlotId.TrapCount: _plannedTraps.Remove(tile); break;
+                case SlotId.WatchtowerCount: _plannedTowers.Remove(tile); break;
+                default: _plannedFences.Remove(tile); break;
+            }
             OnPlanChanged?.Invoke();
         }
     }

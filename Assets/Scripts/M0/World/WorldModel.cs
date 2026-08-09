@@ -30,6 +30,8 @@ namespace AIVillage.M0
         private readonly System.Func<int> _defensePlannedCount; // 방어 계획 잔여 (M22-W3) — 원천 = DefenseService.PlannedCount
         private readonly System.Func<int> _defenseDamagedCount; // 손상 시설 수 (M22-W5) — 원천 = DefenseService.DamagedCount
         private readonly System.Func<int> _gatePlannedCount;    // 문 계획 수 (M22-W3R2) — 원천 = DefenseService.GatePlannedCount
+        private readonly System.Func<int> _trapPlannedCount;    // 함정 계획 수 (M22-3차 W2) — 원천 = DefenseService.TrapPlannedCount
+        private readonly System.Func<int> _towerPlannedCount;   // 망루 계획 수 (M22-3차 W2) — 원천 = DefenseService.TowerPlannedCount
 
         public WorldModel(DiscoveryService discovery, WorldConfigSO config, FarmService farm = null,
                           SeasonService season = null, AgentConfigSO agentCfg = null,
@@ -37,7 +39,9 @@ namespace AIVillage.M0
                           System.Func<int> untendedInjuredCount = null,
                           System.Func<int> defensePlannedCount = null,
                           System.Func<int> defenseDamagedCount = null,
-                          System.Func<int> gatePlannedCount = null)
+                          System.Func<int> gatePlannedCount = null,
+                          System.Func<int> trapPlannedCount = null,
+                          System.Func<int> towerPlannedCount = null)
         {
             _discovery = discovery;
             _farm = farm;
@@ -47,6 +51,8 @@ namespace AIVillage.M0
             _defensePlannedCount = defensePlannedCount;
             _defenseDamagedCount = defenseDamagedCount;
             _gatePlannedCount = gatePlannedCount;
+            _trapPlannedCount = trapPlannedCount;
+            _towerPlannedCount = towerPlannedCount;
             _decayPerDay = agentCfg != null ? agentCfg.SatietyDecayPerGameDay : 0f;
             if (config != null)
             {
@@ -255,6 +261,8 @@ namespace AIVillage.M0
             slots[(int)SlotId.DefensePlannedCount] = _defensePlannedCount != null ? _defensePlannedCount() : 0;
             slots[(int)SlotId.DefenseDamagedCount] = _defenseDamagedCount != null ? _defenseDamagedCount() : 0;
             slots[(int)SlotId.GatePlannedCount]    = _gatePlannedCount != null ? _gatePlannedCount() : 0;
+            slots[(int)SlotId.TrapPlannedCount]    = _trapPlannedCount != null ? _trapPlannedCount() : 0;
+            slots[(int)SlotId.TowerPlannedCount]   = _towerPlannedCount != null ? _towerPlannedCount() : 0;
             return new WorldSnapshot(slots);
         }
 

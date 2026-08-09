@@ -66,6 +66,9 @@ namespace AIVillage.M0
         private const int SNAP_RANGE_TILES = 1;  // 시작점 달라붙기 반경 (체비쇼프)
         private bool _defenseZoneMode;
         private bool _defenseDragging;
+        // 브러시 (M22-3차 W2, ADR-M22-14): 모드 중 1/2/3 = 울타리/함정/망루. 모드가 다른 입력을
+        // 소비하므로 배속 숫자키와 충돌 없음 (배속 처리는 모드 조기 반환 뒤에 있다 — 전제 ⑦).
+        private int _defenseBrush; // 0=울타리 1=함정 2=망루
         private bool _defenseErasing; // Shift+드래그 = 철거 (M22-W8) — 이 드래그가 긋기인가 지우기인가
         private Vector2Int _defenseDragStart;
         private LineRenderer _zonePreview; // 프리뷰 줄 (표현 전용 — 확정 계획 마커는 DefensePlanView 몫)
@@ -318,6 +321,7 @@ namespace AIVillage.M0
         {
             _defenseZoneMode = true;
             _defenseDragging = false;
+            _defenseBrush = 0; // 진입은 언제나 울타리 브러시 — 예측 가능한 손버릇 (ADR-M22-14)
             _lastModeInfo = null;
             Deselect();
         }
@@ -353,10 +357,24 @@ namespace AIVillage.M0
             int stock = sim.World.GetStock(SlotId.WoodStock);
             DrawHoverCell(cur); // 마우스가 가리키는 칸을 항상 보여준다 (W3R3 — 어긋남 체감 제거)
 
+            // 브러시 전환 (M22-3차 W2, ADR-M22-14) — 드래그 중엔 무시 (긋는 도중 종류가 바뀌면
+            // 줄이 오염된다). 모드가 입력을 소비하므로 배속 숫자키에 닿지 않는다 (전제 ⑦).
+            if (!_defenseDragging)
+            {
+                if (Input.GetKeyDown(KeyCode.Alpha1)) _defenseBrush = 0;
+                else if (Input.GetKeyDown(KeyCode.Alpha2)) _defenseBrush = 1;
+                else if (Input.GetKeyDown(KeyCode.Alpha3)) _defenseBrush = 2;
+            }
+
             // 우클릭 = 문 계획 / 완공 울타리면 문 전환 (M22-2차 W2 — 같은 손짓, 같은 뜻:
-            // "여기가 출입구다"). 드래그 중엔 무시.
+            // "여기가 출입구다"). 문은 울타리 줄의 어휘 — 울타리 브러시 전용. 드래그 중엔 무시.
             if (!_defenseDragging && Input.GetMouseButtonDown(1))
             {
+                if (_defenseBrush != 0)
+                {
+                    sim.Hud?.Notify("문은 울타리 브러시(1)에서 우클릭으로 냅니다");
+                    return;
+                }
                 int gateWood = sim.DefenseGateWood;
                 // 전환 대상(완공 울타리)이면 순 비용 판정 — 철거 회수를 셈에 넣는다 (사용자 확정)
                 bool convertTarget = sim.Defense != null && sim.Defense.CanConvertToGateAt(cur);
@@ -376,16 +394,31 @@ namespace AIVillage.M0
             if (!_defenseDragging)
             {
                 if (_zonePreview != null) _zonePreview.gameObject.SetActive(false); // 줄은 드래그 중에만
-                SetModeInfo($"울타리 그리기 — 나무 {stock} · 좌드래그 = 줄({sim.DefenseFenceWood}목/칸) · " +
-                            $"우클릭 = 문({sim.DefenseGateWood}목) · Shift+드래그 = 철거 · ESC 종료");
+                SetModeInfo(ComposeBrushInfo(sim, stock));
                 if (Input.GetMouseButtonDown(0))
                 {
+                    bool erasing = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+                    // 망루 브러시 = 1칸 설치 (드래그 없음, M22-3차 W2). Shift는 공용 철거 드래그로.
+                    if (!erasing && _defenseBrush == 2)
+                    {
+                        int twood = sim.DefenseTowerWood, tstone = sim.DefenseTowerStone;
+                        int stoneStock = sim.World.GetStock(SlotId.StoneStock);
+                        if (stock < twood || stoneStock < tstone)
+                            sim.Hud?.Notify($"자재가 부족합니다 — 망루 나무 {twood}·돌 {tstone} / " +
+                                            $"보유 나무 {stock}·돌 {stoneStock}");
+                        else if (sim.TryAddDefenseTower(cur))
+                            sim.Hud?.Notify($"망루 계획 — ({cur.x},{cur.y}) · 나무 {twood}+돌 {tstone}");
+                        else
+                            sim.Hud?.Notify("여기에는 망루를 둘 수 없습니다");
+                        return;
+                    }
                     _defenseDragging = true;
                     // Shift = 철거 드래그 (M22-W8) — 지우기는 달라붙지 않는다 (가리킨 곳을 지운다)
-                    _defenseErasing = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
-                    // 시작점 달라붙기 (줄 연결) — 기존 계획·시설 곁이면 그 칸에서 잇는다
+                    _defenseErasing = erasing;
+                    // 시작점 달라붙기 (줄 연결) — 울타리 브러시 전용. 함정 줄이 울타리 곁에
+                    // 달라붙으면 길목이 아니라 벽에 깔린다 (의도와 반대).
                     _defenseDragStart =
-                        !_defenseErasing && sim.Defense != null
+                        !_defenseErasing && _defenseBrush == 0 && sim.Defense != null
                         && sim.Defense.TryGetNearestPlanOrStructureTile(cur, SNAP_RANGE_TILES, out Vector2Int snap)
                             ? snap : cur;
                 }
@@ -413,15 +446,20 @@ namespace AIVillage.M0
                 return;
             }
 
+            // 줄 긋기 — 울타리/함정 공용 문법, 비용·창구·최소 길이만 브러시가 가른다 (M22-3차 W2)
+            bool isTrap = _defenseBrush == 1;
+            string label = isTrap ? "함정" : "울타리";
+            int unitCost = isTrap ? sim.DefenseTrapWood : sim.DefenseFenceWood;
+            int minTiles = isTrap ? 1 : LINE_MIN_TILES; // 함정은 1칸도 함정 — "1칸 줄" 규칙은 벽의 논리
             var tiles = DefenseService.LineTiles(_defenseDragStart, end);
-            int required = tiles.Count * sim.DefenseFenceWood;
-            bool lengthOk = tiles.Count >= LINE_MIN_TILES;
+            int required = tiles.Count * unitCost;
+            bool lengthOk = tiles.Count >= minTiles;
             bool ok = lengthOk && stock >= required;
             DrawZonePreviewLine(_defenseDragStart, end, ok ? ZoneOkColor : ZoneBadColor);
             SetModeInfo(ok
-                ? $"울타리 줄 {tiles.Count}칸 = 나무 {required} / 보유 {stock} — 놓으면 설치"
-                : (!lengthOk ? $"울타리 줄 — 너무 짧습니다 (최소 {LINE_MIN_TILES}칸)"
-                             : $"울타리 줄 {tiles.Count}칸 = 나무 {required} / 보유 {stock} — 부족!"));
+                ? $"{label} 줄 {tiles.Count}칸 = 나무 {required} / 보유 {stock} — 놓으면 설치"
+                : (!lengthOk ? $"{label} 줄 — 너무 짧습니다 (최소 {minTiles}칸)"
+                             : $"{label} 줄 {tiles.Count}칸 = 나무 {required} / 보유 {stock} — 부족!"));
 
             if (Input.GetMouseButtonUp(0))
             {
@@ -429,14 +467,35 @@ namespace AIVillage.M0
                 if (!ok)
                 {
                     sim.Hud?.Notify(!lengthOk
-                        ? "너무 짧습니다 — 최소 2칸"
+                        ? $"너무 짧습니다 — 최소 {minTiles}칸"
                         : $"나무가 부족합니다 — 필요 {required} / 보유 {stock}");
                     return;
                 }
-                int added = sim.AddDefenseFenceLine(_defenseDragStart, end);
+                int added = isTrap
+                    ? sim.AddDefenseTrapLine(_defenseDragStart, end)
+                    : sim.AddDefenseFenceLine(_defenseDragStart, end);
                 sim.Hud?.Notify(added > 0
-                    ? $"울타리 줄 계획 — {added}칸 · 나무 {added * sim.DefenseFenceWood}"
+                    ? $"{label} 줄 계획 — {added}칸 · 나무 {added * unitCost}"
                     : "지을 수 있는 칸이 없습니다 (막힘·중복)");
+            }
+        }
+
+        /// <summary>브러시별 대기 정보줄 (M22-3차 W2) — [1울타리 2함정 3망루] 접두가 전환 안내를 겸한다.</summary>
+        private string ComposeBrushInfo(M0SimulationLoop sim, int stock)
+        {
+            const string brushes = "[1울타리 2함정 3망루]";
+            switch (_defenseBrush)
+            {
+                case 1:
+                    return $"함정 깔기 {brushes} — 나무 {stock} · 좌드래그 = 줄({sim.DefenseTrapWood}목/칸, " +
+                           "위협이 밟으면 터짐) · Shift+드래그 = 철거 · ESC 종료";
+                case 2:
+                    return $"망루 놓기 {brushes} — 나무 {stock}·돌 {sim.World.GetStock(SlotId.StoneStock)} · " +
+                           $"좌클릭 = 1기({sim.DefenseTowerWood}목+{sim.DefenseTowerStone}석) · " +
+                           "Shift+드래그 = 철거 · ESC 종료";
+                default:
+                    return $"울타리 그리기 {brushes} — 나무 {stock} · 좌드래그 = 줄({sim.DefenseFenceWood}목/칸) · " +
+                           $"우클릭 = 문({sim.DefenseGateWood}목) · Shift+드래그 = 철거 · ESC 종료";
             }
         }
 

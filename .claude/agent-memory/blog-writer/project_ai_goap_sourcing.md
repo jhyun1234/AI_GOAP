@@ -17,6 +17,10 @@ metadata:
 - 테스트로 계약 검증: `Assets/Tests/EditMode/M17_PathResultContract.cs` 같은 파일을 직접
   읽으면 커밋 메시지만으로는 안 보이는 정확한 enum 값(Unreachable/AlreadyThere/PathFound)과
   계약 조건을 확인할 수 있다.
+- **최근 발행 3편의 인트로를 열어야 할 때 파일명 찾는 법**: `published/` 를 목록으로 볼
+  수단이 없다. `tools/blog-automation/state/blog_last_published_commit.md` 를 읽으면 회차마다
+  `local_archive:` 줄에 정확한 파일 경로가 적혀 있다(최신부터 역순으로 전 회차 누적).
+  파일명을 추측하지 말고 여기서 가져올 것 — 2026-08-08 사이클에서 두 번 헛짚었다.
 - 이 환경의 blog-writer 서브에이전트는 Bash/Grep 도구가 없고 Read/Write/Edit만 가진다.
   grep이 필요한 사실(예: 특정 코드 패턴이 실제로 존재하는지)은 CLAUDE.md나 커밋 메시지에
   이미 인용되어 있는 경우가 많으니 그걸 우선 활용하고, 안 되면 관련 파일을 통째로 Read.

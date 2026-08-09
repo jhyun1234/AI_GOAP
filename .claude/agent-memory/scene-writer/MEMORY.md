@@ -3,7 +3,7 @@
 ## 프로젝트
 - [회차 사이 연결 장치 · 엔딩 비트 소유권](project_series_handoffs.md) — "지워집니다" 예고는 ep01s 것, ByReason 로그는 ep00s/ep01s 가 강조 칸을 나눠 씀, Claude 마크는 ep01s S8
 - [효과음 delayMs 는 draw 를 풀어서 낸다 · gain 상한은 kind+옵션이 정한다](project_sfx_timing.md) — 실측 나오면 재계산 필수(같은 회차 안에서도 오차 3배). 🔴 **돌려막기는 형제 편의 kind 「쌍」으로도 난다**
-- [25초대 편 예산 산수](project_video_25s_budget.md) — 🔴 **총 = 자막합 + 0.35×샷수** · 상한 **28초** · 예고 3.0초 · 초안 자수는 **구성이 같은 직전 편 실측**에서(비 모형보다 정확) · 뺄 순서 pauseAfter → 조이기
+- [25초대 편 예산 산수](project_video_25s_budget.md) — 🔴 **총 = 자막합 + 0.35×샷수** · 4단 상한 **38초/본문 18~22** · 초안 자수는 **구성이 같은 직전 편 실측**에서 · 🔴 **3단→4단이면 본문이 넘친다 — 자수를 깎지 말고 줄을 합쳐라**(줄당 고정비 1.37초) · 아웃트로 소개 줄엔 그림을 걸지 마라
 - [제목의 문장 모양은 반복 금지 — 숫자 훅은 반복 가능](project_title_shape_reuse.md) — 「N명이 똑같이 움직였다」를 두 번 썼다. 갈라낼 재료는 ①방아쇠 ②잃은 것. 수치가 없으면 warn 을 받고, **이미 두 번 쓴 수치는 화면 라벨로 강등**한다
 - [분할 회차 규약 — id·outro.source·형제 라벨·blurb·앞 편 약속](project_split_episode_conventions.md) — 형제 label 은 그 편 youtube.title 에서 꼬리만 뗀 것. 🔴 **`outro.siblings` 와 한국어 blurb 형제 줄은 둘 다 필요**(카드가 면제 아님 · ep12s-1 반려). 앞 편 `outro.next` 인계는 게이트가 못 본다
 - [latch 는 dur 로 안 갈린다 — seed 를 줘라](project_sfx_latch_seed.md) — 몸통이 340/680Hz 고정. seed 를 안 준 세 회차가 상관 0.99 로 같은 소리였다. 0.68~0.79 가 하한이니 거기서 멈춰라. 전수는 인용 시점에 다시 세라

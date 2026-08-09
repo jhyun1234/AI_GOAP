@@ -798,9 +798,14 @@ if (PREPARE) {
       if (!chapterRows.length || chapterRows.at(-1).ch !== ch) chapterRows.push({ ch, t });
       t += timedCh.shots[i].lines.reduce((a, l) => a + l.dur + (l.pause || 0), 0) / 1000 + 0.35;
     });
+    /* 시청자용 챕터 제목 (2026-08-09 사용자 확정 — lf01 에서 "제안 제목이 더 보기
+       좋다") — scene.chapters 맵(내부 챕터명 → 설명란 제목)이 있으면 그걸 쓴다.
+       내부명은 화면 칩용 두세 글자라 설명란에는 짧다. 맵은 작성팀이 짓고 검수가
+       내용 이행을 대조한다(Docs/롱폼_대본_문법.md §1). 없으면 내부명 그대로. */
     chapterRows = chapterRows.length >= 3
       ? chapterRows.map(r =>
-        `${Math.floor(r.t / 60)}:${String(Math.floor(r.t % 60)).padStart(2, '0')} ${r.ch}`)
+        `${Math.floor(r.t / 60)}:${String(Math.floor(r.t % 60)).padStart(2, '0')} `
+        + ((scene.chapters || {})[r.ch] || r.ch))
       : [];
   }
 

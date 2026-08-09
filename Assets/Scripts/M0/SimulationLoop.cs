@@ -177,6 +177,11 @@ namespace AIVillage.M0
         public int DefenseTowerWood { get { EnsureDefenseWoodCosts(); return _towerWoodCost; } }
         public int DefenseTowerStone { get { EnsureDefenseWoodCosts(); return _towerStoneCost; } }
 
+        /// <summary>망루 탑승 사거리 (M22-3차 W3) — 원천 = 카탈로그 파생 Watchtower.asset
+        /// TowerRangeTiles (ADR-M0-2, 이중 기입 금지). 망루 미배선 판 = 0 (요격 조용히 꺼짐).</summary>
+        public int DefenseTowerRange
+        { get { EnsureDefenseWoodCosts(); return _towerBuildingSO != null ? _towerBuildingSO.TowerRangeTiles : 0; } }
+
         /// <summary>함정 줄 계획 추가의 유일한 창구 (M22-3차 W2, PlayerInput 전용 — 브러시 2).</summary>
         public int AddDefenseTrapLine(Vector2Int start, Vector2Int snappedEnd)
             => Defense == null ? 0

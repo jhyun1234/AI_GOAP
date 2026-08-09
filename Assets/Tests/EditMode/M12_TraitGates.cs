@@ -786,7 +786,10 @@ namespace AIVillage.Tests.EditMode
             //   건드린다(드랍은 액션 효과가 아니라 CombatService가 넣는다).
             //   ⚠️ 부수 효과가 아니라 **필요**이기도 하다: FleeToSafety와 효과(ThreatNear→0)가
             //   같아서 플래너에 맡기면 "싸우라"는 goal이 도망 액션을 고를 수 있다.
-            ["DirectActionPool"] = new[] { "Goal_Fight", "Goal_Leisure", "Goal_ReportDone",
+            // M22-3차 W3 개정: Goal_ManTower 추가 — 교전과 같은 자격 ⓐ 두 번째 종류(끝 =
+            //   '감지 해소' = ThreatService 상태, 슬롯에 못 적는다). ⓑ 풀 1개 ⓒ 요격 드랍은
+            //   CombatService가 넣는다. GoalSO.DirectActionPool 툴팁(ADR 본문)도 같이 개정됨.
+            ["DirectActionPool"] = new[] { "Goal_Fight", "Goal_Leisure", "Goal_ManTower", "Goal_ReportDone",
                                            "Goal_Routine_Explorer", "Goal_Routine_Farmer" },
             // M21-W4 B1 (명령 원정 특례) — 자율에 열면 전 맵 주민이 밭 늑대로 몰려간다.
             // 원정은 플레이어 개입의 값이므로 명령 경로에만 연다. 두 번째 용도 = 규칙 재검토 신호.

@@ -913,6 +913,7 @@ namespace AIVillage.M0
             foreach (VillagerAgent a in _agents)
             {
                 if (a == null || a.State == AgentState.Dead) continue;
+                if (a.IsOnTower) continue; // 망루 위는 닿지 않는다 (높이 — M22-3차 W3, ADR-M22-11)
                 if (excludeInjured && a.Injury != InjurySeverity.None) continue;
                 if (Mathf.Abs(a.TileX - from.x) + Mathf.Abs(a.TileY - from.y) > radius) continue;
                 _victimAgentBuf.Add(a);

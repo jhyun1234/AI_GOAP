@@ -387,6 +387,27 @@ namespace AIVillage.M0
             return true;
         }
 
+        /// <summary>from 최근접(맨해튼) 완공 시설 — 슬롯 지정판 (M22-3차 W3, 탑승 러너의 목적지).
+        /// 동률은 좌표순 (결정적 — TryGetNearestStructure 동형).</summary>
+        public bool TryGetNearestBuiltTile(SlotId slot, Vector2Int from, out Vector2Int tile)
+        {
+            tile = default;
+            int best = int.MaxValue;
+            bool found = false;
+            foreach (KeyValuePair<(SlotId slot, Vector2Int tile), (float, float, int)> e in _durability)
+            {
+                if (e.Key.slot != slot) continue;
+                Vector2Int t = e.Key.tile;
+                int d = Mathf.Abs(t.x - from.x) + Mathf.Abs(t.y - from.y);
+                if (d > best) continue;
+                if (d == best && (t.x > tile.x || (t.x == tile.x && t.y >= tile.y)) && found) continue;
+                best = d;
+                tile = t;
+                found = true;
+            }
+            return found;
+        }
+
         /// <summary>from 곁(체비쇼프 ≤ range)의 계획·시설 타일 — 드래그 시작점 달라붙기(줄 연결)용.
         /// 최근접 우선, 동률은 좌표순 (결정적).</summary>
         public bool TryGetNearestPlanOrStructureTile(Vector2Int from, int range, out Vector2Int tile)

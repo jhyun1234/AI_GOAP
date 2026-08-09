@@ -659,6 +659,42 @@ namespace AIVillage.Tests.EditMode
         }
 
         [Test]
+        public void M22_T14_ManTower_GoalWiring_AndNearestTower()
+        {
+            // M22-3차 W3 — 탑승 goal·액션 배선 검산 (씬 없는 EditMode — 동선·희생 제외 실행은
+            // 리뷰⓪ Play 몫. 배선 오타면 기본값 0/null로 풀려 red).
+            var goal = AssetDatabase.LoadAssetAtPath<GoalSO>("Assets/M0Config/Goals/Goal_ManTower.asset");
+            Assert.IsNotNull(goal, "Goal_ManTower 에셋 없음");
+            Assert.AreEqual(0, goal.GoalConditions.Length, "탑승은 체류형 — GoalConditions 비움 (Goal_Fight 문법)");
+            Assert.AreEqual(2, goal.TriggerConditions.Length, "트리거 = ThreatNear + WatchtowerCount");
+            Assert.AreEqual(SlotId.ThreatNear, goal.TriggerConditions[0].Slot,
+                "감지는 주민의 ThreatNear다 (ADR-M22-12 — 시설이 부르지 않는다)");
+            Assert.AreEqual(SlotId.WatchtowerCount, goal.TriggerConditions[1].Slot,
+                "망루가 있어야 오른다 — 단 안전 전제가 아니라 존재 전제다 (ADR-M22-11)");
+            Assert.Greater(goal.TraitWeights.Length, 0, "TraitWeights 배선 의무 (M12_T3)");
+
+            // DirectActionPool → ManTowerActionSO → 다형 디스패치 + 수치 단일 출처
+            Assert.AreEqual(1, goal.DirectActionPool.Length);
+            var act = goal.DirectActionPool[0] as ManTowerActionSO;
+            Assert.IsNotNull(act, "탑승 액션은 ManTowerActionSO");
+            Assert.IsTrue(act.CreateRunner(null) is ManTowerRunner, "CreateRunner 다형 디스패치 (ADR-M0-1)");
+            var fight = AssetDatabase.LoadAssetAtPath<FightActionSO>("Assets/M0Config/Actions/Action_Fight.asset");
+            Assert.AreSame(fight, act.CombatSource,
+                "타격 수치의 단일 출처 = Action_Fight (망루가 주는 것은 사거리와 안전뿐 — §3)");
+            Assert.Greater(act.WatchGiveUpSec, 0f, "감시 상한 없는 탑승은 매복 아사");
+
+            // 최근접 망루 선정 (순수 — 탑승 러너의 목적지)
+            var d = new DefenseService();
+            var towerSO = AssetDatabase.LoadAssetAtPath<BuildingSO>("Assets/M0Config/Buildings/Watchtower.asset");
+            d.NotifyBuilt(towerSO, 10, 0);
+            d.NotifyBuilt(towerSO, 3, 0);
+            Assert.IsTrue(d.TryGetNearestBuiltTile(SlotId.WatchtowerCount, new Vector2Int(0, 0), out Vector2Int t));
+            Assert.AreEqual(new Vector2Int(3, 0), t, "최근접 망루");
+            Assert.IsFalse(d.TryGetNearestBuiltTile(SlotId.TrapCount, new Vector2Int(0, 0), out _),
+                "함정은 내구도 등록부에 없다 — 슬롯 지정판이 빈 종을 안 섞는다");
+        }
+
+        [Test]
         public void M22_T12_TowerTrap_ShippedAssets()
         {
             // M22-3차 W1 — 배포 에셋 검산 (T2 동형). YAML 필드명 오타면 기본값 0으로 풀려 red.

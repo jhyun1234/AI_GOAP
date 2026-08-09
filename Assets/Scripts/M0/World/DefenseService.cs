@@ -19,9 +19,11 @@ namespace AIVillage.M0
         // M22-3차 W2 — 종류별 계획 (문 선례: 종류별 수가 액션 전제가 되어야 goal이 공회전 안 한다)
         private readonly List<Vector2Int> _plannedTraps = new List<Vector2Int>();
         private readonly List<Vector2Int> _plannedTowers = new List<Vector2Int>();
-        // 설치된 함정 자리 (M22-3차, ADR-M22-13) — 함정은 내구도 0(소모품)이라 _durability에
-        // 등록되지 않는다. 발동(W4)·철거·중복 방지가 이 등록부를 본다. 세이브 대상.
-        private readonly HashSet<Vector2Int> _builtTraps = new HashSet<Vector2Int>();
+        // 설치된 함정 자리 → 발동 피해 (M22-3차, ADR-M22-13) — 함정은 내구도 0(소모품)이라
+        // _durability에 등록되지 않는다. 값을 동봉하는 이유는 내구도 등록부가 (cur,max,repairCost)를
+        // 동봉하는 것과 같다: 발동 지점이 BuildingSO를 몰라도 에셋 값이 단일 출처로 흐른다.
+        // 발동(W4)·철거·중복 방지가 이 등록부를 본다. 세이브 대상.
+        private readonly Dictionary<Vector2Int, float> _builtTraps = new Dictionary<Vector2Int, float>();
         // 시설 내구도 (M22-W5, ADR-M22-3) — 타일 키 상태 (HomeStorageService·FarmService 선례).
         // 파괴(0 도달)된 항목은 NotifyRemoved가 지운다 — "파괴 = 손상"이 아니다 (소멸 + 계획 복귀).
         private readonly Dictionary<(SlotId slot, Vector2Int tile), (float cur, float max, int repairCost)> _durability
@@ -64,7 +66,22 @@ namespace AIVillage.M0
         public int TowerPlannedCount => _plannedTowers.Count;
 
         /// <summary>설치된 함정이 이 자리에 있는가 (M22-3차) — 발동(W4)·철거·중복 방지 판독점.</summary>
-        public bool HasTrapAt(Vector2Int tile) => _builtTraps.Contains(tile);
+        public bool HasTrapAt(Vector2Int tile) => _builtTraps.ContainsKey(tile);
+
+        /// <summary>설치된 함정 수 — TrapCount 슬롯의 파생 판독점 (수량형 카운트는 ConstructionService가
+        /// 소유하지만, 게이트·정보줄이 서비스만 보고도 셈할 수 있어야 한다).</summary>
+        public int BuiltTrapCount => _builtTraps.Count;
+
+        /// <summary>함정 발동 (M22-3차 W4, ADR-M22-13) — 조회와 소멸 준비가 한 호출이다.
+        /// 등록부에서 지우고 피해값을 돌려준다 (Demolish 동형 = 계획 복귀 무장해제).
+        /// ⚠️ 호출자는 반드시 직후 `RemoveCountableAt`을 호출할 것 — 제거의 유일한 문(ADR-M0-3).
+        /// 두 번째 발동 경로를 만들면 반려 (판정 지점은 위협 이동 한 곳).</summary>
+        public bool TryTriggerTrapAt(Vector2Int tile, out float damage)
+        {
+            if (!_builtTraps.TryGetValue(tile, out damage)) return false;
+            _builtTraps.Remove(tile);
+            return true;
+        }
 
         /// <summary>서 있는 방어 시설이 하나라도 있는가 — 공성 전환(ADR-M22-2)의 전제 판독점.</summary>
         public bool HasStructures => _durability.Count > 0;
@@ -299,7 +316,7 @@ namespace AIVillage.M0
         private bool IsPlannedOrBuilt(Vector2Int t)
             => _plannedFences.Contains(t) || _plannedGates.Contains(t)
             || _plannedTraps.Contains(t) || _plannedTowers.Contains(t)
-            || _builtTraps.Contains(t)
+            || _builtTraps.ContainsKey(t)
             || _durability.ContainsKey((SlotId.FenceCount, t))
             || _durability.ContainsKey((SlotId.GateCount, t))
             || _durability.ContainsKey((SlotId.WatchtowerCount, t));
@@ -349,7 +366,7 @@ namespace AIVillage.M0
         {
             // 전환 대상은 울타리 계획뿐 — 함정·망루(계획·실물)는 거부 (M22-3차 W2 확장)
             if (_plannedGates.Contains(tile) || _plannedTraps.Contains(tile)
-                || _plannedTowers.Contains(tile) || _builtTraps.Contains(tile)) return false;
+                || _plannedTowers.Contains(tile) || _builtTraps.ContainsKey(tile)) return false;
             if (_durability.ContainsKey((SlotId.FenceCount, tile))
                 || _durability.ContainsKey((SlotId.GateCount, tile))
                 || _durability.ContainsKey((SlotId.WatchtowerCount, tile))) return false;
@@ -475,8 +492,9 @@ namespace AIVillage.M0
                 _durability[(b.CountSlot, tile)] = (b.MaxDurability, b.MaxDurability, Mathf.Max(0, b.RepairCost));
                 OnDurabilityChanged?.Invoke(b.CountSlot, tile, b.MaxDurability, b.MaxDurability);
             }
-            // 함정 설치 등록 (M22-3차) — 내구도 0 소모품이라 위 등록부에 안 들어간다
-            if (b.TrapDamage > 0f && b.IsCountable) _builtTraps.Add(tile);
+            // 함정 설치 등록 (M22-3차) — 내구도 0 소모품이라 위 등록부에 안 들어간다.
+            // 피해값 동봉 = 에셋 단일 출처 (발동 지점이 BuildingSO를 몰라도 된다)
+            if (b.TrapDamage > 0f && b.IsCountable) _builtTraps[tile] = b.TrapDamage;
             if (!b.PlaceOnDefensePlan) return;
             switch (b.CountSlot) // M22-3차 W2 — 4종 차감
             {

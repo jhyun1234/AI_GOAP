@@ -1069,6 +1069,14 @@ namespace AIVillage.M0
                 // 전투 판정만 살아 있으면 중립 불변식이 깨진다. 표현 배선은 여기, 판정은 서비스.
                 // Threats 를 넘기는 것은 무리 도주선(M21-W6) — 판정은 Combat, 등록부·집행은 Threats.
                 Combat = new CombatService(World, () => GameTime, Threats);
+                // 함정 피해도 같은 판정 문을 지난다 (M22-3차 W4) — 생성 순환 때문에 늦게 물린다
+                Threats.AttachCombat(Combat);
+                // 함정 발동 표현 (판정은 서비스, 여기는 알림·대사만 — M10-C ⚠️③)
+                Threats.OnTrapTriggered += (t, tile, dmg) =>
+                {
+                    Hud?.Notify($"함정이 터졌습니다! — {t.DisplayName}에게 {dmg:0} 피해");
+                    ShowTrapLines(t, tile);
+                };
                 Combat.OnRepelled += (t, attackerId, day) =>
                     Hud?.Notify($"{t.DisplayName}을(를) 물리쳤습니다");
                 Combat.OnHunted += (t, attackerId, drop, day) =>
@@ -1123,6 +1131,23 @@ namespace AIVillage.M0
         /// 생존 주민 최대 2명이 내뱉는다 (재해 ShowStrikeLines 패턴 — 릴레이 아님, 대사만 Random 허용).</summary>
         /// <summary>공성 반응 대사 (M22-W5) — 화자 = 타격 지점 최근접 주민 1명 (ShowFarmStrikeLines
         /// 동형·단일 화자: 시설 타격은 재타격 주기마다 반복이라 2명이 말하면 소음이 된다).</summary>
+        /// <summary>함정 발동 대사 (M22-3차 W4) — 화자 = 최근접 주민 (공성 대사와 같은 문법).
+        /// 에셋 값이 켜는 분기에 대사가 비면 침묵 발동이 된다 (W5 1차 교훈).</summary>
+        private void ShowTrapLines(ThreatSO t, Vector2Int tile)
+        {
+            if (t.TrapHitLines == null || t.TrapHitLines.Length == 0 || _agents.Count == 0) return;
+            VillagerAgent best = null;
+            int bd = int.MaxValue;
+            foreach (VillagerAgent a in _agents)
+            {
+                if (a == null || a.State == AgentState.Dead) continue;
+                int dx = a.TileX - tile.x, dy = a.TileY - tile.y;
+                int dist = dx * dx + dy * dy;
+                if (dist < bd) { bd = dist; best = a; }
+            }
+            best?.ShowTransient(t.TrapHitLines[Random.Range(0, t.TrapHitLines.Length)]);
+        }
+
         private void ShowStructureStrikeLines(ThreatSO t, Vector2Int tile)
         {
             if (t.StrikeLinesStructure == null || t.StrikeLinesStructure.Length == 0 || _agents.Count == 0) return;

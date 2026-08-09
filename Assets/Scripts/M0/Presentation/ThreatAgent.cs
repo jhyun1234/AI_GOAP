@@ -159,7 +159,14 @@ namespace AIVillage.M0
             var target = new Vector3(_path[_wp].x, _path[_wp].y, 0f); // ADR-M0-9 — X-Y 평면
             transform.position = Vector3.MoveTowards(transform.position, target,
                                                      So.MoveSpeed * Time.deltaTime);
-            if ((transform.position - target).sqrMagnitude <= ARRIVE_EPSILON_SQR) _wp++;
+            if ((transform.position - target).sqrMagnitude <= ARRIVE_EPSILON_SQR)
+            {
+                Vector2Int entered = _path[_wp];
+                _wp++;
+                // 밟았다 (M22-3차 W4) — 판정은 서비스가 한다 (개체는 표현+이동뿐, M10-C ⚠️③).
+                // 웨이포인트는 중간 타일까지 보간되므로(JPS 계약) 지나간 칸이 새지 않는다.
+                _svc.NoteThreatEnteredTile(this, entered);
+            }
         }
 
         /// <summary>추격 판정 1틱 — 순서: 사거리(잡았다) → 기브업(도착 전만) → 대상 없음 → 재경로.

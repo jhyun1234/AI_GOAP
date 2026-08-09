@@ -119,6 +119,24 @@ namespace AIVillage.M0
         /// 매 타격마다 "물리쳤습니다"가 뜬다 (DoD ① "각 판정 지점에서 1회씩만").
         /// </summary>
         public HitOutcome VillagerHit(string attackerId, float damage, ThreatAgent target)
+            => ResolveHit(attackerId, damage, target, attackerId);
+
+        /// <summary>
+        /// 함정→위협 타격 (M22-3차 W4, ADR-M22-13) — **판정은 주민 타격과 한 벌**이다.
+        /// 여기서 ApplyHit만 부르고 끝내면 도주선·사냥 드랍·무리 도주선을 건너뛰어
+        /// "함정으로 죽였는데 고기가 없다"·"도주선 아래인데 계속 싸운다"가 된다 (명세 ⚠️).
+        ///
+        /// 타격자 ID는 **없다** (null): 함정은 사람이 아니므로 참여 명단(M21-W9)에도, 연대기
+        /// 공적에도 들어가지 않는다 — 두 소비처(`NoteAttacker`·`ChronicleService.RecordEvent`)가
+        /// 빈 ID를 이미 조기 반환하므로 배선 수정 없이 조용해진다. 사냥 드랍(고기)은 마을
+        /// 전역 스톡으로 그대로 들어간다 — 잡은 것은 마을이다.
+        /// </summary>
+        public HitOutcome TrapHit(float damage, ThreatAgent target)
+            => ResolveHit(null, damage, target, "함정");
+
+        /// <summary>타격 판정의 유일한 몸통 (M22-3차 W4에서 추출) — 진입만 둘, 규칙은 한 벌.
+        /// sourceLabel = 로그 표기용 (판정에 영향 없음).</summary>
+        private HitOutcome ResolveHit(string attackerId, float damage, ThreatAgent target, string sourceLabel)
         {
             if (target == null || target.So == null) return HitOutcome.Missed;
             if (damage <= 0f) return HitOutcome.Missed;
@@ -129,14 +147,14 @@ namespace AIVillage.M0
             float remain = target.ApplyHit(damage); // 차감의 유일한 문 (ADR-M21-8)
             _threats?.NoteAttacker(target.GroupKey, attackerId); // 참여 명단 (M21-W9 — 착탄만 참여다)
 
-            Debug.Log($"[Combat] 타격 — {attackerId} → {so.DisplayName} " +
+            Debug.Log($"[Combat] 타격 — {sourceLabel} → {so.DisplayName} " +
                       $"{damage:0.#} 피해 (남은 체력 {remain:0}/{so.MaxHp:0})");
 
             if (remain <= 0f)
             {
                 int drop = Mathf.Max(0, so.MeatDrop);
                 if (drop > 0) _world?.AddStock(SlotId.RawFoodStock, drop); // 전역 스톡 (ADR-M21-8 전이 통로)
-                Debug.Log($"[Combat] 사냥 — {attackerId}이(가) {so.DisplayName}을(를) 잡았다" +
+                Debug.Log($"[Combat] 사냥 — {sourceLabel}이(가) {so.DisplayName}을(를) 잡았다" +
                           (drop > 0 ? $" (고기 {drop} → 창고)" : ""));
                 OnHunted?.Invoke(so, attackerId, drop, day);
                 int groupKey = target.GroupKey;

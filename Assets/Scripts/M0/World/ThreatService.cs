@@ -155,6 +155,37 @@ namespace AIVillage.M0
         /// <summary>이 무리가 공성 중인가 (ThreatAgent 판독점 — 공성 중엔 추격을 멈추고 시설로 간다).</summary>
         public bool IsGroupSieging(int groupKey) => _groupSiege.ContainsKey(groupKey);
 
+        // ── 함정 발동 (M22-3차 W4, ADR-M22-13) ────────────────────────────────
+
+        // 판정(피해·도주선·사냥)의 집. 생성 순서상 CombatService가 뒤라 늦게 물린다 —
+        // null = 전투 축 없는 조립(테스트 등)이면 함정도 조용히 꺼진다 (중립 불변식).
+        private CombatService _combat;
+
+        /// <summary>전투 판정 결합 (SimulationLoop 전용, M22-3차 W4) — 생성 순환(Combat이
+        /// Threats를 받는다) 때문에 생성자로 못 받는다. 호출은 조립 1회뿐.</summary>
+        public void AttachCombat(CombatService combat) => _combat = combat;
+
+        /// <summary>함정 발동 알림 (위협, 타일, 피해) — HUD 정보줄·대사 구독 (표현 전용).</summary>
+        public event Action<ThreatSO, Vector2Int, float> OnTrapTriggered;
+
+        /// <summary>
+        /// 위협이 타일에 들어섰다 (ThreatAgent 전용, M22-3차 W4) — **발동 판정의 유일한 지점**이다
+        /// (ADR-M22-13: 두 번째 발동 경로 금지). 순서가 곧 규칙:
+        ///   ① 등록부 조회 + 소멸 준비(TryTriggerTrapAt = Demolish 동형 — 계획 복귀 무장해제)
+        ///   → ② 제거의 유일한 문(RemoveCountableAt) → ③ 판정은 CombatService 한 벌(TrapHit).
+        /// 주민·방랑자는 여기 오지 않는다 — 함정이 아군을 해치지 않는 것은 분기가 아니라 구조다.
+        /// </summary>
+        public void NoteThreatEnteredTile(ThreatAgent agent, Vector2Int tile)
+        {
+            if (agent == null || agent.So == null || agent.IsExiting) return;
+            if (_defense == null || !_defense.TryTriggerTrapAt(tile, out float damage)) return;
+
+            _construction.RemoveCountableAt(SlotId.TrapCount, tile.x, tile.y); // 제거의 유일한 문 (ADR-M0-3)
+            Debug.Log($"[Threat] 함정 발동 — ({tile.x},{tile.y}) {agent.So.DisplayName}에게 {damage:0.#} 피해");
+            OnTrapTriggered?.Invoke(agent.So, tile, damage);
+            _combat?.TrapHit(damage, agent); // 도주선·사냥·무리 판정까지 한 벌 (⚠️ ApplyHit 직접 호출 금지)
+        }
+
         private enum SiegeTick { NotSiege, Struck, Skipped, Resumed }
 
         /// <summary>공성 틱 — 무리가 공성 중이면 이번 타격을 시설이 가져간다.

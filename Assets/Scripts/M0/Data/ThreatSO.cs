@@ -141,6 +141,10 @@ namespace AIVillage.M0
                  "StructureDamage > 0인데 비면 침묵 공성이 된다 (W2R '내용 없는 분기' 함정 — 게이트 감시).")]
         public string[] StrikeLinesStructure;
 
+        [Tooltip("이 위협이 함정을 밟았을 때 **근처 주민**이 내뱉는 대사 (M22-3차 W4, 예: 걸렸다!). " +
+                 "비면 침묵 발동 — 함정은 한 번 쓰고 사라지므로 놓치면 무슨 일이 있었는지 알 수 없다.")]
+        public string[] TrapHitLines;
+
         private void OnValidate()
         {
             if (StructureDamage < 0f)

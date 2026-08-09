@@ -51,3 +51,7 @@ MonoBehaviour:
   StrikeLinesStructure:
   - "곰이 울타리를 한 번에…!"
   - "저 덩치 앞에선 울타리도 소용없어…"
+  TrapHitLines:
+  - "곰이 함정을 밟았다!"
+  - "저 덩치가 함정에 걸렸어!"
+  - "함정 하나로는 어림도 없겠는데…"

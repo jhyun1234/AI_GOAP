@@ -659,6 +659,43 @@ namespace AIVillage.Tests.EditMode
         }
 
         [Test]
+        public void M22_T15_TrapTrigger_SequenceAndConsumption()
+        {
+            // M22-3차 W4 — 발동 시퀀스 (ADR-M22-13). 씬 없는 EditMode라 ThreatService 경유
+            // 실행은 리뷰① 몫 — 서비스 문(조회+소멸 준비)과 소모 규약을 검산한다.
+            var d = new DefenseService();
+            var trapSO = AssetDatabase.LoadAssetAtPath<BuildingSO>("Assets/M0Config/Buildings/Trap.asset");
+            var site = new Vector2Int(4, 1);
+
+            d.AddTrapPlan(new[] { site }, null);
+            d.NotifyBuilt(trapSO, site.x, site.y);
+            Assert.IsTrue(d.HasTrapAt(site));
+            Assert.AreEqual(1, d.BuiltTrapCount);
+            int plannedAfterBuild = d.PlannedCount;
+
+            // 발동 = 조회 + 소멸 준비가 한 호출, 피해값 원천은 에셋 (동봉 값)
+            Assert.IsTrue(d.TryTriggerTrapAt(site, out float dmg));
+            Assert.AreEqual(trapSO.TrapDamage, dmg, 1e-3f, "피해값의 단일 출처 = Trap.asset");
+            Assert.IsFalse(d.HasTrapAt(site), "발동 = 소멸");
+            Assert.AreEqual(0, d.BuiltTrapCount);
+            Assert.IsFalse(d.TryTriggerTrapAt(site, out _), "두 번 터지지 않는다 (소모품)");
+
+            // 소모 = 계획 복귀 없음 (파괴와의 갈림길 — 주민이 도로 깔지 않는다)
+            d.NotifyRemoved(SlotId.TrapCount, site.x, site.y); // 제거 문 경유 시 뒤따르는 통지
+            Assert.AreEqual(plannedAfterBuild, d.PlannedCount,
+                "함정 소모 = 계획 복귀 없음 (재설치는 플레이어 몫, ADR-M22-13)");
+            Assert.AreEqual(0, d.TrapPlannedCount);
+
+            // 대사 배선 — 배포 위협 3종에 함정 대사가 있다 (침묵 발동 방지, W5 1차 교훈)
+            foreach (string guid in AssetDatabase.FindAssets("t:ThreatSO", new[] { "Assets/M0Config/Threats" }))
+            {
+                var so = AssetDatabase.LoadAssetAtPath<ThreatSO>(AssetDatabase.GUIDToAssetPath(guid));
+                Assert.IsTrue(so.TrapHitLines != null && so.TrapHitLines.Length > 0,
+                    $"{so.name}: TrapHitLines 비어 있음 — 함정은 한 번 쓰고 사라져 침묵하면 관측이 불가능하다");
+            }
+        }
+
+        [Test]
         public void M22_T14_ManTower_GoalWiring_AndNearestTower()
         {
             // M22-3차 W3 — 탑승 goal·액션 배선 검산 (씬 없는 EditMode — 동선·희생 제외 실행은

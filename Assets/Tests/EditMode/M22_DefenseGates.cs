@@ -659,6 +659,49 @@ namespace AIVillage.Tests.EditMode
         }
 
         [Test]
+        public void M22_T16_ThreatSpriteSets_ShippedWiring()
+        {
+            // M22-3차 W5c — 위협 그림 배선 검산. 자작 시트라 fileID가 이름 해시로 고정돼
+            // 있지만(tools/pixel-art), **실 로드**까지 봐야 한 자리 오타가 잡힌다 (M23_T1 문법).
+            // 🔑 아트 교체 지점이 여기 하나임을 박제한다 — 라이선스 팩을 구하면 세트 에셋만 갈린다.
+            foreach ((string threat, string set) in new[]
+            {
+                ("Threat_Tier1_Wolf", "WolfSprites"), ("Threat_Tier2_Pack", "WolfSprites"),
+                ("Threat_Tier3_Bear", "BearSprites"),
+            })
+            {
+                var so = AssetDatabase.LoadAssetAtPath<ThreatSO>($"Assets/M0Config/Threats/{threat}.asset");
+                Assert.IsNotNull(so, $"{threat} 에셋 없음");
+                Assert.IsNotNull(so.SpriteSet, $"{threat}: SpriteSet 미배선 — 색 원으로 회귀");
+                Assert.AreEqual(set, so.SpriteSet.name, $"{threat}: 다른 짐승 시트가 물렸다");
+
+                AgentSpriteSetSO s = so.SpriteSet;
+                foreach ((string label, Sprite[] frames) in new[]
+                {
+                    ("WalkDown", s.WalkDown), ("WalkSide", s.WalkSide), ("WalkUp", s.WalkUp),
+                    ("IdleDown", s.IdleDown), ("IdleSide", s.IdleSide), ("IdleUp", s.IdleUp),
+                })
+                {
+                    Assert.IsTrue(frames != null && frames.Length > 0, $"{set}.{label} 비어 있음");
+                    for (int i = 0; i < frames.Length; i++)
+                        Assert.IsNotNull(frames[i], $"{set}.{label}[{i}] null — fileID 배선 오류");
+                }
+                Assert.IsTrue(s.SideFacesRight, $"{set}: 옆모습은 오른쪽을 본다 (왼쪽은 flipX)");
+                Assert.IsTrue(s.Actions != null && s.Actions.Length > 0, $"{set}: 공격 몸짓 미배선");
+                bool hasAttack = false;
+                foreach (var a in s.Actions)
+                    if (a.Kind == AnimKind.Attack)
+                    {
+                        hasAttack = true;
+                        Assert.IsTrue(a.Down != null && a.Down.Length > 0 && a.Down[0] != null, $"{set}: 공격 Down");
+                        Assert.IsTrue(a.Side != null && a.Side.Length > 0 && a.Side[0] != null, $"{set}: 공격 Side");
+                        Assert.IsTrue(a.Up != null && a.Up.Length > 0 && a.Up[0] != null, $"{set}: 공격 Up");
+                    }
+                Assert.IsTrue(hasAttack, $"{set}: AnimKind.Attack 항목이 없다 — 무는 그림이 안 나온다");
+            }
+        }
+
+        [Test]
         public void M22_T15_TrapTrigger_SequenceAndConsumption()
         {
             // M22-3차 W4 — 발동 시퀀스 (ADR-M22-13). 씬 없는 EditMode라 ThreatService 경유

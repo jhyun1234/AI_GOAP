@@ -55,3 +55,4 @@ MonoBehaviour:
   - "곰이 함정을 밟았다!"
   - "저 덩치가 함정에 걸렸어!"
   - "함정 하나로는 어림도 없겠는데…"
+  SpriteSet: {fileID: 11400000, guid: 71eba5873ea84d8ec9a09a746a7d34b7, type: 2}

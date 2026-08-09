@@ -56,3 +56,4 @@ MonoBehaviour:
   - "한 마리가 함정에 걸렸다!"
   - "무리 하나가 절뚝인다!"
   - "함정이 제 값을 했어!"
+  SpriteSet: {fileID: 11400000, guid: 201e7204ca99a8a3b3e7a4d6eec54569, type: 2}

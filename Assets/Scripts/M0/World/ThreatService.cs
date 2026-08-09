@@ -699,6 +699,7 @@ namespace AIVillage.M0
                 return;
             }
             ExecuteStrike(agent.So, agent.TargetsVillagers, here);
+            agent.PlayAttack(); // 공격 몸짓 (M22-3차 W5c — 표현 전용, 판정과 무관)
             agent.MarkStruck(_gameTime);
             float limit = StayLimitOf(agent);
             Debug.Log($"[Threat] 체류 시작 — {agent.So.DisplayName} @ ({here.x},{here.y}) " +
@@ -749,6 +750,7 @@ namespace AIVillage.M0
             else if (!HasVillagerTargetsNear(agent.So, here)) return; // 사거리 밖 = 아직 못 잡았다 (추격이 잇는다)
 
             ExecuteStrike(agent.So, agent.TargetsVillagers, here);
+            agent.PlayAttack(); // 공격 몸짓 (M22-3차 W5c — 표현 전용, 판정과 무관)
             agent.MarkStruck(_gameTime);
         }
 

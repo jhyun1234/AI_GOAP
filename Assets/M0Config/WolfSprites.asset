@@ -1,0 +1,40 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d65daa78324848f3963b356cba57724a, type: 3}
+  m_Name: WolfSprites
+  m_EditorClassIdentifier:
+  Actions:
+  - Kind: 5
+    Down:
+    - {fileID: 949426779, guid: fe99b1980b5f0e9d7542c88acc3c2dfa, type: 3}
+    Side:
+    - {fileID: 1073461690, guid: fe99b1980b5f0e9d7542c88acc3c2dfa, type: 3}
+    Up:
+    - {fileID: -867510832, guid: fe99b1980b5f0e9d7542c88acc3c2dfa, type: 3}
+  IdleDown:
+  - {fileID: -1638299534, guid: fe99b1980b5f0e9d7542c88acc3c2dfa, type: 3}
+  IdleSide:
+  - {fileID: -1332723421, guid: fe99b1980b5f0e9d7542c88acc3c2dfa, type: 3}
+  IdleUp:
+  - {fileID: -1512536659, guid: fe99b1980b5f0e9d7542c88acc3c2dfa, type: 3}
+  WalkDown:
+  - {fileID: -1638299534, guid: fe99b1980b5f0e9d7542c88acc3c2dfa, type: 3}
+  - {fileID: -1655077153, guid: fe99b1980b5f0e9d7542c88acc3c2dfa, type: 3}
+  WalkSide:
+  - {fileID: -1332723421, guid: fe99b1980b5f0e9d7542c88acc3c2dfa, type: 3}
+  - {fileID: -1315945802, guid: fe99b1980b5f0e9d7542c88acc3c2dfa, type: 3}
+  WalkUp:
+  - {fileID: -1512536659, guid: fe99b1980b5f0e9d7542c88acc3c2dfa, type: 3}
+  - {fileID: -1562869516, guid: fe99b1980b5f0e9d7542c88acc3c2dfa, type: 3}
+  FramesPerSecond: 5
+  SideFacesRight: 1
+  TintStrength: 0

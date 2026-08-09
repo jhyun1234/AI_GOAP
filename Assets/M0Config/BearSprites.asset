@@ -1,0 +1,40 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d65daa78324848f3963b356cba57724a, type: 3}
+  m_Name: BearSprites
+  m_EditorClassIdentifier:
+  Actions:
+  - Kind: 5
+    Down:
+    - {fileID: 1786527759, guid: ac77700e20b13b7abf88194e3ae70e39, type: 3}
+    Side:
+    - {fileID: 1278237806, guid: ac77700e20b13b7abf88194e3ae70e39, type: 3}
+    Up:
+    - {fileID: 2014116252, guid: ac77700e20b13b7abf88194e3ae70e39, type: 3}
+  IdleDown:
+  - {fileID: -1861547202, guid: ac77700e20b13b7abf88194e3ae70e39, type: 3}
+  IdleSide:
+  - {fileID: -1405128801, guid: ac77700e20b13b7abf88194e3ae70e39, type: 3}
+  IdleUp:
+  - {fileID: -173008463, guid: ac77700e20b13b7abf88194e3ae70e39, type: 3}
+  WalkDown:
+  - {fileID: -1861547202, guid: ac77700e20b13b7abf88194e3ae70e39, type: 3}
+  - {fileID: -1878324821, guid: ac77700e20b13b7abf88194e3ae70e39, type: 3}
+  WalkSide:
+  - {fileID: -1405128801, guid: ac77700e20b13b7abf88194e3ae70e39, type: 3}
+  - {fileID: -1388351182, guid: ac77700e20b13b7abf88194e3ae70e39, type: 3}
+  WalkUp:
+  - {fileID: -173008463, guid: ac77700e20b13b7abf88194e3ae70e39, type: 3}
+  - {fileID: -223341320, guid: ac77700e20b13b7abf88194e3ae70e39, type: 3}
+  FramesPerSecond: 5
+  SideFacesRight: 1
+  TintStrength: 0

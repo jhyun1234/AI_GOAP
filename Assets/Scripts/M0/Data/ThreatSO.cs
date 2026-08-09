@@ -145,6 +145,11 @@ namespace AIVillage.M0
                  "비면 침묵 발동 — 함정은 한 번 쓰고 사라지므로 놓치면 무슨 일이 있었는지 알 수 없다.")]
         public string[] TrapHitLines;
 
+        [Tooltip("이 위협의 그림 (M22-3차 W5c). 주민과 **같은 스프라이트 세트 스키마**를 쓴다 — " +
+                 "방향 3종 × 대기/걷기 + 행동 몸짓(Attack). 비면 기존 색 원 폴백 (중립: 배선 전과 동일).\n" +
+                 "🔑 아트 교체는 이 한 칸이다 — 라이선스 있는 팩을 구하면 세트 에셋만 갈아 끼우면 된다.")]
+        public AgentSpriteSetSO SpriteSet;
+
         private void OnValidate()
         {
             if (StructureDamage < 0f)

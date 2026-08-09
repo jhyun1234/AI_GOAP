@@ -112,17 +112,44 @@ namespace AIVillage.M0
             _chaseGiveUpAt = Time.time + CHASE_GIVEUP_SEC;
             Hp = so.MaxHp; // M21-W2 — 개체 편차 없음 (몸값 불가침, 주민 체력과 같은 사상)
 
-            // 시각: 원형 마커 폴백 (주민 마커 패턴 — 아트 교체는 후속 에셋)
+            // 시각 (M22-3차 W5c): 스프라이트 세트가 있으면 주민과 **같은 애니메이터**를 쓴다
+            // (AgentAnimator는 주민 타입을 모른다 — 후반 확장 규칙 ①의 배당금).
+            // 세트가 없으면 기존 색 원 폴백 = 배선 전과 완전히 동일 (중립 불변식).
             var sr = gameObject.AddComponent<SpriteRenderer>();
-            sr.sprite = M0Sprites.Circle;
-            sr.color = so.BodyColor;
             sr.sortingOrder = 11; // 주민(10) 위 — 위협은 항상 보인다
-            transform.localScale = Vector3.one * 0.9f;
+            if (so.SpriteSet != null)
+            {
+                _anim = new AgentAnimator(sr, so.SpriteSet, Color.white); // 색조 없음 — 그림 그대로
+                transform.localScale = Vector3.one;
+            }
+            else
+            {
+                sr.sprite = M0Sprites.Circle;
+                sr.color = so.BodyColor;
+                transform.localScale = Vector3.one * 0.9f;
+            }
         }
+
+        private AgentAnimator _anim;      // null = 색 원 폴백
+        private Vector2 _facing = Vector2.down;  // 마지막 이동 방향 (멈춰도 보던 쪽을 본다)
+        private float _attackUntil;       // 이 시각까지 공격 몸짓 (실시간 초)
+
+        /// <summary>타격 순간 공격 몸짓을 켠다 (ThreatService의 타격 지점이 부른다) —
+        /// 몸짓 길이는 표현 상수다 (판정과 무관).</summary>
+        public void PlayAttack() => _attackUntil = Time.time + 0.4f;
 
         private void Update()
         {
             if (So == null) return; // Init 전 방어
+
+            // 그림 틱 (M22-3차 W5c) — 걷는가/무엇을 하는가만 넘기고 프레임 선택은 애니메이터가.
+            // 판정은 아래 로직이 그대로 소유한다 (표현은 읽기만 — M10-C ⚠️③).
+            if (_anim != null)
+            {
+                bool walking = !_exiting && _path != null && _wp < _path.Count;
+                AnimKind act = Time.time < _attackUntil ? AnimKind.Attack : AnimKind.None;
+                _anim.Tick(Time.deltaTime, walking && act == AnimKind.None, _facing, act);
+            }
 
             // 체류 틱 (M21-W2) — 재타격 주기·체류 상한은 게임일 기준이라 서비스가 판정한다.
             if (_arrived && !_exiting)
@@ -157,8 +184,11 @@ namespace AIVillage.M0
             }
 
             var target = new Vector3(_path[_wp].x, _path[_wp].y, 0f); // ADR-M0-9 — X-Y 평면
+            Vector3 before = transform.position;
             transform.position = Vector3.MoveTowards(transform.position, target,
                                                      So.MoveSpeed * Time.deltaTime);
+            Vector3 moved = transform.position - before;
+            if (moved.sqrMagnitude > 1e-8f) _facing = new Vector2(moved.x, moved.y).normalized;
             if ((transform.position - target).sqrMagnitude <= ARRIVE_EPSILON_SQR)
             {
                 Vector2Int entered = _path[_wp];

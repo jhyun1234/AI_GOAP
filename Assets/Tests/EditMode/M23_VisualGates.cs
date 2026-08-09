@@ -82,7 +82,16 @@ namespace AIVillage.Tests.EditMode
             for (int i = 0; i < 16; i++)
                 Assert.IsNotNull(fence.TileSprites[i], $"울타리 조각[{i}] null — fileID 손배선 오류");
             Assert.IsNotNull(fence.MarkerSprite, "울타리 대표(폴백) 스프라이트");
-            Assert.IsNotNull(gate.MarkerSprite, "문 스프라이트 (Fence_Big_Gate 닫힌 문)");
+            Assert.IsNotNull(gate.MarkerSprite, "문 대표 스프라이트 (고스트·폴백용 — 닫힌 문)");
+            // 문 오토타일 (M22-2차 W3, Play 피드백 "문이 뜬금없다") — 같은 시트 조각 16장 실 로드.
+            // 울타리와 같은 fileID를 손배선했으므로 오타 한 자리 = null = red (M23_T1 침묵 배선 방지).
+            Assert.IsTrue(gate.TileSprites != null && gate.TileSprites.Length == 16, "문 조각 16장");
+            for (int i = 0; i < 16; i++)
+            {
+                Assert.IsNotNull(gate.TileSprites[i], $"문 조각[{i}] null — fileID 손배선 오류");
+                Assert.AreEqual(fence.TileSprites[i], gate.TileSprites[i],
+                    $"문 조각[{i}]은 울타리와 같은 시트다 — 어긋나면 줄과 안 맞는 그림으로 회귀");
+            }
         }
 
         [Test]

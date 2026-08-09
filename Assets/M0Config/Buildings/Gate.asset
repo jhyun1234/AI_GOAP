@@ -29,6 +29,23 @@ MonoBehaviour:
   RepairCost: 1
   PlaceNearOwnedHome: 0
   Prefab: {fileID: 0}
+  TileSprites:
+  - {fileID: 764744422, guid: c088d3260842df64e9521dbade27906c, type: 3}
+  - {fileID: 1520416617, guid: c088d3260842df64e9521dbade27906c, type: 3}
+  - {fileID: -1511542853, guid: c088d3260842df64e9521dbade27906c, type: 3}
+  - {fileID: -1243200272, guid: c088d3260842df64e9521dbade27906c, type: 3}
+  - {fileID: -321773920, guid: c088d3260842df64e9521dbade27906c, type: 3}
+  - {fileID: -437320599, guid: c088d3260842df64e9521dbade27906c, type: 3}
+  - {fileID: -1983310004, guid: c088d3260842df64e9521dbade27906c, type: 3}
+  - {fileID: -53881380, guid: c088d3260842df64e9521dbade27906c, type: 3}
+  - {fileID: -1870810462, guid: c088d3260842df64e9521dbade27906c, type: 3}
+  - {fileID: -1624939025, guid: c088d3260842df64e9521dbade27906c, type: 3}
+  - {fileID: -1302288017, guid: c088d3260842df64e9521dbade27906c, type: 3}
+  - {fileID: -399927416, guid: c088d3260842df64e9521dbade27906c, type: 3}
+  - {fileID: 1722976995, guid: c088d3260842df64e9521dbade27906c, type: 3}
+  - {fileID: 1279633651, guid: c088d3260842df64e9521dbade27906c, type: 3}
+  - {fileID: -1530227897, guid: c088d3260842df64e9521dbade27906c, type: 3}
+  - {fileID: 704385207, guid: c088d3260842df64e9521dbade27906c, type: 3}
   MarkerSprite: {fileID: 1593465439, guid: 0a96672216dd94c4f83695a00e254c6f, type: 3}
   FallbackColor: {r: 0.85, g: 0.7, b: 0.4, a: 1}
   FallbackSize: 0.34

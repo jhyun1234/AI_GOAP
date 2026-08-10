@@ -19,5 +19,5 @@ MonoBehaviour:
   Walkable: 1
   EnterCost: 3
   MoveSpeedMult: 0.5
-  GroundColor: {r: 0.42, g: 0.47, b: 0.29, a: 1}
+  GroundColor: {r: 0.247, g: 0.365, b: 0.29, a: 1}
   NodeDensityMult: 1

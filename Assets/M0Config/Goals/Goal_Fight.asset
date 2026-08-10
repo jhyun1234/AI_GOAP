@@ -27,3 +27,4 @@ MonoBehaviour:
   - Trait: 5
     Weight: -0.8
   PriorityScale: 20
+  PersonaLine: "위협 앞에서 물러서지 않는다"

@@ -115,6 +115,12 @@ namespace AIVillage.M0
         [Range(1, 6)]
         public int ProseMaxAxisLines = 3;
 
+        [Tooltip("goal 문장 문턱 — 성향 편향(-1~+1)이 이 이상인 goal만 후보. 제안치 0.30:\n" +
+                 "새침이의 최고 편향이 0.32(Goal_BuildMyHouse)라 이보다 높이면 새침이가 goal 문장을 " +
+                 "한 개도 못 얻는다 (실측 하한).")]
+        [Range(0f, 1f)]
+        public float ProseGoalBiasAt = 0.30f;
+
         /// <summary>이 축값에 맞는 서술 한 칸 (순수 — 게이트 M25-T5). 없으면 null = 침묵.
         /// `MoodPoolFor`와 같은 판정 규약(부호·강도로 고른다)이라 새 문법을 만들지 않는다.</summary>
         public TraitLine? LineFor(TraitId trait, int value)

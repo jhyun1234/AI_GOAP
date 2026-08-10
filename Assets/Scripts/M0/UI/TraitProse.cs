@@ -34,8 +34,17 @@ namespace AIVillage.M0
         /// 순서 = |축값| 내림차순. **동률이면 어조가 앞 문장과 다른 쪽을 먼저** 세운다 —
         /// 대조가 사람을 그리기 때문이다. 그래도 갈리지 않으면 `TraitId` 오름차순 (결정성).
         /// </summary>
-        public static string FromAxes(TraitValue[] traits, TraitRulesSO rules)
+        /// <param name="maxLines">축 문장 상한 (0 이하 = 에셋의 ProseMaxAxisLines).</param>
+        public static string FromAxes(TraitValue[] traits, TraitRulesSO rules, int maxLines = 0)
+            => Build(traits, rules, maxLines, out _);
+
+        /// <summary>축 문장 조립 본체 — **쓴 문장 수를 함께 돌려준다.**
+        /// 🔴 문자열의 마침표를 세면 안 된다: 역접이 두 문장을 하나의 마침표로 합치므로
+        /// 3문장짜리가 2로 세어진다 (W3 프로브가 잡은 실제 버그 — 고집쟁이가 4문장이 됐다).</summary>
+        private static string Build(TraitValue[] traits, TraitRulesSO rules, int maxLines,
+                                    out int axisCount)
         {
+            axisCount = 0;
             if (traits == null || rules == null || rules.TraitLines == null
                 || rules.TraitLines.Length == 0) return "";
 
@@ -80,7 +89,64 @@ namespace AIVillage.M0
             }
 
             // ④ 상한 — 여섯 축을 다 읊으면 사람이 안 보인다
-            return Join(picked, Mathf.Clamp(rules.ProseMaxAxisLines, 1, picked.Count));
+            int cap = maxLines > 0 ? maxLines : rules.ProseMaxAxisLines;
+            axisCount = Mathf.Clamp(cap, 1, picked.Count);
+            return Join(picked, axisCount);
+        }
+
+        /// <summary>
+        /// 완성 서술 (순수 — 게이트 M25-T1·T6). 축 문장 뒤에 goal 문장을 최대 1개 붙인다.
+        ///
+        /// 🔑 **축 문장이 `maxAxisLines`에 못 미치는 사람에게만** 붙인다. 겹침 회피는 여유가
+        /// 있을 때만 부리는 사치다: 축 3문장이면 이미 사람이 그려졌고 거기 goal 문장을 더하면
+        /// 같은 말이 반복된다(고집쟁이 = "위험을 두려워하지 않는다" + `Goal_Fight` "위협 앞에서
+        /// 물러서지 않는다"). 반대로 축 1문장인 떠돌이는 goal 문장이 없으면 사람이 안 그려진다.
+        /// 덤으로 서술 길이가 2~3문장으로 고르게 맞는다.
+        ///
+        /// goal 선택 = `PersonaLine`이 있고 편향이 문턱 이상인 것 중 **1위 하나**.
+        /// 동률은 에셋 이름 사전순(ordinal) — 결정성 (`ADR-M10-1` 규약 계승).
+        /// </summary>
+        /// <param name="maxLines">이 서술의 총 문장 상한. 방랑자 프롬프트는 한 줄이라 2로 자른다.</param>
+        public static string Compose(TraitValue[] traits, TraitRulesSO rules,
+                                     IReadOnlyList<GoalSO> goals, int maxLines = 3)
+        {
+            if (rules == null) return "";
+            int axisCap = Mathf.Clamp(Mathf.Min(rules.ProseMaxAxisLines, maxLines), 1, 6);
+            string axes = Build(traits, rules, axisCap, out int axisCount);
+
+            // 축 문장이 상한을 채웠으면 goal 문장은 군더더기다 (위 요약 참조).
+            // 상한이 곧 총 문장 상한이기도 하다 — 방랑자 프롬프트(maxLines 2)가 3문장이 되지 않게.
+            if (axisCount >= axisCap) return axes;
+
+            string goalLine = BestGoalLine(traits, rules, goals);
+            if (string.IsNullOrEmpty(goalLine)) return axes;
+            goalLine += ".";   // 에셋에는 마침표 없이 적는다 (축 문장 Ending 과 같은 규약)
+            return axes.Length == 0 ? goalLine : axes + " " + goalLine;
+        }
+
+        /// <summary>편향 1위 goal의 행동 한 줄 (순수). 후보가 없으면 빈 문자열 — 억지로 채우지 않는다.</summary>
+        private static string BestGoalLine(TraitValue[] traits, TraitRulesSO rules,
+                                           IReadOnlyList<GoalSO> goals)
+        {
+            if (traits == null || goals == null) return "";
+            GoalSO best = null;
+            float bestBias = 0f;
+            for (int i = 0; i < goals.Count; i++)
+            {
+                GoalSO g = goals[i];
+                if (g == null || string.IsNullOrEmpty(g.PersonaLine)) continue;
+                float b = TraitVector.Bias(traits, g.TraitWeights);
+                if (b < rules.ProseGoalBiasAt) continue;
+                // 동률은 에셋 이름 사전순 — 같은 판이면 같은 문장이 나와야 한다
+                if (best == null || b > bestBias
+                    || (Mathf.Approximately(b, bestBias)
+                        && string.CompareOrdinal(g.name, best.name) < 0))
+                {
+                    best = g;
+                    bestBias = b;
+                }
+            }
+            return best != null ? best.PersonaLine : "";
         }
 
         /// <summary>문장 잇기 — 어조가 갈리는 **첫 지점에서 한 번만** 역접, 나머지는 마침표.</summary>

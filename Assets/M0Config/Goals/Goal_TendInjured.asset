@@ -27,3 +27,4 @@ MonoBehaviour:
     Weight: 0.7
   - Trait: 4
     Weight: -0.4
+  PersonaLine: "다친 사람을 보면 먼저 간다"

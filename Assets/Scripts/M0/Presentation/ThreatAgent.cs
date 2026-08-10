@@ -135,29 +135,85 @@ namespace AIVillage.M0
             // 시각 (M22-3차 W5c): 스프라이트 세트가 있으면 주민과 **같은 애니메이터**를 쓴다
             // (AgentAnimator는 주민 타입을 모른다 — 후반 확장 규칙 ①의 배당금).
             // 세트가 없으면 기존 색 원 폴백 = 배선 전과 완전히 동일 (중립 불변식).
-            var sr = gameObject.AddComponent<SpriteRenderer>();
-            _sr = sr; // 깊이는 매 프레임 갱신 (움직인다 — 앞뒤는 월드 Y가 정한다)
             if (so.SpriteSet != null)
             {
-                _anim = new AgentAnimator(sr, so.SpriteSet, Color.white); // 색조 없음 — 그림 그대로
+                // 🔴 舊 코드는 렌더러를 루트에 붙이고 배율 1로 뒀다 — 세트의 규격 배율(Scale)을
+                // 안 읽어 종족마다 1.33~2.7배로 커졌고, 팩 피벗이 좌하단이라 그림이 제 타일에서
+                // 대각선 한 칸 어긋나 있었다 (2026-08-10). 이제 주민과 **같은 장착기**를 쓴다.
                 transform.localScale = Vector3.one;
+                _sr = SpriteViewRig.Attach(transform, so.SpriteSet, so.SizeMult);
+                // 발밑 그림자 (2026-08-10) — 주민에게만 있던 것을 위협에도 붙인다. 큰 종족일수록
+                // "어디 서 있는지"가 안 읽혔다: 타락천사는 4유닛 상자의 58%가 투명이라 몸이 뜬 것처럼
+                // 보이고, 그 상태로 자원 노드를 덮으면 겹친 건지 가린 건지 구분이 안 된다.
+                _shadowSr = SpriteViewRig.AttachShadow(transform, so.SpriteSet, so.SizeMult);
+                _anim = new AgentAnimator(_sr, so.SpriteSet, Color.white); // 색조 없음 — 그림 그대로
+                // 몸짓 길이는 그림이 정한다 (프레임 수 ÷ FPS) — 상수 0.4초로 두면 6프레임짜리
+                // 공격이 절반만 나오고 끊긴다. 그림 없는 폴백만 상수를 쓴다.
+                _attackHoldSec = _anim.ActionCycleSec(AnimKind.Attack, ATTACK_HOLD_FALLBACK_SEC);
             }
             else
             {
+                var sr = gameObject.AddComponent<SpriteRenderer>();
+                _sr = sr; // 깊이는 매 프레임 갱신 (움직인다 — 앞뒤는 월드 Y가 정한다)
                 sr.sprite = M0Sprites.Circle;
                 sr.color = so.BodyColor;
-                transform.localScale = Vector3.one * 0.9f;
+                // 폴백 원도 위압 배율을 따른다 — 그림이 없다고 크기 규약이 달라지면 안 된다.
+                transform.localScale = Vector3.one * 0.9f * Mathf.Max(0.01f, so.SizeMult);
             }
         }
 
         private SpriteRenderer _sr;       // 깊이 갱신 대상
+        private SpriteRenderer _shadowSr; // 발밑 그림자 (null = 그림 없는 폴백·에셋이 끔)
         private AgentAnimator _anim;      // null = 색 원 폴백
         private Vector2 _facing = Vector2.down;  // 마지막 이동 방향 (멈춰도 보던 쪽을 본다)
         private float _attackUntil;       // 이 시각까지 공격 몸짓 (실시간 초)
+        private float _attackHoldSec = ATTACK_HOLD_FALLBACK_SEC;
 
-        /// <summary>타격 순간 공격 몸짓을 켠다 (ThreatService의 타격 지점이 부른다) —
-        /// 몸짓 길이는 표현 상수다 (판정과 무관).</summary>
-        public void PlayAttack() => _attackUntil = Time.time + 0.4f;
+        /// <summary>그림 없는 폴백(색 원)의 몸짓 길이. 스프라이트가 있으면 그림이 정한다.</summary>
+        private const float ATTACK_HOLD_FALLBACK_SEC = 0.4f;
+
+        /// <summary>공격 몸짓 진행 중 — 이 구간엔 **멈춘다** (아래 Update 주석).</summary>
+        public bool IsAttacking => Time.time < _attackUntil;
+
+        // ── 피격 번쩍임 (2026-08-10) ──────────────────────────────────────────
+        // 🔑 여기까지가 "전투가 보인다"의 마지막 조각이다: 몸짓만으로는 **닿았는지**를 알 수 없다.
+        // 舊 상태에서 착탄의 유일한 증거는 콘솔 로그였고, 그건 M13이 진단한 "이야기가 로그에만
+        // 있었다"와 같은 결함이다. 색만 건드린다 — 판정·체력은 CombatService의 것이다.
+        private const float HURT_FLASH_SEC = 0.12f;
+        private static readonly Color HurtColor = new Color(1f, 0.45f, 0.45f, 1f);
+        private float _flashUntil;
+        private Color _flashBaseColor;
+        private bool _flashing;
+
+        /// <summary>맞았다 (CombatService·함정 공용, 표현 전용).</summary>
+        public void PlayHurt()
+        {
+            if (_sr == null) return;
+            if (!_flashing) { _flashBaseColor = _sr.color; _flashing = true; } // 원래 색은 한 번만 기억
+            _flashUntil = Time.time + HURT_FLASH_SEC;
+        }
+
+        private void TickFlash()
+        {
+            if (!_flashing || _sr == null) return;
+            if (Time.time < _flashUntil) { _sr.color = HurtColor; return; }
+            _sr.color = _flashBaseColor;
+            _flashing = false;
+        }
+
+        /// <summary>타격 순간 공격 몸짓을 켠다 (ThreatService의 타격 지점이 부른다).</summary>
+        public void PlayAttack() => _attackUntil = Time.time + _attackHoldSec;
+
+        /// <summary>타격 순간 **대상을 보며** 공격 몸짓을 켠다 (ThreatService 전용).
+        /// 🔑 방향을 안 돌리면 지나가던 관성대로 등을 보인 채 휘두른다 — 누구를 치는지가
+        /// 화면에서 사라진다 (2026-08-10 Play 판정). 판정은 여전히 서비스 몫이고 여기는
+        /// 그 판정이 이미 고른 대상을 바라볼 뿐이다 (M10-C ⚠️③).</summary>
+        public void PlayAttack(Vector2 towardWorldPos)
+        {
+            Vector2 d = towardWorldPos - (Vector2)transform.position;
+            if (d.sqrMagnitude > 1e-4f) _facing = d.normalized;
+            PlayAttack();
+        }
 
         private void Update()
         {
@@ -165,14 +221,21 @@ namespace AIVillage.M0
 
             // 깊이 = 월드 Y (WorldSort). 같은 칸이면 주민 위 — 무는 장면이 가려지면 안 된다.
             if (_sr != null) _sr.sortingOrder = WorldSort.Order(transform.position.y, WorldSort.Threat);
+            // 그림자는 제 몸 아래 띠 (주민과 같은 규약 — 선택 링·밭 위, 서 있는 것 아래).
+            if (_shadowSr != null)
+                _shadowSr.sortingOrder = WorldSort.Order(transform.position.y, WorldSort.Ghost);
+            TickFlash();
 
             // 그림 틱 (M22-3차 W5c) — 걷는가/무엇을 하는가만 넘기고 프레임 선택은 애니메이터가.
             // 판정은 아래 로직이 그대로 소유한다 (표현은 읽기만 — M10-C ⚠️③).
             if (_anim != null)
             {
-                bool walking = !_exiting && _path != null && _wp < _path.Count;
-                AnimKind act = Time.time < _attackUntil ? AnimKind.Attack : AnimKind.None;
-                _anim.Tick(Time.deltaTime, walking && act == AnimKind.None, _facing, act);
+                // 🔴 퇴장도 **걷는다** (2026-08-10 Play 판정). 舊 조건엔 `!_exiting`이 있어서
+                // 물러나는 개체가 대기 그림인 채로 미끄러져 나갔다 — 화면에서 "쫓겨간다"가
+                // 사라지고 순간이동처럼 보인다. 걷기의 조건은 "경로가 남았는가" 하나다.
+                bool walking = !IsAttacking && _path != null && _wp < _path.Count;
+                _anim.Tick(Time.deltaTime, walking, _facing,
+                           IsAttacking ? AnimKind.Attack : AnimKind.None);
             }
 
             // 체류 틱 (M21-W2) — 재타격 주기·체류 상한은 게임일 기준이라 서비스가 판정한다.
@@ -193,6 +256,13 @@ namespace AIVillage.M0
                 TickChase();
                 if (_exiting) return;
             }
+
+            // 🔴 **휘두르는 동안은 멈춘다** (2026-08-10 Play 판정 — "공격을 움직이면서 해버리니
+            // 전투가 이뤄지는지도 모르겠다"). 걸으면서 치면 두 몸짓이 겹쳐 어느 쪽도 안 읽힌다.
+            // 멈추는 것은 **이동 보간뿐**이다: 재타격 주기·체류 상한·도주선은 전부 게임일 기준이라
+            // 이 정지에 영향받지 않는다 (표현이 판정을 바꾸지 않는다는 규약 유지, M10-C ⚠️③).
+            // 길이는 몸짓 1회분(≈0.75초)이고 재타격 주기는 0.25일(≈25초)이라 이동 손실은 3%다.
+            if (IsAttacking) return;
 
             if (_path == null || _wp >= _path.Count)
             {

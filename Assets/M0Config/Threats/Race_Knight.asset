@@ -58,6 +58,7 @@ MonoBehaviour:
     StatMult: 2.7
   EncounterPressureK: 0.3
   BodyColor: {r: 0.6, g: 0.65, b: 0.8, a: 1}
+  SizeMult: 2        # 캐릭터 키 1.38유닛 (주민 0.94) — 48px 시트의 여백을 되돌린 값
   ForecastLines:
   - "언덕 너머에서 쇳소리가 나…"
   - "깃발을 봤어. 우리 편은 아니야."

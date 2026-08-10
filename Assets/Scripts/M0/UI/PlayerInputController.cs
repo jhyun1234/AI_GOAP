@@ -85,6 +85,9 @@ namespace AIVillage.M0
         // 목록 문구와 같은 순서 = BuildChronicleRows 단일 출처.
         private readonly List<ChronicleArchive.RunEntry> _chronicleRows = new List<ChronicleArchive.RunEntry>();
         private AIVillage.UI.CameraController _cameraCtrl; // 상태줄 클릭 점프 (M13-B 후속) — null이면 점프 생략
+#if UNITY_EDITOR
+        private int _debugRaceIdx = -1; // 디버그 종족 순환 소환 커서 (첫 누름 = 0번 종족)
+#endif
 
         private void Start()
         {
@@ -138,6 +141,43 @@ namespace AIVillage.M0
                 IReadOnlyList<VillagerAgent> agents = M0SimulationLoop.Instance.Agents;
                 for (int i = agents.Count - 1; i >= 0; i--)
                     if (agents[i] != null) agents[i].DebugKill();
+            }
+
+            // 디버그 소환 (2026-08-10) — 습격은 게임일이 쌓여야 오는데(첫 웨이브 5일·오크 12일·
+            // 타락천사 30일), 그림과 전투 표현을 고치려면 지금 와야 한다. Ctrl 조합 = 오폭 방지
+            // (위 Ctrl+F9와 같은 규약). 소환 자체는 정규 통로를 그대로 지난다 — 여기서 보는 것과
+            // 실전에서 오는 것이 같아야 관측이 값을 한다.
+            if (Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl))
+            {
+                ThreatService threats = M0SimulationLoop.Instance.Threats;
+                SeasonHud dbgHud = M0SimulationLoop.Instance.Hud;
+
+                // 다음 습격 당기기 — 지금 압력이 사는 정규 편성이 그대로 온다 (예고도 뜬다).
+                if (Input.GetKeyDown(KeyCode.F10))
+                {
+                    if (threats == null) dbgHud?.Notify("디버그 — 이 판엔 위협 축이 없습니다");
+                    else
+                    {
+                        threats.DebugStrikeNow();
+                        dbgHud?.Notify("디버그 — 다음 습격을 지금 부릅니다 (Ctrl+F10)");
+                    }
+                }
+
+                // 종족 순환 소환 — 해금일을 건너뛰고 배열 순서대로 하나씩. 이름으로 고르지
+                // 않는다 (ADR-M24-4) — 종족이 늘면 이 키가 저절로 그만큼 돈다.
+                if (Input.GetKeyDown(KeyCode.F11))
+                {
+                    IReadOnlyList<ThreatSO> races = threats != null ? threats.Races : null;
+                    if (races == null || races.Count == 0)
+                        dbgHud?.Notify("디버그 — 배포된 종족이 없습니다");
+                    else
+                    {
+                        _debugRaceIdx = (_debugRaceIdx + 1) % races.Count;
+                        ThreatSO summoned = threats.DebugSummonRace(races[_debugRaceIdx]);
+                        dbgHud?.Notify($"디버그 소환 — {summoned.DisplayName} " +
+                                       $"({_debugRaceIdx + 1}/{races.Count} · Ctrl+F11로 다음 종족)");
+                    }
+                }
             }
 #endif
 

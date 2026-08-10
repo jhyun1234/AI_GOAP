@@ -84,5 +84,42 @@ namespace AIVillage.M0
             }
             return Clamp(cx, cy);
         }
+
+        /// <summary>
+        /// 중심 **옆에** 서는 타일 — 8이웃 중 통행 가능하고 (fromX,fromY)에 가장 가까운 칸.
+        ///
+        /// 🔴 계기 (2026-08-10 사용자 Play): 벌목·채광하는 주민이 나무·바위 **위에 겹쳐** 서 있었다.
+        /// 채집 러너가 목적지를 노드 타일 그 자체로 줬기 때문이다. 나무를 안고 도끼질하는 그림은
+        /// 누가 봐도 이상하다 — 일하는 자리는 대상 **곁**이다.
+        ///
+        /// PickWalkableNear 를 못 쓰는 이유: 그쪽은 랜덤 시도가 (0,0)을 뽑을 수 있어 중심에
+        /// 그대로 설 수 있고, 반경 안 아무 데나라 반대편으로 돌아가기도 한다. 여기서 필요한 것은
+        /// **가장 가까운 옆칸** 하나다 (오는 길에 자연스럽게 멈춰야 한다).
+        ///
+        /// 전부 막혀 있으면 중심을 돌려준다 — 배선 전과 같은 동작(중립)이라 갇히지 않는다.
+        /// </summary>
+        public static Vector2Int PickWalkableAdjacent(System.Func<int, int, bool> walkable,
+            int cx, int cy, int fromX, int fromY)
+        {
+            Get(out int minX, out int maxX, out int minY, out int maxY);
+            var best = new Vector2Int(cx, cy);
+            int bestDist = int.MaxValue;
+
+            for (int dy = -1; dy <= 1; dy++)
+                for (int dx = -1; dx <= 1; dx++)
+                {
+                    if (dx == 0 && dy == 0) continue;          // 중심은 후보가 아니다 (겹쳐 서기 금지)
+                    int x = cx + dx, y = cy + dy;
+                    if (x < minX || x > maxX || y < minY || y > maxY) continue;
+                    if (walkable != null && !walkable(x, y)) continue;
+                    // 맨해튼 + 대각 감점: 같은 거리면 직교 칸이 이긴다 (옆·앞이 대각보다 읽기 쉽다).
+                    int d = Mathf.Abs(x - fromX) + Mathf.Abs(y - fromY);
+                    if (dx != 0 && dy != 0) d = d * 2 + 1;
+                    if (d >= bestDist) continue;
+                    bestDist = d;
+                    best = new Vector2Int(x, y);
+                }
+            return best;
+        }
     }
 }

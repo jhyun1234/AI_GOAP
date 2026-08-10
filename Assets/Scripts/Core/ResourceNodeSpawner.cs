@@ -254,15 +254,40 @@ namespace AIVillage.Core
             var view = go.GetComponent<ResourceNodeView>();
             if (view == null) view = go.AddComponent<ResourceNodeView>();
 
+            // 종류 변형 (2026-08-10) — 타일 좌표 해시로 고른다. **랜덤이 아니라 해시**인 이유:
+            // 같은 자리는 늘 같은 나무여야 한다 (로드·재생성에 숲이 갈아엎어지면 지형 기억이 깨진다).
+            int variant = PickVariantIndex(typeData.nodeSpriteVariants, node.TileX, node.TileY);
+
             // 에셋 그림이 최우선 (2026-08-09) — 없을 때만 프리팹/코드 원 폴백 (중립 불변식).
             // 그림이 있으면 색 보간을 끈다: 실그림을 잔량 색으로 물들이면 아트가 죽는다.
-            bool hasArt = typeData.nodeSprite != null;
-            Sprite sprite = hasArt
-                ? typeData.nodeSprite
+            Sprite full = variant >= 0 ? typeData.nodeSpriteVariants[variant] : typeData.nodeSprite;
+            bool hasArt = full != null;
+            Sprite sprite = hasArt ? full
                 : (_fallbackSprite ?? (go.GetComponent<SpriteRenderer>()?.sprite));
             view.Init(node, typeData.nodeColor, typeData.depletedColor, typeData.nodeSize, sprite,
-                      typeData.depletedSprite, typeData.depletedBelowRatio, tintByAmount: !hasArt);
+                      Variant(typeData.depletedSpriteVariants, variant, typeData.depletedSprite),
+                      typeData.depletedBelowRatio, tintByAmount: !hasArt,
+                      harvestParticle: Variant(typeData.harvestParticleVariants, variant,
+                                               typeData.harvestParticle));
         }
+
+        /// <summary>이 노드가 쓸 변형 번호 (없으면 −1 = 단일 그림). 좌표 해시라 결정적이다.
+        ///
+        /// 🔮 **여기가 지형·계절이 들어올 자리다** (사용자 방향 2026-08-10). 추운 지형은 어두운
+        /// 나무, 봄은 밝은 초록, 가을은 노랑, 겨울은 수가 줄거나 어둡게 — 그때 이 함수만
+        /// "좌표 해시"에서 "지형·계절이 고르는 표"로 바뀐다. 뷰도 러너도 판정도 어느 그림인지
+        /// 모르므로 바깥은 그대로다. 계절이 바뀌면 다시 고르는 경로(재배선)도 이 함수를 지난다.</summary>
+        private static int PickVariantIndex(Sprite[] variants, int tileX, int tileY)
+        {
+            if (variants == null || variants.Length == 0) return -1;
+            float v = AIVillage.M0.StableHash.Value01($"{tileX}_{tileY}", "nodevariant");
+            return Mathf.Clamp(Mathf.FloorToInt(v * variants.Length), 0, variants.Length - 1);
+        }
+
+        /// <summary>변형 배열에서 짝을 꺼낸다 — 배열이 짧으면 단일 값으로 폴백 (반쪽 배선 허용:
+        /// 잎 그림이 없는 종류가 있어도 나무 변형은 살아 있어야 한다).</summary>
+        private static Sprite Variant(Sprite[] arr, int index, Sprite fallback)
+            => arr != null && index >= 0 && index < arr.Length && arr[index] != null ? arr[index] : fallback;
 
         // ─────────────────────────────────────────────────────────────────────────
         // 유틸리티

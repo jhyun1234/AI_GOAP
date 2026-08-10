@@ -103,8 +103,24 @@ namespace AIVillage.UI
                 Debug.LogError("[CameraController] Awake: 카메라를 찾을 수 없습니다. " +
                                "Main Camera에 부착하거나 Inspector에서 카메라를 연결하세요.");
                 enabled = false;
+                return;
             }
+
         }
+
+        // 🔴 픽셀 퍼펙트 카메라는 **철회했다** (2026-08-10, 붙였다가 같은 날 되돌림).
+        //
+        // 붙인 이유는 비정수 배율의 잔물결이었고 그 진단 자체는 틀리지 않았다. 하지만 사용자가
+        // 말한 떨림은 그게 아니라 **대각선에서 측면/정면 그림이 교대하던 것**이었고(고친 곳 =
+        // AgentAnimator.NextAxisHorizontal), 픽셀 퍼펙트는 그 문제에 아무 답도 아니었다.
+        //
+        // 게다가 켜 두면 **더 나빠진다**: PixelSnapping 이 스프라이트를 아트 픽셀 격자에 붙이는데
+        // 주민 속도가 2타일/초 = 32아트픽셀/초라, 60fps 에서 프레임당 0.53픽셀이다. 두세 프레임에
+        // 한 칸씩 뚝뚝 끊겨 이동이 계단이 된다 (사용자 Play: "떨림이 장난 아니다").
+        //
+        // 🔑 남기는 교훈: **잔물결(정지해도 보이는 일렁임)과 계단(움직일 때의 뚝뚝)은 다른 병이고,
+        // 픽셀 스냅은 앞의 것을 고치면서 뒤의 것을 만든다.** 저해상도 도트 게임처럼 캐릭터가
+        // 픽셀 단위로 움직이는 연출을 택하지 않는 한, 이 프로젝트에는 스냅이 맞지 않는다.
 
         private void Start()
         {
@@ -116,8 +132,16 @@ namespace AIVillage.UI
         private void Update()
         {
             HandleMovement();
-            HandleFollow(); // 이동(수동 취소 판정) 뒤, 줌 앞 — 같은 프레임 취소가 즉시 반영
             HandleZoom();
+        }
+
+        /// <summary>추적은 **LateUpdate** 다 (2026-08-10). 대상(주민·위협)은 Update 에서 움직이는데
+        /// 카메라도 Update 에서 따라가면 실행 순서에 따라 한 프레임 어긋나고, 그 어긋남이
+        /// 추적 중인 대상만 화면에서 떨게 만든다 — 픽셀 배율과는 **별개의** 떨림이라 배율을
+        /// 고쳐도 남는다. 대상이 다 움직인 뒤에 따라가면 어긋날 프레임 자체가 없다.</summary>
+        private void LateUpdate()
+        {
+            HandleFollow();
         }
 
         #endregion
@@ -183,19 +207,9 @@ namespace AIVillage.UI
             pos.x += moveDir.x * speed * Time.unscaledDeltaTime;
             pos.y += moveDir.y * speed * Time.unscaledDeltaTime;
 
-            // ── 맵 경계 클램핑 ──────────────────────────────────────────────
-            // 카메라 뷰포트가 맵 밖으로 나가지 않도록 orthographic half-size를 감안하여 클램핑한다.
-            float halfH = _camera.orthographicSize;
-            float halfW = halfH * _camera.aspect;
-
-            // 뷰포트가 맵보다 크면 중앙에 고정 (클램핑 범위가 반전되지 않도록)
-            float clampX = Mathf.Max(0f, _mapHalf - halfW);
-            float clampY = Mathf.Max(0f, _mapHalf - halfH);
-
-            pos.x = Mathf.Clamp(pos.x, -clampX, clampX);
-            pos.y = Mathf.Clamp(pos.y, -clampY, clampY);
-
-            _camera.transform.position = pos;
+            // 맵 경계 클램핑 — 산식은 ClampToMap 하나 (2026-08-10에 인라인 사본을 걷어냈다:
+            // 줌이 PPC 소유가 되면서 "지금 반경이 얼마인가"의 답이 한 곳이어야 했다).
+            _camera.transform.position = ClampToMap(pos);
         }
 
         /// <summary>
@@ -235,8 +249,9 @@ namespace AIVillage.UI
             _camera.transform.position = ClampToMap(pos);
         }
 
-        /// <summary>맵 경계 클램프 (M13-B 후속 신설분 공용 — FocusOn·HandleFollow).
-        /// HandleMovement·HandleZoom의 인라인 산식과 동일 (기존 메서드는 최소 절제로 무수정).</summary>
+        /// <summary>맵 경계 클램프 — 이동·줌·추적·점프 **공용 단일 산식**
+        /// (2026-08-10에 인라인 사본 2벌을 여기로 합쳤다 — 픽셀 퍼펙트를 철회해도 이 정리는 남긴다:
+        /// 같은 산식이 세 군데 있으면 하나만 고치는 사고가 난다).</summary>
         private Vector3 ClampToMap(Vector3 pos)
         {
             float halfH = _camera.orthographicSize;
@@ -262,14 +277,7 @@ namespace AIVillage.UI
             _camera.orthographicSize = Mathf.Clamp(newSize, _minZoom, _maxZoom);
 
             // 줌 후 위치가 맵 경계를 벗어났을 수 있으므로 클램핑 재적용
-            Vector3 pos = _camera.transform.position;
-            float halfH = _camera.orthographicSize;
-            float halfW = halfH * _camera.aspect;
-            float clampX = Mathf.Max(0f, _mapHalf - halfW);
-            float clampY = Mathf.Max(0f, _mapHalf - halfH);
-            pos.x = Mathf.Clamp(pos.x, -clampX, clampX);
-            pos.y = Mathf.Clamp(pos.y, -clampY, clampY);
-            _camera.transform.position = pos;
+            _camera.transform.position = ClampToMap(_camera.transform.position);
         }
 
         #endregion

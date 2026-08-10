@@ -45,6 +45,7 @@ MonoBehaviour:
     StatMult: 1
   EncounterPressureK: 0.2
   BodyColor: {r: 0.55, g: 0.15, b: 0.45, a: 1}
+  SizeMult: 2.667    # 캐릭터 키 1.69유닛 (주민 0.94) — 올려다본다. 체력 150, 격이 다르다
   ForecastLines:
   - "하늘빛이 이상해… 저게 뭐지."
   - "새들이 전부 날아가 버렸어."

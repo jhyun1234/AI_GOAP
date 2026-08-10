@@ -145,6 +145,7 @@ namespace AIVillage.M0
             ThreatSO so = target.So;
             float day = _gameTime != null ? _gameTime() : 0f;
             float remain = target.ApplyHit(damage); // 차감의 유일한 문 (ADR-M21-8)
+            target.PlayHurt();                     // 맞았다 (표현 전용 — 주민·함정 타격 공통 지점)
             _threats?.NoteAttacker(target.GroupKey, attackerId); // 참여 명단 (M21-W9 — 착탄만 참여다)
 
             Debug.Log($"[Combat] 타격 — {sourceLabel} → {so.DisplayName} " +

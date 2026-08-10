@@ -60,6 +60,7 @@ MonoBehaviour:
     StatMult: 2.6
   EncounterPressureK: 0.5
   BodyColor: {r: 0.35, g: 0.65, b: 0.25, a: 1}
+  SizeMult: 1        # 캐릭터 키 0.75유닛 (주민 0.94) — 잡졸이라 사람보다 작다. 사용자 확인 완료
   ForecastLines:
   - "숲 쪽에서 낄낄대는 소리가 들려…"
   - "창고 근처에 발자국이 있어. 사람 것보다 작아."

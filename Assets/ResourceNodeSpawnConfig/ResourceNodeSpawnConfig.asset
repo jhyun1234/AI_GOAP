@@ -29,6 +29,19 @@ MonoBehaviour:
     minClusterSpacing: 15
     nodeSprite: {fileID: -1198562835, guid: 94ff3b01f7317c243a29213d03ca7285, type: 3}
     depletedSprite: {fileID: -2091055549, guid: 94ff3b01f7317c243a29213d03ca7285, type: 3}
+    nodeSpriteVariants:
+    - {fileID: -1198562835, guid: 94ff3b01f7317c243a29213d03ca7285, type: 3}
+    - {fileID: 1200735679, guid: b527396d2370325408f6a75edc242061, type: 3}
+    - {fileID: 1171049354, guid: dbae5e87b186643499591dcbf080fead, type: 3}
+    depletedSpriteVariants:
+    - {fileID: -2091055549, guid: 94ff3b01f7317c243a29213d03ca7285, type: 3}
+    - {fileID: -447991663, guid: b527396d2370325408f6a75edc242061, type: 3}
+    - {fileID: -1604286148, guid: dbae5e87b186643499591dcbf080fead, type: 3}
+    harvestParticle: {fileID: 21300000, guid: 0a5780dda7b24814d9dbbb62f0294218, type: 3}
+    harvestParticleVariants:
+    - {fileID: 21300000, guid: 0a5780dda7b24814d9dbbb62f0294218, type: 3}
+    - {fileID: 21300000, guid: 9af157b7fc9ae8548888fb4246dca659, type: 3}
+    - {fileID: 21300000, guid: d81cc949198fed149a4e6994c3250181, type: 3}
     depletedBelowRatio: 0.25
     nodeColor: {r: 0.23529412, g: 0.6901961, b: 0.2627451, a: 1}
     depletedColor: {r: 0.33333334, g: 0.33333334, b: 0.33333334, a: 1}
@@ -44,8 +57,14 @@ MonoBehaviour:
     maxNodesPerCluster: 4
     clusterSpreadRadius: 3
     minClusterSpacing: 15
-    nodeSprite: {fileID: 532985936, guid: 572bb35294ab715449c4c06f31b1fa55, type: 3}
-    depletedSprite: {fileID: 1267103209, guid: 572bb35294ab715449c4c06f31b1fa55, type: 3}
+    nodeSprite: {fileID: 1037574564, guid: 91c99c336ceaf0f409f4e0f58a883845, type: 3}
+    depletedSprite: {fileID: -386932625, guid: 91c99c336ceaf0f409f4e0f58a883845, type: 3}
+    nodeSpriteVariants:
+    - {fileID: 1037574564, guid: 91c99c336ceaf0f409f4e0f58a883845, type: 3}
+    - {fileID: -2080755189, guid: 91c99c336ceaf0f409f4e0f58a883845, type: 3}
+    depletedSpriteVariants:
+    - {fileID: -386932625, guid: 91c99c336ceaf0f409f4e0f58a883845, type: 3}
+    - {fileID: 398182873, guid: 91c99c336ceaf0f409f4e0f58a883845, type: 3}
     depletedBelowRatio: 0.25
     nodeColor: {r: 0.5019608, g: 0.5019608, b: 0.5019608, a: 1}
     depletedColor: {r: 0.2, g: 0.2, b: 0.2, a: 1}

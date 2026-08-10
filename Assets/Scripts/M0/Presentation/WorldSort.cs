@@ -37,6 +37,7 @@ namespace AIVillage.M0
         public const int Select  = 8; // 선택 링 (발밑)
         public const int Agent   = 9; // 주민·방랑자
         public const int Threat  = 10; // 위협 (같은 칸이면 짐승이 위 — 물리는 게 보여야 한다)
+        public const int Particle = 11; // 흩날리는 것 (벌목 나뭇잎) — 같은 칸의 모든 것 앞에서 떨어진다
 
         /// <summary>지면·안개 판(MapQuad) — 맨 아래. ⚠️ 이 값이 없으면 y가 양수인 물건이
         /// 전부 지면 뒤로 숨는다 (Y 정렬은 음수 order를 만드는데 舊 MapQuad는 0이었다 —

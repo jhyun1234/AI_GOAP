@@ -54,6 +54,29 @@ namespace AIVillage.Core
                  "**잔량이 그림으로 읽히는 지점** — 어느 나무를 베러 갈지가 화면에서 정해진다.")]
         public Sprite depletedSprite;
 
+        [Tooltip("종류 변형 (2026-08-10). 채우면 노드마다 **타일 좌표 해시로 하나를 골라** 선다 — " +
+                 "같은 자리는 항상 같은 나무다(결정적). 비우면 위 nodeSprite 하나 (중립).\n" +
+                 "🔑 왜 필요한가: 숲 전체가 같은 나무 한 종이면 지형이 벽지처럼 읽힌다 " +
+                 "(사용자 Play 지적). 자원 종류는 그대로고 **생김새만** 갈린다 — 판정은 안 건드린다.\n" +
+                 "🔮 **이 축은 나중에 갈린다** (사용자 방향 2026-08-10): ①지형별 — 추운 곳은 어두운 " +
+                 "나무 ②계절별 — 봄 밝은 초록·가을 노랑·겨울은 수가 줄거나 어둡게. 그때 이 배열은 " +
+                 "'좌표 해시로 하나'가 아니라 **지형·계절이 고르는 표**가 된다. 지금 구조에서 바뀌는 " +
+                 "곳은 고르는 함수(ResourceNodeSpawner.PickVariantIndex) 하나뿐이도록 남겨 둔 것이다 — " +
+                 "뷰·러너·판정은 어느 그림인지 모른다.")]
+        public Sprite[] nodeSpriteVariants;
+
+        [Tooltip("변형별 고갈 그림 — nodeSpriteVariants 와 **같은 순서**. 개수가 모자라면 " +
+                 "그 변형은 위 depletedSprite 를 쓴다 (자작나무를 베었는데 참나무 그루터기가 " +
+                 "남지 않게 짝을 맞춰 둘 것).")]
+        public Sprite[] depletedSpriteVariants;
+
+        [Tooltip("채집 중 흩날리는 그림 (벌목 나뭇잎). 비우면 효과 없음 — 돌·광석은 비워 둔다.")]
+        public Sprite harvestParticle;
+
+        [Tooltip("변형별 흩날림 그림 — nodeSpriteVariants 와 같은 순서. 참나무엔 참나무 잎, " +
+                 "가문비나무엔 침엽이 떨어지게. 모자라면 위 harvestParticle 로 폴백.")]
+        public Sprite[] harvestParticleVariants;
+
         [Tooltip("고갈 그림으로 바뀌는 잔량 비율 (0~1). 기본 0.25 = 1/4 남으면 그루터기.")]
         [Range(0f, 1f)] public float depletedBelowRatio = 0.25f;
 

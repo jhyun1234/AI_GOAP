@@ -42,12 +42,21 @@ namespace AIVillage.M0
             // M20 — 자원별 효율. 나무꾼은 나무만, 광부는 돌만 빠르다 (자원별로 갈라야
             // 두 직업이 구분된다 — ADR-M20-2).
             DurationMult = agent.GatherDurationMultOfJob(_so.TargetResource);
-            MoveTarget = new Vector2Int(_node.TileX, _node.TileY);
+            // 🔴 노드 **곁**에 선다 (2026-08-10 사용자 Play). 舊 코드는 목적지를 노드 타일 그
+            // 자체로 줘서, 주민이 나무·바위와 겹친 채 도끼질했다. 오는 방향에서 가장 가까운
+            // 옆칸이라 돌아가지 않는다 (전부 막혀 있으면 중심 폴백 = 배선 전과 동일).
+            MoveTarget = MapBounds.PickWalkableAdjacent(agent.IsWalkable,
+                                                        _node.TileX, _node.TileY,
+                                                        agent.TileX, agent.TileY);
             return true;
         }
 
         public override RunnerResult Tick(VillagerAgent agent, float dt)
         {
+            // 대상을 보고 팬다 (표현 전용) — 옆에 서게 됐으니 방향까지 맞아야 그림이 성립한다.
+            // 매 틱 부르는 이유: 도착 직전 방향이 남아 있어 등을 돌린 채 도끼질할 수 있다.
+            agent.FaceTowards(new Vector2(_node.TileX, _node.TileY));
+
             if (!DurationElapsed(dt, DurationMult)) return RunnerResult.Running;
 
             if (_node.CurrentAmount < 1f)

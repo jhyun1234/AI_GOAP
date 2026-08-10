@@ -79,5 +79,7 @@ MonoBehaviour:
     - {fileID: -288408853, guid: 5ef985e3e84d5e048ba4a121da41bc4d, type: 3}
   FramesPerSecond: 8
   Scale: 0.5
+  ArtBottomNorm: 0.1458333 # 아래 여백 7/48px — 그림이 셀 아래로 치우쳐 발이 한 칸 내려가 있었다
+  ArtHeightNorm: 0.5208333 # 그린 높이 25/48px
   SideFacesRight: 1
   TintStrength: 0

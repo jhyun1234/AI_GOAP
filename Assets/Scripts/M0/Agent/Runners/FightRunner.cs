@@ -89,12 +89,18 @@ namespace AIVillage.M0
             if (dist > _so.StrikeRangeTiles)
             {
                 // 매복 대기 — 舊 "즉시 Fail → 재계획이 또 옛 좌표로"의 헛걸음 순환을 대체.
+                // 기다리는 동안은 몸짓을 끈다 (2026-08-10 Play): 액션은 Running 이지만 아직
+                // 아무도 안 치고 있다. 안 끄면 사거리 밖에서 허공에 칼질하는 그림이 되고,
+                // 화면에서 "싸우는 중"과 "기다리는 중"이 같아진다.
+                agent.SuppressActionGesture = true;
                 _ambushSec += dt;
                 if (_ambushSec >= _so.AmbushGiveUpSec)
                     return Fail("매복 상한 — 대상이 오지 않는다 (쿨다운 후 재계획)");
                 return RunnerResult.Running;
             }
             _ambushSec = 0f;
+            agent.SuppressActionGesture = false;
+            agent.FaceTowards(_target.transform.position); // 응시 — 싸우는 그림은 서로를 봐야 성립한다
 
             if (!_spoke)
             {

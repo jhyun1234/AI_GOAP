@@ -54,6 +54,7 @@ MonoBehaviour:
     StatMult: 2.8
   EncounterPressureK: 0.25
   BodyColor: {r: 0.45, g: 0.55, b: 0.2, a: 1}
+  SizeMult: 2        # 캐릭터 키 1.56유닛 (주민 0.94) — 기사단과 같은 배율, 그림이 더 크다
   ForecastLines:
   - "북쪽에서 북소리가 들려…"
   - "한둘이 아니야. 발소리가 땅을 울려."

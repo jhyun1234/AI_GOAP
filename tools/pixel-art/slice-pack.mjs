@@ -61,6 +61,16 @@ const SETS = [
 ];
 // scale 은 "화면에 서는 크기"를 맞춘 값이다 (W5d 교훈: 배율 1 고정이 아니라 크기가 불변식).
 // PPU 16 이므로 32px=2유닛·48px=3·64px=4 → 전부 1.5유닛으로 수렴시킨다.
+//
+// 🔴 단, 이 수렴이 맞추는 것은 **칸이지 캐릭터 키가 아니다** (실측 2026-08-10).
+//    칸 대비 실제로 그려진 세로 픽셀: 주민 63% · 고블린 50% · 오크 52% · 기사단 46% · 천사 42%.
+//    큰 칸은 몸이 커서가 아니라 무기 휘두름·날개를 담느라 여백이 넓다. 그래서 칸을 맞추면
+//    여백이 맞고 키는 어긋난다 — 기사단이 주민보다 **작아 보이는** 일이 실제로 일어났다.
+//    키 조정은 ThreatSO.SizeMult 가 맡는다 (배포값이 그 어긋남을 되돌려 놓은 상태다).
+//
+// 🔴 여기는 **그림 규격**만 맞춘다. "오크는 커야 한다" 같은 연출 크기는 여기 적지 말 것 —
+//    이 파일이 .asset 을 통째로 다시 쓰므로 재슬라이스 때마다 지워진다. 연출 크기의 자리는
+//    ThreatSO.SizeMult 다 (2026-08-10, 최종 배율 = Scale × SizeMult).
 
 const ROWS = { IdleDown: 0, IdleSide: 1, IdleUp: 2, WalkDown: 3, WalkSide: 4, WalkUp: 5,
                AtkDown: 6, AtkSide: 7, AtkUp: 8 };
@@ -74,6 +84,27 @@ function cellHasArt(img, cx, cy, cell) {
       if (getPixel(img, px, py)[3] !== 0) return true;
     }
   return false;
+}
+
+/**
+ * 한 칸에 그려진 픽셀의 세로 범위 → {bottomNorm, heightNorm} (셀 높이 대비 0~1).
+ *
+ * 🔑 왜 이걸 재는가 (2026-08-10 실측이 만든 함수): 팩 셀은 무기 휘두름·날개를 담느라 여백이
+ * 넓고 그 여백이 시트마다 다르다. 셀을 기준으로 캐릭터를 세우면 **발이 제각각인 높이에 선다** —
+ * 오크만 발이 타일 중심 1.06 아래(다른 종족 0.37~0.56)로 내려가 반 칸 앞으로 튀어나와 있었다.
+ * 사람 눈대중으로 적을 값이 아니라 픽셀을 훑어서 낼 값이라, 재는 쪽이 적는다.
+ */
+function artBounds(img, cx, cy, cell) {
+  let top = -1, bot = -1;
+  for (let y = 0; y < cell; y++)
+    for (let x = 0; x < cell; x++) {
+      const px = cx * cell + x, py = cy * cell + y;
+      if (px >= img.width || py >= img.height) continue;
+      if (getPixel(img, px, py)[3] !== 0) { if (top < 0) top = y; bot = y; break; }
+    }
+  if (top < 0) return { bottomNorm: -1, heightNorm: -1 };      // 빈 칸 = 미측정 (중립)
+  // PNG 의 y 는 아래로 자라고 월드의 y 는 위로 자란다 → 아래 여백 = 셀 바닥까지 남은 행.
+  return { bottomNorm: (cell - 1 - bot) / cell, heightNorm: (bot - top + 1) / cell };
 }
 
 const META_HEAD = (guid) => `fileFormatVersion: 2
@@ -189,6 +220,10 @@ function sliceSheet(cfg) {
   const guid = (readFileSync(metaPath, 'utf8').match(/^guid: ([a-f0-9]{32})/m) || [])[1];
   if (!guid) throw new Error(`${cfg.sheet}: 기존 meta 에서 guid 를 못 읽었다`);
 
+  // 발밑 정렬·그림자 폭의 원천 — **대기 정면 첫 칸 하나**로 고정한다 (2026-08-10).
+  // 프레임마다 재면 걸을 때 몸이 위아래로 떨린다: 정렬 기준은 움직이지 않아야 한다.
+  const art = artBounds(img, 0, ROWS.IdleDown, cfg.cell);
+
   let sprites = '', table = [];
   const byCell = new Map();
   for (let r = 0; r < rows; r++)
@@ -224,7 +259,7 @@ function sliceSheet(cfg) {
 `;
     }
   writeFileSync(metaPath, META_HEAD(guid) + sprites + META_TAIL(table.sort().join('\n')));
-  return { guid, rows, byCell, count: table.length };
+  return { guid, rows, byCell, count: table.length, art };
 }
 
 /** 한 행의 프레임 참조 목록 (빈 칸은 이미 빠져 있다).
@@ -248,6 +283,7 @@ function main() {
   for (const cfg of SETS) {
     const sl = sliceSheet(cfg);
     const g = sl.guid;
+    const art = sl.art;   // 발밑 정렬·그림자 폭 (artBounds 실측)
     const R = (row) => rowRefs(sl, g, row, cfg.cols, '  ');    // 최상위 배열 (IdleDown 등)
     const A = (row) => rowRefs(sl, g, row, cfg.cols, '    ');  // 중첩 배열 (Actions[].Down 등)
     const assetName = `Race_${cfg.race}_Sprites`;
@@ -287,6 +323,8 @@ ${A(ROWS.AtkSide)}
 ${A(ROWS.AtkUp)}
   FramesPerSecond: 8
   Scale: ${cfg.scale}
+  ArtBottomNorm: ${art.bottomNorm}
+  ArtHeightNorm: ${art.heightNorm}
   SideFacesRight: 1
   TintStrength: 0
 `;

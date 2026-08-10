@@ -28,6 +28,7 @@ namespace AIVillage.Core
         private Sprite         _depletedSprite;
         private float          _depletedBelowRatio = 0.25f;
         private bool           _tintByAmount = true;
+        private Sprite         _harvestParticle;   // null = 흩날림 없음 (돌·광석)
 
         // RefreshLoop 코루틴 핸들 — OnDisable 시 명시적 정지
         private Coroutine _refreshCoroutine;
@@ -38,8 +39,9 @@ namespace AIVillage.Core
         /// </summary>
         public void Init(ResourceNode node, Color fullColor, Color emptyColor, float nodeSize, Sprite sprite,
                          Sprite depletedSprite = null, float depletedBelowRatio = 0.25f,
-                         bool tintByAmount = true)
+                         bool tintByAmount = true, Sprite harvestParticle = null)
         {
+            _harvestParticle = harvestParticle;
             _node      = node;
             _fullColor = fullColor;
             _emptyColor = emptyColor;
@@ -78,6 +80,30 @@ namespace AIVillage.Core
                 _refreshCoroutine = StartCoroutine(RefreshLoop());
         }
 
+        /// <summary>
+        /// 채집 중이면 잎이 떨어진다 (2026-08-10 사용자 요청 — 벌목이 화면에서 읽히게).
+        ///
+        /// 🔑 판정 쪽(러너)이 아니라 **뷰가** 소유하는 이유: 뷰는 이미 0.5초마다 노드를 들여다보고
+        /// 있고, 노드는 "지금 몇 명이 캐는가"(CurrentGatherers)를 스스로 안다. 러너에 심으면
+        /// 명령 채집·직업 채집·미래의 다른 경로마다 같은 줄을 또 넣어야 한다 — 흩날림의 조건은
+        /// **"이 노드가 채집당하는 중"** 하나면 충분하다.
+        ///
+        /// 표현 전용: 자원량·점유 어느 것도 쓰지 않는다 (읽기만).
+        /// </summary>
+        private void TickHarvestParticle()
+        {
+            if (_harvestParticle == null || _node.CurrentGatherers <= 0) return;
+
+            // 나무 윗동에서 — 스프라이트 높이의 위쪽 1/3 언저리에서 흩어져 떨어진다.
+            float top = _sr.sprite != null
+                ? _sr.sprite.rect.height / Mathf.Max(1f, _sr.sprite.pixelsPerUnit) * transform.localScale.y * 0.28f
+                : 0.5f;
+            Vector3 from = transform.position
+                         + new Vector3(Random.Range(-0.35f, 0.35f), top, 0f);
+            AIVillage.M0.FallingLeaf.Spawn(transform.parent, from, _harvestParticle,
+                                           transform.localScale.y * 0.55f);
+        }
+
         private IEnumerator RefreshLoop()
         {
             var wait = new WaitForSeconds(_refreshInterval);
@@ -100,6 +126,7 @@ namespace AIVillage.Core
             }
 
             _sr.enabled = true;
+            TickHarvestParticle();
 
             // 자원 잔량 비율 (1.0 = 가득, 0.0 = 고갈)
             float ratio = _node.MaxAmount > 0f ? _node.CurrentAmount / _node.MaxAmount : 0f;

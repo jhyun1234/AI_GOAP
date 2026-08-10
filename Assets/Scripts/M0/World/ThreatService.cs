@@ -241,6 +241,7 @@ namespace AIVillage.M0
                 return SiegeTick.Skipped;
 
             float remain = _defense.ApplyDamage(s.Slot, s.Tile, agent.So.StructureDamage);
+            agent.PlayAttack(s.Tile); // 울타리를 **치는 그림** (2026-08-10 — 공성만 몸짓이 빠져 있었다)
             _defense.TryGetDurability(s.Slot, s.Tile, out _, out float max);
             Debug.Log($"[Threat] 공성 — {agent.So.DisplayName}: ({s.Tile.x},{s.Tile.y}) 내구 {remain:0.#}/{max:0.#}");
             OnStructureStruck?.Invoke(agent.So, s.Slot, s.Tile, remain, max);
@@ -724,6 +725,39 @@ namespace AIVillage.M0
             }
         }
 
+#if UNITY_EDITOR
+        // ── 디버그 소환 (2026-08-10, 에디터 전용) ──────────────────────────────
+        //
+        // 계기: 습격은 게임일이 쌓여야 오는데(첫 웨이브까지 5일, 오크 12일, 타락천사 30일),
+        // 그림·전투 표현을 고치려면 **지금** 와야 한다. 배속으로 기다리는 것은 관측이 아니라 대기다.
+        //
+        // 🔑 새 스폰 경로를 만들지 않는다 — **시계를 당기거나 후보를 좁힐 뿐**이고, 편성·등급·
+        // 특성·진입점·타깃 롤은 전부 정규 통로(BuyWave → Spawn)가 그대로 정한다. 병렬 경로를
+        // 파면 테스트로 본 것이 실전과 다른 물건이 되고, 그때부터 관측은 거짓말이 된다.
+
+        /// <summary>다음 습격을 지금 부른다 — 예고 중이면 즉시 발동, 예고 전이면 다음 틱에
+        /// 예고가 서고 그 다음 틱(0.1초)에 발동한다. 해금·예산·완충이 전부 실전 그대로다.
+        /// 발동 후 `_lastStrikeDay`는 정규 경로가 현재 시각으로 갱신하므로 주기는 안 망가진다.</summary>
+        public void DebugStrikeNow() => _lastStrikeDay = _gameTime - (WavePeriod + _delayDays);
+
+        /// <summary>이 종족만으로 한 무리를 즉시 출몰시킨다 — **해금일과 주기를 무시한다**
+        /// (1일차에 타락천사를 보기 위한 문). 마릿수·등급은 정규 구매기가 지금 압력으로 정하고,
+        /// 예산이 0이면 최소 한 마리는 나온다 (빈 소환은 도구로서 쓸모가 없다).</summary>
+        public ThreatSO DebugSummonRace(ThreatSO race)
+        {
+            if (race == null) return null;
+            int budget = Mathf.Max(1, CurrentGlobalPressure(_peakPopulation()));
+            List<WaveEntry> wave = BuyWave(new[] { race }, budget, _strikeOrdinal + 1);
+            if (wave.Count == 0) wave.Add(new WaveEntry(race, 0, 1));
+            Spawn(race, wave);
+            return race;
+        }
+
+        /// <summary>배포된 종족 목록 (디버그 순환 소환용) — 순서는 에셋 배열 그대로.
+        /// 입력 쪽이 이름으로 고르지 않게 하는 창구다 (ADR-M24-4: 종족 차이는 데이터다).</summary>
+        public IReadOnlyList<ThreatSO> Races => _threats;
+#endif
+
         // ── 출몰·타격 (개체는 표현+이동, 판정은 여기 — 명세 M10-C ⚠️③) ─────────
 
         /// <param name="so">주력 종족 — 타깃 종류·진입점·공성 판정이 이 하나를 따른다
@@ -1023,8 +1057,8 @@ namespace AIVillage.M0
                 BeginExit(agent, "칠 대상이 없다");
                 return;
             }
-            ExecuteStrike(agent.So, agent.TargetsVillagers, here);
-            agent.PlayAttack(); // 공격 몸짓 (M22-3차 W5c — 표현 전용, 판정과 무관)
+            ExecuteStrike(agent.So, agent.TargetsVillagers, here, out Vector2 focus);
+            agent.PlayAttack(focus); // 공격 몸짓 (M22-3차 W5c — 표현 전용, 판정과 무관)
             agent.MarkStruck(_gameTime);
             float limit = StayLimitOf(agent);
             Debug.Log($"[Threat] 체류 시작 — {agent.So.DisplayName} @ ({here.x},{here.y}) " +
@@ -1074,8 +1108,8 @@ namespace AIVillage.M0
             }
             else if (!HasVillagerTargetsNear(agent.So, here)) return; // 사거리 밖 = 아직 못 잡았다 (추격이 잇는다)
 
-            ExecuteStrike(agent.So, agent.TargetsVillagers, here);
-            agent.PlayAttack(); // 공격 몸짓 (M22-3차 W5c — 표현 전용, 판정과 무관)
+            ExecuteStrike(agent.So, agent.TargetsVillagers, here, out Vector2 focus);
+            agent.PlayAttack(focus); // 공격 몸짓 (M22-3차 W5c — 표현 전용, 판정과 무관)
             agent.MarkStruck(_gameTime);
 
             // 치고 빠지기 (M24-1차 W5, ExitOnGoal) — 한 대 치면 목적을 이룬 것이라 곧장 물러난다.
@@ -1218,8 +1252,11 @@ namespace AIVillage.M0
             foreach (ThreatAgent t in _routBuf) t.BeginFlee();
         }
 
-        private void ExecuteStrike(ThreatSO so, bool targetsVillagers, Vector2Int tile)
+        /// <param name="focus">이번 타격이 실제로 맞힌 첫 대상의 위치 (표현 전용 — 개체가
+        /// 그쪽을 보고 휘두른다). 아무도 못 맞혔으면 제자리 = 방향을 억지로 틀지 않는다.</param>
+        private void ExecuteStrike(ThreatSO so, bool targetsVillagers, Vector2Int tile, out Vector2 focus)
         {
+            focus = tile;
             int hit = 0;
             if (targetsVillagers)
             {
@@ -1238,6 +1275,7 @@ namespace AIVillage.M0
                     _struckBuf.Add(_victimAgentBuf[idx]);              // 대사 화자 = 실제 피격자
                     hit++;
                 }
+                if (_struckBuf.Count > 0) focus = _struckBuf[0].transform.position;
                 Debug.Log($"[Threat] 타격 — {so.DisplayName}: {hit}/{_victimKeyBuf.Count}명 피격 " +
                           $"(1인 {so.StrikeDamage:0.#}) @ ({tile.x},{tile.y})");
             }
@@ -1259,7 +1297,11 @@ namespace AIVillage.M0
                 DisasterService.PickVictims(_plotBuf.Count, loss, seed, _victimIdxBuf);
                 foreach (int idx in _victimIdxBuf)
                     if (_construction.RemoveCountableAt(SlotId.FarmPlotCount,
-                                                        _plotBuf[idx].x, _plotBuf[idx].y)) hit++;
+                                                        _plotBuf[idx].x, _plotBuf[idx].y))
+                    {
+                        if (hit == 0) focus = _plotBuf[idx]; // 첫 밭 = 바라볼 곳
+                        hit++;
+                    }
                 Debug.Log($"[Threat] 타격 — {so.DisplayName}: 밭 {hit}/{_plotBuf.Count} 소실");
             }
             OnStruck?.Invoke(so, targetsVillagers, hit, tile,

@@ -96,18 +96,9 @@ namespace AIVillage.M0
         /// <summary>발밑 그림자 (2026-08-09) — 팩 건물·나무는 그림자를 달고 오는데 주민만 없어서
         /// 집 앞에 서면 경계가 사라졌다 (사용자 Play 지적). 앞뒤는 정렬이 정하고, **땅에 붙어
         /// 있다**는 이것이 정한다. 크기·진하기는 에셋의 몫 — 0이면 안 만든다 (중립).</summary>
-        private void SetupShadow(AgentSpriteSetSO set)
-        {
-            if (set == null || set.ShadowWidthTiles <= 0f || set.ShadowAlpha <= 0f) return;
-            var go = new GameObject("Shadow");
-            go.transform.SetParent(transform, worldPositionStays: false);
-            go.transform.localPosition = new Vector3(0f, set.ShadowOffsetTiles, 0f);
-            go.transform.localScale = new Vector3(set.ShadowWidthTiles,
-                                                  set.ShadowWidthTiles * set.ShadowFlatten, 1f);
-            _shadowSr = go.AddComponent<SpriteRenderer>();
-            _shadowSr.sprite = M0Sprites.Circle;
-            _shadowSr.color = new Color(0f, 0f, 0f, set.ShadowAlpha);
-        }
+        // 그림자 장착은 SpriteViewRig 공용 (2026-08-10) — 위협도 같은 규약으로 붙는다.
+        // 여기 따로 두면 "발밑"의 정의가 두 벌이 되고, 그게 바로 정렬 상수가 어긋난 경로였다.
+        private void SetupShadow(AgentSpriteSetSO set) => _shadowSr = SpriteViewRig.AttachShadow(transform, set);
         // 발밑 선택 링 (PlayerInputController 소유) — 주민과 같은 깊이 띠에 매달아 둔다.
         private SpriteRenderer _selectionRing;
         public void AttachSelectionRing(SpriteRenderer ring) => _selectionRing = ring;
@@ -479,12 +470,13 @@ namespace AIVillage.M0
             if (State == AgentState.Moving && !chatting) TickMoving(Time.deltaTime);
             // 행동 몸짓 (M23-W1) — 어느 몸짓인지는 실행 중 액션의 에셋 필드가 정한다 (ADR-M23-1).
             // 대화 중엔 끈다 (마주보며 도끼질하는 그림 방지).
-            AnimKind acting = State == AgentState.Acting && !chatting
+            AnimKind acting = State == AgentState.Acting && !chatting && !SuppressActionGesture
                 && _plan != null && _planIndex >= 0 && _planIndex < _plan.Count
                 ? _plan[_planIndex].Anim : AnimKind.None;
             _animator?.Tick(Time.deltaTime,
                 State == AgentState.Moving && _hasNextReserved && !chatting, _lastDir, acting);
             TickDepth();
+            TickFlash();
 
             // 임시 문구(거부 대사) 만료 처리 — 실행 중이면 침묵 여운 뒤 플랜 복원
             // (2026-07-18 사용자 지시: 대사 직후 '다음 행동' 노란 문구가 바로 튀지 않게)
@@ -690,6 +682,9 @@ namespace AIVillage.M0
         {
             if (State == AgentState.Dead || amount <= 0f) return;
             Hp = Mathf.Max(0f, Hp - amount);
+            // 맞았다 (표현 전용, 2026-08-10). 전투 피해에만 — 굶주림은 서서히 닳는 것이라
+            // 번쩍이면 "누가 때렸나"로 읽힌다.
+            if (cause == DamageCause.Combat) PlayHurt();
             // 굶주림 원인일 때만 기록 (M12-G 희소성 — 판정은 순수 함수, 게이트 M21-T15).
             // 여기가 MyWasStarved의 유일한 쓰기 지점이다 (舊 SimTick에서 이전).
             if (ShouldMarkStarved(cause, Hp, _cfg)) MyWasStarved = true;
@@ -1217,6 +1212,7 @@ namespace AIVillage.M0
                 ShowTransient(Pick(_sim.Threats.Forecasting.ForecastLines));
 
             _runner = action.CreateRunner(this);
+            SuppressActionGesture = false; // 몸짓 억제는 액션 하나짜리 상태 — 다음 행동으로 새지 않는다
 
             if (!_runner.Prepare(this))
             {
@@ -1330,7 +1326,11 @@ namespace AIVillage.M0
             // 부상 감속 (M10-A) — 속도 계산의 유일한 지점에 배율 1곱 (절뚝임. None이면 1 = 중립)
             float speed = _motion.Tick(dt, nearDest)
                           * (Injury != InjurySeverity.None ? _cfg.InjuredMoveSpeedMult : 1f);
-            _lastDir = (targetPos - transform.position).normalized;
+            // 방향은 **의미 있는 거리가 남았을 때만** 갱신한다 (2026-08-10). 도착 직전엔 남은
+            // 벡터가 0에 수렴하는데, 그걸 normalize 하면 잡음이 방향으로 증폭되고 (0,0)이 되면
+            // 보던 쪽마저 잃는다 — 축 히스테리시스가 지켜 낸 방향을 마지막 프레임에 놓치게 된다.
+            Vector3 toTarget = targetPos - transform.position;
+            if (toTarget.sqrMagnitude > 1e-6f) _lastDir = toTarget.normalized;
             transform.position = Vector3.MoveTowards(transform.position, targetPos, speed * dt);
 
             if ((transform.position - targetPos).sqrMagnitude <= ARRIVE_EPSILON)
@@ -1767,6 +1767,46 @@ namespace AIVillage.M0
         private float _chatPauseUntil;
         private Vector2 _chatFaceDir;
 
+        /// <summary>이 지점을 바라본다 (표현 전용 — 러너가 대상 응시에 쓴다. 판정 없음).
+        /// 이동 중이면 다음 프레임에 이동 방향이 덮는다: 응시는 **제자리에서 무언가를 하고 있을 때**의
+        /// 그림이다. 계기 = 주민이 고블린에게 등을 돌린 채 도끼질하고 있었다 (2026-08-10 Play).</summary>
+        public void FaceTowards(Vector2 towardWorldPos)
+        {
+            Vector2 d = towardWorldPos - (Vector2)transform.position;
+            if (d.sqrMagnitude > 1e-4f) _lastDir = d.normalized;
+        }
+
+        // ── 피격 번쩍임 (2026-08-10) — 위협 쪽(ThreatAgent)과 같은 규약·같은 색.
+        // 색만 건드린다: 체력·부상 판정은 TakeDamage의 것이고 여기는 그 결과를 보이게 할 뿐이다.
+        private const float HURT_FLASH_SEC = 0.12f;
+        private static readonly Color HurtColor = new Color(1f, 0.45f, 0.45f, 1f);
+        private float _flashUntil;
+        private Color _flashBaseColor;
+        private bool _flashing;
+
+        /// <summary>맞았다 (표현 전용).</summary>
+        public void PlayHurt()
+        {
+            if (_viewSr == null) return;
+            if (!_flashing) { _flashBaseColor = _viewSr.color; _flashing = true; } // 원래 색은 한 번만
+            _flashUntil = Time.time + HURT_FLASH_SEC;
+        }
+
+        private void TickFlash()
+        {
+            if (!_flashing || _viewSr == null) return;
+            if (Time.time < _flashUntil) { _viewSr.color = HurtColor; return; }
+            _viewSr.color = _flashBaseColor;
+            _flashing = false;
+        }
+
+        /// <summary>행동 몸짓 억제 (러너 전용, 표현). 액션은 Running 인데 **아직 실제로는 하고 있지
+        /// 않은** 구간 — 교전의 매복 대기 같은 — 에서 켠다. 켜면 대기/걷기 그림으로 돌아간다.
+        /// 🔑 이게 없으면 사거리 밖에서 기다리는 주민이 허공에 칼을 휘두르고, 화면만 보는
+        /// 플레이어는 "싸우는 중"과 "기다리는 중"을 구분할 수 없다. 새 액션이 시작될 때
+        /// 자동으로 꺼진다 (StartNextAction) — 러너가 끄는 것을 잊어도 다음 행동에 안 샌다.</summary>
+        public bool SuppressActionGesture { get; set; }
+
         /// <summary>대화 상대를 바라보며 잠시 멈춘다 — ChatterService 전용. pauseSec 0이면 멈춤 없음.</summary>
         public void FaceForChat(Vector2 towardWorldPos, float pauseSec)
         {
@@ -2036,13 +2076,10 @@ namespace AIVillage.M0
                 return;
             }
 
-            // Kenmi 조각은 피벗이 좌하단 — 자식 오프셋으로 타일 중앙 정렬 (32px/16ppu = 2유닛)
-            var view = new GameObject("View");
-            view.transform.SetParent(transform, worldPositionStays: false);
-            view.transform.localScale = Vector3.one * set.Scale;
-            view.transform.localPosition = new Vector3(-set.Scale, -set.Scale, 0f);
-
-            var sr = view.AddComponent<SpriteRenderer>();
+            // 중앙 정렬과 규격 배율은 SpriteViewRig 하나가 소유한다 (위협과 공용, 2026-08-10).
+            // 舊 코드의 `-set.Scale` 오프셋은 "팩 피벗이 좌하단"이라는 **틀린 전제**였다 —
+            // 실측 피벗은 중앙이라(rect 32×32 → (16,16)) 그 오프셋만큼 주민이 반 칸 어긋나 있었다.
+            SpriteRenderer sr = SpriteViewRig.Attach(transform, set);
             _viewSr = sr; // 깊이는 매 프레임 갱신 (움직이니까 — Update의 TickDepth)
             _animator = new AgentAnimator(sr, set, agentColor);
             SetupShadow(set);

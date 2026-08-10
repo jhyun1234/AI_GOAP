@@ -164,6 +164,19 @@ namespace AIVillage.M0
         [Tooltip("스프라이트 폴백 마커 색 (주민 원형 마커 패턴 — 아트는 후속 에셋 교체).")]
         public Color BodyColor = new Color(0.8f, 0.2f, 0.2f);
 
+        [Tooltip("위압 배율 (2026-08-10) — 화면에 서는 크기. 체력·피해·속도와는 **무관**하다: " +
+                 "크기는 '저건 세다'를 한눈에 알리는 신호일 뿐이고 판정은 스탯이 한다.\n" +
+                 "⚠️ 1이 '주민과 같은 키'가 아니다. 이 값은 스프라이트 **칸**에 곱해지는데, " +
+                 "칸 대비 실제로 그려진 픽셀 비율이 시트마다 다르다 (실측 2026-08-10: 주민 63% · " +
+                 "고블린 50% · 오크 52% · 기사단 46% · 타락천사 42% — 큰 칸은 몸이 큰 게 아니라 " +
+                 "무기·날개를 담느라 여백이 넓다). 칸을 맞추면 여백이 맞고 키는 어긋난다 — " +
+                 "실제로 기사단이 배율 1.15에서 주민보다 작았다.\n" +
+                 "그래서 값을 정할 땐 배율이 아니라 **캐릭터 키(유닛)**를 보고 정한다. 배포값 기준: " +
+                 "주민 0.94 · 고블린 0.75 · 기사단 1.38 · 오크 1.56 · 타락천사 1.69.\n" +
+                 "⚠️ 그림 규격 배율(AgentSpriteSetSO.Scale)을 여기서 다시 만지지 말 것 — " +
+                 "그건 slice-pack.mjs 가 기계로 쓰는 값이고, 이 칸은 사람이 쓰는 값이다.")]
+        public float SizeMult = 1f;
+
         [Tooltip("예고 구간 주민 술렁임 대사 (M10-D — 계절 ForecastLines 패턴). 비면 술렁임 없음.")]
         public string[] ForecastLines;
 
@@ -209,6 +222,8 @@ namespace AIVillage.M0
                 Debug.LogWarning($"[ThreatSO] {name}: MaxLossPct({MaxLossPct})는 0~1 비율이어야 합니다.", this);
             if (VillagerTargetChance < 0f || VillagerTargetChance > 1f)
                 Debug.LogWarning($"[ThreatSO] {name}: VillagerTargetChance({VillagerTargetChance})는 0~1 이어야 합니다.", this);
+            if (SizeMult <= 0f)
+                Debug.LogWarning($"[ThreatSO] {name}: SizeMult({SizeMult})는 양수여야 합니다 — 그림이 사라집니다.", this);
             if (MaxHp <= 0f)
                 Debug.LogWarning($"[ThreatSO] {name}: MaxHp({MaxHp})는 양수여야 합니다 — 태어나자마자 죽습니다.", this);
             if (StrikeDamage <= 0f)

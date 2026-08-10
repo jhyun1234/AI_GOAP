@@ -73,5 +73,7 @@ MonoBehaviour:
     - {fileID: 1960384154, guid: beb2476a85275934783d54ee9619b489, type: 3}
   FramesPerSecond: 8
   Scale: 0.75
+  ArtBottomNorm: 0.25      # 아래 여백 8/32px (실측 2026-08-10)
+  ArtHeightNorm: 0.5       # 그린 높이 16/32px
   SideFacesRight: 1
   TintStrength: 0

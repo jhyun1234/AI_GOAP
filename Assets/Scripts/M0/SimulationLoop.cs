@@ -1223,7 +1223,8 @@ namespace AIVillage.M0
 
             // 씬 배선 없음 — BuildingVisualizer 패턴 (M6-C). 관계·소유·부탁 참조는 표기 전용 (M8-B/C/후속)
             Hud = new SeasonHud(transform, _bubbleFont, Relationship, _worldConfig, Ownership, Requests,
-                                HomeStorage, Chronicle); // 집 저장 표기 (M11-A) + 연대기 (M13-C2)
+                                HomeStorage, Chronicle, // 집 저장 표기 (M11-A) + 연대기 (M13-C2)
+                                Goals != null ? Goals.All : null); // 성격 서술의 goal 문장 (M25-1차)
 
             StartCoroutine(TickLoop());
         }

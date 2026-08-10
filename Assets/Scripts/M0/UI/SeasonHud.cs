@@ -39,12 +39,16 @@ namespace AIVillage.M0
         private readonly RequestService _requests;
         private readonly HomeStorageService _homeStorage; // 집 저장 표기 (M11-A)
         private readonly ChronicleService _chronicle;     // 최근 사건 표기 (M13-C2)
+        // 성격 서술의 goal 문장 후보 (M25-1차) — null이면 축 문장만 나온다 (중립 폴백)
+        private readonly IReadOnlyList<GoalSO> _goals;
 
         public SeasonHud(Transform parent, TMP_FontAsset font,
                          RelationshipService relationship = null, WorldConfigSO worldCfg = null,
                          OwnershipService ownership = null, RequestService requests = null,
-                         HomeStorageService homeStorage = null, ChronicleService chronicle = null)
+                         HomeStorageService homeStorage = null, ChronicleService chronicle = null,
+                         IReadOnlyList<GoalSO> goals = null)
         {
+            _goals = goals;
             _relationship = relationship;
             _worldCfg = worldCfg;
             _ownership = ownership;
@@ -203,7 +207,7 @@ namespace AIVillage.M0
             }
 
             string line = ComposeSelected(_selected, _relationship, _worldCfg, _ownership, _requests,
-                                          _homeStorage, _chronicle);
+                                          _homeStorage, _chronicle, _goals);
             if (line != _lastSelectedLine)
             {
                 _lastSelectedLine = line;
@@ -221,11 +225,14 @@ namespace AIVillage.M0
                                              WorldConfigSO cfg = null, OwnershipService own = null,
                                              RequestService requests = null,
                                              HomeStorageService homeStorage = null,
-                                             ChronicleService chronicle = null)
+                                             ChronicleService chronicle = null,
+                                             IReadOnlyList<GoalSO> goals = null)
         {
+            // M25-1차: 성격 **라벨**은 화면에서 내렸다 ("순둥이" 한 단어가 여섯 축을 접어 버려
+            // 플레이어에겐 랜덤으로 보였다). 대신 아래에서 서술 줄이 스스로 말한다.
+            // 내부 라벨(DisplayName)은 기록·로그·연대기에 그대로 산다 (명세 §0.2 ⑤).
             string line =
-                $"{a.ShortName} — 성격 {(a.Personality != null ? a.Personality.DisplayName : "없음")}" +
-                $" · 직업 {(a.Job != null ? a.Job.DisplayName : "무직")}" +
+                $"{a.ShortName} — 직업 {(a.Job != null ? a.Job.DisplayName : "무직")}" +
                 $" · 포만 {Mathf.RoundToInt(a.Satiety)} · 피로 {Mathf.RoundToInt(a.Fatigue)}" +
                 // 체력 (M21-W8 — 헌장 표현 조항: 판정이 읽는 값은 화면에도 자리가 있어야 한다)
                 $" · 체력 {Mathf.RoundToInt(a.Hp)}/{Mathf.RoundToInt(a.AgentConfig.MaxHp)}" +
@@ -271,7 +278,14 @@ namespace AIVillage.M0
                 if (recent.Length > 0) line += $" · <color=#B8B8B8>{recent}</color>";
             }
 
-            // 2번째 줄 = 이유·문턱 (M13-D) — "왜 지금 저걸 하는가"(계획 사슬)와
+            // 성격 서술 줄 (M25-1차) — 사람됨이 먼저 오고 그 다음이 "지금 무엇을 하는가"다.
+            // 개체 편차 포함 벡터(MyTraits)로 만든다 (ADR-M25-5 — 원본을 읽으면 반쪽 개체).
+            // 중립이면 빈 문자열이고, 그때는 **줄 자체가 생기지 않는다** (ADR-M25-3).
+            string prose = TraitProse.Compose(a.MyTraits,
+                                              cfg != null ? cfg.TraitRules : null, goals);
+            if (prose.Length > 0) line += $"\n<color=#B8B8B8>{prose}</color>";
+
+            // 다음 줄 = 이유·문턱 (M13-D) — "왜 지금 저걸 하는가"(계획 사슬)와
             // "언제까지 손쓸 수 있는가"(명령 여유·식량)를 붙인다. 우리 시그니처 —
             // RimWorld는 계획이 없어(깊이 1) 이 줄을 만들 수 없다.
             line += "\n" + ComposeReason(a.CurrentGoal, a.CurrentPlan, a.CurrentPlanIndex,

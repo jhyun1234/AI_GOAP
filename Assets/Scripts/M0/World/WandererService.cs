@@ -166,7 +166,8 @@ namespace AIVillage.M0
         private void OpenOffer()
         {
             _offer = WandererOffer.Open(_lastTickDay, _config.WandererWaitDays);
-            string prompt = $"방랑자 도착: {Describe()} — [Y] 수락 / [N] 거절 ({_config.WandererWaitDays:0.#}일 내)";
+            string prompt = $"방랑자 도착: {DescribeForScreen()} " +
+                            $"[Y] 수락 / [N] 거절 ({_config.WandererWaitDays:0.#}일 내)";
             Debug.Log($"[Wanderer] 제안 — {Describe()}");
             OnOffered?.Invoke(prompt, new Vector2Int(_marker.TileX, _marker.TileY));
         }
@@ -211,8 +212,30 @@ namespace AIVillage.M0
         private bool IsWalkable(int x, int y)
             => MapBounds.ToArrayIndex(x, y, out int ax, out int ay) && _sim.Walkable[ax, ay];
 
+        /// <summary>후보 소개 — 로그·프롬프트 공용. 성격 **라벨**로 부른다 (콘솔은 짧은 편이 낫다).</summary>
         private string Describe()
             => $"{(_candPersonality != null ? _candPersonality.DisplayName : "무난한 성격")} · " +
                $"{(_candJob != null ? _candJob.DisplayName : "무직")}";
+
+        /// <summary>
+        /// 화면용 후보 소개 (M25-1차) — 라벨 대신 **성격 서술**로 부른다. 수락/거절의 유일한
+        /// 근거가 "순둥이 · 농부" 다섯 글자였던 자리다: 이제 그 사람이 어떤 사람인지가 보이고,
+        /// 그래서 처음으로 **정보에 근거한 결정**이 된다.
+        ///
+        /// ⚠️ 후보는 아직 신원(AgentId)이 없어 개체 편차가 없다 → **성격 원본 벡터**로 만든다
+        /// (`ADR-M25-5` 예외 — 직업 추첨이 이미 같은 규약을 쓴다).
+        /// 프롬프트는 한 줄 슬롯이고 뒤에 [Y]/[N]과 남은 일수가 붙으므로 **2문장으로 자른다.**
+        /// 서술이 비면(중립·미배선) 라벨판으로 돌아간다 — 침묵보다 이름이 낫다.
+        /// </summary>
+        private string DescribeForScreen()
+        {
+            string job = _candJob != null ? _candJob.DisplayName : "무직";
+            string prose = TraitProse.Compose(
+                _candPersonality != null ? _candPersonality.Traits : null,
+                _config != null ? _config.TraitRules : null,
+                _sim != null && _sim.Goals != null ? _sim.Goals.All : null,
+                maxLines: 2);
+            return prose.Length > 0 ? $"{job} — {prose}" : Describe();
+        }
     }
 }

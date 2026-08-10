@@ -33,6 +33,10 @@ namespace AIVillage.M0
                 Debug.LogWarning("[GoalSelector] 등록된 goal이 없습니다 — 주민이 항상 Idle 상태가 됩니다.");
         }
 
+        /// <summary>등록된 goal 목록 (읽기 전용 — M25-1차 성격 서술이 `PersonaLine`을 찾는 창구).
+        /// ⚠️ 표현 전용 통로다: 선택·클레임은 여전히 이 클래스만 한다 (ADR-M3-4).</summary>
+        public IReadOnlyList<GoalSO> All => _goals;
+
         /// <summary>
         /// 현재 스냅샷에서 수행할 goal을 반환한다. 할 일이 없으면 null (정상 Idle).
         /// skip: 후보 제외 판정 (에이전트의 실패 쿨다운 등) — 상위가 막히면 하위로 내려간다.

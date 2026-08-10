@@ -111,8 +111,8 @@
       },
       "lines": [
         {
-          "text": "하루 반이면 죽고,\n간호받으면 하루에 나아요.",
-          "say": "하루 반이면 죽고, 간호받으면 하루에 나아요.",
+          "text": "하루 반이면 죽고,\n간호받으면 하루에 낫거든요.",
+          "say": "하루 반이면 죽고, 간호받으면 하루에 낫거든요.",
           "en": "Left alone they die in a day and a half.\nNursed, they heal in one.",
           "pauseAfter": 180
         }
@@ -177,8 +177,8 @@
       },
       "lines": [
         {
-          "text": "그래서 되감지 말고\n멈추기만 했어요.",
-          "say": "그래서 되감지 말고 멈추기만 했어요.",
+          "text": "그래서 되감지 말고\n멈추기만 하게 했죠.",
+          "say": "그래서 되감지 말고 멈추기만 하게 했죠.",
           "en": "So nursing doesn't rewind it.\nIt only pauses it.",
           "pauseAfter": 180
         }

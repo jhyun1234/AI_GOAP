@@ -1200,5 +1200,40 @@ namespace AIVillage.Tests.EditMode
             Assert.AreEqual(AnimKind.None, ClearRunner.AnimForResource(null, ResourceType.Wood),
                 "카탈로그 미배선인데 몸짓을 지목했다 (중립 불변식 위반)");
         }
+
+        [Test]
+        public void M22_T27_CancellingThePlanCancelsTheClearing()
+        {
+            // 🔴 2차 Play 관측 → 사용자 판정 안 B (2026-08-10). 舊 동작은 계획을 취소해도
+            //    개간 지정이 남아, 담을 세울 이유가 없어진 자리의 나무를 주민이 끝내 벴다.
+            var def = new DefenseService();
+            var line = new List<Vector2Int> { new Vector2Int(0, 0), new Vector2Int(1, 0) };
+            def.AddFencePlan(line, (x, y) => x != 1, (x, y) => x == 1);
+
+            // 실패 가능성 증명 — 취소 전에는 대기 칸이 실제로 있다.
+            Assert.AreEqual(1, def.BlockedFenceTiles.Count, "대기 칸이 없다 — 빈 검사다");
+
+            Assert.IsTrue(def.RemovePlanAt(new Vector2Int(1, 0), out bool wasBlocked),
+                "대기 칸인데 취소가 안 됐다");
+            Assert.IsTrue(wasBlocked,
+                "대기 칸을 지웠는데 그 사실을 안 알려 준다 — 호출자가 노드 지정을 못 푼다");
+            Assert.AreEqual(0, def.BlockedFenceTiles.Count);
+
+            // 일반 계획 칸을 지운 것은 개간과 무관하다 (아무 취소나 나무를 살려 주면 안 된다).
+            Assert.IsTrue(def.RemovePlanAt(new Vector2Int(0, 0), out bool plainBlocked));
+            Assert.IsFalse(plainBlocked, "노드와 무관한 계획 칸인데 개간 대기였다고 답했다");
+
+            // 서비스 쪽 — 지정 해제와 재확인이 짝을 이룬다.
+            var d = new DiscoveryService();
+            ResourceNode n = Node(1, 0);
+            d.AddResourceNode(n);
+            d.MarkForClearing(n);
+            Assert.IsTrue(d.IsPendingClear(n), "지정했는데 대기가 아니다 — 빈 검사다");
+            Assert.IsTrue(d.UnmarkForClearing(n), "지정 해제가 안 됐다");
+            Assert.IsFalse(d.IsPendingClear(n),
+                "해제했는데 여전히 대기다 — 도끼질 중인 주민이 끝내 베어 버린다");
+            Assert.AreEqual(0, d.ClearPendingCount);
+            Assert.IsFalse(d.UnmarkForClearing(n), "이미 푼 지정을 또 풀었다고 답했다");
+        }
     }
 }

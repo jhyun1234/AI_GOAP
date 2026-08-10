@@ -63,6 +63,9 @@ namespace AIVillage.M0
 
             // 그 사이 남이 먼저 쳤을 수 있다 — 사라진 노드를 친 것은 실패다 (조용한 성공 금지).
             if (_node.IsRemoved) return Fail("이미 개간된 노드 — 재계획");
+            // 🔴 그 사이 플레이어가 계획을 취소했을 수도 있다 (M22-4차 W8, 안 B).
+            //    **취소는 취소다** — 90% 친 나무가 아까워도, "취소했는데 베어졌다"는 되돌릴 수 없다.
+            if (!agent.Discovery.IsPendingClear(_node)) return Fail("개간이 취소된 노드 — 재계획");
 
             _recovered = agent.Discovery.RemoveNode(_node);   // 유일한 문 (ADR-C-2)
             SlotId? stock = SlotIds.StockOf(_node.ResourceType);

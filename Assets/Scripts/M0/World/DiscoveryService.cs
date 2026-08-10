@@ -56,6 +56,24 @@ namespace AIVillage.M0
             return true;
         }
 
+        /// <summary>
+        /// 개간 지정 해제 (M22-4차 W8, 사용자 판정 안 B) — 플레이어가 그 칸의 계획을 취소하면
+        /// 나무도 안 벤다. 지정돼 있었으면 true.
+        ///
+        /// 🔴 **취소는 취소다**: 이미 도끼질 중이던 주민도 완료 시점에 지정이 풀린 걸 보고
+        /// 실패로 접는다 (`ClearRunner`). 90% 친 나무가 남는 게 아까워 보여도, "취소했는데
+        /// 베어졌다"가 훨씬 나쁘다 — 되돌릴 수 없기 때문이다 (2026-08-10 Play 관측).
+        /// </summary>
+        public bool UnmarkForClearing(ResourceNode node)
+        {
+            if (node == null || !_clearPending.Remove(node)) return false;
+            Debug.Log($"[Clear] 개간 취소 — ({node.TileX},{node.TileY}) {node.ResourceType}");
+            return true;
+        }
+
+        /// <summary>아직 개간 대기 중인가 (ClearRunner 의 완료 직전 재확인 — 취소를 놓치지 않는다).</summary>
+        public bool IsPendingClear(ResourceNode node) => node != null && _clearPending.Contains(node);
+
         /// <summary>해당 타일의 노드 (없으면 null) — 계획이 막힌 칸의 노드를 집어 지정할 때 쓴다.</summary>
         public ResourceNode NodeAt(int tileX, int tileY)
         {

@@ -435,14 +435,21 @@ namespace AIVillage.M0
 
         /// <summary>계획 취소 (M22-W8 철거 — 플레이어 전용). 미건설 계획 칸을 지운다 — 자재를
         /// 안 썼으니 무료. 있었으면 true.</summary>
-        public bool RemovePlanAt(Vector2Int tile)
+        public bool RemovePlanAt(Vector2Int tile) => RemovePlanAt(tile, out _);
+
+        /// <summary>〃 + 그 칸이 **개간 대기**였는지 알려준다 (M22-4차 W8) — 호출자가 노드 지정을
+        /// 풀 수 있게. 대기 칸과 노드는 타일 기준 1:1이라 이 한 칸이 곧 그 노드다.</summary>
+        public bool RemovePlanAt(Vector2Int tile, out bool wasBlockedByNode)
         {
+            // 🔴 W8 개정 (사용자 판정 2026-08-10, 안 B) — 舊 코드는 대기 칸만 걷고 **개간 지정은
+            //    안 풀었다.** 근거는 "다른 줄이 같은 노드를 기다릴 수 있다"였는데 **사실이 아니다**:
+            //    노드는 한 타일에 하나이고 대기 칸도 타일당 하나라 **1:1**이다. 그래서 2차 Play에서
+            //    계획을 취소했는데도 주민이 그 나무를 끝내 베었다 — "취소했는데 왜 베지?"
+            //    지정 해제는 호출자(SimulationLoop)가 한다: 노드를 아는 것은 그쪽이다.
+            wasBlockedByNode = _blockedFences.Remove(tile);
             bool removed = _plannedFences.Remove(tile) | _plannedGates.Remove(tile)
                          | _plannedTraps.Remove(tile) | _plannedTowers.Remove(tile)  // M22-3차 W2
-                         | _blockedFences.Remove(tile);                              // M22-4차 W3
-            // ⚠️ 개간 **지정**은 여기서 안 푼다: 지정은 노드에 걸려 있고 다른 줄이 같은 노드를
-            //    기다릴 수 있다. 지정이 남아도 손해는 나무 한 그루뿐이고, 계획을 지웠는데 노드가
-            //    안 치워지는 쪽이 훨씬 헷갈린다 (관찰 항목 — 명세 §10).
+                         | wasBlockedByNode;                                         // M22-4차 W3
             if (removed) OnPlanChanged?.Invoke();
             return removed;
         }

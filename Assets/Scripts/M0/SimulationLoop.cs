@@ -345,7 +345,13 @@ namespace AIVillage.M0
         {
             refund = 0;
             if (Defense == null) return false;
-            if (Defense.RemovePlanAt(tile)) return true; // 계획 취소 — 자재 안 썼으니 무료
+            if (Defense.RemovePlanAt(tile, out bool wasBlockedByNode))
+            {
+                // 개간 대기 칸을 지웠으면 그 노드의 지정도 푼다 (M22-4차 W8, 사용자 판정 안 B) —
+                // 담을 세울 이유가 없어졌는데 나무만 베는 일이 없게. 노드를 아는 것은 여기다.
+                if (wasBlockedByNode) Discovery.UnmarkForClearing(Discovery.NodeAt(tile.x, tile.y));
+                return true; // 계획 취소 — 자재 안 썼으니 무료
+            }
 
             EnsureDefenseWoodCosts();
             // M22-3차 W2: 4종 철거 — 함정은 내구도 등록부가 아니라 설치 등록부(HasTrapAt)를 본다

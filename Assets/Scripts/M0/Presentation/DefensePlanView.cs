@@ -18,7 +18,8 @@ namespace AIVillage.M0
         private static readonly Color GhostTint = new Color(1f, 1f, 1f, 0.4f);              // 고스트 — 원본색 반투명
         // 개간 대기 (M22-4차 W5) — 계획과 **다른 색**이라야 "여긴 아직 못 짓는다"가 보인다.
         // 붉은색인 이유: 이건 안내가 아니라 **구멍 경고**다 (그대로 두면 적이 그리로 들어온다).
-        private static readonly Color BlockedPlanColor = new Color(0.85f, 0.3f, 0.25f, 0.5f);
+        // 알파를 고스트(0.4)보다 높게 잡는다: 나무 그림 위에 겹쳐 떠서 묻히기 쉽다.
+        private static readonly Color BlockedPlanColor = new Color(1f, 0.28f, 0.2f, 0.85f);
 
         private readonly Transform _parent;
         private readonly DefenseService _defense;
@@ -48,12 +49,21 @@ namespace AIVillage.M0
             foreach (Vector2Int t in _defense.PlannedGateTiles) Spawn(t, _gate, GatePlanColor);
             foreach (Vector2Int t in _defense.PlannedTrapTiles) Spawn(t, _trap, TrapPlanColor);   // M22-3차
             foreach (Vector2Int t in _defense.PlannedTowerTiles) Spawn(t, _tower, TowerPlanColor); // M22-3차
-            // 개간 대기 칸 (M22-4차 W5) — 개간이 끝나면 이 붉은 칸이 갈색 계획으로 바뀐다.
+            // 개간 대기 칸 (M22-4차 W5) — 개간이 끝나면 이 붉은 칸이 **평범한 고스트로 바뀐다.**
             // 승격이 화면에서 보이는 것이 요점이다 ("치웠더니 담이 이어졌다").
-            foreach (Vector2Int t in _defense.BlockedFenceTiles) Spawn(t, _fence, BlockedPlanColor);
+            // 🔴 색은 **실그림 고스트에도** 먹어야 한다 (W8 수정) — 안 그러면 옆 칸과 구분이 안 된다.
+            foreach (Vector2Int t in _defense.BlockedFenceTiles)
+                Spawn(t, _fence, BlockedPlanColor, BlockedPlanColor);
         }
 
-        private void Spawn(Vector2Int tile, BuildingSO b, Color fallback)
+        /// <param name="fallback">폴백 원의 색.</param>
+        /// <param name="spriteTint">실그림 고스트에 곱할 색 (null = 기본 흰 반투명).
+        /// 🔴 이 인자가 없어서 **개간 대기 칸이 한 번도 붉게 뜬 적이 없었다** (2026-08-10 사용자가
+        /// "어떻게 보이냐"고 물어 화면을 열어 보고 발견). 울타리는 `MarkerSprite`가 있어 위쪽
+        /// 분기로 가는데, 거기서는 `fallback`을 **안 쓰고** `GhostTint`로 덮어써 버렸다 —
+        /// 색을 넘기는 코드가 있었을 뿐 그 색이 화면에 닿는 경로가 없었다.
+        /// 🔑 게이트는 "칸이 생긴다"를 증명했지 **"다르게 보인다"를 증명하지 못한다.**</param>
+        private void Spawn(Vector2Int tile, BuildingSO b, Color fallback, Color? spriteTint = null)
         {
             var go = new GameObject($"DefensePlan_{tile.x}_{tile.y}");
             go.transform.SetParent(_parent, worldPositionStays: false);
@@ -63,7 +73,7 @@ namespace AIVillage.M0
             {
                 // 고스트 = 실물 그림 반투명 (울타리 = 대표 기둥, 문 = 닫힌 문) — 스케일도 실물과 동일
                 sr.sprite = b.MarkerSprite;
-                sr.color = GhostTint;
+                sr.color = spriteTint ?? GhostTint;
                 go.transform.localScale = Vector3.one * Mathf.Max(0.1f, b.FallbackSize);
                 // 위치 보정도 실물과 같이 (M22-3차 W5d) — 안 따라가면 고스트만 땅에 파묻힌다
                 go.transform.position += (Vector3)(Vector2)b.MarkerOffsetTiles;

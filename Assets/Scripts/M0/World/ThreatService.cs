@@ -46,8 +46,12 @@ namespace AIVillage.M0
         private readonly Dictionary<string, int> _encounters = new Dictionary<string, int>(4);
         private readonly HashSet<string> _seenBuf = new HashSet<string>();  // 편성 내 종족 중복 제거용
         private readonly Func<int> _peakPopulation;                          // 역대 최고 인구 (예산의 성장 항)
-        private readonly Func<int> _towerRange;                              // 망루 감시 사거리 (W7 우회 판정)
         private readonly List<Vector2Int> _towerBuf = new List<Vector2Int>(4); // 완공 망루 타일 (출몰 1회용)
+
+        /// <summary>마을 중심 (W7R 우회 판정의 기준축) — 원천은 `WorldConfigSO.BaseTileX/Y` 하나다
+        /// (집 배치·디버그 둘레와 같은 자, ADR-M0-2). 미배선 = 원점 = 舊 기본 기지 좌표(중립).</summary>
+        private Vector2Int VillageCenter
+            => _config != null ? new Vector2Int(_config.BaseTileX, _config.BaseTileY) : Vector2Int.zero;
         // 함정을 밟아 본 종족 (M24-1차 W5, TrapLearning) — 키 = 에셋 이름. 세이브 대상 (ADR-M0-10).
         // 🔑 "학습"을 확률이 아니라 **경험**으로 둔 이유: 결정성(ADR-M10R-2)을 지키면서
         // 플레이어가 인과를 짚을 수 있게 — "한 번 걸렸더니 그 뒤로 피한다".
@@ -147,13 +151,10 @@ namespace AIVillage.M0
                              WorldConfigSO config, Func<IPathfinder> pathfinder,
                              Func<int, int, bool> isWalkable, Transform parent,
                              DefenseService defense = null,
-                             Func<int> peakPopulation = null,
-                             Func<int> towerRange = null)
+                             Func<int> peakPopulation = null)
         {
-            // 망루 감시 사거리 (M24-1차 W7) — 원천은 에셋(Watchtower.asset TowerRangeTiles)이고
-            // 그 파생값을 이미 SimulationLoop 이 갖고 있다 (ADR-M0-2 이중 기입 금지).
-            // 미배선 = 0 = 우회 특성이 조용히 꺼진다 (중립 불변식).
-            _towerRange = towerRange ?? (() => 0);
+            // (M24-1차 W7R) 舊 towerRange 인자는 여기서 사라졌다 — 우회 판정이 사거리를 안 본다.
+            // 사거리는 여전히 탑승 요격(ManTowerRunner)의 것이고, 그쪽 배선은 그대로다.
             // 역대 최고 인구 (M24-1차 W3·W4) — 예산의 성장 항. 미배선이면 0 = 시간 항만 (중립).
             // 🔴 현재 인구를 넘기면 ADR-M24-1 위반이다 (게이트 M24-T2가 그 계약을 지킨다).
             _peakPopulation = peakPopulation ?? (() => 0);
@@ -733,19 +734,40 @@ namespace AIVillage.M0
         /// <summary>다지점 진입의 최소 갈래 — 나눈다면 최소 둘이다 (하나면 안 나눈 것).</summary>
         private const int MultiPointMinEntries = 2;
 
-        /// <summary>이 타일이 망루 감시 안인가 (순수). 사거리 판정은 탑승 요격과 **같은 자**
-        /// (맨해튼 ≤ range, ManTowerRunner) — 감시의 정의가 둘로 갈리면 "피했는데 맞는다"가 된다.</summary>
-        private static bool IsWatched(Vector2Int tile, IReadOnlyList<Vector2Int> towers, int range)
+        /// <summary>맵 네 변의 수 (진입점 후보 수 = 변 인덱스의 개수). `EntryPoint`의 시드 규약과 짝.</summary>
+        private const int EdgeCount = 4;
+
+        /// <summary>
+        /// 망루가 지키는 변을 표시한다 (순수 — W7R). 인덱스는 `EntryPoint`의 시드 규약과 **같은 자**:
+        /// 0 서 · 1 동 · 2 남 · 3 북. 판정은 **마을 중심에서 본 방향**이다 —
+        /// |dx| &gt; |dy| 면 동·서, |dy| &gt; |dx| 면 남·북, 같으면 대각이라 **두 변을 함께** 지킨다.
+        /// 중심에 정확히 선 망루(dx=dy=0)는 방향이 없어 어느 변도 안 지킨다.
+        ///
+        /// 🔴 **왜 사거리가 아닌가** (2026-08-10 S8 2차 판정, 안 A): 진입점은 맵 네 변 중앙(±50)이고
+        /// 망루는 마을 둘레(±8)라 실측 거리가 43~56타일이었다 — 망루 사거리 6으로는 진입점이
+        /// 감시 안에 들어올 수가 없어 이 특성은 **구조적으로 발동 불가**였다. 플레이어가 마을에서
+        /// 50타일 떨어진 맵 끝에 망루를 지을 이유도 없다. 그래서 축을 거리에서 **방향**으로 옮긴다:
+        /// 북쪽에 망루를 세우면 적이 남쪽으로 돈다 — 사거리와 무관하게 읽히는 인과다.
+        /// (기각한 안 B = 진입점을 마을 둘레로 옮기기: 근본적이나 M10부터의 진입점 규약을 바꾼다.)
+        /// </summary>
+        private static bool[] WatchedEdges(IReadOnlyList<Vector2Int> towers, Vector2Int villageCenter)
         {
-            if (towers == null || range <= 0) return false;
+            var watched = new bool[EdgeCount];
+            if (towers == null) return watched;
             for (int i = 0; i < towers.Count; i++)
-                if (Mathf.Abs(towers[i].x - tile.x) + Mathf.Abs(towers[i].y - tile.y) <= range) return true;
-            return false;
+            {
+                int dx = towers[i].x - villageCenter.x, dy = towers[i].y - villageCenter.y;
+                int ax = Mathf.Abs(dx), ay = Mathf.Abs(dy);
+                if (ax == 0 && ay == 0) continue;          // 중심 = 방향 없음 (어느 변도 안 지킨다)
+                if (ax >= ay) watched[dx > 0 ? 1 : 0] = true;   // 동 : 서
+                if (ay >= ax) watched[dy > 0 ? 3 : 2] = true;   // 북 : 남  (대각이면 위와 함께 참)
+            }
+            return watched;
         }
 
         /// <summary>
         /// 진입점들 (순수·결정적 — 게이트 M24-T10). 특성이 **후보를 거를 뿐** 새 계산을 하지 않는다:
-        ///   `ApproachFlank`      → 망루 감시 안 후보를 **뒤로 미룬다** (배제가 아니다)
+        ///   `ApproachFlank`      → 망루가 지키는 **변**의 후보를 뒤로 미룬다 (배제가 아니다)
         ///   `ApproachMultiPoint` → 마릿수를 진입점 여럿에 나눈다
         /// 특성이 없으면 길이 1 배열이고 그 한 칸은 `EntryPoint`와 **같은 좌표**다 (중립 불변식).
         ///
@@ -756,24 +778,33 @@ namespace AIVillage.M0
         /// 뒤에 일어나므로(ManTower 트리거 = ThreatNear) 출몰 시점엔 언제나 0기다. 탑승을 조건으로
         /// 걸면 이 수는 영영 안 발동한다. 그래서 여기서 감시 = **서 있는 망루**이고, 답도 그것과
         /// 짝을 이룬다: 답은 "사람을 더 태워라"가 아니라 **"망루를 옮겨라"**다.</param>
+        /// <param name="villageCenter">마을 중심 타일 (원천 = `WorldConfigSO.BaseTileX/Y`, 집·둘레의
+        /// 기준과 같은 자). 망루의 **방향**이 여기서 나온다 — W7R 이 사거리를 버리고 잡은 축이다.</param>
         /// <param name="count">이번 편성의 총 마릿수 (다지점 갈래 수의 상한 — 1마리는 못 나눈다).</param>
         public static Vector2Int[] EntryPoints(uint seed, int minX, int maxX, int minY, int maxY,
                                                InvaderTraitId[] traits, IReadOnlyList<Vector2Int> towers,
-                                               int towerRange, int count)
+                                               Vector2Int villageCenter, int count)
         {
             // 후보 4변 — [0]은 舊 EntryPoint 와 같은 좌표(시드 그대로), 뒤는 변 순서로 회전.
             // 산식을 복제하지 않고 그 함수를 네 번 부른다 (진입점의 정의는 한 곳에 있다).
-            var cand = new Vector2Int[4];
-            for (int k = 0; k < 4; k++) cand[k] = EntryPoint(seed + (uint)k, minX, maxX, minY, maxY);
+            // edge[k] = 그 후보가 선 변 (좌표에서 되짚지 않는다 — 시드 규약이 곧 변이다).
+            var cand = new Vector2Int[EdgeCount];
+            var edge = new int[EdgeCount];
+            for (int k = 0; k < EdgeCount; k++)
+            {
+                cand[k] = EntryPoint(seed + (uint)k, minX, maxX, minY, maxY);
+                edge[k] = (int)((seed + (uint)k) % (uint)EdgeCount);
+            }
 
             if (Has(traits, InvaderTraitId.ApproachFlank))
             {
-                // 감시 밖을 앞으로, 감시 안을 뒤로 — **순서만** 바꾼다 (안정 분할: 같은 편 안에서는
-                // 시드 순서 보존). 전부 감시거나 전부 밖이면 순서가 그대로 = 기존 동작.
-                var sorted = new Vector2Int[4];
+                // 지켜지지 않는 변을 앞으로, 지켜지는 변을 뒤로 — **순서만** 바꾼다 (안정 분할:
+                // 같은 편 안에서는 시드 순서 보존). 전부 감시거나 전부 밖이면 순서 그대로 = 기존 동작.
+                bool[] watched = WatchedEdges(towers, villageCenter);
+                var sorted = new Vector2Int[EdgeCount];
                 int w = 0;
-                for (int k = 0; k < 4; k++) if (!IsWatched(cand[k], towers, towerRange)) sorted[w++] = cand[k];
-                for (int k = 0; k < 4; k++) if (IsWatched(cand[k], towers, towerRange)) sorted[w++] = cand[k];
+                for (int k = 0; k < EdgeCount; k++) if (!watched[edge[k]]) sorted[w++] = cand[k];
+                for (int k = 0; k < EdgeCount; k++) if (watched[edge[k]]) sorted[w++] = cand[k];
                 cand = sorted;
             }
 
@@ -955,11 +986,11 @@ namespace AIVillage.M0
             int waveCount = 0;
             foreach (WaveEntry e in wave) waveCount += e.Count;
             Vector2Int[] entries = EntryPoints(seed, minX, maxX, minY, maxY,
-                                               primaryTraits, _towerBuf, _towerRange(), waveCount);
+                                               primaryTraits, _towerBuf, VillageCenter, waveCount);
             Vector2Int entry = entries[0];
             // 관측 로그 — 이 두 수는 화면에서 "왜 저기로 들어왔지"로만 보이므로 근거를 남긴다.
             if (entry != EntryPoint(seed, minX, maxX, minY, maxY))
-                Debug.Log($"[Threat] 우회 진입 — {so.DisplayName}이(가) 망루 감시를 피해 ({entry.x},{entry.y})로 들어온다");
+                Debug.Log($"[Threat] 우회 진입 — {so.DisplayName}이(가) 망루가 선 쪽을 돌아 ({entry.x},{entry.y})로 들어온다");
             if (entries.Length > 1)
                 Debug.Log($"[Threat] 다지점 진입 — {so.DisplayName} {waveCount}마리가 {entries.Length}곳에서 들어온다");
             LogVerdictLine("발동", so, wave, entries.Length,

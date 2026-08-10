@@ -538,52 +538,197 @@ namespace AIVillage.Tests.EditMode
             Assert.Greater(n, 0, "ThreatSO 가 하나도 없다 — 게이트가 빈 검사가 됐다");
         }
 
-        // ── T10: 진입점 규칙 (W7 — 우회·다지점) ───────────────────────────────
-
-        // 시험용 맵 — 변 중앙이 서(0,10)·동(20,10)·남(10,0)·북(10,20).
-        private const int MinX = 0, MaxX = 20, MinY = 0, MaxY = 20;
+        // ── T10: 진입점 규칙 (W7 / W7R — 우회·다지점) ─────────────────────────
+        //
+        // 🔴 **이 게이트는 배포 값을 읽는다** (W7R, 2026-08-10). 舊 T10 은 20×20 인공 맵
+        // (MinX=0..MaxX=20)에 망루를 **맵 변에 붙여** 놓고 green 이었지만, 배포 맵은 100×100 이고
+        // 망루는 마을 둘레(±8)에 선다 — 진입점까지 43~56타일이라 사거리 6짜리 감시 판정이
+        // **한 번도 참이 될 수 없었다.** 게이트가 green 인데 설계가 성립하지 않은 첫 사례이고,
+        // 원인은 코드가 아니라 **게이트가 고정한 축**이었다 (방법론 M20: 전수 검사는 고정한 축을
+        // 함께 적는다 — 고정한 축이 곧 사각지대). 그래서 아래는 맵 크기도 마을 중심도 리터럴로
+        // 적지 않고 배포 에셋에서 읽어 오고, 반경은 하나로 고정하지 않고 **쓸어서** 본다.
 
         private static InvaderTraitId[] T(params InvaderTraitId[] ids) => ids;
 
         private static System.Collections.Generic.List<Vector2Int> Towers(params Vector2Int[] t)
             => new System.Collections.Generic.List<Vector2Int>(t);
 
+        /// <summary>배포 맵 경계 — 원천은 `MapConfig.asset`(런타임과 같은 산식). 에셋이 없으면
+        /// `MapBounds`의 폴백으로 떨어진다 (런타임 미배선 판과 같은 자).</summary>
+        private static void ShippedMap(out int minX, out int maxX, out int minY, out int maxY)
+        {
+            string[] guids = AssetDatabase.FindAssets("t:MapConfig");
+            if (guids.Length > 0)
+            {
+                var cfg = AssetDatabase.LoadAssetAtPath<AIVillage.Core.MapConfig>(
+                    AssetDatabase.GUIDToAssetPath(guids[0]));
+                if (cfg != null)
+                {
+                    minX = -cfg.mapOffset; maxX = cfg.mapSize - cfg.mapOffset - 1;
+                    minY = -cfg.mapOffset; maxY = cfg.mapSize - cfg.mapOffset - 1;
+                    return;
+                }
+            }
+            MapBounds.Get(out minX, out maxX, out minY, out maxY);
+        }
+
+        /// <summary>배포 마을 중심 — 원천은 `WorldConfig.asset`의 BaseTileX/Y (집 배치·디버그 둘레와
+        /// 같은 자). 에셋이 없으면 원점 (코드 기본값과 같은 자).</summary>
+        private static Vector2Int ShippedVillageCenter()
+        {
+            foreach (string guid in AssetDatabase.FindAssets("t:WorldConfigSO"))
+            {
+                var cfg = AssetDatabase.LoadAssetAtPath<WorldConfigSO>(AssetDatabase.GUIDToAssetPath(guid));
+                if (cfg != null) return new Vector2Int(cfg.BaseTileX, cfg.BaseTileY);
+            }
+            return Vector2Int.zero;
+        }
+
+        /// <summary>배포 망루의 감시 사거리 — 舊 판정이 쓰던 축. 이제 우회는 이 값을 **안 본다**.
+        /// 여기서 읽는 이유는 하나뿐이다: 舊 규칙이 배포 배치에서 발동 불가였음을 게이트에
+        /// 박제하기 위해서 (아래 `M24_T10R_OldRangeRule_CouldNeverFire`).</summary>
+        private static int ShippedTowerRange()
+        {
+            foreach (string guid in AssetDatabase.FindAssets("t:BuildingSO"))
+            {
+                var b = AssetDatabase.LoadAssetAtPath<BuildingSO>(AssetDatabase.GUIDToAssetPath(guid));
+                if (b != null && b.TowerRangeTiles > 0) return b.TowerRangeTiles;
+            }
+            return 0;
+        }
+
         [Test]
         public void M24_T10_EntryPoints_IsNeutralWithoutTraits()
         {
             // 중립 불변식 (W7 DoD ①) — 특성이 없으면 **망루가 있어도** 舊 EntryPoint 그대로다.
             // 망루를 넘겨 두는 것이 요점이다: "입력이 늘었을 뿐 판정은 안 바뀐다"를 증명한다.
-            System.Collections.Generic.List<Vector2Int> towers = Towers(new Vector2Int(MinX, 10));
+            ShippedMap(out int minX, out int maxX, out int minY, out int maxY);
+            Vector2Int c = ShippedVillageCenter();
+            System.Collections.Generic.List<Vector2Int> towers = Towers(c + new Vector2Int(0, 8));
             for (uint seed = 0; seed < 64; seed++)
             {
-                Vector2Int[] e = ThreatService.EntryPoints(seed, MinX, MaxX, MinY, MaxY,
-                                                           System.Array.Empty<InvaderTraitId>(), towers, 5, 9);
+                Vector2Int[] e = ThreatService.EntryPoints(seed, minX, maxX, minY, maxY,
+                                                           System.Array.Empty<InvaderTraitId>(), towers, c, 9);
                 Assert.AreEqual(1, e.Length, $"시드 {seed}: 특성이 없는데 진입점이 나뉘었다");
-                Assert.AreEqual(ThreatService.EntryPoint(seed, MinX, MaxX, MinY, MaxY), e[0],
+                Assert.AreEqual(ThreatService.EntryPoint(seed, minX, maxX, minY, maxY), e[0],
                     $"시드 {seed}: 특성이 없는데 좌표가 달라졌다 (중립 불변식 위반)");
             }
         }
 
         [Test]
-        public void M24_T10_EntryPoints_FlankDefersWatchedEdges()
+        public void M24_T10R_FlankDefersWatchedEdges_AtEveryVillageRadius()
         {
-            // 서쪽 변 중앙에 망루 1기, 사거리 5 — 그 변만 감시된다 (동·남·북은 거리 20·20·20).
-            System.Collections.Generic.List<Vector2Int> towers = Towers(new Vector2Int(MinX, 10));
-            var west = new Vector2Int(MinX, 10);
+            // 🔴 W7R 의 본 게이트. 마을 중심 **북쪽**에 망루 1기를 세우면 북쪽 변 진입점이 뒤로
+            // 밀린다 — 그리고 그것이 **망루가 중심에서 얼마나 떨어져 있든** 성립해야 한다.
+            // 반경을 하나로 고정하지 않고 쓰는 이유가 W7R 의 전부다: 舊 게이트는 "망루가 맵 변
+            // 근처"라는 반경 하나만 보고 green 이었고, 실제 반경(마을 둘레)에서는 발동 불가였다.
+            ShippedMap(out int minX, out int maxX, out int minY, out int maxY);
+            Vector2Int c = ShippedVillageCenter();
+            int halfY = Mathf.Max(1, (maxY - minY) / 2);
+            int villageR = Mathf.Max(1, Mathf.Min(halfY - 1, 8));   // 실제 망루가 서는 대역
+            int[] radii = { 1, 2, villageR, halfY / 4, halfY / 2, halfY - 1 };
 
-            // 실패 가능성 증명 (M17 교훈) — 특성이 없으면 **어떤 시드는 실제로 서쪽을 고른다**.
+            Vector2Int north = ThreatService.EntryPoint(3u, minX, maxX, minY, maxY); // 시드 규약: 3 = 북
+
+            // 실패 가능성 증명 (M17 교훈) — 특성이 없으면 **어떤 시드는 실제로 북쪽을 고른다**.
             // 이게 거짓이면 아래 검사는 무엇이든 통과하는 빈 검사가 된다.
-            bool plainEverPicksWest = false;
+            bool plainEverPicksNorth = false;
             for (uint seed = 0; seed < 8; seed++)
-                if (ThreatService.EntryPoint(seed, MinX, MaxX, MinY, MaxY) == west) plainEverPicksWest = true;
-            Assert.IsTrue(plainEverPicksWest, "특성 없이도 서쪽이 안 나온다 — 이 게이트는 빈 검사다");
+                if (ThreatService.EntryPoint(seed, minX, maxX, minY, maxY) == north) plainEverPicksNorth = true;
+            Assert.IsTrue(plainEverPicksNorth, "특성 없이도 북쪽이 안 나온다 — 이 게이트는 빈 검사다");
 
-            for (uint seed = 0; seed < 64; seed++)
+            foreach (int r in radii)
             {
-                Vector2Int[] e = ThreatService.EntryPoints(seed, MinX, MaxX, MinY, MaxY,
-                                                           T(InvaderTraitId.ApproachFlank), towers, 5, 1);
-                Assert.AreNotEqual(west, e[0],
-                    $"시드 {seed}: 우회 특성인데 감시 중인 서쪽 변으로 들어왔다");
+                if (r <= 0) continue;
+                System.Collections.Generic.List<Vector2Int> towers = Towers(c + new Vector2Int(0, r));
+                for (uint seed = 0; seed < 64; seed++)
+                {
+                    Vector2Int[] e = ThreatService.EntryPoints(seed, minX, maxX, minY, maxY,
+                                                               T(InvaderTraitId.ApproachFlank), towers, c, 1);
+                    Assert.AreNotEqual(north, e[0],
+                        $"반경 {r}·시드 {seed}: 북쪽에 망루가 섰는데 북쪽 변으로 들어왔다");
+                }
+            }
+        }
+
+        [Test]
+        public void M24_T10R_OldRangeRule_CouldNeverFire()
+        {
+            // 🔴 회귀 박제 (방법론 M20) — **舊 규칙이 배포 배치에서 발동 불가였다**는 사실을
+            // 게이트에 남긴다. 이 검사가 언젠가 빨개진다면 (진입점이 마을 쪽으로 오거나 망루
+            // 사거리가 맵 절반만큼 커진다면) 사거리 판정을 다시 검토할 때가 온 것이다.
+            ShippedMap(out int minX, out int maxX, out int minY, out int maxY);
+            Vector2Int c = ShippedVillageCenter();
+            int range = ShippedTowerRange();
+            Assert.Greater(range, 0, "배포 망루의 감시 사거리가 0 — 이 검사는 빈 검사가 된다");
+
+            int villageR = Mathf.Max(1, Mathf.Min((maxY - minY) / 2 - 1, 8));
+            Vector2Int[] ring =
+            {
+                c + new Vector2Int(0, villageR), c + new Vector2Int(0, -villageR),
+                c + new Vector2Int(villageR, 0), c + new Vector2Int(-villageR, 0),
+            };
+            for (uint seed = 0; seed < 4; seed++)
+            {
+                Vector2Int entry = ThreatService.EntryPoint(seed, minX, maxX, minY, maxY);
+                foreach (Vector2Int t in ring)
+                {
+                    int d = Mathf.Abs(t.x - entry.x) + Mathf.Abs(t.y - entry.y);
+                    Assert.Greater(d, range,
+                        $"진입점 ({entry.x},{entry.y})이 마을 둘레 망루 ({t.x},{t.y})의 사거리 {range} 안이다 " +
+                        "— 舊 사거리 판정이 성립하는 배치다. W7R 의 전제를 다시 볼 것");
+                }
+            }
+        }
+
+        [Test]
+        public void M24_T10R_TowerDirection_MapsToEdgeExhaustively()
+        {
+            // 여덟 방향 전수 + 중심 — 어느 방향의 망루가 어느 변을 지키는지 한 표로 못박는다.
+            // 대각은 **두 변을 함께** 지키고(모서리 망루는 두 쪽을 본다), 중심은 방향이 없어
+            // 아무 변도 안 지킨다 (지키면 "가운데 한 기가 사방을 막는다"가 된다).
+            ShippedMap(out int minX, out int maxX, out int minY, out int maxY);
+            Vector2Int c = ShippedVillageCenter();
+            Vector2Int w = ThreatService.EntryPoint(0u, minX, maxX, minY, maxY);
+            Vector2Int e = ThreatService.EntryPoint(1u, minX, maxX, minY, maxY);
+            Vector2Int s = ThreatService.EntryPoint(2u, minX, maxX, minY, maxY);
+            Vector2Int n = ThreatService.EntryPoint(3u, minX, maxX, minY, maxY);
+
+            // (망루 오프셋, 그 망루가 **지켜서 뒤로 밀리는** 진입점들)
+            var cases = new (Vector2Int off, Vector2Int[] deferred)[]
+            {
+                (new Vector2Int(0,  6), new[] { n }),
+                (new Vector2Int(0, -6), new[] { s }),
+                (new Vector2Int(6,  0), new[] { e }),
+                (new Vector2Int(-6, 0), new[] { w }),
+                (new Vector2Int(6,  6), new[] { n, e }),   // 대각 = 두 변
+                (new Vector2Int(-6, 6), new[] { n, w }),
+                (new Vector2Int(6, -6), new[] { s, e }),
+                (new Vector2Int(-6,-6), new[] { s, w }),
+                (Vector2Int.zero,       System.Array.Empty<Vector2Int>()), // 중심 = 방향 없음
+            };
+
+            foreach ((Vector2Int off, Vector2Int[] deferred) in cases)
+            {
+                System.Collections.Generic.List<Vector2Int> towers = Towers(c + off);
+                // 우회 특성 + 4마리 → 네 변이 전부 순서대로 나온다. 앞쪽 = 안 지켜지는 변.
+                Vector2Int[] order = ThreatService.EntryPoints(
+                    0u, minX, maxX, minY, maxY,
+                    T(InvaderTraitId.ApproachFlank, InvaderTraitId.ApproachMultiPoint), towers, c, 99);
+                Assert.AreEqual(4, order.Length, $"오프셋 {off}: 네 변이 다 안 나왔다 — 검사 전제가 깨졌다");
+                // 순서만 바뀐다 — 변이 사라지거나 겹치면 그건 미루기가 아니라 배제다.
+                CollectionAssert.AreEquivalent(new[] { w, e, s, n }, order,
+                    $"오프셋 {off}: 네 변의 순열이 아니다 (변이 사라졌거나 중복됐다)");
+
+                int free = 4 - deferred.Length;
+                var frontHalf = new System.Collections.Generic.HashSet<Vector2Int>();
+                for (int i = 0; i < free; i++) frontHalf.Add(order[i]);
+                foreach (Vector2Int d in deferred)
+                    Assert.IsFalse(frontHalf.Contains(d),
+                        $"오프셋 {off}: 지켜지는 변 ({d.x},{d.y})이 앞쪽 {free}칸에 남아 있다");
+                for (int i = free; i < 4; i++)
+                    CollectionAssert.Contains(deferred, order[i],
+                        $"오프셋 {off}: 안 지켜지는 변이 뒤로 밀렸다 ({order[i].x},{order[i].y})");
             }
         }
 
@@ -592,21 +737,24 @@ namespace AIVillage.Tests.EditMode
         {
             // 🔴 배제가 아니라 미루기다 (명세 W7 ⚠️) — 네 변이 모두 감시되면 기존 동작으로 돌아가야
             // 한다. 여기서 진입을 접거나 감시 밖을 억지로 만들면 망루가 무용지물이 된다.
+            // W7R 에서도 **불변**이다 (사용자 승인 조건).
+            ShippedMap(out int minX, out int maxX, out int minY, out int maxY);
+            Vector2Int c = ShippedVillageCenter();
             System.Collections.Generic.List<Vector2Int> all = Towers(
-                new Vector2Int(MinX, 10), new Vector2Int(MaxX, 10),
-                new Vector2Int(10, MinY), new Vector2Int(10, MaxY));
+                c + new Vector2Int(0, 8), c + new Vector2Int(0, -8),
+                c + new Vector2Int(8, 0), c + new Vector2Int(-8, 0));
             for (uint seed = 0; seed < 32; seed++)
             {
-                Vector2Int[] e = ThreatService.EntryPoints(seed, MinX, MaxX, MinY, MaxY,
-                                                           T(InvaderTraitId.ApproachFlank), all, 5, 1);
-                Assert.AreEqual(ThreatService.EntryPoint(seed, MinX, MaxX, MinY, MaxY), e[0],
+                Vector2Int[] e = ThreatService.EntryPoints(seed, minX, maxX, minY, maxY,
+                                                           T(InvaderTraitId.ApproachFlank), all, c, 1);
+                Assert.AreEqual(ThreatService.EntryPoint(seed, minX, maxX, minY, maxY), e[0],
                     $"시드 {seed}: 전 변 감시인데 기존 진입점으로 안 돌아왔다");
             }
 
-            // 망루 0기·사거리 0 도 같은 자리로 떨어진다 (미배선 = 중립).
-            Vector2Int[] none = ThreatService.EntryPoints(3u, MinX, MaxX, MinY, MaxY,
-                                                          T(InvaderTraitId.ApproachFlank), null, 0, 1);
-            Assert.AreEqual(ThreatService.EntryPoint(3u, MinX, MaxX, MinY, MaxY), none[0],
+            // 망루 0기도 같은 자리로 떨어진다 (미배선 = 중립).
+            Vector2Int[] none = ThreatService.EntryPoints(3u, minX, maxX, minY, maxY,
+                                                          T(InvaderTraitId.ApproachFlank), null, c, 1);
+            Assert.AreEqual(ThreatService.EntryPoint(3u, minX, maxX, minY, maxY), none[0],
                 "망루 미배선인데 진입점이 바뀌었다");
         }
 
@@ -614,22 +762,24 @@ namespace AIVillage.Tests.EditMode
         public void M24_T10_EntryPoints_MultiPointSplitsAndStaysOnEdges()
         {
             // W7 DoD ③ — 6마리면 진입점 2곳 이상. 좌표는 서로 달라야 한다 (같은 칸 둘 = 안 나뉜 것).
-            Vector2Int[] e = ThreatService.EntryPoints(0u, MinX, MaxX, MinY, MaxY,
-                                                       T(InvaderTraitId.ApproachMultiPoint), null, 0, 6);
+            ShippedMap(out int minX, out int maxX, out int minY, out int maxY);
+            Vector2Int c = ShippedVillageCenter();
+            Vector2Int[] e = ThreatService.EntryPoints(0u, minX, maxX, minY, maxY,
+                                                       T(InvaderTraitId.ApproachMultiPoint), null, c, 6);
             Assert.GreaterOrEqual(e.Length, 2, "6마리 다지점인데 한 곳에서만 들어온다");
             var seen = new System.Collections.Generic.HashSet<Vector2Int>(e);
             Assert.AreEqual(e.Length, seen.Count, "진입점에 같은 칸이 중복됐다");
             foreach (Vector2Int p in e)
-                Assert.IsTrue(p.x == MinX || p.x == MaxX || p.y == MinY || p.y == MaxY,
+                Assert.IsTrue(p.x == minX || p.x == maxX || p.y == minY || p.y == maxY,
                     $"({p.x},{p.y})는 가장자리가 아니다 — 위협이 마을 안에서 태어난다");
 
             // 1마리는 못 나눈다 (갈래가 마릿수를 넘으면 빈 진입점이 생긴다).
-            Assert.AreEqual(1, ThreatService.EntryPoints(0u, MinX, MaxX, MinY, MaxY,
-                                                        T(InvaderTraitId.ApproachMultiPoint), null, 0, 1).Length,
+            Assert.AreEqual(1, ThreatService.EntryPoints(0u, minX, maxX, minY, maxY,
+                                                        T(InvaderTraitId.ApproachMultiPoint), null, c, 1).Length,
                 "1마리인데 진입점이 여럿이다");
             // 네 변뿐이므로 갈래는 4를 넘지 않는다.
-            Assert.LessOrEqual(ThreatService.EntryPoints(0u, MinX, MaxX, MinY, MaxY,
-                                                        T(InvaderTraitId.ApproachMultiPoint), null, 0, 99).Length, 4,
+            Assert.LessOrEqual(ThreatService.EntryPoints(0u, minX, maxX, minY, maxY,
+                                                        T(InvaderTraitId.ApproachMultiPoint), null, c, 99).Length, 4,
                 "변이 넷인데 진입점이 다섯 곳 이상이다");
         }
 
@@ -637,12 +787,14 @@ namespace AIVillage.Tests.EditMode
         public void M24_T10_EntryPoints_AreDeterministic()
         {
             // 결정성 (W7 DoD ④, ADR-M10R-2) — 같은 입력이면 같은 판이다.
-            System.Collections.Generic.List<Vector2Int> towers = Towers(new Vector2Int(MinX, 10));
+            ShippedMap(out int minX, out int maxX, out int minY, out int maxY);
+            Vector2Int c = ShippedVillageCenter();
+            System.Collections.Generic.List<Vector2Int> towers = Towers(c + new Vector2Int(-8, 0));
             InvaderTraitId[] both = T(InvaderTraitId.ApproachFlank, InvaderTraitId.ApproachMultiPoint);
             for (uint seed = 0; seed < 16; seed++)
             {
-                Vector2Int[] a = ThreatService.EntryPoints(seed, MinX, MaxX, MinY, MaxY, both, towers, 5, 6);
-                Vector2Int[] b = ThreatService.EntryPoints(seed, MinX, MaxX, MinY, MaxY, both, towers, 5, 6);
+                Vector2Int[] a = ThreatService.EntryPoints(seed, minX, maxX, minY, maxY, both, towers, c, 6);
+                Vector2Int[] b = ThreatService.EntryPoints(seed, minX, maxX, minY, maxY, both, towers, c, 6);
                 CollectionAssert.AreEqual(a, b, $"시드 {seed}: 같은 입력에 다른 진입점이 나왔다");
             }
         }

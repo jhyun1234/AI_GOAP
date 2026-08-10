@@ -46,13 +46,18 @@ export default {
     const barRight = x0 + 6 * slotW + barW;   // 막대판 오른쪽 끝
     const labX = barRight + 16;               // 두 선 라벨이 함께 사는 열 (판 바깥)
 
-    // ── 진행률 ────────────────────────────────────
-    const kNew = ease(P1 ? 1 : cue(3));        // 1짜리 카드가 판에 든다
-    const kFloor = ease(P1 ? 1 : cue(4));      // 기준선이 끌려 내려간다
-    const kBreak = ease(P1 ? 0 : cue(5));      // PLAN 칸이 빈다
+    /* ── 진행률 ────────────────────────────────────
+       🔴 v2 자막 재작성으로 두 샷의 줄 순서가 바뀌어 cue 를 다시 물렸다.
+       phase 0 (S2, 8줄): 3 = 「가장 싼 게 5였는데」 · 4 = 「1짜리가 들어오면서 어림값이
+       5분의 1로」 · 5 = 「더 많은 경우의 수를 뒤지게 되고」 · 6 = 「계획 실패로 떨어집니다」.
+       phase 1 (S19, 6줄): 1 = 「1을 8로 올리는 한 줄」 · 3 = 「게이트를 하나 걸었습니다」 ·
+       4 = 「같은 실수가 다시는 게임까지 못 갑니다」. */
+    const kNew = ease(P1 ? 1 : cue(4));        // 1짜리 카드가 판에 든다
+    const kFloor = ease(P1 ? 1 : clamp((cue(4) - 0.4) / 0.6));  // 기준선이 끌려 내려간다
+    const kBreak = ease(P1 ? 0 : cue(6));      // 계획 칸이 빈다
     const kFix = P1 ? ease(cue(1)) : 0;        // 1 → 8
     const kGate = P1 ? ease(cue(3)) : 0;       // 게이트가 선다
-    const kPlan = P1 ? ease(cue(4)) : 0;       // PLAN 칸이 다시 찬다
+    const kPlan = P1 ? ease(cue(4)) : 0;       // 계획 칸이 다시 찬다
 
     /* ── 계속 도는 것 : 판을 훑는 탐색 띠 (플래너는 언제나 뒤지고 있다) ──
        🔴 2차 개정 (검수 C6): 1차본은 3px 선이라 프레임 간 변화량이 0.00051 로
@@ -66,8 +71,8 @@ export default {
       ctx.fillRect(sx - 23, top - 10, 46, base + 14 - (top - 10));
     }
 
-    ctx.font = mono(700, 10); ctx.fillStyle = tone('sub');
-    ctx.fillText('ACTION COST', M, 24);
+    ctx.font = disp(700, 10); ctx.fillStyle = tone('sub');
+    ctx.fillText('행동 비용', M, 24);
 
     /* 게이트·기준선이 앉는 높이. 막대 루프보다 **위**에서 잡는다 (4차 정정 C14) —
        값 라벨이 이 선을 피해야 하기 때문이다.
@@ -113,14 +118,20 @@ export default {
       const s = P1 ? (kFix > 0.5 ? '8' : '1') : '1';
       const sw = ctx.measureText(s).width;
       ctx.fillText(s, bx + (barW - sw) / 2, by + drop + bounceY - 6);
-      ctx.font = mono(700, 9); ctx.fillStyle = tone('sub');
-      ctx.fillText('TendInjured', bx - 22, base + 16);
+      /* v2 — 액션 파일명 `TendInjured` 를 게임 안 이름 「간호」로 바꿨다.
+         원문(M10 글 49행)이 이 행동을 부르는 말이 「간호 액션」이고, 자막도 「간호」로
+         부른다. 파일명은 이 샷에서 아무것도 증명하지 않는 반면, 비개발자에게는
+         읽히지 않는 글자였다. */
+      ctx.font = disp(700, 10); ctx.fillStyle = tone('sub');
+      ctx.fillText('간호', bx - 4, base + 16);
       if (P1 && kGate > 0.02) {
         ctx.save(); ctx.globalAlpha = kGate;
         ctx.strokeStyle = tone('accent'); ctx.lineWidth = 6;
         ctx.beginPath(); ctx.moveTo(x0 - 6, gateY); ctx.lineTo(bx + barW + 8, gateY); ctx.stroke();
-        ctx.font = mono(700, 10); ctx.fillStyle = tone('accent');
-        ctx.fillText('GATE', labX, gateY - 10);   // 자기 선 **위** (3차 개정 R-2a)
+        ctx.font = disp(700, 10); ctx.fillStyle = tone('accent');
+        const gs = '게이트';
+        const gsw = ctx.measureText(gs).width;
+        ctx.fillText(gs, Math.min(labX, w - M - 232 - 14 - gsw), gateY - 10);   // 자기 선 **위**
         ctx.restore();
       }
     }
@@ -134,16 +145,20 @@ export default {
       ctx.strokeStyle = tone('ink'); ctx.lineWidth = 3;
       ctx.beginPath(); ctx.moveTo(M, fy); ctx.lineTo(barRight + 10, fy); ctx.stroke();
       ctx.setLineDash([]);
-      ctx.font = mono(700, 10); ctx.fillStyle = tone('ink');
-      const s = `MIN COST ${Math.round(cur)}`;
-      ctx.fillText(s, labX, fy + 14);          // 자기 선 **아래** (3차 개정 R-2a·R-2b)
+      ctx.font = disp(700, 10); ctx.fillStyle = tone('ink');
+      const s = `최소 비용 ${Math.round(cur)}`;
+      /* 🔴 v2 겹침 방지: 한국어 라벨은 같은 뜻의 영어보다 넓어서, `labX` 에 그대로 두면
+         오른쪽 계획 칸 열(x = w−M−232)의 판정 줄과 x 가 겹칠 수 있다. 좌표가 아니라
+         **부등식**으로 막는다 — 라벨의 오른쪽 끝이 계획 칸 열보다 14px 앞에서 멈춘다. */
+      const sw = ctx.measureText(s).width;
+      ctx.fillText(s, Math.min(labX, w - M - 232 - 14 - sw), fy + 14);
     }
 
     // ── 오른쪽 : PLAN 칸 넷 ─────────────────────────
     {
       const px = w - M - 232, py = 78, cw = 52, ch = 30, gap = 8;
-      ctx.font = mono(700, 10); ctx.fillStyle = tone('sub');
-      ctx.fillText('PLAN', px, py - 10);
+      ctx.font = disp(700, 10); ctx.fillStyle = tone('sub');
+      ctx.fillText('계획', px, py - 10);
       for (let i = 0; i < 4; i++) {
         const cx = px + i * (cw + gap);
         const kOut = clamp((kBreak - i * 0.14) / 0.4);
@@ -166,17 +181,18 @@ export default {
       /* 판정 줄 — 3차 개정: `py + ch + 30`(y 138) 이 새로 옮긴 `MIN COST n`
          (phase 1 에서 y 139.6)과 같은 가로줄에 놓여 두 문자열이 나란히 붙어 보였다.
          x 는 안 겹치지만(390 vs 401) 한 줄로 읽히므로 18px 내려 행을 갈랐다. */
-      ctx.font = mono(700, 12);
+      /* `NoSolutionFound` 는 실제 콘솔에 찍히는 로그 문자열이라 그대로 인용한다
+         (`ADR-V-10` 영어 예외 ①). 판정 줄은 한국어로 옮겼다. */
       if (!P1 && kBreak > 0.4) {
         ctx.save(); ctx.globalAlpha = clamp((kBreak - 0.4) / 0.4);
-        ctx.fillStyle = tone('ink');
+        ctx.font = mono(700, 12); ctx.fillStyle = tone('ink');
         ctx.fillText('NoSolutionFound', px, py + ch + 48);
         ctx.restore();
       }
       if (P1 && kGate > 0.4) {
         ctx.save(); ctx.globalAlpha = clamp((kGate - 0.4) / 0.4);
-        ctx.fillStyle = tone('accent');
-        ctx.fillText('TEST FAILS FIRST', px, py + ch + 48);
+        ctx.font = disp(900, 13); ctx.fillStyle = tone('accent');
+        ctx.fillText('검사가 먼저 실패한다', px, py + ch + 48);
         ctx.restore();
       }
     }

@@ -38,8 +38,8 @@ export default {
       ctx.fillStyle = tone('track');
       ctx.fillRect(bx0 - 24, ry - 34, 48, 82);
     }
-    ctx.font = mono(700, 10); ctx.fillStyle = tone('sub');
-    ctx.fillText('IMPLEMENT', M, ry - 12);
+    ctx.font = disp(700, 10); ctx.fillStyle = tone('sub');
+    ctx.fillText('만들기', M, ry - 12);
 
     const stopIdx = 3;
     for (let i = 0; i < n; i++) {
@@ -55,8 +55,8 @@ export default {
         ctx.fillRect(cx + 7, ry + 15, (cw - 14) * ease(k), 5);
       }
       if (i === stopIdx && kStop > 0.3) {
-        ctx.font = mono(700, 10); ctx.fillStyle = tone('ink');
-        const s = 'STOP';
+        ctx.font = disp(700, 12); ctx.fillStyle = tone('ink');
+        const s = '멈춤';
         const sw = ctx.measureText(s).width;
         ctx.fillText(s, cx + (cw - sw) / 2, ry + 22);
       }
@@ -84,8 +84,8 @@ export default {
        실제로 덮고 있다(같은 스틸에서 실측). 아래로 내릴 수도 없다 — 칸이 26px 아래에서
        올라오므로 상승 구간에 라벨을 지나간다.
        → **표식을 칸 안으로 들였다**(아래 참조). 라벨 자리는 그대로 둔다. */
-    ctx.font = mono(700, 10); ctx.fillStyle = tone('sub');
-    ctx.fillText('OPTIONS + 1 RECOMMENDATION', ox, oy - 12);
+    ctx.font = disp(700, 10); ctx.fillStyle = tone('sub');
+    ctx.fillText('선택지 + 추천 하나', ox, oy - 12);
 
     for (let i = 0; i < OPTS.length; i++) {
       const cx = ox + i * (ow + og);
@@ -129,8 +129,8 @@ export default {
       ctx.strokeStyle = tone('ink'); ctx.lineWidth = 3;
       roundRect(ctx, dx, dy, dw, dh, 3); ctx.stroke();
       ctx.setLineDash([]);
-      ctx.font = mono(700, 10); ctx.fillStyle = tone('sub');
-      ctx.fillText('DECISION', dx, dy - 12);
+      ctx.font = disp(700, 10); ctx.fillStyle = tone('sub');
+      ctx.fillText('결정', dx, dy - 12);
       ctx.font = disp(900, 15); ctx.fillStyle = tone('ink');
       const s = '사람 몫';
       const sw = ctx.measureText(s).width;

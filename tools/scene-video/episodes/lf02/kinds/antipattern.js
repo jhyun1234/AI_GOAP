@@ -8,10 +8,13 @@ import { ease, clamp, lerp, tone, disp, mono, fitCanvas, mkCanvas, roundRect }
    연속 모션 = 키 판을 훑는 점검 띠. 실사는 명세마다 매번 다시 도는 절차다.
    문자열 출처: M15 글 35행(1~9 배속 / Y·N 방랑자 / 에디터 전용 / C 는 비어 있었다). */
 
+/* 🔴 v2 — 화면 글자 한국어화(`ADR-V-10` 2026-08-10 개정).
+   키 이름(`1-9`·`Y / N`·`C`·`?`)만 남는다 — 키보드에 새겨진 기호라 옮길 것이 없다.
+   임자 이름은 전부 M15 글 35행의 한국어 그대로다(배속 · 방랑자 · 에디터 전용). */
 const KEYS = [
-  { k: '1-9', v: 'SPEED' },
-  { k: 'Y / N', v: 'WANDERER' },
-  { k: '?', v: 'EDITOR ONLY' },
+  { k: '1-9', v: '배속' },
+  { k: 'Y / N', v: '방랑자' },
+  { k: '?', v: '에디터 전용' },
   { k: 'C', v: '' },
 ];
 
@@ -62,7 +65,7 @@ export default {
       ctx.fillText(KEYS[i].k, cx + (cw - kwid) / 2, cy + 42);
 
       // 임자
-      ctx.font = mono(700, 10);
+      ctx.font = disp(700, 11);
       if (taken && kIn > 0.2) {
         ctx.fillStyle = tone('sub');
         const vw = ctx.measureText(KEYS[i].v).width;
@@ -70,14 +73,14 @@ export default {
       }
       if (free && kFree > 0.3) {
         ctx.fillStyle = tone('accent');
-        const s = 'FREE';
+        const s = '비어 있음';
         const vw = ctx.measureText(s).width;
         ctx.fillText(s, cx + (cw - vw) / 2, cy + 68);
       }
     }
 
-    ctx.font = mono(700, 10); ctx.fillStyle = tone('sub');
-    ctx.fillText('KEY MAP', M, 34);
+    ctx.font = disp(700, 10); ctx.fillStyle = tone('sub');
+    ctx.fillText('키 배정', M, 34);
 
     // 충돌 경고 — 안 봤으면 배속·방랑자 칸과 겹쳤을 것이다
     if (kClash > 0.05) {
@@ -105,8 +108,8 @@ export default {
       roundRect(ctx, bx, by, sw + 26, 26, 3); ctx.stroke();
       ctx.fillStyle = tone('ink');
       ctx.fillText(s, bx + 13, by + 19);
-      ctx.font = mono(700, 9); ctx.fillStyle = tone('sub');
-      ctx.fillText('ANTI-PATTERN', bx + sw + 36, by + 18);
+      ctx.font = disp(700, 10); ctx.fillStyle = tone('sub');
+      ctx.fillText('하면 안 되는 것 목록', bx + sw + 36, by + 18);
       ctx.restore();
     }
   },

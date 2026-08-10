@@ -37,15 +37,15 @@ export default {
     ctx.strokeStyle = kSpec > 0.1 ? tone('accent') : tone('track');
     ctx.lineWidth = 3;
     roundRect(ctx, sx, sy, sw, sh, 4); ctx.stroke();
-    ctx.font = mono(700, 10); ctx.fillStyle = tone('sub');
-    ctx.fillText('SPEC', sx, sy - 12);
+    ctx.font = disp(700, 10); ctx.fillStyle = tone('sub');
+    ctx.fillText('실행명세서', sx, sy - 12);
 
     // 명세 안 : 한다 / 안 한다 두 층
     for (let i = 0; i < 2; i++) {
       const ry = sy + 18 + i * 46;
       const k = i === 0 ? kSpec : kBound;
-      ctx.font = mono(700, 9); ctx.fillStyle = tone('sub');
-      ctx.fillText(i === 0 ? 'DOES' : 'DOES NOT', sx + 12, ry + 10);
+      ctx.font = disp(700, 10); ctx.fillStyle = tone('sub');
+      ctx.fillText(i === 0 ? '무엇을 한다' : '무엇을 안 한다', sx + 12, ry + 10);
       const bx = sx + 12, bw = sw - 24;
       ctx.strokeStyle = tone('track'); ctx.lineWidth = 3;
       roundRect(ctx, bx, ry + 16, bw, 20, 3); ctx.stroke();
@@ -57,8 +57,8 @@ export default {
     // 명세 칸 하단 : 1항목
     if (kOne > 0.02) {
       ctx.save(); ctx.globalAlpha = clamp(kOne);
-      ctx.font = mono(700, 11); ctx.fillStyle = tone('accent');
-      ctx.fillText('1 ITEM', sx + 12, sy + sh - 12);
+      ctx.font = disp(700, 11); ctx.fillStyle = tone('accent');
+      ctx.fillText('1항목', sx + 12, sy + sh - 12);
       ctx.restore();
     }
 
@@ -92,8 +92,8 @@ export default {
 
     // ── 오른쪽 : COMMIT 칸 셋 ──────────────────────
     const cx0 = w - M - 200, cw = 62, ch = 40, gap = 7;
-    ctx.font = mono(700, 10); ctx.fillStyle = tone('sub');
-    ctx.fillText('COMMIT', cx0, sy - 12);
+    ctx.font = disp(700, 10); ctx.fillStyle = tone('sub');
+    ctx.fillText('커밋', cx0, sy - 12);
     for (let i = 0; i < ITEMS.length; i++) {
       const cx = cx0 + i * (cw + gap);
       const cy = pipeY - ch / 2;
@@ -114,8 +114,10 @@ export default {
     // ── 아래 : 빌드 상태 ───────────────────────────
     if (kBuild > 0.02) {
       ctx.save(); ctx.globalAlpha = clamp(kBuild);
-      ctx.font = mono(700, 11); ctx.fillStyle = tone('ink');
-      ctx.fillText('BUILD GREEN AT EVERY COMMIT', cx0 - 12, h - 16);
+      ctx.font = disp(700, 11); ctx.fillStyle = tone('ink');
+      const s = '커밋마다 돌아가는 상태로';
+      const sw2 = ctx.measureText(s).width;
+      ctx.fillText(s, Math.min(cx0 - 12, w - M - sw2), h - 16);
       ctx.restore();
     }
   },

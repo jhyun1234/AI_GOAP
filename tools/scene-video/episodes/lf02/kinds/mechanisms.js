@@ -47,9 +47,10 @@ export default {
       ctx.fillRect(bx0 - 26, top, 52, bot - top);
     }
 
-    ctx.font = mono(700, 10); ctx.fillStyle = tone('sub');
-    ctx.fillText('THINKING MECHANISMS', M, 32);
-    const headW = ctx.measureText('THINKING MECHANISMS').width;
+    ctx.font = disp(700, 10); ctx.fillStyle = tone('sub');
+    const HEAD = '어떻게 판단하는가';
+    ctx.fillText(HEAD, M, 32);
+    const headW = ctx.measureText(HEAD).width;
 
     /* 수 표시 — 8 → 20. 🔴 우측 정렬 금지: 캔버스 우상단은 엔진 HUD 챕터 칩 자리다. */
     {
@@ -60,6 +61,8 @@ export default {
       const sw = ctx.measureText(s).width;
       ctx.fillStyle = kGrow > 0.5 ? tone('accent') : tone('ink');
       ctx.fillText(s, nx, 36);
+      /* `M1 - M20` 은 방법론 문서의 절 번호를 그대로 인용한 것이다(`ADR-V-10` 예외 ①).
+         🧊 개수는 기준 시각 `03d0c17d` 에서 다시 셌다 — `grep -c "^### M[0-9]"` = 20. */
       ctx.font = mono(700, 9); ctx.fillStyle = tone('sub');
       ctx.fillText('M1 - M20', nx + sw + 12, 34);
     }
@@ -106,16 +109,16 @@ export default {
       ctx.strokeStyle = tone('track'); ctx.lineWidth = 3;
       roundRect(ctx, M, rowY[0], w - M * 2, chh, 3); ctx.stroke();
       ctx.setLineDash([]);
-      ctx.font = mono(700, 10); ctx.fillStyle = tone('sub');
-      ctx.fillText('HOW TO JUDGE  =  EMPTY', M + 10, rowY[0] + 22);
+      ctx.font = disp(700, 11); ctx.fillStyle = tone('sub');
+      ctx.fillText('어떻게 판단하라 — 비어 있었다', M + 10, rowY[0] + 22);
       ctx.restore();
     }
 
     // 실증 라벨
     if (kProof > 0.05) {
       ctx.save(); ctx.globalAlpha = clamp(kProof);
-      ctx.font = mono(700, 9); ctx.fillStyle = tone('sub');
-      ctx.fillText('EVIDENCE COMMIT', M, h - 12);
+      ctx.font = disp(700, 10); ctx.fillStyle = tone('sub');
+      ctx.fillText('근거 = 실제 커밋', M, h - 12);
       ctx.restore();
     }
     if (kTrust > 0.05) {

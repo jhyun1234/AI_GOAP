@@ -8,9 +8,14 @@ import { ease, clamp, lerp, tone, disp, mono, fitCanvas, mkCanvas, roundRect }
    연속 모션 = 입력 토큰이 계속 두 검사를 통과해 흘러간다. 검사는 커밋마다 다시 돈다.
    문자열 출처: devlog/sessions/2026-08-02.md 57~60행 · Docs/M17_촌장금고와_재정정책_실행명세서.md 356~359행. */
 
-const LEFT = '순액 + (총액 - 순액) == 총액';
-const RIGHT = '0 <= 순액 <= 총액';
-const RIGHT2 = '세율이 오르면 실수령이 안 는다';
+/* 🔴 v2 — 두 명제를 「순액/총액」이 아니라 **말로 푼 형태**로 적는다
+   (`ADR-V25-13` ① — 재료는 원문 M17 명세서 356~359행의 DoD 문장들이다:
+   `0 ≤ 순액 ≤ 총액` · `NetWage(20,0)==20`).
+   자막이 말하는 문장과 겹치지 않도록 오른쪽 둘째 줄은 **경계 조건** 쪽을 쓴다 —
+   자막은 「세율이 오르면 실수령이 절대 늘지 않는다」를 말하고, 판은 그 옆의 경계를 진다. */
+const LEFT = '받은 돈 + 뗀 세금 = 원래 임금';
+const RIGHT = '0 <= 받은 돈 <= 원래 임금';
+const RIGHT2 = '세금 0%면 받은 돈 = 임금';
 
 export default {
   build(root) { root.innerHTML = ''; mkCanvas(root); },
@@ -38,9 +43,9 @@ export default {
       roundRect(ctx, cx, cy, colW, ch, 4); ctx.stroke();
     }
 
-    ctx.font = mono(700, 10); ctx.fillStyle = tone('sub');
-    ctx.fillText('ALWAYS TRUE', lx, cy - 12);
-    ctx.fillText('CAN FAIL', rx, cy - 12);
+    ctx.font = disp(700, 10); ctx.fillStyle = tone('sub');
+    ctx.fillText('언제나 참', lx, cy - 12);
+    ctx.fillText('실패할 수 있다', rx, cy - 12);
 
     // ── 명제 글자 ─────────────────────────────────
     const fitTxt = (s, maxW, weight, start) => {
@@ -101,15 +106,15 @@ export default {
         ctx.moveTo(mx + 8, ly + 2); ctx.lineTo(mx - 8, ly + 12);
         ctx.stroke();
       }
-      ctx.font = mono(700, 9); ctx.fillStyle = tone('sub');
-      ctx.fillText(i === 0 ? 'PASS' : (failing && kSwap > 0.4 ? 'FAIL' : 'PASS'), cx + 14, ly - 6);
+      ctx.font = disp(700, 10); ctx.fillStyle = tone('sub');
+      ctx.fillText(i === 0 ? '통과' : (failing && kSwap > 0.4 ? '실패' : '통과'), cx + 14, ly - 6);
     }
 
     // ── 세 번이라는 수 ─────────────────────────────
     if (kThree > 0.05) {
       ctx.save(); ctx.globalAlpha = clamp(kThree);
-      ctx.font = mono(700, 10); ctx.fillStyle = tone('sub');
-      const s = 'WRITTEN 3 TIMES';
+      ctx.font = disp(700, 10); ctx.fillStyle = tone('sub');
+      const s = '세 번 썼다';
       const sw = ctx.measureText(s).width;
       ctx.fillText(s, w - M - sw, cy - 12);
       ctx.restore();

@@ -101,8 +101,8 @@ export default {
       ctx.restore();
     }
 
-    // 상단 라벨
-    ctx.font = mono(700, 10); ctx.fillStyle = tone('sub');
-    ctx.fillText('QUESTIONS', M, 30);
+    // 상단 라벨 (v2: 한국어. 칸 번호 `01`~`05` 는 숫자라 그대로 둔다)
+    ctx.font = disp(700, 10); ctx.fillStyle = tone('sub');
+    ctx.fillText('질문 다섯', M, 30);
   },
 };

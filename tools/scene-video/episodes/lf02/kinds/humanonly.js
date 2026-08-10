@@ -27,7 +27,8 @@ export default {
 
     const kChain = ease(cue(0));   // AI가 못 하는 일도 있다
     const kPlay = ease(cue(1));    // 정식 단계로 박혀 있다
-    const kFour = ease(cue(2));    // 하루에 네 번 밟혔다
+    const kFour = ease(cue(2));    // 규칙이 하루에 네 번 밟혔다
+    const kAll = ease(cue(3));     // 전부 Play가 먼저 잡았다 (v2: 인용을 두 줄로 나눴다)
 
     const gap = 8;
     const cw = (w - M * 2 - gap * 4) / 5;
@@ -46,8 +47,8 @@ export default {
       ctx.fillRect(bx0 - 24, cy - 14, 48, ch + 28);
     }
 
-    ctx.font = mono(700, 10); ctx.fillStyle = tone('sub');
-    ctx.fillText('STANDARD FLOW', M, 34);
+    ctx.font = disp(700, 10); ctx.fillStyle = tone('sub');
+    ctx.fillText('표준 작업 흐름', M, 34);
 
     for (let i = 0; i < STEPS.length; i++) {
       const cx = M + i * (cw + gap);
@@ -70,8 +71,8 @@ export default {
       ctx.fillText(STEPS[i].s, cx + (cw - sw) / 2, cy + 34);
 
       if (human) {
-        ctx.font = mono(700, 9); ctx.fillStyle = tone('ink');
-        const s2 = 'HUMAN';
+        ctx.font = disp(700, 10); ctx.fillStyle = tone('ink');
+        const s2 = '사람';
         const w2 = ctx.measureText(s2).width;
         ctx.fillText(s2, cx + (cw - w2) / 2, cy + ch - 8);
       } else if (passed > 0.05) {
@@ -101,8 +102,8 @@ export default {
     if (kFour > 0.05) {
       const by = h - 46;
       ctx.save(); ctx.globalAlpha = clamp(kFour);
-      ctx.font = mono(700, 10); ctx.fillStyle = tone('sub');
-      ctx.fillText('CAUGHT BY PLAY  /  ONE DAY', M, by - 6);
+      ctx.font = disp(700, 10); ctx.fillStyle = tone('sub');
+      ctx.fillText('하루에 밟힌 규칙', M, by - 6);
       const cx0 = M, bw = 30, bg = 9;
       for (let i = 0; i < 4; i++) {
         const k = clamp((kFour - i * 0.14) / 0.4);
@@ -114,10 +115,14 @@ export default {
           ctx.fillRect(bx + 5, by + 12, (bw - 10) * ease(k), 10);
         }
       }
-      ctx.font = disp(900, 17); ctx.fillStyle = tone('ink');
-      const s = '전부 Play가 먼저 잡았다';
-      const sw = ctx.measureText(s).width;
-      ctx.fillText(s, Math.min(w - M - sw, cx0 + 4 * (bw + bg) + 14), by + 24);
+      /* 판정 문구는 그 말을 하는 자막(cue 3)에서 뜬다 — 네 칸이 먼저 차고, 그 다음에 온다. */
+      if (kAll > 0.05) {
+        ctx.globalAlpha = clamp(kAll);
+        ctx.font = disp(900, 17); ctx.fillStyle = tone('ink');
+        const s = '전부 Play가 먼저 잡았다';
+        const sw = ctx.measureText(s).width;
+        ctx.fillText(s, Math.min(w - M - sw, cx0 + 4 * (bw + bg) + 14), by + 24);
+      }
       ctx.restore();
     }
   },

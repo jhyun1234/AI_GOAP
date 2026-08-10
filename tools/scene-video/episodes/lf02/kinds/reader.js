@@ -18,24 +18,27 @@ export default {
     ctx.textBaseline = 'alphabetic';
     const M = 16;
 
+    /* v2 — 마지막 두 줄을 한 줄로 합쳐 자막이 3줄이 됐다. 규칙 층(kRule)과 천장
+       (kCap)이 같은 자막 안에서 차례로 일어나도록 뒤쪽을 부분 구간으로 물린다. */
     const kTo = ease(cue(0));      // 대상 독자는 모든 AI 세션
     const kMsg = ease(cue(1));     // 같은 깊이로 이어가
     const kRule = ease(cue(2));    // 충돌하면 규칙이 이긴다
-    const kCap = ease(cue(3));     // 폭주하지 않도록
+    const kCap = ease(clamp((cue(2) - 0.45) / 0.55));   // 폭주하지 않도록
 
     // ── 위 : 두 층 (규칙이 천장) ────────────────────
     const ly = 30, lh = 24;
     const push = kCap > 0.05 ? 4 * (0.5 - 0.5 * Math.cos(t * 2.2)) : 0;
     ctx.strokeStyle = tone('accent'); ctx.lineWidth = 3;
     roundRect(ctx, M + 40, ly + lh + 10 - push, w - M * 2 - 80, lh, 3); ctx.stroke();
-    ctx.font = mono(700, 10); ctx.fillStyle = tone('accent');
-    ctx.fillText('METHODOLOGY  (how to judge)', M + 52, ly + lh + 27 - push);
+    ctx.font = disp(700, 11); ctx.fillStyle = tone('accent');
+    ctx.fillText('사고법 — 어떻게 판단하나', M + 52, ly + lh + 27 - push);
 
     ctx.strokeStyle = kRule > 0.1 ? tone('ink') : tone('track');
     ctx.lineWidth = kCap > 0.3 ? 5 : 3;
     roundRect(ctx, M + 20, ly, w - M * 2 - 40, lh, 3); ctx.stroke();
-    ctx.font = mono(700, 10); ctx.fillStyle = kRule > 0.1 ? tone('ink') : tone('sub');
-    ctx.fillText('CLAUDE.md  (what to obey)  WINS', M + 34, ly + 17);
+    /* `CLAUDE.md` 는 파일 이름이라 그대로 인용한다(`ADR-V-10` 예외 ①). 뒤는 한국어. */
+    ctx.font = disp(700, 11); ctx.fillStyle = kRule > 0.1 ? tone('ink') : tone('sub');
+    ctx.fillText('CLAUDE.md — 무엇을 지켜라 · 이쪽이 이긴다', M + 34, ly + 17);
 
     // ── 아래 : 사람 칸 / AI 세션 칸 ─────────────────
     const by = 132, hh = 56;
@@ -49,8 +52,8 @@ export default {
       const s = '사람';
       const sw = ctx.measureText(s).width;
       ctx.fillText(s, hx + (hw - sw) / 2, by + 26);
-      ctx.font = mono(700, 9);
-      const s2 = 'NOT THE READER';
+      ctx.font = disp(700, 10);
+      const s2 = '수신인이 아니다';
       const w2 = ctx.measureText(s2).width;
       ctx.fillText(s2, hx + (hw - w2) / 2, by + 44);
     }
@@ -72,8 +75,8 @@ export default {
       ctx.lineWidth = got ? 4 : 3;
       roundRect(ctx, cx, by, cwd, hh, 3); ctx.stroke();
       ctx.restore();
-      ctx.font = mono(700, 10); ctx.fillStyle = tone('sub');
-      ctx.fillText(`SESSION #${i + 1}`, cx + 8, by + 18);
+      ctx.font = disp(700, 10); ctx.fillStyle = tone('sub');
+      ctx.fillText(`세션 #${i + 1}`, cx + 8, by + 18);
       if (kMsg > 0.05) {
         const depth = got ? 1 : 0.45;
         const kk = clamp(kMsg) * depth;

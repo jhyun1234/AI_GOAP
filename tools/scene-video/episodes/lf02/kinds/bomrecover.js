@@ -18,10 +18,13 @@ export default {
     ctx.textBaseline = 'alphabetic';
     const M = 16;
 
-    const kCmd = ease(cue(0));     // 셸 명령 한 줄
-    const kWipe = ease(cue(1));    // 참조가 통째로 초기화
-    const kCatch = ease(cue(2));   // 게이트 2개가 즉시 잡았다
-    const kMove = ease(cue(3));    // 규칙을 기계에 새긴다
+    /* 🔴 v2 자막 재작성으로 줄 순서가 바뀌었다 (0 명령어 한 줄 / 1 **BOM 비유** /
+       2 가리키는 곳이 지워짐 / 3 게이트 둘이 즉시 / 4 게이트를 넓힌다 / 5 세 번째에 또). */
+    const kCmd = ease(cue(0));     // 명령어 한 줄로 설정 파일 4개
+    const kBom = ease(cue(1));     // 🔴 비유 구간 — 이 창에서만 BOM 표식을 띄운다
+    const kWipe = ease(cue(2));    // 무엇을 가리키는지가 통째로 지워졌다
+    const kCatch = ease(cue(3));   // 게이트 2개가 즉시 잡았다
+    const kMove = ease(cue(4));    // 규칙을 기계에 새긴다 / 게이트를 넓힌다
     const kTwice = ease(cue(4));   // 같은 오해 2회
     const kThird = ease(cue(5));   // 세 번째에 또 뚫린다
 
@@ -40,14 +43,17 @@ export default {
       ctx.fillRect(bx0 - 24, ay - 12, 48, (ay + ah + 22 + 30 + 12) - (ay - 12));
     }
 
-    ctx.font = mono(700, 10); ctx.fillStyle = tone('sub');
-    ctx.fillText('ASSET YAML  x4', M, 32);
+    ctx.font = disp(700, 10); ctx.fillStyle = tone('sub');
+    ctx.fillText('설정 파일 4개', M, 32);
     for (let i = 0; i < 4; i++) {
       const cx = ax + i * (aw + ag);
       const wiped = clamp((kWipe - i * 0.04) / 0.3);   // 한꺼번에 비워진다
+      ctx.save();
+      ctx.globalAlpha = clamp(0.3 + 0.7 * kCmd);
       ctx.strokeStyle = wiped > 0.5 ? tone('track') : tone('accent');
       ctx.lineWidth = 3;
       roundRect(ctx, cx, ay, aw, ah, 3); ctx.stroke();
+      ctx.restore();
       if (wiped < 0.5) {
         ctx.fillStyle = tone('accent');
         ctx.fillRect(cx + 8, ay + 12, aw - 16, 6);
@@ -64,18 +70,23 @@ export default {
       }
     }
 
-    // 셸 명령 한 줄
-    if (kCmd > 0.03) {
-      ctx.save(); ctx.globalAlpha = clamp(kCmd);
-      const bx = ax + 4 * (aw + ag) + 6;
-      ctx.font = mono(700, 11); ctx.fillStyle = tone('sub');
-      const s = 'BOM';
-      ctx.fillText(s, bx, ay + 20);
-      ctx.strokeStyle = tone('ink'); ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.moveTo(bx + 4, ay + 30); ctx.lineTo(bx + 4, ay + ah + 4);
-      ctx.stroke();
-      ctx.restore();
+    /* 안 보이는 글자 하나 — 🔴 **비유 그림이다**(`ADR-V25-14` 계약 5).
+       자막이 「말하자면 안 보이는 글자 하나가 낀 거예요」를 말하는 동안에만 뜨고,
+       다음 자막이 시작하면 사라진다. 말 없이 이 표식만 남으면 게임 안 사실로 읽힌다.
+       `BOM` 은 옮기면 뜻이 무너지는 고유 기술명이라 영어로 둔다. */
+    {
+      const vis = clamp(kBom) * (1 - clamp(kWipe * 1.6));
+      if (vis > 0.03) {
+        ctx.save(); ctx.globalAlpha = vis;
+        const bx = ax + 4 * (aw + ag) + 6;
+        ctx.font = mono(700, 11); ctx.fillStyle = tone('sub');
+        ctx.fillText('BOM', bx, ay + 20);
+        ctx.strokeStyle = tone('ink'); ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(bx + 4, ay + 30); ctx.lineTo(bx + 4, ay + ah + 4);
+        ctx.stroke();
+        ctx.restore();
+      }
     }
 
     // ── 가운데 : 게이트 램프 둘 ─────────────────────
@@ -110,9 +121,9 @@ export default {
     const by = h - 52;
     const hw = 168, mw = 200;
     const hx = M, mx = w - M - mw;
-    ctx.font = mono(700, 9); ctx.fillStyle = tone('sub');
-    ctx.fillText('HUMAN ATTENTION', hx, by - 8);
-    ctx.fillText('EDITMODE GATE', mx, by - 8);
+    ctx.font = disp(700, 10); ctx.fillStyle = tone('sub');
+    ctx.fillText('사람의 주의력', hx, by - 8);
+    ctx.fillText('게이트 — 기계가 하는 검사', mx, by - 8);
     ctx.strokeStyle = tone('ink'); ctx.lineWidth = 3;
     roundRect(ctx, hx, by, hw, 34, 3); ctx.stroke();
     ctx.strokeStyle = kMove > 0.3 ? tone('accent') : tone('track'); ctx.lineWidth = 3;
@@ -140,8 +151,8 @@ export default {
     }
     if (kTwice > 0.05) {
       ctx.save(); ctx.globalAlpha = clamp(kTwice);
-      ctx.font = mono(700, 10); ctx.fillStyle = tone('sub');
-      const s = 'x2  ->  WIDEN THE GATE';
+      ctx.font = disp(700, 10); ctx.fillStyle = tone('sub');
+      const s = '2회 -> 게이트를 넓힌다';
       const sw = ctx.measureText(s).width;
       ctx.fillText(s, Math.min(hx + hw + 16, mx - sw - 12), by + 22);
       ctx.restore();

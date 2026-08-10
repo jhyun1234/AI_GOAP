@@ -28,8 +28,8 @@ export default {
     const cy = 46, ch = 58;
     const dy = cy + ch + 14, dh = h - dy - 34;
 
-    ctx.font = mono(700, 10); ctx.fillStyle = tone('sub');
-    ctx.fillText('SESSION', M, 32);
+    ctx.font = disp(700, 10); ctx.fillStyle = tone('sub');
+    ctx.fillText('세션', M, 32);
 
     // 순환 : 한 칸이 열려 있는 시간 1.5초, 다섯 칸이 순서대로
     const CYC = 1.5;
@@ -85,8 +85,8 @@ export default {
     // 판정
     if (kJudge > 0.05) {
       ctx.save(); ctx.globalAlpha = clamp(kJudge);
-      ctx.font = mono(700, 10); ctx.fillStyle = tone('sub');
-      ctx.fillText('DEPTH', M, dy + 12);
+      ctx.font = disp(700, 10); ctx.fillStyle = tone('sub');
+      ctx.fillText('판단의 깊이', M, dy + 12);
       ctx.font = disp(900, 16); ctx.fillStyle = tone('ink');
       const s = '들쭉날쭉';
       const sw = ctx.measureText(s).width;

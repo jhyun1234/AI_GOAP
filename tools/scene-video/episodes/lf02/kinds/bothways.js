@@ -8,8 +8,8 @@ import { ease, clamp, lerp, tone, disp, mono, fitCanvas, mkCanvas, roundRect }
    연속 모션 = 두 방향 화살이 계속 오간다. 이건 한 번 일어난 사건이 아니라 매일의 모양이다.
    문자열 출처: Docs/CLAUDE.md 작업 프로토콜(Editor 안내) · M11 글 70행 · M8 글 28행. */
 
-const DOWN = ['방향 결정', '판정'];        // 사람 → AI
-const UP = ['구현', 'Editor 안내'];        // AI → 사람
+const DOWN = ['방향 결정', '판정'];             // 사람 → AI
+const UP = ['만들기', '유니티 화면 안내'];       // AI → 사람 (v2: 「구현」·「Editor」 한국어화)
 
 export default {
   build(root) { root.innerHTML = ''; mkCanvas(root); },
@@ -33,9 +33,9 @@ export default {
     ctx.strokeStyle = tone('accent'); ctx.lineWidth = 3;
     roundRect(ctx, laneX, botY, laneW, laneH, 4); ctx.stroke();
 
-    ctx.font = mono(700, 10);
+    ctx.font = disp(700, 11);
     ctx.fillStyle = tone('sub');
-    ctx.fillText('HUMAN', laneX, topY - 10);
+    ctx.fillText('사람', laneX, topY - 10);
     ctx.fillText('AI', laneX, botY + laneH + 18);
 
     // ── 각 줄 안의 칸 ──────────────────────────────
@@ -113,8 +113,8 @@ export default {
       ctx.strokeStyle = tone('ink'); ctx.lineWidth = 4;
       const r = lerp(2, 15, ease(kHole));
       ctx.beginPath(); ctx.arc(gx, gy, r, 0, Math.PI * 2); ctx.stroke();
-      ctx.font = mono(700, 10); ctx.fillStyle = tone('ink');
-      ctx.fillText('HOLE', gx + r + 10, gy + 4);
+      ctx.font = disp(700, 11); ctx.fillStyle = tone('ink');
+      ctx.fillText('구멍', gx + r + 10, gy + 4);
       ctx.restore();
     }
   },

@@ -60,8 +60,8 @@ export default {
       ctx.strokeStyle = tone('ink'); ctx.lineWidth = 3;
       ctx.beginPath(); ctx.moveTo(X(4), py - 6); ctx.lineTo(X(4), py + ph); ctx.stroke();
       ctx.setLineDash([]);
-      ctx.font = mono(700, 10); ctx.fillStyle = tone('ink');
-      ctx.fillText('WINTER 4', X(4) + 6, py + 4);
+      ctx.font = disp(700, 10); ctx.fillStyle = tone('ink');
+      ctx.fillText('겨울 끝 · 4일', X(4) + 6, py + 4);
       ctx.restore();
     }
 
@@ -85,12 +85,14 @@ export default {
     drawCurve(0.8, Math.max(0.25, kWrote), tone('ink'), lerp(4, DMAX, grown));
     drawCurve(0.5, kFix, tone('accent'), DMAX);
 
-    // 곡선 라벨
-    ctx.font = mono(700, 10);
+    // 곡선 라벨 (v2: 한국어. `%` 는 기호라 그대로 둔다)
+    ctx.font = disp(700, 10);
     if (kWrote > 0.05) {
       ctx.save(); ctx.globalAlpha = clamp(kWrote);
       ctx.fillStyle = tone('ink');
-      ctx.fillText('-20% / DAY', X(9), Y(100 * Math.pow(0.8, 9)) - 12);
+      const s20 = '하루 -20%';
+      const sw20 = ctx.measureText(s20).width;
+      ctx.fillText(s20, Math.min(X(9), w - M - sw20), Y(100 * Math.pow(0.8, 9)) - 12);
       ctx.restore();
     }
     if (kFix > 0.05) {
@@ -100,7 +102,7 @@ export default {
          폭이 61px 이라 오른쪽 끝이 `X(4)`(= 214, WINTER 4 점선)를 관통했다
          (증거 `build/stills/462s.png` — `-50% / DA|Y`). → **점선 왼쪽으로 물린다.**
          폭을 재서 밀기 때문에 폰트·문자열이 바뀌어도 다시 뚫리지 않는다. */
-      const s = '-50% / DAY';
+      const s = '하루 -50%';
       const sw = ctx.measureText(s).width;
       ctx.fillText(s, Math.min(X(2.6), X(4) - 10 - sw), Y(100 * Math.pow(0.5, 2.6)) - 12);
       ctx.restore();
@@ -112,8 +114,8 @@ export default {
       const cx = X(5), cy = Y(32);
       ctx.strokeStyle = tone('ink'); ctx.lineWidth = 3;
       ctx.beginPath(); ctx.arc(cx, cy, 7, 0, Math.PI * 2); ctx.stroke();
-      ctx.font = mono(700, 9); ctx.fillStyle = tone('sub');
-      ctx.fillText('DAY 5', cx + 13, cy - 32);
+      ctx.font = disp(700, 10); ctx.fillStyle = tone('sub');
+      ctx.fillText('5일째', cx + 13, cy - 32);
       ctx.font = disp(900, 19); ctx.fillStyle = tone('ink');
       ctx.fillText('32', cx + 13, cy - 10);
       ctx.restore();
@@ -125,8 +127,8 @@ export default {
       const cx = X(13);
       ctx.strokeStyle = tone('ink'); ctx.lineWidth = 3;
       ctx.beginPath(); ctx.moveTo(cx, py + ph); ctx.lineTo(cx, py + ph - 16); ctx.stroke();
-      ctx.font = mono(700, 10); ctx.fillStyle = tone('ink');
-      const s = 'DAY 13';
+      ctx.font = disp(700, 10); ctx.fillStyle = tone('ink');
+      const s = '13일째';
       const sw = ctx.measureText(s).width;
       ctx.fillText(s, Math.min(cx - sw / 2, w - M - sw), py + ph + 18);
       ctx.restore();
@@ -149,8 +151,8 @@ export default {
       const sq = 13, gp = 4, n = 8;
       const tw = n * sq + (n - 1) * gp;
       const tx = w - M - tw, ty = py + 52;
-      ctx.font = mono(700, 9); ctx.fillStyle = tone('sub');
-      const lab = 'BLOCKERS 8  /  AI 3';
+      ctx.font = disp(700, 10); ctx.fillStyle = tone('sub');
+      const lab = '막혔던 문제 8 · AI 3';
       const lw = ctx.measureText(lab).width;
       ctx.fillText(lab, w - M - lw, ty - 8);
       for (let i = 0; i < n; i++) {

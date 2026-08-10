@@ -51,10 +51,10 @@ export default {
       ctx.fillRect(fx - 24, sy - 14, 48, sh + 28);
     }
 
-    ctx.font = mono(700, 9); ctx.fillStyle = tone('sub');
-    ctx.fillText('HUMAN', hx, hy - 10);
-    ctx.fillText('REPO', rx, hy - 10);
-    ctx.fillText('NEXT SESSIONS', sx0, hy - 10);
+    ctx.font = disp(700, 10); ctx.fillStyle = tone('sub');
+    ctx.fillText('사람', hx, hy - 10);
+    ctx.fillText('저장소', rx, hy - 10);
+    ctx.fillText('다음 세션들', sx0, hy - 10);
 
     ctx.strokeStyle = tone('ink'); ctx.lineWidth = 3;
     roundRect(ctx, hx, hy, hw, hh, 4); ctx.stroke();
@@ -135,8 +135,8 @@ export default {
     if (kDoor > 0.05) {
       ctx.save(); ctx.globalAlpha = clamp(kDoor);
       const dx = M + 262;
-      ctx.font = mono(700, 9); ctx.fillStyle = tone('sub');
-      ctx.fillText('CHANNEL ENTRANCE', dx, by2 + 8);
+      ctx.font = disp(700, 10); ctx.fillStyle = tone('sub');
+      ctx.fillText('채널 정문 영상', dx, by2 + 8);
       if (kJudge > 0.05) {
         ctx.save(); ctx.globalAlpha = clamp(kJudge);
         const s = '기술은 만점, 재미는 0점';

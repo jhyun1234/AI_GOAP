@@ -8,8 +8,17 @@ import { ease, clamp, lerp, tone, disp, mono, fitCanvas, mkCanvas, roundRect }
    연속 모션 = 세 선택지를 번갈아 비추는 검토 밴드. 결정이 앉은 뒤에도 계속 돈다 —
    고른 다음에도 트레이드오프는 남아 있다. */
 
+/* 🔴 v2 — 진단 칩 둘을 원문이 **풀어 놓은 말**로 바꿨다(`ADR-V25-13` ①).
+   `문자열 switch 55곳` → M0 글 13행 *"주민이 새 행동 하나를 배울 때마다 … '이 행동이
+   나무 자르기면...' 식의 조건 분기 … 6개 파일, 55곳"*.
+   `갓 클래스` → 같은 글 17행 *"모든 것을 혼자 아는 탓에, 손댈 때마다 전체가 흔들리는 파일"*.
+   숫자 55 는 그대로 남긴다 — 원문에 있는 수다. */
 const OPTS = ['유지', '폐기', '제3의 길'];
-const DIAG = ['문자열 switch 55곳', '갓 클래스'];
+/* 🔴 2차 정정 (검수 C4): `조건 분기 55곳` → `갈림길 55곳`.
+   자막(S11/2)이 「이 행동이 나무 자르기면, 하는 **갈림길**이 코드 55곳」으로 풀어 놨는데
+   화면만 「조건 분기」였다 — 같은 것을 두 이름으로 부르고 **화면 쪽이 더 어려웠다.**
+   `ADR-V-10` 은 통과하지만(둘 다 한국어) 이번 작업의 취지(`ADR-V25-13`)에 어긋난다. */
+const DIAG = ['갈림길 55곳', '모든 걸 혼자 아는 파일'];
 
 export default {
   build(root) { root.innerHTML = ''; mkCanvas(root); },
@@ -19,20 +28,23 @@ export default {
     ctx.textBaseline = 'alphabetic';
     const M = 16;
 
-    const kDiag = ease(cue(2));    // AI가 먼저 진단
-    const kOpt = ease(cue(3));     // 세 가지 + 트레이드오프
-    const kPick = ease(cue(4));    // 사람이 골랐다
-    const kOut = ease(cue(5));     // 그 결정 뒤에
+    /* v2 자막 7줄에 물린다: 2 = 진단(갈림길 55곳) · 3 = 혼자 다 아는 파일 ·
+       4 = 세 가지를 내놨다 · 5 = 사람이 골랐다 · 6 = 그 결정 뒤에. */
+    const kDiag = ease(cue(2));    // AI가 먼저 진단 — 첫 칩
+    const kDiag2 = ease(cue(3));   // 둘째 칩
+    const kOpt = ease(cue(4));     // 세 가지를 내놨다
+    const kPick = ease(cue(5));    // 사람이 골랐다
+    const kOut = ease(cue(6));     // 그 결정 뒤에
 
     // ── 위 : 진단 칩 ───────────────────────────────
     {
       let x = M;
-      ctx.font = mono(700, 11);
+      ctx.font = disp(700, 10);
       ctx.fillStyle = tone('sub');
-      ctx.fillText('DIAGNOSIS', M, 26);
+      ctx.fillText('진단', M, 26);
       const cy = 34;
       for (let i = 0; i < DIAG.length; i++) {
-        const k = clamp((kDiag - i * 0.22) / 0.5);
+        const k = clamp(i === 0 ? kDiag : kDiag2);
         if (k <= 0.02) break;
         ctx.font = disp(800, 13);
         const cw = ctx.measureText(DIAG[i]).width + 22;
@@ -112,8 +124,8 @@ export default {
     if (kOut > 0.05) {
       ctx.save(); ctx.globalAlpha = clamp(kOut);
       const by = h - 40;
-      ctx.font = mono(700, 10); ctx.fillStyle = tone('sub');
-      ctx.fillText('CODE  (session log)', M, by - 8);
+      ctx.font = disp(700, 10); ctx.fillStyle = tone('sub');
+      ctx.fillText('코드 줄 수 (세션 로그 기준)', M, by - 8);
       ctx.font = disp(900, 24);
       const a = '24,800', b = '5,977';
       const aw = ctx.measureText(a).width;

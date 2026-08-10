@@ -25,11 +25,15 @@ export default {
     ctx.textBaseline = 'alphabetic';
     const M = 16;
 
+    /* v2 자막 6줄에 물린다: 0 프롬프트가 답이 아니다 / 1 구조를 먼저 / 2 계절 =
+       설정 파일 하나 / 3 재해·위협도 같다 / 4 며칠 전 위협 넷 교체도 코드 0줄 /
+       5 요리는 코드 파일 0줄. */
     const kPrompt = ease(cue(0));  // 프롬프트가 답이 아니다
     const kStruct = ease(cue(1));  // 구조를 먼저 만든다
-    const kSeason = ease(cue(2));  // 계절 하나 = 에셋 하나
+    const kSeason = ease(cue(2));  // 계절 하나 = 설정 파일 하나
     const kMore = ease(cue(3));    // 재해도 위협도
-    const kCook = ease(cue(4));    // 요리는 .cs 0줄
+    const kRace = ease(cue(4));    // 위협 넷을 갈아 끼울 때도 코드 0줄
+    const kCook = ease(cue(5));    // 요리는 코드 파일 0줄
 
     const rowH = 34, y0 = 44;
     const aw = 156, bw = 96;
@@ -45,15 +49,19 @@ export default {
       ctx.fillRect(ax - 8, by, (bx + bw + 8) - (ax - 8), rowH + 4);
     }
 
-    ctx.font = mono(700, 10); ctx.fillStyle = tone('sub');
-    ctx.fillText('ASSET FILE', ax, 32);
-    ctx.fillText('CONTENT', bx, 32);
+    ctx.font = disp(700, 10); ctx.fillStyle = tone('sub');
+    ctx.fillText('설정 파일', ax, 32);
+    ctx.fillText('게임에 늘어난 것', bx, 32);
 
     // 켜진 램프가 도는 위상
     const PR = 2.4;
     const lit = Math.floor(t / PR) % PAIRS.length;
 
-    const kOf = i => i === 0 ? kSeason : (i < 3 ? clamp((kMore - (i - 1) * 0.2) / 0.5) : kCook);
+    /* 위협 행(i=2)은 자막 3(재해·위협)에서 켜지고 자막 4(종족 넷 교체)에서 한 번 더
+       힘을 받는다 — 이 회차에서 「코드 0줄」이 가장 최근에 재현된 자리가 거기다. */
+    const kOf = i => i === 0 ? kSeason
+      : (i === 1 ? clamp(kMore)
+        : (i === 2 ? clamp(Math.max(kMore - 0.2, kRace)) : kCook));
 
     for (let i = 0; i < PAIRS.length; i++) {
       const ry = y0 + i * (rowH + 6);
@@ -107,8 +115,8 @@ export default {
     {
       const gx = bx + bw + 40, gw = w - M - gx;
       const gy = y0 + 34, gh = 74;
-      ctx.font = mono(700, 10); ctx.fillStyle = tone('sub');
-      ctx.fillText('CODE ADDED', gx, gy - 12);
+      ctx.font = disp(700, 10); ctx.fillStyle = tone('sub');
+      ctx.fillText('새로 쓴 코드', gx, gy - 12);
       ctx.strokeStyle = tone('track'); ctx.lineWidth = 3;
       roundRect(ctx, gx, gy, gw, gh, 4); ctx.stroke();
 
@@ -131,8 +139,9 @@ export default {
       ctx.font = disp(900, 30); ctx.fillStyle = tone('ink');
       const z = '0';
       ctx.fillText(z, gx + 24, gy + 34);
-      ctx.font = mono(700, 10); ctx.fillStyle = tone('sub');
-      ctx.fillText('LINES', gx + 24 + ctx.measureText(z).width + 22, gy + 30);
+      const zw = ctx.measureText(z).width;
+      ctx.font = disp(700, 11); ctx.fillStyle = tone('sub');
+      ctx.fillText('줄', gx + 24 + zw + 18, gy + 30);
     }
 
     // ── 아래 : 판정 ────────────────────────────────

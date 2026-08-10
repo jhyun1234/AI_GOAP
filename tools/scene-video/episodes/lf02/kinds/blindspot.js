@@ -25,8 +25,8 @@ export default {
     const fx = M, fy = 38, fw = w - M * 2, fh = h - fy - 42;
     ctx.strokeStyle = tone('ink'); ctx.lineWidth = 3;
     roundRect(ctx, fx, fy, fw, fh, 4); ctx.stroke();
-    ctx.font = mono(700, 10); ctx.fillStyle = tone('sub');
-    ctx.fillText('ONE SCREENSHOT', M, 28);
+    ctx.font = disp(700, 10); ctx.fillStyle = tone('sub');
+    ctx.fillText('스크린샷 한 장', M, 28);
 
     const pad = 14;
     const cw = (fw - pad * 3) / 2, ch = (fh - pad * 3) / 2;
@@ -45,8 +45,8 @@ export default {
 
       if (i === 0) {
         // 확인하려고 간 칸 : 패널이 열린다
-        ctx.font = mono(700, 10); ctx.fillStyle = tone('sub');
-        ctx.fillText('PANEL', cx + 10, cy + 18);
+        ctx.font = disp(700, 10); ctx.fillStyle = tone('sub');
+        ctx.fillText('패널', cx + 10, cy + 18);
         ctx.strokeStyle = tone('accent'); ctx.lineWidth = 3;
         roundRect(ctx, cx + 10, cy + 26, cw - 20, ch - 40, 3); ctx.stroke();
         if (kPass > 0.2) {
@@ -56,8 +56,8 @@ export default {
         }
       } else if (i === 1) {
         // 이미 어긋나 있던 칸 : 두 줄로 늘어난 목록
-        ctx.font = mono(700, 10); ctx.fillStyle = tone('sub');
-        ctx.fillText('LIST', cx + 10, cy + 18);
+        ctx.font = disp(700, 10); ctx.fillStyle = tone('sub');
+        ctx.fillText('목록', cx + 10, cy + 18);
         for (let j = 0; j < 3; j++) {
           const ly = cy + 28 + j * 13;
           ctx.fillStyle = tone('sub');
@@ -101,8 +101,8 @@ export default {
          → 액자 **밖 머리줄**(`fy - 10` = 28, `ONE SCREENSHOT` 과 같은 줄)로 올린다.
          x 는 칸 가로 중앙이라 `ONE SCREENSHOT`(x 16~99)과 겹치지 않고,
          엔진 HUD 챕터 칩 자리(x ≳ 490)에도 닿지 않는다. */
-      ctx.font = mono(700, 9); ctx.fillStyle = tone('ink');
-      ctx.fillText('CHECKED', cx + cw * 0.5, fy - 10);
+      ctx.font = disp(700, 10); ctx.fillStyle = tone('ink');
+      ctx.fillText('확인하러 간 곳', cx + cw * 0.5, fy - 10);
     }
 
     // 나머지 칸은 끝까지 테두리 밖 — 그 사실을 kAlso 에서 짚는다
@@ -115,10 +115,13 @@ export default {
         roundRect(ctx, cx - 4, cy - 4, cw + 8, ch + 8, 4); ctx.stroke();
       }
       ctx.setLineDash([]);
-      ctx.font = mono(700, 9); ctx.fillStyle = tone('sub');
-      const s = 'ALREADY THERE';
-      // 3차 개정 (N4): `cells[1][1] - 11`(= 41) 도 같은 액자선에 잘렸다 → 머리줄로.
-      ctx.fillText(s, cells[1][0] - 4, fy - 10);
+      ctx.font = disp(700, 10); ctx.fillStyle = tone('sub');
+      const s = '이미 찍혀 있던 것';
+      /* 3차 개정 (N4): `cells[1][1] - 11`(= 41) 도 같은 액자선에 잘렸다 → 머리줄로.
+         🔴 v2 한국어화로 두 머리 라벨이 길어졌다 — 「확인하러 간 곳」의 오른쪽 끝과
+         이 문자열의 시작이 겹치지 않도록 x 를 폭으로 재서 오른쪽으로 민다. */
+      const leftEnd = cells[0][0] + cw * 0.5 + ctx.measureText('확인하러 간 곳').width;
+      ctx.fillText(s, Math.max(cells[1][0] - 4, leftEnd + 14), fy - 10);
       ctx.restore();
     }
 

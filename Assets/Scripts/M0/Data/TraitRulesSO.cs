@@ -95,6 +95,42 @@ namespace AIVillage.M0
             return null;
         }
 
+        [Header("성격 서술 (M25-1차 — 축마다 적는다. 조합표는 만들지 않는다, ADR-M25-1)")]
+        [Tooltip("6축 × 방향 2 × 강도 2 = 최대 24칸. 비면 서술 없음 = 배선 전과 동일 (중립 불변식).\n" +
+                 "🔑 위 MoodPools(M12-F)와 같은 규약이다 — 새 성격이 문장 0줄로도 말이 통하게.")]
+        public TraitLine[] TraitLines;
+
+        [Tooltip("단정 문턱 — |축값| 이 이상이면 단정형, 미만이면 완곡형. 제안치 60 " +
+                 "(배포 6종 실측 역산 — 이 값에서 6종이 각각 1~3개의 단정 문장을 얻는다).")]
+        [Range(0, 100)]
+        public int ProseStrongAt = 60;
+
+        [Tooltip("침묵 문턱 — |축값| 이 미만이면 그 축은 **아무 말도 하지 않는다** (ADR-M25-3).\n" +
+                 "제안치 35: 20으로 내리면 떠돌이가 자존 20·사교 −20까지 말해 약한 문장이 강한 " +
+                 "문장을 묻고, 60으로 올리면 새침이·고집쟁이가 문장을 잃는다.")]
+        [Range(0, 100)]
+        public int ProseSilentBelow = 35;
+
+        [Tooltip("한 사람이 말하는 축 문장의 최대 수. 제안치 3 — 여섯 축을 다 읊으면 사람이 안 보인다.")]
+        [Range(1, 6)]
+        public int ProseMaxAxisLines = 3;
+
+        /// <summary>이 축값에 맞는 서술 한 칸 (순수 — 게이트 M25-T5). 없으면 null = 침묵.
+        /// `MoodPoolFor`와 같은 판정 규약(부호·강도로 고른다)이라 새 문법을 만들지 않는다.</summary>
+        public TraitLine? LineFor(TraitId trait, int value)
+        {
+            if (TraitLines == null) return null;
+            int abs = Mathf.Abs(value);
+            if (abs < ProseSilentBelow) return null;   // 중립은 침묵 (ADR-M25-3)
+            bool positive = value > 0, strong = abs >= ProseStrongAt;
+            for (int i = 0; i < TraitLines.Length; i++)
+                if (TraitLines[i].Trait == trait && TraitLines[i].Positive == positive
+                    && TraitLines[i].Strong == strong
+                    && !string.IsNullOrEmpty(TraitLines[i].Ending))
+                    return TraitLines[i];
+            return null;                                // 빈칸 = 침묵 (빈 문자열이 아니다)
+        }
+
         /// <summary>
         /// ②비용 유도 (순수 — 게이트 M12-T5). 규칙표·성격 어느 쪽이 없어도 1 = 중립.
         /// 클램프는 안전망 — CostScale ≤ 0.5면 |bias| ≤ 1이라 실제로는 닿지 않는다.

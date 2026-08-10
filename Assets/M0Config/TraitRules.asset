@@ -85,3 +85,151 @@ MonoBehaviour:
     - "겨울이 금방이야"
     - "모자란 것보단 남는 게 낫지"
     - "이건 아껴뒀다가"
+  TraitLines:
+  - Trait: 0
+    Positive: 1
+    Strong: 1
+    Ending: "일손을 놓지 않는다"
+    Adversative: "일손을 놓지 않는데"
+    Tone: 1
+  - Trait: 0
+    Positive: 1
+    Strong: 0
+    Ending: "일은 곧잘 하는 편이다"
+    Adversative: "일은 곧잘 하는 편이지만"
+    Tone: 1
+  - Trait: 0
+    Positive: 0
+    Strong: 1
+    Ending: "일을 자꾸 미룬다"
+    Adversative: "일을 자꾸 미루는데"
+    Tone: 2
+  - Trait: 0
+    Positive: 0
+    Strong: 0
+    Ending: "일에 그리 부지런하지는 않다"
+    Adversative: "일에 그리 부지런하지는 않지만"
+    Tone: 2
+  - Trait: 1
+    Positive: 1
+    Strong: 1
+    Ending: "미리 쟁여 두어야 마음이 놓인다"
+    Adversative: "미리 쟁여 두어야 마음이 놓이는데"
+    Tone: 1
+  - Trait: 1
+    Positive: 1
+    Strong: 0
+    Ending: "앞일을 조금은 챙기는 편이다"
+    Adversative: "앞일을 조금은 챙기는 편이지만"
+    Tone: 1
+  - Trait: 1
+    Positive: 0
+    Strong: 1
+    Ending: "닥쳐야 움직인다"
+    Adversative: "닥쳐야 움직이는데"
+    Tone: 2
+  - Trait: 1
+    Positive: 0
+    Strong: 0
+    Ending: "앞일을 잘 챙기지는 않는다"
+    Adversative: "앞일을 잘 챙기지는 않지만"
+    Tone: 2
+  - Trait: 2
+    Positive: 1
+    Strong: 1
+    Ending: "남을 돕는 걸 좋아한다"
+    Adversative: "남을 돕는 걸 좋아하는데"
+    Tone: 1
+  - Trait: 2
+    Positive: 1
+    Strong: 0
+    Ending: "사람들과 곧잘 어울린다"
+    Adversative: "사람들과 곧잘 어울리지만"
+    Tone: 1
+  - Trait: 2
+    Positive: 0
+    Strong: 1
+    Ending: "혼자 있는 편이 낫다"
+    Adversative: "혼자 있는 편이 낫지만"
+    Tone: 2
+  - Trait: 2
+    Positive: 0
+    Strong: 0
+    Ending: "남과 잘 어울리지 않는 편이다"
+    Adversative: "남과 잘 어울리지 않는 편이지만"
+    Tone: 2
+  - Trait: 3
+    Positive: 1
+    Strong: 1
+    Ending: "한곳에 머무는 걸 못 견딘다"
+    Adversative: "한곳에 머무는 걸 못 견디는데"
+    Tone: 0
+  - Trait: 3
+    Positive: 1
+    Strong: 0
+    Ending: "가끔 멀리 나가 보고 싶어 한다"
+    Adversative: "가끔 멀리 나가 보고 싶어 하지만"
+    Tone: 0
+  - Trait: 3
+    Positive: 0
+    Strong: 1
+    Ending: "마을 밖으로 나가려 하지 않는다"
+    Adversative: "마을 밖으로 나가려 하지 않는데"
+    Tone: 0
+  - Trait: 3
+    Positive: 0
+    Strong: 0
+    Ending: "먼 길은 그리 내키지 않아 한다"
+    Adversative: "먼 길은 그리 내키지 않아 하지만"
+    Tone: 0
+  - Trait: 4
+    Positive: 1
+    Strong: 1
+    Ending: "제 뜻을 굽히지 않는다"
+    Adversative: "제 뜻을 굽히지 않는데"
+    Tone: 1
+  - Trait: 4
+    Positive: 1
+    Strong: 0
+    Ending: "제 뜻대로 하려 한다"
+    Adversative: "제 뜻대로 하려 하지만"
+    Tone: 1
+  - Trait: 4
+    Positive: 0
+    Strong: 1
+    Ending: "남의 부탁을 거절하지 못한다"
+    Adversative: "남의 부탁을 거절하지 못하는데"
+    Tone: 2
+  - Trait: 4
+    Positive: 0
+    Strong: 0
+    Ending: "남의 말을 잘 따르는 편이다"
+    Adversative: "남의 말을 잘 따르는 편이지만"
+    Tone: 2
+  - Trait: 5
+    Positive: 1
+    Strong: 1
+    Ending: "위험 앞에서 먼저 물러선다"
+    Adversative: "위험 앞에서 먼저 물러서는데"
+    Tone: 2
+  - Trait: 5
+    Positive: 1
+    Strong: 0
+    Ending: "위험한 일은 꺼리는 편이다"
+    Adversative: "위험한 일은 꺼리는 편이지만"
+    Tone: 2
+  - Trait: 5
+    Positive: 0
+    Strong: 1
+    Ending: "위험을 두려워하지 않는다"
+    Adversative: "위험을 두려워하지 않는데"
+    Tone: 1
+  - Trait: 5
+    Positive: 0
+    Strong: 0
+    Ending: "위험 앞에서 크게 물러서지 않는다"
+    Adversative: "위험 앞에서 크게 물러서지 않지만"
+    Tone: 1
+  ProseStrongAt: 60
+  ProseSilentBelow: 35
+  ProseMaxAxisLines: 3

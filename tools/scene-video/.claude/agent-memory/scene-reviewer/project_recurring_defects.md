@@ -248,6 +248,23 @@ lf02 마스터 판정서 §3-7 은 *"`sfx.delayMs` 전수 재산정(11개) — �
 **소리를 옮기지 말고 `why` 를 고치는 쪽**을 권고했다(재렌더 불필요). 산식·검산법은
 [[cue-timing-audit-method]] · [[render-output-pixel-audit]].
 
-**How to apply:** 열다섯 항목은 `check.mjs` 가 절대 못 본다. 스틸([[frame-capture-for-review]] ·
+**⑯ 🔴 `shots[*].source` 의 **작은따옴표 인용문이 원문에 없다** — 검수 두 층이 그 인용을 믿는다. (ep13s-1 반려, 2026-08-10)**
+ep13s-1 은 화면 라벨 「봄」을 올리면서 근거로 *`원문 '주민들은 배고프면 가서 밥을 먹고, 봄이 옵니다.'`* 를
+`source` 와 `notes.화면 문자열` 두 곳에 적었는데, **원본 HTML 과 기획 브리프 양쪽에서 「봄」이 0회**였다.
+같은 회차가 다른 자리에서는 「원문에 값이 없다」는 이유로 마을 규모 선을 안 그렸다 — **잣대가 한 칸에서만 풀린다.**
+🔑 **판정 한 줄** — `shots`·`excluded` 의 인용 부호쌍을 전부 뽑아 원문(공백 제거본)과 대조한다.
+`…` 로 이어 붙인 인용은 조각으로 쪼개서 각각 본다. 오탐(목록을 `/` 로 이은 것·지시서 인용·작성팀 자기 문장)이
+섞이므로 **X 로 나온 것만 눈으로 재확인**하면 된다:
+```
+node -e "const fs=require('fs');const T=fs.readFileSync('<원문.html>','utf8').replace(/<[^>]+>/g,' ').replace(/\s+/g,'');
+ const sc=require('./episodes/<ep>/scene.json');const bag=[];(function w(o){if(typeof o==='string')bag.push(o);
+ else if(o&&typeof o==='object')Object.values(o).forEach(w)})([sc.shots,sc.excluded]);
+ for(const s of bag)for(const m of s.matchAll(/'([^']{12,})'/g))
+  for(const p of m[1].split(/…|\.\.\./).map(x=>x.trim()).filter(x=>x.length>=10))
+   if(!T.includes(p.replace(/\s+/g,''))) console.log('X',p.slice(0,120));"
+```
+🔑 고치는 비용은 0 이다(화면 문자열은 대개 `spec` 한 칸) — **반려로 내되 「이것만」으로 못박아라.**
+
+**How to apply:** 열여섯 항목은 `check.mjs` 가 절대 못 본다. 스틸([[frame-capture-for-review]] ·
 렌더 후에는 [[render-output-pixel-audit]])과 앞 회차 씬 파일 대조로만 잡힌다.
 반려 사유로 쓸 때는 반드시 원문 줄·스틸 시각을 같이 적는다.

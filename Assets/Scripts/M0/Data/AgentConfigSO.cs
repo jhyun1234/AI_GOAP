@@ -272,6 +272,16 @@ namespace AIVillage.M0
         public float SatedHpRegen
             => SatedHpRegenPerDay > 0f ? SatedHpRegenPerDay : StarveHpPerDay;
 
+        [Header("채집 선택 (M26-2차 W4 — 거리 하나가 아니라 점수 하나로 고른다)")]
+        [Tooltip("지형 가중치. **0 = 늪을 평지처럼 본다(舊 동작)** · 1 = 목적지 칸의 EnterCost 를 " +
+                 "그대로 거리에 곱한다. 늪(EnterCost 3)에 선 노드는 8칸이어도 24칸처럼 보인다.\n" +
+                 "🔑 0으로 두면 이 축 전체가 꺼져 `FindNearestDiscovered` 와 같은 답이 나온다 (ADR-T2-3).")]
+        [Range(0f, 3f)] public float GatherTerrainWeight = 1f;
+
+        [Tooltip("위험 가중치. 0 = 위험을 안 본다. **W6(위험 기억)이 이 항을 채운다** — " +
+                 "그전까지는 벌점 원천이 없어 값과 무관하게 0이다 (지금 켜도 동작 변화 없음).")]
+        [Range(0f, 50f)] public float GatherDangerWeight = 12f;
+
         [Header("부상 (M10-A — 최초의 사망 축. 전부 제안치, 명세 §4.4)")]
         [Tooltip("부상 중 이동 속도 배율 (<1 = 절뚝임). 도망·식사도 이 속도 — 다음 타격의 최우선 후보가 된다.")]
         public float InjuredMoveSpeedMult = 0.4f;

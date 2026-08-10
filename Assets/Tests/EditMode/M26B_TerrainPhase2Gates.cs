@@ -268,6 +268,78 @@ namespace AIVillage.Tests.EditMode
             return false;
         }
 
+        // ── W4: 채집 선택 통로 (이 차수의 심장) ───────────────────────────────────
+        //
+        // 🔴 고정한 축: 노드 배치는 **손으로 세운 격자**다 (스폰을 쓰면 시드마다 후보 수가 달라
+        //    "같은 답"이 우연히 성립한다). 고정한 것은 "후보가 여럿이고 거리가 서로 다르다"뿐.
+
+        private static AIVillage.M0.DiscoveryService NodesInLine(int count)
+        {
+            var d = new AIVillage.M0.DiscoveryService();
+            for (int i = 1; i <= count; i++)
+                d.AddResourceNode(new ResourceNode($"n{i}", ResourceType.Wood, i * 3, i * 2, 10f, 0f, true));
+            return d;
+        }
+
+        [Test]
+        public void M26B_T4_ZeroWeights_PicksSameNodeAsNearest()
+        {
+            // 가중치 0 → 점수 = 거리 → 최근접과 **같은 노드**여야 한다 (ADR-T2-3 중립 불변식).
+            for (int trial = 0; trial < 100; trial++)
+            {
+                AIVillage.M0.DiscoveryService d = NodesInLine(8);
+                // 비용을 들쭉날쭉하게 줘도 가중치가 0이면 결과가 흔들리면 안 된다.
+                d.ConfigureGatherChoice(0f, 0f, (x, y) => 1f + ((x + y + trial) % 4), null);
+
+                int fromX = (trial % 17) - 8, fromY = (trial % 11) - 5;
+                ResourceNode nearest = d.FindNearestDiscovered(ResourceType.Wood, fromX, fromY);
+                ResourceNode best = d.FindBestDiscovered(ResourceType.Wood, fromX, fromY, out ResourceNode alsoNearest);
+
+                Assert.AreSame(nearest, best,
+                    $"trial {trial}: 가중치가 0인데 최근접과 다른 노드를 골랐다 — 중립 불변식이 깨졌다");
+                Assert.AreSame(nearest, alsoNearest, $"trial {trial}: out nearest 가 최근접이 아니다");
+            }
+        }
+
+        [Test]
+        public void M26B_T4b_TerrainWeight_ActuallyChangesTheChoice()
+        {
+            // 실패 가능성 증명 — 가중치를 켰을 때 **실제로 다른 답**이 나와야 T4 가 의미를 갖는다.
+            var d = new AIVillage.M0.DiscoveryService();
+            d.AddResourceNode(new ResourceNode("close_swamp", ResourceType.Wood, 8, 0, 10f, 0f, true));
+            d.AddResourceNode(new ResourceNode("far_plain",   ResourceType.Wood, 14, 0, 10f, 0f, true));
+
+            // 가까운 쪽만 늪(EnterCost 3), 먼 쪽은 평지(1).
+            System.Func<int, int, float> cost = (x, y) => x == 8 ? 3f : 1f;
+
+            d.ConfigureGatherChoice(0f, 0f, cost, null);
+            Assert.AreEqual("close_swamp", d.FindBestDiscovered(ResourceType.Wood, 0, 0, out _).NodeId,
+                "가중치 0에서는 가까운 쪽을 골라야 한다 (그래야 아래 전환이 가중치 덕분임이 증명된다)");
+
+            d.ConfigureGatherChoice(1f, 0f, cost, null);
+            Assert.AreEqual("far_plain", d.FindBestDiscovered(ResourceType.Wood, 0, 0, out _).NodeId,
+                "지형 가중치를 켰는데도 늪에 선 가까운 노드를 골랐다 — 비용이 선택에 안 걸린다");
+
+            // 산수 검산 — 8×3 = 24 vs 14×1 = 14. 손으로 계산한 값과 함수가 일치하는가.
+            Assert.AreEqual(24f, AIVillage.M0.DiscoveryService.ScoreCandidate(8, 3f, 0f, 1f, 0f), 0.001f);
+            Assert.AreEqual(14f, AIVillage.M0.DiscoveryService.ScoreCandidate(14, 1f, 0f, 1f, 0f), 0.001f);
+        }
+
+        [Test]
+        public void M26B_T4c_DangerWeight_HasNoEffectWithoutASource()
+        {
+            // W6 전까지 위험 원천이 없다 — 가중치를 크게 켜도 동작이 변하면 안 된다
+            // (배포에 GatherDangerWeight=12 가 이미 들어가므로, 이게 지금 판을 흔들지 않음을 못박는다).
+            AIVillage.M0.DiscoveryService a = NodesInLine(6);
+            a.ConfigureGatherChoice(1f, 0f, (x, y) => 1f, null);
+            AIVillage.M0.DiscoveryService b = NodesInLine(6);
+            b.ConfigureGatherChoice(1f, 50f, (x, y) => 1f, null);   // dangerAt 가 null 이라 벌점 0
+
+            Assert.AreEqual(a.FindBestDiscovered(ResourceType.Wood, 0, 0, out _).NodeId,
+                            b.FindBestDiscovered(ResourceType.Wood, 0, 0, out _).NodeId,
+                            "위험 원천이 없는데 위험 가중치가 선택을 바꿨다");
+        }
+
         // ── T1-c: 중립 불변식 — 판정을 안 넘기면 舊 배치와 완전히 같다 ────────────
 
         [Test]

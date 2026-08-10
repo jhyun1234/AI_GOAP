@@ -190,6 +190,72 @@ namespace AIVillage.M0
             return best;
         }
 
+        // ── 채집 선택 (M26-2차 W4) ────────────────────────────────────────────
+        //
+        // 🔑 이 차수의 심장이다. 지금까지 채집은 **거리 하나**만 봤고, 그래서 *"가까운데 위험 vs
+        //    먼데 안전"* 을 비교할 자리가 **구조적으로 없었다** — 들판에 위협을 놓아도 주민은
+        //    모른 채 걸어간다. 거리 하나를 **점수 하나**로 바꾼다.
+        // 🔑 `FindNearestDiscovered` 는 **지우지 않는다** (ADR-T2-3): 가중치가 전부 0이면 점수가
+        //    맨해튼 거리와 같아져 두 함수가 **같은 노드**를 고른다. 그 중립 불변식이 있어야
+        //    회귀가 났을 때 가중치를 껐다 켜는 것만으로 원인을 가를 수 있다.
+
+        private float _gatherTerrainWeight;
+        private float _gatherDangerWeight;
+        private System.Func<int, int, float> _enterCostAt;
+        private System.Func<int, int, float> _dangerAt;
+
+        /// <summary>채집 선택을 켠다 (M26-2차 W4) — 조립 1회. 안 부르면 가중치 0 = 舊 동작.</summary>
+        /// <param name="enterCostAt">그 칸에 **들어가는** 비용 배수 (평지 1, 늪 3). null이면 전부 1.</param>
+        /// <param name="dangerAt">그 칸의 위험 기억 벌점. **W6이 채운다** — 지금은 null(=0)이다.</param>
+        public void ConfigureGatherChoice(float terrainWeight, float dangerWeight,
+                                          System.Func<int, int, float> enterCostAt,
+                                          System.Func<int, int, float> dangerAt)
+        {
+            _gatherTerrainWeight = Mathf.Max(0f, terrainWeight);
+            _gatherDangerWeight = Mathf.Max(0f, dangerWeight);
+            _enterCostAt = enterCostAt;
+            _dangerAt = dangerAt;
+        }
+
+        /// <summary>채집 후보 점수 — **낮을수록 좋다** (거리의 확장이라 부호를 맞춘다).
+        ///
+        /// 🔑 두 가중치가 0이면 이 값은 `dist` 와 **정확히 같다** (곱하는 항이 1, 더하는 항이 0).
+        ///    정수 거리는 float 로 정확히 표현되므로 비교 순서도 어긋나지 않는다.
+        /// ⚠️ **경로 비용의 근사다**: 후보마다 A\*를 돌리면 예산을 넘어, **목적지 칸**의 진입 비용만
+        ///    본다. 그래서 "늪에 서 있는 노드"는 걸러지지만 "평지 노드로 가는 길에 늪을 건넌다"는
+        ///    아직 안 보인다 — 정확한 경로 비용은 3차 몫이다 (ADR-T2-3).
+        /// </summary>
+        public static float ScoreCandidate(int dist, float enterCost, float danger,
+                                           float terrainWeight, float dangerWeight)
+            => dist * (1f + terrainWeight * (enterCost - 1f)) + dangerWeight * danger;
+
+        /// <summary>점수가 가장 낮은 채집 가능 노드. `FindNearestDiscovered` 의 확장이다.</summary>
+        /// <param name="nearest">같은 후보들 중 **최근접** 노드 — 둘이 다를 때만 화면에 알린다.</param>
+        public ResourceNode FindBestDiscovered(ResourceType type, int fromX, int fromY,
+                                               out ResourceNode nearest)
+        {
+            ResourceNode best = null;
+            nearest = null;
+            float bestScore = float.MaxValue;
+            int bestDist = int.MaxValue;
+
+            foreach (ResourceNode n in _nodes)
+            {
+                if (n.ResourceType != type || !n.IsDiscovered || !IsHarvestable(n)) continue;
+
+                int d = Manhattan(n.TileX, n.TileY, fromX, fromY);
+                if (d < bestDist) { bestDist = d; nearest = n; }
+
+                float cost = _enterCostAt != null ? _enterCostAt(n.TileX, n.TileY) : 1f;
+                float danger = _dangerAt != null ? _dangerAt(n.TileX, n.TileY) : 0f;
+                float s = ScoreCandidate(d, cost, danger, _gatherTerrainWeight, _gatherDangerWeight);
+
+                // `<` 로 비교해 **먼저 만난 쪽이 동점을 이긴다** — FindNearestDiscovered 와 같은 규약.
+                if (s < bestScore) { bestScore = s; best = n; }
+            }
+            return best;
+        }
+
         /// <summary>가장 가까운 미발견 노드 (타입 무관) — ExploreRunner의 1순위 목표. 없으면 null.</summary>
         public ResourceNode FindNearestUndiscovered(int fromX, int fromY)
         {

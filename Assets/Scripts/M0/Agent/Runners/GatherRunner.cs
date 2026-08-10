@@ -26,7 +26,17 @@ namespace AIVillage.M0
                 && target.IsDiscovered && DiscoveryService.IsHarvestable(target))
                 _node = target;
             else
-                _node = agent.Discovery.FindNearestDiscovered(_so.TargetResource, agent.TileX, agent.TileY);
+            {
+                // 채집 선택 (M26-2차 W4) — 거리 하나가 아니라 점수 하나로 고른다.
+                // 가중치가 0이면 `FindNearestDiscovered` 와 같은 답이다 (ADR-T2-3 중립 불변식).
+                _node = agent.Discovery.FindBestDiscovered(_so.TargetResource, agent.TileX, agent.TileY,
+                                                           out ResourceNode nearest);
+                // 🔑 **다른 답이 나왔을 때만** 알린다 — 같은 답이면 할 말이 없다.
+                //    이 줄이 성공 기준 ③의 탐지기다: 최근접만 보던 시절엔 구조적으로 0건이었다.
+                if (_node != null && nearest != null && !ReferenceEquals(_node, nearest))
+                    Debug.Log($"[채집선택] {agent.ShortName} — 가까운 {_so.TargetResource}" +
+                              $"({Dist(agent, nearest)}칸)를 두고 먼 쪽({Dist(agent, _node)}칸)을 골랐다");
+            }
 
             if (_node == null)
             {
@@ -85,5 +95,9 @@ namespace AIVillage.M0
                         return e.Value;
             return 0;
         }
+
+        /// <summary>주민에서 노드까지의 맨해튼 거리 — 채집 선택 로그 표시용 (판정에는 안 쓴다).</summary>
+        private static int Dist(VillagerAgent agent, ResourceNode n)
+            => Mathf.Abs(n.TileX - agent.TileX) + Mathf.Abs(n.TileY - agent.TileY);
     }
 }

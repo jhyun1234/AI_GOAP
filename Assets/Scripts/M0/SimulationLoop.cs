@@ -295,6 +295,17 @@ namespace AIVillage.M0
         private bool DefenseTileBuildable(int x, int y)
             => DefenseTileFree(x, y) && !Discovery.HasNodeAt(x, y);
 
+        /// <summary>
+        /// 타일 진입 비용 (M26-1차 W1) — `ADR_경로탐색_확장경계.md` §경계 2가 예고한 자리.
+        /// 통행 질문(`IsWalkable`) 곁에 **비용 질문 하나**를 나란히 둔다: 호출부는 그대로 두고
+        /// 지형만 이 한 줄로 흡수한다.
+        ///
+        /// 🔑 지형이 미배선인 지금은 **항상 1** = 균일 = JPS 와 같은 답이다 (중립 불변식).
+        /// W2 가 `TerrainService`를 세우면 여기 한 줄이 그것을 가리킨다 — 경로탐색은 안 건드린다.
+        /// ⚠️ 개체 종류로 갈리지 않는다 (ADR-T-3): 문은 주민·위협이 다르지만 **늪은 누구에게나 늪**이다.
+        /// </summary>
+        private float TileEnterCost(int tileX, int tileY) => 1f;
+
         /// <summary>노드를 뺀 나머지 조건 — 맵 안 + 통행 가능 + 기존 건물 없음 (M22-4차 W3).</summary>
         private bool DefenseTileFree(int x, int y)
             => MapBounds.ToArrayIndex(x, y, out int ax, out int ay)
@@ -1165,10 +1176,13 @@ namespace AIVillage.M0
                     ThreatWalkable[x, y] = true;
                 }
 
-            // 경로 탐색 창구 — 통행 배열을 지연 조회하는 JPS 어댑터로 초기화한다.
-            // 후반 A*/HPA* 교체는 이 두 줄만 바꾼다 (Docs/ADR_경로탐색_확장경계.md).
-            Pathfinder = new JpsPathfinder(() => Walkable);
-            ThreatPathfinder = new JpsPathfinder(() => ThreatWalkable);
+            // 경로 탐색 창구 — 통행 배열을 지연 조회한다.
+            // 🔴 M26-1차 W1: **JPS → A\*** (ADR-T-2). 예고대로 **이 두 줄만** 바뀌었다
+            //    (`Docs/ADR_경로탐색_확장경계.md` 트리거 A — 가중치 지형 도입).
+            //    비용 창구(TileEnterCost)가 미배선인 동안은 전부 1 = 균일 = **JPS 와 같은 답**이다.
+            //    JPS 는 지우지 않았다 — 되돌릴 길이고, HPA* 때 균일 구역 solver 로 다시 쓴다.
+            Pathfinder = new AStarPathfinder(() => Walkable, TileEnterCost);
+            ThreatPathfinder = new AStarPathfinder(() => ThreatWalkable, TileEnterCost);
 
             // 야생 위협 (M10-C) — Threats가 비면 서비스 null (중립 불변식, DisasterService 패턴).
             // 부상·파괴는 문(Injure/RemoveCountableAt)을 지난다 — 서비스가 상태를 직접 쓰지 않는다.

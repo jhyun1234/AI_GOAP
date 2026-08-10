@@ -86,6 +86,11 @@ namespace AIVillage.M0
         /// <summary>체류 중 (M21-W8 — HUD 습격 프롬프트 판독점). 도착~퇴장 전 = "습격 중".</summary>
         public bool Staying => _arrived && !_exiting;
 
+        /// <summary>들판 상주형인가 (M26-2차 W5) — 서식지에 태어나 **퇴장하지 않는다**.
+        /// 🔑 `TargetsVillagers` 와 **다른 축**이다: 상주는 밭형처럼 제자리에 도착해 배회하되
+        /// (그래서 마을까지 걸어가지 않는다) 타격 대상은 주민이다.</summary>
+        public bool IsResident => So != null && So.IsResident;
+
         /// <summary>체류 시작 시각 (게임일) — MaxStayDays 판정의 원본. 쓰기는 MarkArrived.</summary>
         public float ArrivedDay { get; private set; }
 

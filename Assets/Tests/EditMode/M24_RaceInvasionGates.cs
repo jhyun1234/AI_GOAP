@@ -350,8 +350,10 @@ namespace AIVillage.Tests.EditMode
             int births = 0, from = 0;
             while ((from = src.IndexOf("AddComponent<ThreatAgent>", from, System.StringComparison.Ordinal)) >= 0)
             { births++; from += 1; }
+            // 🔑 문의 이름은 `CreateAgent` 다 (M26-2차 W5에서 상주 통로가 생기며 합쳤다).
+            //    검사가 세는 것은 이름이 아니라 **생성 지점의 수**라 그대로 유효하다.
             Assert.AreEqual(1, births,
-                $"위협 개체가 태어나는 곳이 {births}군데다 — 출몰의 문은 Spawn 하나여야 한다");
+                $"위협 개체가 태어나는 곳이 {births}군데다 — 출몰의 문은 CreateAgent 하나여야 한다");
         }
 
         [Test]

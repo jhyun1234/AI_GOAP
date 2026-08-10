@@ -446,6 +446,65 @@ namespace AIVillage.Tests.EditMode
                             "위험 원천이 없는데 위험 가중치가 선택을 바꿨다");
         }
 
+        // ── W5: 들판 상주 위협 ────────────────────────────────────────────────────
+        //
+        // 🔴 고정한 축: **배포 `ThreatSO` 전부**를 본다. 검사용 위협을 지어내면 "기존 4종이
+        //    안 바뀐다"를 증명하지 못한다 — 배포가 상주로 바뀌어도 초록이 뜬다.
+
+        [Test]
+        public void M26B_T8_ResidentIsADistinctAxis_AndDoesNotTouchWaves()
+        {
+            var all = new List<AIVillage.M0.ThreatSO>();
+            foreach (string guid in AssetDatabase.FindAssets("t:ThreatSO"))
+            {
+                var t = AssetDatabase.LoadAssetAtPath<AIVillage.M0.ThreatSO>(
+                    AssetDatabase.GUIDToAssetPath(guid));
+                if (t != null) all.Add(t);
+            }
+            Assert.Greater(all.Count, 0, "ThreatSO 에셋이 하나도 없다");
+
+            foreach (AIVillage.M0.ThreatSO so in all)
+            {
+                if (so.IsResident)
+                {
+                    // 상주인데 마릿수가 0이면 아무 일도 안 일어난다 — 켜 놓고 잊은 상태를 잡는다.
+                    Assert.Greater(so.ResidentCount, 0,
+                        $"{so.name}: 상주형인데 ResidentCount 가 0이다 (켜 놓고 잊었다)");
+                    // 상주는 제자리에 도착해 배회한다 — 반경이 0이면 한 칸에 굳는다.
+                    Assert.Greater(so.WanderRadiusTiles, 0,
+                        $"{so.name}: 상주형인데 배회 반경이 0이다 (들판에 박제가 선다)");
+                }
+                else
+                {
+                    // 🔑 중립 불변식 — 상주가 아닌 종족은 W5 배선 전과 **완전히 같다**.
+                    Assert.AreEqual(0, so.ResidentCount,
+                        $"{so.name}: 상주형이 아닌데 ResidentCount 가 0이 아니다 (아무도 안 읽는 값)");
+                    Assert.IsTrue(so.HabitatTerrain == null || so.HabitatTerrain.Length == 0,
+                        $"{so.name}: 상주형이 아닌데 서식지가 설정돼 있다 (아무도 안 읽는 값)");
+                }
+            }
+        }
+
+        [Test]
+        public void M26B_T8b_ResidentAxis_IsIndependentOfVillagerTargeting()
+        {
+            // 🔴 명세(ADR-T2-6)는 "상주 = 퇴장 없는 배회"라 했지만 그것만으로는 성립하지 않는다:
+            //    밭형은 제자리에 도착해 배회하되 **주민을 안 치고**, 주민형은 주민을 치되
+            //    **마을까지 걸어간다**. 상주 = "밭형으로 태어나 주민을 친다"는 제3의 조합이다.
+
+            // 🔑 중립 불변식 — 상주가 아니면 판정은 舊 동작(타깃 롤)과 **글자 그대로 같다**.
+            Assert.IsFalse(AIVillage.M0.ThreatService.StrikesVillagers(false, false),
+                "상주도 주민형도 아닌데 주민을 친다 — 밭형 웨이브가 주민을 물게 된다");
+            Assert.IsTrue(AIVillage.M0.ThreatService.StrikesVillagers(true, false),
+                "주민형 웨이브가 주민을 안 친다");
+
+            // 상주는 밭형으로 태어나지만 주민을 친다 — 이 조합이 W5의 전부다.
+            Assert.IsTrue(AIVillage.M0.ThreatService.StrikesVillagers(false, true),
+                "상주가 밭을 치러 든다 — 들판엔 밭이 없어 아무 일도 안 일어난다");
+            Assert.IsTrue(AIVillage.M0.ThreatService.StrikesVillagers(true, true),
+                "주민형 상주가 주민을 안 친다");
+        }
+
         // ── T1-c: 중립 불변식 — 판정을 안 넘기면 舊 배치와 완전히 같다 ────────────
 
         [Test]

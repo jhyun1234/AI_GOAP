@@ -956,6 +956,102 @@ namespace AIVillage.M0
         /// <param name="so">주력 종족 — 타깃 종류·진입점·공성 판정이 이 하나를 따른다
         /// (한 웨이브는 한 곳을 노린다. 다지점 진입은 W7 몫).</param>
         /// <param name="wave">편성 — (종족, 등급, 마릿수) 칸들. 이 목록이 곧 태어날 개체다.</param>
+        /// <summary>이 개체가 **주민을 치는가** (순수 — 게이트 `M26B_T8b`).
+        ///
+        /// 🔴 `ADR-T2-6` 개정의 자리다. 명세는 *"상주 = 퇴장 없는 배회"* 라 했지만 그것만으로는
+        /// 성립하지 않는다: 밭형은 제자리에 도착해 배회하되 **주민을 안 치고**(들판엔 밭이 없어
+        /// 아무 일도 안 일어난다), 주민형은 주민을 치되 **마을까지 걸어간다**(상주가 아니게 된다).
+        /// 그래서 상주는 **밭형으로 태어나 주민을 치는** 제3의 조합이다 — 축이 둘로 갈린다.
+        /// (그래도 새 러너·새 상태는 0이다. 갈린 것은 판정 한 줄이다.)
+        /// </summary>
+        public static bool StrikesVillagers(bool targetsVillagers, bool isResident)
+            => targetsVillagers || isResident;
+
+        /// <summary>상주 무리 키 (M26-2차 W5) — `_strikeOrdinal`(1부터)과 절대 겹치지 않는 음수다.
+        /// 🔑 `_groupSpawned`에 **등록하지 않는다**: 등록하면 한 마리가 죽을 때 무리 도주선이
+        /// 발동해 들판의 상주가 통째로 도망친다 (상주는 무리가 아니라 개체다).</summary>
+        private const int RESIDENT_GROUP = -1;
+
+        /// <summary>
+        /// 들판 상주 배치 (M26-2차 W5) — **판 시작 1회**. 웨이브가 아니므로 예고도 예산도 없다.
+        ///
+        /// 🔴 압력(`ADR-M24-1`)을 건드리지 않는다: `_strikeOrdinal`·`_encounters`·`_groupSpawned`
+        ///    어느 것도 쓰지 않는다. 안 죽고 안 나가는 개체가 예산을 점유하면 웨이브가 영영 안 온다.
+        /// 🔑 자리는 **시드 롤**이다 (`ADR-M10R-2` — 같은 판이면 같은 자리). 랜덤이면 연대기가
+        ///    가리키는 판을 다시 열 수 없다.
+        /// </summary>
+        /// <param name="terrainAt">지형 조회 (null이면 서식지 조건 무시).</param>
+        /// <param name="safeRadius">마을 중심 둘레 이 반경(체비쇼프) 안에는 놓지 않는다.</param>
+        public int SpawnResidents(IReadOnlyList<ThreatSO> races, uint runSeed,
+                                  System.Func<int, int, TerrainTypeSO> terrainAt, int safeRadius)
+        {
+            if (races == null || _isWalkable == null) return 0;
+            MapBounds.Get(out int minX, out int maxX, out int minY, out int maxY);
+            int total = 0;
+
+            foreach (ThreatSO so in races)
+            {
+                if (so == null || !so.IsResident || so.ResidentCount <= 0) continue;
+                int placed = 0;
+
+                for (int n = 0; n < so.ResidentCount; n++)
+                {
+                    uint roll = StableHash.Fnv1a($"{so.name}_{n}", "resident") ^ runSeed;
+                    bool ok = false;
+                    for (int attempt = 0; attempt < 200 && !ok; attempt++)
+                    {
+                        uint r = roll + (uint)attempt * 2654435761u;
+                        int x = minX + (int)(r % (uint)(maxX - minX + 1));
+                        int y = minY + (int)((r / 7919u) % (uint)(maxY - minY + 1));
+
+                        if (Mathf.Max(Mathf.Abs(x - VillageCenter.x),
+                                      Mathf.Abs(y - VillageCenter.y)) <= safeRadius) continue;
+                        if (!_isWalkable(x, y)) continue;
+                        if (terrainAt != null && so.HabitatTerrain != null && so.HabitatTerrain.Length > 0
+                            && System.Array.IndexOf(so.HabitatTerrain, terrainAt(x, y)) < 0) continue;
+
+                        SpawnOneResident(so, new Vector2Int(x, y));
+                        placed++; total++; ok = true;
+                    }
+                    if (!ok)
+                        Debug.LogWarning($"[Threat] 상주 배치 실패 — {so.DisplayName} {n + 1}/{so.ResidentCount} " +
+                                         "(서식지 조건을 만족하는 칸을 못 찾았다)");
+                }
+                if (placed > 0)
+                    Debug.Log($"[Threat] 들판 상주 — {so.DisplayName} {placed}마리가 판 시작부터 들판에 산다");
+            }
+            return total;
+        }
+
+        /// <summary>상주 1마리 — 제자리가 곧 목표다(`waypoints: null` = AlreadyThere → 즉시 도착·배회).
+        /// 🔑 `targetsVillagers: false` 로 태어난다: 주민형이면 마을까지 걸어가 버려 **상주가 아니게 된다.**
+        /// 곁에 온 주민을 무는 것은 `NotifyStrikeTick` 의 `IsResident` 분기가 맡는다.</summary>
+        private void SpawnOneResident(ThreatSO so, Vector2Int at)
+            => CreateAgent($"Resident_{so.name}_{at.x}_{at.y}", so, at, at,
+                           null, false, RESIDENT_GROUP, 1f);
+
+        /// <summary>
+        /// 위협 개체가 태어나는 **유일한 문** (게이트 `M24_T7`이 전수로 감시한다).
+        ///
+        /// 🔴 문이 둘이면 테스트에서 본 적과 실전에서 오는 적이 **다른 물건**이 되고, 그 순간
+        /// 관측이 거짓말을 시작한다. 특성 부여·무리 키·경로탐색 주입이 여기 한 곳에 모여 있어야
+        /// 어느 경로로 태어나든 같은 계약을 진다 (M26-2차 W5에서 상주 통로가 생기며 이 문으로 합쳤다).
+        /// </summary>
+        private ThreatAgent CreateAgent(string name, ThreatSO so, Vector2Int at, Vector2Int target,
+                                        List<Vector2Int> waypoints, bool targetsVillagers,
+                                        int groupKey, float gradeMult)
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(_parent, worldPositionStays: false);
+            go.transform.position = new Vector3(at.x, at.y, 0f); // ADR-M0-9 — X-Y 평면
+            ThreatAgent agent = go.AddComponent<ThreatAgent>();
+            agent.Init(so, this, at, target, waypoints, _pathfinder(), targetsVillagers,
+                       groupKey, gradeMult,
+                       ActiveTraits(so, PressureOf(so))); // 쓰는 수 (M24-1차 W5, 스폰 시 고정)
+            _active.Add(agent);
+            return agent;
+        }
+
         private void Spawn(ThreatSO so, List<WaveEntry> wave)
         {
             _strikeOrdinal++;
@@ -1091,17 +1187,11 @@ namespace AIVillage.M0
                     continue;
                 }
 
-                var go = new GameObject($"Threat_{race.name}_{_strikeOrdinal}_{i}");
-                go.transform.SetParent(_parent, worldPositionStays: false);
-                go.transform.position = new Vector3(at.x, at.y, 0f); // ADR-M0-9 — X-Y 평면
-                ThreatAgent agent = go.AddComponent<ThreatAgent>();
-                agent.Init(race, this, at, target,
-                           p.Kind == PathResultKind.PathFound ? p.Waypoints : null,
-                           _pathfinder(), targetsVillagers, // 추격 재경로용 + 이번 출몰 타깃 종류 (M10R)
-                           _strikeOrdinal,                  // 무리 키 (M21-W6)
-                           mult,                            // 등급 배율 (M24-1차 W4)
-                           ActiveTraits(race, PressureOf(race))); // 쓰는 수 (M24-1차 W5, 스폰 시 고정)
-                _active.Add(agent);
+                CreateAgent($"Threat_{race.name}_{_strikeOrdinal}_{i}", race, at, target,
+                            p.Kind == PathResultKind.PathFound ? p.Waypoints : null,
+                            targetsVillagers, // 추격 재경로용 + 이번 출몰 타깃 종류 (M10R)
+                            _strikeOrdinal,   // 무리 키 (M21-W6)
+                            mult);            // 등급 배율 (M24-1차 W4)
                 spawned++;
             }
             if (spawned == 0) { _groupSiege.Remove(_strikeOrdinal); return; } // 전 개체 생략 — 공성 등록도 회수
@@ -1303,11 +1393,16 @@ namespace AIVillage.M0
         public void NotifyStrikeTick(ThreatAgent agent)
         {
             if (agent.IsExiting) return;
-            float limit = StayLimitOf(agent);
-            if (ShouldGiveUpStay(agent.ArrivedDay, _gameTime, limit))
+            // 상주형에는 체류 상한이 없다 (M26-2차 W5). 🔴 **여기서 걸러야 한다** — BeginExit만
+            // 막으면 상한 판정이 매 틱 참이 되어 아래 `return`에 걸려 **영영 타격하지 않는다.**
+            if (!agent.IsResident)
             {
-                BeginExit(agent, $"체류 상한 {limit:0.##}일");
-                return;
+                float limit = StayLimitOf(agent);
+                if (ShouldGiveUpStay(agent.ArrivedDay, _gameTime, limit))
+                {
+                    BeginExit(agent, $"체류 상한 {limit:0.##}일");
+                    return;
+                }
             }
             if (!ShouldRepeatStrike(agent.LastStrikeDay, _gameTime, agent.So.RepeatStrikePeriodDays)) return;
 
@@ -1319,7 +1414,9 @@ namespace AIVillage.M0
             if (st == SiegeTick.Struck) { agent.MarkStruck(_gameTime); return; }
             if (st != SiegeTick.NotSiege) return;
 
-            if (!agent.TargetsVillagers)
+            bool strikesVillagers = StrikesVillagers(agent.TargetsVillagers, agent.IsResident);
+
+            if (!strikesVillagers)
             {
                 if (!HasFarmTargetsNear(agent.So, here))
                 {
@@ -1329,7 +1426,7 @@ namespace AIVillage.M0
             }
             else if (!HasVillagerTargetsNear(agent.So, here)) return; // 사거리 밖 = 아직 못 잡았다 (추격이 잇는다)
 
-            ExecuteStrike(agent.So, agent.TargetsVillagers, here, out Vector2 focus);
+            ExecuteStrike(agent.So, strikesVillagers, here, out Vector2 focus);
             agent.PlayAttack(focus); // 공격 몸짓 (M22-3차 W5c — 표현 전용, 판정과 무관)
             agent.MarkStruck(_gameTime);
 
@@ -1373,6 +1470,9 @@ namespace AIVillage.M0
         public void BeginExit(ThreatAgent agent, string reason)
         {
             if (agent == null || agent.IsExiting) return;
+            // 상주형은 나가지 않는다 (M26-2차 W5) — 들판이 그들의 집이다. 퇴장 경로가
+            // **이 문 하나뿐**이라(M21-W2 규약) 여기 한 줄로 도주·상한·대상소멸이 전부 막힌다.
+            if (agent.IsResident) return;
             Debug.Log($"[Threat] 퇴장 개시 — {agent.So.DisplayName}: {reason}");
             PathResult exit = _pathfinder().FindPath(agent.TileX, agent.TileY,
                                                      agent.EntryTile.x, agent.EntryTile.y);

@@ -95,6 +95,22 @@ namespace AIVillage.M0
                  "버틴다 — 정확히 이 비율이면 아직 싸운다). 개체 도주선(FleeBelowHpPct)과 별개.")]
         [Range(0f, 1f)] public float RoutBelowPct = 0.5f;
 
+        [Header("들판 상주 (M26-2차 W5 — 침공 웨이브가 아니라 판 시작부터 들판에 산다)")]
+        [Tooltip("상주형인가. true면 **판 시작에 서식지에 태어나고 퇴장하지 않는다** — 웨이브가 아니다.\n" +
+                 "🔑 압력 예산(ADR-M24-1)에 **계상하지 않는다**: 안 죽고 안 나가는 개체가 예산을 " +
+                 "영구 점유하면 웨이브가 영영 안 온다.\n" +
+                 "🔴 이 축은 `VillagerTargetChance`와 **다른 자다**. 상주는 밭형처럼 제자리에 도착해 " +
+                 "배회하되(마을까지 걸어가지 않는다) 타격 대상은 **주민**이다 — 곁에 온 사람만 문다.")]
+        public bool IsResident;
+
+        [Tooltip("어느 지형에 사는가 (상주형 전용). **비우면 아무 데나** — 마을 안전반경 안쪽은 " +
+                 "코드가 이미 막는다. 늪에 몰아넣으면 늪이 '느린 방어선'이 아니라 '위험한 땅'이 되므로 " +
+                 "1차 의도와 반대로 갈 수 있다 — 값은 Play 후 판단.")]
+        public AIVillage.M0.TerrainTypeSO[] HabitatTerrain;
+
+        [Tooltip("판 시작에 몇 마리를 놓는가 (상주형 전용). 0이면 상주 안 함.")]
+        [Min(0)] public int ResidentCount;
+
         [Header("배회 (M21-W2R — 정지의 폐기, ADR-M21-10: 동선은 표현이라 난수 허용)")]
         [Tooltip("배회 반경 (타일) — 도착 지점을 앵커로 이 반경 안의 통행 가능 타일을 오간다. " +
                  "주민 여가 배회(RestByCampfire.WanderRadius 4)보다 한 칸 크게 = 짐승이 더 넓게 돈다. " +

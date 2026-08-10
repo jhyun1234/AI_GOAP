@@ -52,6 +52,13 @@ namespace AIVillage.Core
         // 현재 스폰의 노드 등록처 (SpawnAll 진입 시 설정)
         private IResourceNodeSink _sink;
 
+        // 판 시드 덮어쓰기 (M26-1차 W2) — 0 = 안 씀 (에셋 randomSeed 규약 그대로).
+        private int _seedOverride;
+
+        /// <summary>판 시드를 주입한다 (M26-1차 W2, ADR-T-4) — **SpawnAll 전에** 부른다.
+        /// 지형과 노드가 같은 시드에서 나오게 하는 유일한 통로다.</summary>
+        public void OverrideSeed(int seed) => _seedOverride = seed;
+
         // ─────────────────────────────────────────────────────────────────────────
         // 공개 API
         // ─────────────────────────────────────────────────────────────────────────
@@ -97,10 +104,13 @@ namespace AIVillage.Core
             _mapMinY = -map.mapOffset;
             _mapMaxY =  map.mapSize - map.mapOffset - 1;
 
-            // RNG 초기화 — 0이면 매 실행 랜덤, 양수면 고정 시드로 동일 배치 재현 가능
-            int seed = _config.randomSeed != 0
-                ? _config.randomSeed
-                : UnityEngine.Random.Range(1, int.MaxValue);
+            // RNG 초기화 — 우선순위: 호출자가 넘긴 판 시드 > 에셋 randomSeed > 매 실행 랜덤.
+            // 🔑 M26-1차 W2 (ADR-T-4): 판 시드가 오면 **지형과 노드가 같은 시드**에서 나온다.
+            //    그전까지 이 시드는 익명이라 같은 판을 다시 볼 수 없었다.
+            int seed = _seedOverride != 0
+                ? _seedOverride
+                : (_config.randomSeed != 0 ? _config.randomSeed
+                                           : UnityEngine.Random.Range(1, int.MaxValue));
             _rng = new System.Random(seed);
 
             _allPlacedPositions.Clear();

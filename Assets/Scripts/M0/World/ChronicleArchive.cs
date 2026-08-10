@@ -50,6 +50,9 @@ namespace AIVillage.M0
                                         // ⚠️ WorldModel.IssuedTotal만 담는다. MintedTotal에는
                                         // 임금·원천징수가 섞여 있어 "찍어서 버텼다"를 왜곡한다.
                                         // 이 둘의 비율이 곧 서사다: 세수로 굴린 판인가, 찍어서 버틴 판인가.
+            public int    RunSeed;      // 이 판의 지도 시드 — M26-1차 W2 append (ADR-T-4·M14-3).
+                                        // 0 = 지형 이전 기록. 🔑 이게 있어야 "그 판을 다시" 가 된다:
+                                        // 지형과 노드 배치가 이 하나에서 나온다.
             public List<VillagerEntry> Roster = new List<VillagerEntry>();
         }
 

@@ -123,6 +123,11 @@ namespace AIVillage.Core
             if (_node != null && _node.IsRemoved) { Destroy(gameObject); return; }
             if (_node == null || _sr == null) return;
 
+            // 노드가 자리를 옮겼으면 따라간다 (M26-1차 W6) — 그림이 옛 자리에 남으면
+            // 플레이어는 "저기 나무가 있는데 왜 안 캐지?"를 보게 된다.
+            var tile = new Vector3(_node.TileX, _node.TileY, transform.position.z);
+            if ((transform.position - tile).sqrMagnitude > 1e-6f) transform.position = tile;
+
             // FoW: 미발견 노드는 렌더러를 끄고 나머지 처리 생략
             if (!_node.IsDiscovered)
             {

@@ -79,6 +79,10 @@ namespace AIVillage.M0
         // 이미 _sim 이 갖고 있는 것을 그대로 연다 (World·Discovery 와 같은 패턴, 새 배선 0).
         public ActionCatalog Catalog => _sim.Catalog;
 
+        /// <summary>지금 밟고 선 땅의 속도 배수 (M26-1차 W4) — 지형 미배선이면 1 (중립).</summary>
+        private float TerrainSpeedMult()
+            => _sim.Terrain != null ? _sim.Terrain.SpeedMult(TileX, TileY) : 1f;
+
         /// <summary>망루 탑승 중인가 (M22-3차 W3, ADR-M22-11) — 위협 희생 선정에서 제외되는
         /// 유일한 근거 (높이). 쓰기는 ManTowerRunner의 탑승/Cleanup 두 지점뿐 — 세이브 대상
         /// 아님 (러너 상태와 한 몸, 로드 후 재계획이 다시 올린다 — ADR-M0-10).</summary>
@@ -1331,8 +1335,11 @@ namespace AIVillage.M0
             bool nearDest = _wpIndex >= _waypoints.Count - 1
                             && (transform.position - targetPos).magnitude < _cfg.DecelDistance;
             // 부상 감속 (M10-A) — 속도 계산의 유일한 지점에 배율 1곱 (절뚝임. None이면 1 = 중립)
+            // 지형 감속 (M26-1차 W4, ADR-T-6) — **같은 자리에 배율 하나 더**. 늪은 늪이다.
+            // 🔑 경로 비용(A*)만 올리면 주민이 돌아갈 뿐 느려지는 걸 아무도 못 본다. 둘이 짝이다.
             float speed = _motion.Tick(dt, nearDest)
-                          * (Injury != InjurySeverity.None ? _cfg.InjuredMoveSpeedMult : 1f);
+                          * (Injury != InjurySeverity.None ? _cfg.InjuredMoveSpeedMult : 1f)
+                          * TerrainSpeedMult();
             // 방향은 **의미 있는 거리가 남았을 때만** 갱신한다 (2026-08-10). 도착 직전엔 남은
             // 벡터가 0에 수렴하는데, 그걸 normalize 하면 잡음이 방향으로 증폭되고 (0,0)이 되면
             // 보던 쪽마저 잃는다 — 축 히스테리시스가 지켜 낸 방향을 마지막 프레임에 놓치게 된다.

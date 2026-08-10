@@ -31,6 +31,26 @@ namespace AIVillage.M0
         [Tooltip("씬의 ResourceNodeSpawner (재사용 컴포넌트)")]
         [SerializeField] private ResourceNodeSpawner _nodeSpawner;
 
+        [Tooltip("지형 팔레트 (M26-1차 W2). 순서 무관 — 각 에셋의 Priority가 정한다. " +
+                 "비우면 지형 없음 = 오늘과 완전히 같은 판 (중립 불변식).")]
+        [SerializeField] private TerrainTypeSO[] _terrainPalette;
+
+        [Tooltip("마을 중심 둘레 이 반경(체비쇼프)은 반드시 평지 — 태어나자마자 갇히는 판 방지. " +
+                 "제안치 12 (BaseDiscoverRadius와 같은 대역).")]
+        [SerializeField] private int _terrainSafeRadius = 12;
+
+        [Tooltip("판 시드 (M26-1차 W2, ADR-T-4). 0이면 매 판 새로 뽑는다. " +
+                 "양수를 넣으면 그 판을 재현한다 — 지형과 노드 배치가 함께 고정된다.")]
+        [SerializeField] private int _runSeed;
+
+        [Tooltip("노드가 이만큼(게임일) 고갈 상태로 버티면 자리를 옮긴다 (M26-1차 W6). " +
+                 "제안치 3 — 고갈은 흔하므로 짧으면 '숲이 걸어 다닌다'가 된다. 0 = 안 옮김(중립).")]
+        [SerializeField] private float _nodeRelocateAfterDays = 3f;
+
+        [Tooltip("옮길 때 원래 자리에서 이 반경(체비쇼프) 안에서만 고른다 — 광맥을 따라가는 느낌. " +
+                 "제안치 6. 0 = 안 옮김.")]
+        [SerializeField] private int _nodeRelocateRadius = 6;
+
         [Tooltip("주민 스프라이트 세트 (W5). 비우면 원형 마커 폴백.")]
         [SerializeField] private AgentSpriteSetSO _spriteSet;
 
@@ -121,6 +141,13 @@ namespace AIVillage.M0
         /// <summary>위협 전용 경로 창구 (ADR-M22-1) — ThreatWalkable을 보는 두 번째 JPS 인스턴스.
         /// "누가 묻는가"는 시그니처가 아니라 인스턴스 선택이 흡수한다 (트리거 C, 확장경계 ADR).</summary>
         public IPathfinder ThreatPathfinder { get; private set; }
+
+        /// <summary>지형 지도 (M26-1차 W2) — null·빈 팔레트 = 지형 없는 판 (오늘과 동일, 중립).</summary>
+        public TerrainService Terrain { get; private set; }
+
+        /// <summary>이 판의 시드 (M26-1차 W2, ADR-T-4) — 지형과 노드 배치가 **함께** 여기서 나온다.
+        /// 연대기에 남는다: 이게 없으면 맵이 판마다 다르되 **익명**이라 같은 판을 다시 볼 수 없다.</summary>
+        public int RunSeed { get; private set; }
 
         /// <summary>방어 계획·내구도 (M22) — 구역 확정 시 둘레 계획, W5부터 내구도 소유 (ADR-M22-3).</summary>
         public DefenseService Defense { get; private set; }
@@ -300,11 +327,11 @@ namespace AIVillage.M0
         /// 통행 질문(`IsWalkable`) 곁에 **비용 질문 하나**를 나란히 둔다: 호출부는 그대로 두고
         /// 지형만 이 한 줄로 흡수한다.
         ///
-        /// 🔑 지형이 미배선인 지금은 **항상 1** = 균일 = JPS 와 같은 답이다 (중립 불변식).
-        /// W2 가 `TerrainService`를 세우면 여기 한 줄이 그것을 가리킨다 — 경로탐색은 안 건드린다.
+        /// 🔑 지형이 미배선이면 **항상 1** = 균일 = JPS 와 같은 답이다 (중립 불변식).
         /// ⚠️ 개체 종류로 갈리지 않는다 (ADR-T-3): 문은 주민·위협이 다르지만 **늪은 누구에게나 늪**이다.
         /// </summary>
-        private float TileEnterCost(int tileX, int tileY) => 1f;
+        private float TileEnterCost(int tileX, int tileY)
+            => Terrain != null ? Terrain.EnterCost(tileX, tileY) : 1f;   // M26-1차 W2 배선
 
         /// <summary>노드를 뺀 나머지 조건 — 맵 안 + 통행 가능 + 기존 건물 없음 (M22-4차 W3).</summary>
         private bool DefenseTileFree(int x, int y)
@@ -790,6 +817,7 @@ namespace AIVillage.M0
                 PeakPop = PeakPopulation,
                 Settles = SettleCount,
                 Ended   = ended,
+                RunSeed = RunSeed,   // M26-1차 W2 — 이 판의 지도 (ADR-T-4)
                 // M19-W4: 화폐 철거 — 세 필드는 append-only 규약(ADR-M14-3)으로 잔류하되
                 // 기록은 중립값 (옛 판 아카이브는 그대로 표시된다. ComposeRunEconomy는
                 // 100/0/0이면 항목을 감춘다 — 새 판에는 경제 줄이 아예 안 나온다)
@@ -1176,6 +1204,47 @@ namespace AIVillage.M0
                     ThreatWalkable[x, y] = true;
                 }
 
+            // 판 시드 + 지형 지도 (M26-1차 W2, ADR-T-4·T-5) — 경로탐색보다 **먼저** 세운다:
+            // 비용 창구가 이걸 읽기 때문이다. 시드 0 = 매 판 새로 (오늘 노드 스폰과 같은 규약),
+            // 양수 = 그 판 재현. 지형·노드가 **같은 시드**에서 나오는 것이 요점이다.
+            RunSeed = _runSeed != 0 ? _runSeed : Random.Range(1, int.MaxValue);
+            Terrain = new TerrainService((uint)RunSeed,
+                                         new Vector2Int(_worldConfig.BaseTileX, _worldConfig.BaseTileY),
+                                         _terrainSafeRadius, _terrainPalette);
+
+            // 지형이 통행 배열 **두 장에 같이** 먹는다 (M26-1차 W3, ADR-T-3).
+            // 🔴 배열이 둘인 이유는 **문**이지 지형이 아니다 — 문은 개체별로 갈리지만
+            //    물·절벽은 누구에게나 막힌다. 그래서 여기서 두 장을 함께 끈다.
+            int blockedTiles = 0;
+            if (!Terrain.IsEmpty)
+            {
+                MapBounds.Get(out int tMinX, out int tMaxX, out int tMinY, out int tMaxY);
+                for (int tx = tMinX; tx <= tMaxX; tx++)
+                    for (int ty = tMinY; ty <= tMaxY; ty++)
+                    {
+                        if (Terrain.IsWalkable(tx, ty)) continue;
+                        if (!MapBounds.ToArrayIndex(tx, ty, out int ax, out int ay)) continue;
+                        Walkable[ax, ay] = false;
+                        ThreatWalkable[ax, ay] = false;
+                        blockedTiles++;
+                    }
+            }
+            // 리스폰 자리 이동 (M26-1차 W6) — 개간 이력을 **읽는 쪽**이 여기다 (M22-4차 ADR-C-3 이행).
+            // 지형이 없으면 켜지 않는다: 옮길 이유(막힌 땅)가 없고, 오늘 동작을 그대로 두는 편이 낫다.
+            if (!Terrain.IsEmpty)
+                Discovery.ConfigureRespawn((uint)RunSeed, _nodeRelocateAfterDays, _nodeRelocateRadius,
+                                           (x, y) => Terrain.IsWalkable(x, y) && !Construction.HasBuildingAt(x, y));
+
+            // 바닥 색 (M26-1차 W5) — Core 렌더러에 **밀어 넣는다** (Core 는 M0 를 모른다).
+            // 팔레트가 비면 안 꽂는다 = 舊 화면과 픽셀 동일 (중립 불변식).
+            MapChunkRenderer.TerrainColorSource = Terrain.IsEmpty ? (System.Func<int, int, Color?>)null
+                                                                  : Terrain.GroundColor;
+
+            Debug.Log($"[Terrain] 판 시드 {RunSeed}" +
+                      (Terrain.IsEmpty ? " — 지형 팔레트가 비어 있어 지형 없이 진행합니다 (오늘과 동일)"
+                                       : $" · 팔레트 {_terrainPalette.Length}종 · 안전반경 {_terrainSafeRadius}"
+                                         + $" · 통행 불가 {blockedTiles}칸"));
+
             // 경로 탐색 창구 — 통행 배열을 지연 조회한다.
             // 🔴 M26-1차 W1: **JPS → A\*** (ADR-T-2). 예고대로 **이 두 줄만** 바뀌었다
             //    (`Docs/ADR_경로탐색_확장경계.md` 트리거 A — 가중치 지형 도입).
@@ -1358,6 +1427,10 @@ namespace AIVillage.M0
         private void Start()
         {
             // 노드 스폰 — M0 경로: SensorSystem 대신 DiscoveryService가 등록처 (W0 이월분 해소)
+            // 🔑 M26-1차 W2: **판 시드를 넘긴다** (ADR-T-4). 지금까지 노드 시드는 `randomSeed: 0`이라
+            //    매 실행 랜덤이고 **익명**이었다 — 판마다 다르되 같은 판을 다시 볼 수 없었다.
+            //    지형과 노드가 같은 시드에서 나와야 `ADR-M10R-2`가 맵까지 덮는다.
+            _nodeSpawner.OverrideSeed(RunSeed);
             bool ok = _nodeSpawner.SpawnAll(
                 _worldConfig.BaseTileX, _worldConfig.BaseTileY, _worldConfig.BaseDiscoverRadius, Discovery);
             if (!ok)
@@ -1392,6 +1465,7 @@ namespace AIVillage.M0
                 float regenMult  = Season != null ? Season.RegenMult  : 1f;
                 float growthMult = Season != null ? Season.GrowthMult : 1f;
                 Discovery.TickRegeneration(deltaGameDays * regenMult);
+                Discovery.TickRespawn(deltaGameDays);   // M26-1차 W6 — 오래 마른 노드가 자리를 옮긴다
                 Farm.TickGrowth(deltaGameDays * growthMult);
 
                 // 재해 발동 검사 (M9-C) — 계절 위상(경과일·서수)을 넘겨준다. 서비스가 null이면 무동작.
@@ -1595,6 +1669,9 @@ namespace AIVillage.M0
         private void OnDestroy()
         {
             if (Instance == this) Instance = null;
+            // 지형 색 훅을 반드시 되돌린다 (M26-1차 W5) — static 이라 Play 를 껐다 켜면
+            // 다음 판이 **죽은 판의 지형**을 그리게 된다 (도메인 리로드를 끈 설정에서 특히).
+            MapChunkRenderer.TerrainColorSource = null;
         }
     }
 }

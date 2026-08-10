@@ -221,6 +221,88 @@ namespace AIVillage.M0
             }
         }
 
+        // ── 리스폰 자리 이동 (M26-1차 W6) ─────────────────────────────────────
+
+        /// <summary>노드가 고갈된 채 **버틴 시간** (게임일) — 자리를 옮기는 판정의 시계.
+        /// 고갈은 흔하다: 캐자마자 옮기면 "숲이 걸어 다닌다"가 된다.</summary>
+        private readonly Dictionary<ResourceNode, float> _dryFor = new Dictionary<ResourceNode, float>();
+
+        /// <summary>리스폰 배선 (M26-1차 W6). null·0 이면 **자리를 안 옮긴다** = 오늘 동작 그대로(중립).</summary>
+        private System.Func<int, int, bool> _canHostNode;   // 그 타일에 노드가 설 수 있는가 (지형·건물)
+        private float _relocateAfterDays;
+        private int _relocateRadius;
+        private uint _runSeed;
+
+        /// <summary>리스폰을 켠다 (M26-1차 W6) — 조립 1회.
+        /// 🔑 자리는 **랜덤이 아니라 시드 롤**이고 **원래 자리 둘레**에서 고른다: 맵 반대편에 나면
+        /// "광맥을 따라간다"가 아니라 "숲이 순간이동한다"가 된다 (지도를 외울 수 없게 된다).</summary>
+        public void ConfigureRespawn(uint runSeed, float relocateAfterDays, int relocateRadius,
+                                     System.Func<int, int, bool> canHostNode)
+        {
+            _runSeed = runSeed;
+            _relocateAfterDays = Mathf.Max(0f, relocateAfterDays);
+            _relocateRadius = Mathf.Max(0, relocateRadius);
+            _canHostNode = canHostNode;
+        }
+
+        /// <summary>
+        /// 리스폰 틱 (M26-1차 W6) — 오래 고갈된 노드를 **원래 자리 둘레의 새 칸**으로 옮긴다.
+        ///
+        /// 🔴 **개간한 타일에는 절대 안 난다** (`_cleared`) — M22-4차 ADR-C-3의 이행이다.
+        /// 안 지키면 애써 개간한 마을 둘레에 나무가 도로 나서 **그 축이 닫은 울타리 구멍이 부활한다.**
+        /// 🔴 물·절벽에도 안 난다 (`_canHostNode`) — 아무도 못 가는 노드는 없는 것만 못하다.
+        /// </summary>
+        public void TickRespawn(float deltaGameDays)
+        {
+            if (_relocateAfterDays <= 0f || _relocateRadius <= 0) return;   // 미배선 = 중립
+
+            for (int i = 0; i < _nodes.Count; i++)
+            {
+                ResourceNode n = _nodes[i];
+                if (n.CurrentAmount >= 1f) { _dryFor.Remove(n); continue; }   // 아직 캘 게 남았다
+
+                _dryFor.TryGetValue(n, out float dry);
+                dry += deltaGameDays;
+                if (dry < _relocateAfterDays) { _dryFor[n] = dry; continue; }
+                _dryFor.Remove(n);
+
+                if (!TryPickRelocation(n, out Vector2Int spot)) continue;
+                var from = new Vector2Int(n.TileX, n.TileY);
+                ResourceNode.OccupiedTiles.Remove(from);
+                n.TileX = spot.x; n.TileY = spot.y;
+                n.CurrentAmount = n.MaxAmount;     // 새 자리에서는 가득 — "다음 자리가 드러났다"
+                OnNodeRelocated?.Invoke(n, from);
+                Debug.Log($"[Terrain] 자원 이동 — {n.ResourceType} ({from.x},{from.y}) → ({spot.x},{spot.y})");
+            }
+        }
+
+        /// <summary>노드가 자리를 옮겼다 (노드, 옛 자리) — 뷰가 따라가는 구독 지점.</summary>
+        public event System.Action<ResourceNode, Vector2Int> OnNodeRelocated;
+
+        /// <summary>새 자리 고르기 — 시드 롤로 반경 안을 훑는다 (결정적). 못 찾으면 false = 제자리.</summary>
+        private bool TryPickRelocation(ResourceNode n, out Vector2Int spot)
+        {
+            spot = default;
+            // 시드 = (판 시드, 노드 이름, 옛 자리) — 같은 판이면 같은 자리로 옮긴다 (ADR-M10R-2).
+            uint roll = StableHash.Fnv1a(n.NodeId ?? "node", $"{n.TileX},{n.TileY}") ^ _runSeed;
+            int span = _relocateRadius * 2 + 1;
+            int tries = span * span;
+            for (int k = 0; k < tries; k++)
+            {
+                uint r = roll + (uint)k * 2654435761u;
+                int dx = (int)(r % (uint)span) - _relocateRadius;
+                int dy = (int)((r / (uint)span) % (uint)span) - _relocateRadius;
+                if (dx == 0 && dy == 0) continue;
+                int x = n.TileX + dx, y = n.TileY + dy;
+                if (WasCleared(x, y)) continue;                 // 🔴 개간한 자리 (ADR-C-3)
+                if (HasNodeAt(x, y)) continue;                  // 이미 노드가 있다
+                if (_canHostNode != null && !_canHostNode(x, y)) continue; // 물·절벽·건물
+                spot = new Vector2Int(x, y);
+                return true;
+            }
+            return false;
+        }
+
         private static int Manhattan(int x1, int y1, int x2, int y2)
             => Mathf.Abs(x1 - x2) + Mathf.Abs(y1 - y2);
     }

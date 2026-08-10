@@ -382,15 +382,31 @@ namespace AIVillage.Core
         ///     if (TerrainMap.Instance.GetType(tileX, tileY) == TileType.Forest)
         ///         return MapConfig.Active.forestColor;
         ///
-        /// TODO: 지형 타입 시스템 추가 시 이 메서드를 확장한다.
+        /// ✅ **M26-1차 W5에서 이 TODO를 채웠다** — 아래 <see cref="TerrainColorSource"/>.
         /// </summary>
         private static Color32 GetBaseTileColor(int tileX, int tileY)
         {
-            // 현재: 전부 Grass (설계 결정 D: 2타입 색상 — Forest는 향후 확장)
-            // tileX, tileY 파라미터: 향후 지형 타입 조회 시 사용할 좌표 (현재 미사용)
+            // 지형 색 (M26-1차 W5) — 원천은 TerrainTypeSO.GroundColor (코드에 색표를 두지 않는다).
+            // 🔑 Core 는 M0 의 TerrainService 를 **모른다**: 알면 의존이 거꾸로 선다
+            //    (ResourceNode.IsRemoved 와 같은 규약 — 아래 층은 위 층을 참조하지 않는다).
+            //    그래서 M0 가 이 훅에 색을 **밀어 넣는다**. 미배선이면 舊 풀색 그대로 (중립).
+            if (TerrainColorSource != null)
+            {
+                Color? c = TerrainColorSource(tileX, tileY);
+                if (c.HasValue) return c.Value;
+            }
             if (MapConfig.Active == null) return new Color32(100, 180, 80, 255); // 안전 기본값
             return MapConfig.Active.grassColor;
         }
+
+        /// <summary>
+        /// 지형 색 공급자 (M26-1차 W5) — M0 의 `TerrainService`가 조립 시 꽂는다.
+        /// null 이거나 null 을 돌려주면 舊 풀색으로 떨어진다 (**중립 불변식**).
+        ///
+        /// ⚠️ static 인 이유: 이 렌더러가 `Texture2D` 픽셀을 채우는 정적 경로에서 불리기 때문이다.
+        /// Play 종료 시 M0 가 **반드시 null 로 되돌린다** — 안 그러면 다음 판이 죽은 지형을 본다.
+        /// </summary>
+        public static System.Func<int, int, Color?> TerrainColorSource;
 
         #endregion
     }

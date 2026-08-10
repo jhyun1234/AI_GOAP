@@ -279,8 +279,12 @@ namespace AIVillage.M0
 
             var target = new Vector3(_path[_wp].x, _path[_wp].y, 0f); // ADR-M0-9 — X-Y 평면
             Vector3 before = transform.position;
+            // 지형 감속 (M26-1차 W4, ADR-T-3) — **위협도 똑같이 걸린다.** 주민만 느려지면 늪은
+            // 페널티일 뿐이고, 둘 다 느려져야 늪이 **방어선**이 된다 (사용자 판정).
+            float terrainMult = M0SimulationLoop.Instance != null && M0SimulationLoop.Instance.Terrain != null
+                              ? M0SimulationLoop.Instance.Terrain.SpeedMult(TileX, TileY) : 1f;
             transform.position = Vector3.MoveTowards(transform.position, target,
-                                                     So.MoveSpeed * Time.deltaTime);
+                                                     So.MoveSpeed * terrainMult * Time.deltaTime);
             Vector3 moved = transform.position - before;
             if (moved.sqrMagnitude > 1e-8f) _facing = new Vector2(moved.x, moved.y).normalized;
             if ((transform.position - target).sqrMagnitude <= ARRIVE_EPSILON_SQR)

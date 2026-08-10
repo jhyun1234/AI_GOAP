@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 using AIVillage.Core;
+using AIVillage.M0;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.TestTools;   // LogAssert — 입력 방어 경고를 무시하고 종류만 본다
 
@@ -199,6 +201,236 @@ namespace AIVillage.Tests.EditMode
             Assert.Less(perCall, 0.10,
                 $"A* 1건 평균 {perCall:0.000}ms — 예산 0.10ms 초과 (기준선 0.026ms). " +
                 "버퍼 재사용이 빠졌거나 힙이 깨졌을 수 있다");
+        }
+
+        // ── W2·W3·W5·W6 ──────────────────────────────────────────────────────
+
+        /// <summary>배포 지형 팔레트 — 코드가 지형 이름을 모르는 것이 요점이라 **폴더를 통째로 읽는다.**</summary>
+        private static TerrainTypeSO[] ShippedPalette()
+        {
+            string[] guids = AssetDatabase.FindAssets("t:TerrainTypeSO");
+            var list = new List<TerrainTypeSO>();
+            foreach (string g in guids)
+            {
+                var t = AssetDatabase.LoadAssetAtPath<TerrainTypeSO>(AssetDatabase.GUIDToAssetPath(g));
+                if (t != null) list.Add(t);
+            }
+            return list.ToArray();
+        }
+
+        private static TerrainService ShippedTerrain(uint seed, int safeRadius = 12)
+            => new TerrainService(seed, Vector2Int.zero, safeRadius, ShippedPalette());
+
+        [Test]
+        public void M26_T1_TerrainIsDeterministicPerSeed()
+        {
+            // ADR-T-5 · ADR-M10R-2 — 판마다 다르되 **재현은 된다**.
+            // ⚠️ 고정한 축: 맵 범위는 MapBounds(배포 폴백 100×100)를 읽고, 마을 중심은 (0,0)으로
+            //    고정했다. 중심이 어디든 검사의 뜻은 같다 (지형은 좌표의 함수다).
+            MapBounds.Get(out int minX, out int maxX, out int minY, out int maxY);
+            TerrainService a1 = ShippedTerrain(12345u), a2 = ShippedTerrain(12345u), b = ShippedTerrain(999u);
+
+            int same = 0, diff = 0, total = 0;
+            for (int x = minX; x <= maxX; x += 1)
+                for (int y = minY; y <= maxY; y += 1)
+                {
+                    total++;
+                    Assert.AreSame(a1.At(x, y), a2.At(x, y),
+                        $"({x},{y}): 같은 시드인데 지형이 다르다 — 같은 판을 다시 볼 수 없다");
+                    if (a1.At(x, y) == b.At(x, y)) same++; else diff++;
+                }
+
+            Assert.AreEqual(10000, total, "전수 검사 대상이 10,000칸이 아니다 — 맵 범위 전제가 달라졌다");
+            // 실패 가능성 증명 — 시드가 다르면 **실제로 달라진다** (안 달라지면 시드가 안 먹는 것).
+            Assert.Greater(diff, total / 20,
+                $"시드를 바꿨는데 다른 칸이 {diff}칸뿐 — 판마다 다른 지형이 아니다");
+        }
+
+        [Test]
+        public void M26_T8_TerrainMixIsPlayable()
+        {
+            // 전부 물이면 게임이 안 되고, 막힌 칸이 0이면 지형이 없는 것과 같다.
+            // 시드 8개를 훑어 **어느 판에서도** 놀 수 있는지 본다 (한 시드만 보면 운이다).
+            MapBounds.Get(out int minX, out int maxX, out int minY, out int maxY);
+            for (uint s = 1; s <= 8; s++)
+            {
+                TerrainService t = ShippedTerrain(s * 7919u);
+                int blocked = 0, total = 0;
+                for (int x = minX; x <= maxX; x++)
+                    for (int y = minY; y <= maxY; y++) { total++; if (!t.IsWalkable(x, y)) blocked++; }
+
+                float pct = 100f * blocked / total;
+                Assert.Greater(pct, 1f, $"시드 {s}: 막힌 칸 {pct:0.0}% — 지형이 사실상 없다");
+                Assert.Less(pct, 30f, $"시드 {s}: 막힌 칸 {pct:0.0}% — 맵이 너무 잠겼다");
+
+                // 마을 둘레는 반드시 뚫려 있다 — 태어나자마자 갇히는 판 방지.
+                for (int x = -12; x <= 12; x++)
+                    for (int y = -12; y <= 12; y++)
+                        Assert.IsTrue(t.IsWalkable(x, y), $"시드 {s}: 마을 안전반경에 막힌 칸 ({x},{y})");
+            }
+        }
+
+        [Test]
+        public void M26_T9_TerrainTableLivesInAssets()
+        {
+            // ADR-M0-2 — 지형 수치표가 코드로 새는 것을 막는다. 서비스는 이름을 하나도 몰라야 한다.
+            string src = System.IO.File.ReadAllText("Assets/Scripts/M0/World/TerrainService.cs");
+            foreach (string forbidden in new[] { "\"물\"", "\"늪\"", "\"절벽\"", "\"숲\"", "\"평지\"" })
+                Assert.IsFalse(src.Contains(forbidden),
+                    $"TerrainService 에 지형 이름 {forbidden} 이 박혀 있다 — 팔레트를 늘려도 코드가 따라 바뀐다");
+
+            TerrainTypeSO[] palette = ShippedPalette();
+            Assert.GreaterOrEqual(palette.Length, 5, "배포 팔레트가 5종 미만 — 1차 범위와 다르다");
+
+            bool anyBlocking = false, anySlow = false, anyFallback = false;
+            foreach (TerrainTypeSO t in palette)
+            {
+                Assert.IsFalse(string.IsNullOrEmpty(t.DisplayName), $"{t.name}: 표시명 비어 있음");
+                Assert.GreaterOrEqual(t.EnterCost, 1f, $"{t.name}: EnterCost < 1 이면 최단 경로가 깨진다");
+                if (!t.Walkable) anyBlocking = true;
+                if (t.Walkable && t.MoveSpeedMult < 1f) anySlow = true;
+                if (t.AppearsAbove <= 0f) anyFallback = true;
+            }
+            // 실패 가능성 증명 — 팔레트가 실제로 세 성질을 갖고 있어야 W3·W4 가 잴 것이 있다.
+            Assert.IsTrue(anyBlocking, "막는 지형이 하나도 없다 — W3 가 검사할 것이 없다");
+            Assert.IsTrue(anySlow, "느린 지형이 하나도 없다 — W4 가 검사할 것이 없다");
+            Assert.IsTrue(anyFallback, "폴백 지형(AppearsAbove 0)이 없다 — 어떤 칸은 지형이 없게 된다");
+        }
+
+        [Test]
+        public void M26_T4_PathAvoidsSwamp()
+        {
+            // 비용이 **경로에 걸리는가**. 늪 **덩어리**를 사이에 두고 마주 선 두 점에서,
+            // 비용을 켜면 돌아가느라 통과 칸이 준다.
+            // 🔴 고정한 축(방법론 M20): 늪은 **우회가 가능한 모양**이어야 한다. 처음엔 맵을 가로지르는
+            //    띠로 깔았는데 그건 **피할 방법이 없어** 비용을 켜도 통과 칸이 안 줄었다 (84 → 84).
+            //    "경로가 비용을 안 본다"가 아니라 **검사가 답을 강요한 것**이었다.
+            bool[,] w = OpenMap();
+            System.Func<int, int, bool> isSwamp = (x, y) => x >= -5 && x <= 5 && y >= -5 && y <= 5;
+            var uniform = new AStarPathfinder(() => w);
+            var weighted = new AStarPathfinder(() => w, (x, y) => isSwamp(x, y) ? 3f : 1f);
+
+            int swampUniform = 0, swampWeighted = 0, pairs = 0;
+            for (int i = 0; i < 12; i++)
+            {
+                int sy = -3 + (i % 7), gy = 3 - (i % 7);   // 늪 한가운데를 지나는 짝들
+                PathResult u = uniform.FindPath(-20, sy, 20, gy);
+                PathResult v = weighted.FindPath(-20, sy, 20, gy);
+                if (u.Kind != PathResultKind.PathFound || v.Kind != PathResultKind.PathFound) continue;
+                foreach (Vector2Int p in u.Waypoints) if (isSwamp(p.x, p.y)) swampUniform++;
+                foreach (Vector2Int p in v.Waypoints) if (isSwamp(p.x, p.y)) swampWeighted++;
+                pairs++;
+            }
+            Assert.Greater(pairs, 5, "비교한 경로가 너무 적다 — 빈 검사다");
+            // 실패 가능성 증명 — 비용을 안 켰을 때는 늪을 **실제로 지난다**.
+            Assert.Greater(swampUniform, 0, "비용 없이도 늪을 안 지난다 — 이 검사는 빈 검사다");
+            Assert.Less(swampWeighted, swampUniform,
+                $"늪 통과 칸이 안 줄었다 (균일 {swampUniform} → 가중 {swampWeighted}) — 비용이 경로에 안 걸린다");
+        }
+
+        [Test]
+        public void M26_T5_ThreatsPaySameTerrainCost()
+        {
+            // ADR-T-3 — 늪은 누구에게나 늪이다. 배열은 둘(주민·위협)이지만 **비용은 한 장**이다.
+            string src = System.IO.File.ReadAllText("Assets/Scripts/M0/SimulationLoop.cs");
+            Assert.IsTrue(src.Contains("Pathfinder = new AStarPathfinder(() => Walkable, TileEnterCost)"),
+                "주민 경로가 비용 창구를 안 본다");
+            Assert.IsTrue(src.Contains("ThreatPathfinder = new AStarPathfinder(() => ThreatWalkable, TileEnterCost)"),
+                "🔴 위협 경로가 비용 창구를 안 본다 — 늪이 주민만 괴롭히는 장치가 된다 (ADR-T-3)");
+
+            // 속도 감속도 양쪽에 걸려 있는가 (게이트가 못 재는 자리라 배선 존재만 확인).
+            Assert.IsTrue(System.IO.File.ReadAllText("Assets/Scripts/M0/Agent/VillagerAgent.cs")
+                          .Contains("TerrainSpeedMult()"), "주민 이동에 지형 감속이 없다");
+            Assert.IsTrue(System.IO.File.ReadAllText("Assets/Scripts/M0/Presentation/ThreatAgent.cs")
+                          .Contains("terrainMult"), "🔴 위협 이동에 지형 감속이 없다 (ADR-T-3)");
+        }
+
+        [Test]
+        public void M26_T6_WaterBlocksBothAndBuilding()
+        {
+            // 막는 지형은 **주민·위협 둘 다** 막고, 그 위에는 아무것도 안 선다.
+            TerrainService t = ShippedTerrain(4242u);
+            MapBounds.Get(out int minX, out int maxX, out int minY, out int maxY);
+            int blocked = 0;
+            for (int x = minX; x <= maxX; x++)
+                for (int y = minY; y <= maxY; y++)
+                {
+                    if (t.IsWalkable(x, y)) continue;
+                    blocked++;
+                    TerrainTypeSO tt = t.At(x, y);
+                    Assert.IsFalse(tt.Walkable, $"({x},{y}): IsWalkable 과 At().Walkable 이 어긋난다");
+                    Assert.AreEqual(1f, t.EnterCost(x, y), 1e-3f,
+                        $"({x},{y}): 못 지나는 칸에 비용이 붙어 있다 — 아무도 안 읽는 수다");
+                }
+            Assert.Greater(blocked, 0, "막힌 칸이 0 — 빈 검사다");
+        }
+
+        [Test]
+        public void M26_T7_ClearedTilesNeverRespawn()
+        {
+            // 🔴 M22-4차 ADR-C-3 의 이행. 개간한 자리에 다시 나면 그 축이 닫은 구멍이 부활한다.
+            var d = new DiscoveryService();
+            var node = new ResourceNode("relocate", ResourceType.Wood, 0, 0, 50f, 1f, true) { CurrentAmount = 0f };
+            d.AddResourceNode(node);
+
+            // 원래 자리 둘레를 **전부 개간 이력으로** 만든다 → 옮길 자리가 없어야 한다.
+            var cleared = new ResourceNode("seed", ResourceType.Wood, 0, 0, 1f, 0f, true);
+            for (int x = -6; x <= 6; x++)
+                for (int y = -6; y <= 6; y++)
+                {
+                    if (x == 0 && y == 0) continue;
+                    var tmp = new ResourceNode($"c{x}_{y}", ResourceType.Wood, x, y, 1f, 0f, true);
+                    d.AddResourceNode(tmp);
+                    d.RemoveNode(tmp);          // 개간 이력에 올린다
+                }
+            Assert.AreEqual(168, d.ClearedTiles.Count, "개간 이력 준비가 어긋났다 — 빈 검사다");
+
+            d.ConfigureRespawn(1u, 1f, 6, (x, y) => true);
+            d.TickRespawn(10f);
+            Assert.AreEqual(0, node.TileX, "개간한 자리로 옮겨갔다 — 울타리 구멍이 부활한다 (ADR-C-3)");
+            Assert.AreEqual(0, node.TileY, "〃");
+
+            // 실패 가능성 증명 — 이력이 없으면 **실제로 옮겨간다**.
+            var d2 = new DiscoveryService();
+            var free = new ResourceNode("free", ResourceType.Wood, 0, 0, 50f, 1f, true) { CurrentAmount = 0f };
+            d2.AddResourceNode(free);
+            d2.ConfigureRespawn(1u, 1f, 6, (x, y) => true);
+            d2.TickRespawn(10f);
+            Assert.IsTrue(free.TileX != 0 || free.TileY != 0,
+                "막을 이유가 없는데도 안 옮겼다 — 이 게이트는 빈 검사다");
+            Assert.LessOrEqual(Mathf.Max(Mathf.Abs(free.TileX), Mathf.Abs(free.TileY)), 6,
+                "반경 밖으로 옮겼다 — 숲이 순간이동한다");
+            Assert.AreEqual(free.MaxAmount, free.CurrentAmount, 1e-3f, "옮긴 자리에서 잔량이 안 찼다");
+
+            // 못 서는 땅(물)에도 안 난다.
+            var d3 = new DiscoveryService();
+            var blockedNode = new ResourceNode("blk", ResourceType.Wood, 0, 0, 50f, 1f, true) { CurrentAmount = 0f };
+            d3.AddResourceNode(blockedNode);
+            d3.ConfigureRespawn(1u, 1f, 6, (x, y) => false);   // 어디에도 못 선다
+            d3.TickRespawn(10f);
+            Assert.AreEqual(0, blockedNode.TileX, "설 수 없는 땅으로 옮겼다");
+            Assert.AreEqual(0, blockedNode.TileY, "〃");
+        }
+
+        [Test]
+        public void M26_T10_NeutralWithoutTerrain()
+        {
+            // 중립 불변식 전수 — 팔레트가 비면 오늘과 완전히 같은 판이어야 한다.
+            var empty = new TerrainService(1u, Vector2Int.zero, 12, null);
+            Assert.IsTrue(empty.IsEmpty, "빈 팔레트인데 IsEmpty 가 false");
+            Assert.IsNull(empty.At(5, 5), "지형 없는 판인데 지형이 나온다");
+            Assert.IsTrue(empty.IsWalkable(5, 5), "지형 없는 판인데 막힌 칸이 있다");
+            Assert.AreEqual(1f, empty.EnterCost(5, 5), 1e-4f, "지형 없는 판인데 비용이 1이 아니다 (경로가 바뀐다)");
+            Assert.AreEqual(1f, empty.SpeedMult(5, 5), 1e-4f, "지형 없는 판인데 속도가 1이 아니다");
+            Assert.IsNull(empty.GroundColor(5, 5), "지형 없는 판인데 색이 나온다 (舊 화면과 달라진다)");
+
+            // 리스폰도 미배선이면 안 돈다.
+            var d = new DiscoveryService();
+            var n = new ResourceNode("x", ResourceType.Wood, 3, 4, 50f, 1f, true) { CurrentAmount = 0f };
+            d.AddResourceNode(n);
+            d.TickRespawn(100f);   // ConfigureRespawn 을 안 불렀다
+            Assert.AreEqual(3, n.TileX, "리스폰 미배선인데 노드가 움직였다");
+            Assert.AreEqual(4, n.TileY, "〃");
         }
     }
 }

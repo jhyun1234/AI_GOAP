@@ -645,6 +645,16 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 648b70ea406c41e3a1c34270f175a4cb, type: 2}
   - {fileID: 11400000, guid: 44e891b5e09dd764e9de1666fbeb1fe5, type: 2}
   _nodeSpawner: {fileID: 502}
+  _terrainPalette:
+  - {fileID: 11400000, guid: e63a67e9d52c16e478fb33d46c1d60cf, type: 2}
+  - {fileID: 11400000, guid: 79344c7fc6117084d8993772bdcd6156, type: 2}
+  - {fileID: 11400000, guid: 14840697d4ee94347a1ce754ccf89a55, type: 2}
+  - {fileID: 11400000, guid: b3a304790851af54f877e2f443a7f156, type: 2}
+  - {fileID: 11400000, guid: 408d87ef06f0af946b70b9109a161da7, type: 2}
+  _terrainSafeRadius: 12
+  _runSeed: 0
+  _nodeRelocateAfterDays: 3
+  _nodeRelocateRadius: 6
   _spriteSet: {fileID: 11400000, guid: b9a6564a8f7c4724b5edf1d3d32e17b6, type: 2}
   _bubbleFont: {fileID: 11400000, guid: 67865f5944a154b43b12b21a5f1d92c1, type: 2}
   _cropSprites: {fileID: 11400000, guid: d2e83f5a96c1478ba3f0d74e18b9c625, type: 2}

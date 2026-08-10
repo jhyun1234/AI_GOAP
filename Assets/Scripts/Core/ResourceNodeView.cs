@@ -116,6 +116,11 @@ namespace AIVillage.Core
 
         private void Refresh()
         {
+            // 개간된 노드는 스스로 사라진다 (M22-4차). Core 는 M0 서비스를 모르므로 이벤트가 아니라
+            // 플래그를 본다 — 의존 방향을 지키는 값이다.
+            // ⚠️ 표현 지연(≤ _refreshInterval)이지 **상태 지연이 아니다**: 타일은 RemoveNode 순간
+            //    이미 열려 있다. 그림만 반 박자 늦게 없어진다.
+            if (_node != null && _node.IsRemoved) { Destroy(gameObject); return; }
             if (_node == null || _sr == null) return;
 
             // FoW: 미발견 노드는 렌더러를 끄고 나머지 처리 생략

@@ -16,6 +16,9 @@ namespace AIVillage.M0
         private static readonly Color TrapPlanColor = new Color(0.5f, 0.5f, 0.58f, 0.4f);   // 폴백 원 — 흐린 강철 (M22-3차)
         private static readonly Color TowerPlanColor = new Color(0.62f, 0.47f, 0.28f, 0.4f); // 폴백 원 — 흐린 목재 (M22-3차)
         private static readonly Color GhostTint = new Color(1f, 1f, 1f, 0.4f);              // 고스트 — 원본색 반투명
+        // 개간 대기 (M22-4차 W5) — 계획과 **다른 색**이라야 "여긴 아직 못 짓는다"가 보인다.
+        // 붉은색인 이유: 이건 안내가 아니라 **구멍 경고**다 (그대로 두면 적이 그리로 들어온다).
+        private static readonly Color BlockedPlanColor = new Color(0.85f, 0.3f, 0.25f, 0.5f);
 
         private readonly Transform _parent;
         private readonly DefenseService _defense;
@@ -45,6 +48,9 @@ namespace AIVillage.M0
             foreach (Vector2Int t in _defense.PlannedGateTiles) Spawn(t, _gate, GatePlanColor);
             foreach (Vector2Int t in _defense.PlannedTrapTiles) Spawn(t, _trap, TrapPlanColor);   // M22-3차
             foreach (Vector2Int t in _defense.PlannedTowerTiles) Spawn(t, _tower, TowerPlanColor); // M22-3차
+            // 개간 대기 칸 (M22-4차 W5) — 개간이 끝나면 이 붉은 칸이 갈색 계획으로 바뀐다.
+            // 승격이 화면에서 보이는 것이 요점이다 ("치웠더니 담이 이어졌다").
+            foreach (Vector2Int t in _defense.BlockedFenceTiles) Spawn(t, _fence, BlockedPlanColor);
         }
 
         private void Spawn(Vector2Int tile, BuildingSO b, Color fallback)

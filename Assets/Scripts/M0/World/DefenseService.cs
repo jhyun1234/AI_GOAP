@@ -321,30 +321,85 @@ namespace AIVillage.M0
             || _durability.ContainsKey((SlotId.GateCount, t))
             || _durability.ContainsKey((SlotId.WatchtowerCount, t));
 
-        public int AddFencePlan(IReadOnlyList<Vector2Int> tiles, Func<int, int, bool> buildable)
-            => AddLinePlan(_plannedFences, "울타리", tiles, buildable);
+        // ── 개간 대기 (M22-4차 W3) ────────────────────────────────────────────
 
-        /// <summary>함정 줄 계획 (M22-3차 W2) — 울타리와 같은 줄 문법, 목록만 다르다.</summary>
-        public int AddTrapPlan(IReadOnlyList<Vector2Int> tiles, Func<int, int, bool> buildable)
-            => AddLinePlan(_plannedTraps, "함정", tiles, buildable);
+        /// <summary>노드에 막혀 **대기 중인** 울타리 계획 (M22-4차). 계획이지 구멍이 아니다 —
+        /// 개간이 끝나면 `PromoteClearedTile`이 이 칸을 `_plannedFences`로 옮긴다.
+        ///
+        /// 🔴 `PlannedCount`(= `DefensePlannedCount` 슬롯)에는 **안 센다** (ADR-C-4): 목수 goal이
+        /// "계획이 있다"로 켜지는데 정작 지을 수가 없어 **공회전**한다. 대기는 개간의 일이다.</summary>
+        private readonly List<Vector2Int> _blockedFences = new List<Vector2Int>(4);
 
-        private int AddLinePlan(List<Vector2Int> target, string label,
-                                IReadOnlyList<Vector2Int> tiles, Func<int, int, bool> buildable)
+        /// <summary>개간을 기다리는 울타리 칸 (읽기 전용 — 고스트·배선·게이트).</summary>
+        public IReadOnlyList<Vector2Int> BlockedFenceTiles => _blockedFences;
+
+        /// <summary>줄 계획 결과 (M22-4차) — Added = 바로 지을 칸, Blocked = 개간을 기다리는 칸.
+        /// 🔴 **Blocked 를 돌려주는 것 자체가 이 차수의 요점이다**: 舊 코드는 막힌 칸을 조용히
+        /// 건너뛰었고 화면은 "8칸"이라고만 해서 플레이어가 구멍을 모른 채 넘어갔다
+        /// (2026-08-10 사용자 Play — 그 구멍으로 고블린이 드나들었다).</summary>
+        public readonly struct PlanResult
         {
-            int added = 0;
+            public readonly int Added;
+            public readonly int Blocked;
+            public PlanResult(int added, int blocked) { Added = added; Blocked = blocked; }
+            /// <summary>계획에도 대기에도 못 들어간 줄인가 (화면 문구 분기).</summary>
+            public bool Nothing => Added == 0 && Blocked == 0;
+        }
+
+        public PlanResult AddFencePlan(IReadOnlyList<Vector2Int> tiles, Func<int, int, bool> buildable,
+                                       Func<int, int, bool> blockedByNode = null)
+            => AddLinePlan(_plannedFences, "울타리", tiles, buildable, blockedByNode);
+
+        /// <summary>함정 줄 계획 (M22-3차 W2) — 울타리와 같은 줄 문법, 목록만 다르다.
+        /// ⚠️ 개간 대기는 **울타리만** 받는다 (M22-4차 스코프): 구멍이 되는 것은 줄이지
+        /// 함정 한 칸이 아니다. 그래서 blockedByNode 를 안 넘긴다.</summary>
+        public PlanResult AddTrapPlan(IReadOnlyList<Vector2Int> tiles, Func<int, int, bool> buildable)
+            => AddLinePlan(_plannedTraps, "함정", tiles, buildable, null);
+
+        private PlanResult AddLinePlan(List<Vector2Int> target, string label,
+                                       IReadOnlyList<Vector2Int> tiles, Func<int, int, bool> buildable,
+                                       Func<int, int, bool> blockedByNode)
+        {
+            int added = 0, blocked = 0;
             foreach (Vector2Int t in tiles)
             {
-                if (buildable != null && !buildable(t.x, t.y)) continue;
-                if (IsPlannedOrBuilt(t)) continue;
+                if (IsPlannedOrBuilt(t) || _blockedFences.Contains(t)) continue;
+                if (buildable != null && !buildable(t.x, t.y))
+                {
+                    // 🔑 **노드에 막힌 칸만** 대기로 넘긴다. 물·맵 밖·기존 건물은 개간해도 못 짓는
+                    //    칸이라 대기로 넣으면 영영 안 닫히는 계획이 된다 (게이트 M22_T24).
+                    if (blockedByNode != null && blockedByNode(t.x, t.y))
+                    {
+                        _blockedFences.Add(t);
+                        blocked++;
+                    }
+                    continue;
+                }
                 target.Add(t);
                 added++;
             }
-            if (added > 0)
+            if (added > 0 || blocked > 0)
             {
-                Debug.Log($"[Defense] {label} 줄 계획 +{added}칸 (잔여 {PlannedCount})");
+                Debug.Log($"[Defense] {label} 줄 계획 +{added}칸" +
+                          (blocked > 0 ? $" · 개간 대기 {blocked}칸" : "") + $" (잔여 {PlannedCount})");
                 OnPlanChanged?.Invoke();
             }
-            return added;
+            return new PlanResult(added, blocked);
+        }
+
+        /// <summary>
+        /// 개간 완료 승격 (M22-4차 W3) — 대기 칸이 열리면 울타리 계획이 된다.
+        /// `DiscoveryService.OnNodeRemoved` 구독 지점. 대기 목록에 있던 칸이면 true.
+        /// </summary>
+        public bool PromoteClearedTile(Vector2Int tile)
+        {
+            if (!_blockedFences.Remove(tile)) return false;
+            // 그 사이 다른 계획·시설이 들어왔으면 대기만 걷고 끝낸다 (한 칸 = 한 계획 규약).
+            if (IsPlannedOrBuilt(tile)) { OnPlanChanged?.Invoke(); return true; }
+            _plannedFences.Add(tile);
+            Debug.Log($"[Defense] 개간 완료 — ({tile.x},{tile.y}) 울타리 계획으로 승격");
+            OnPlanChanged?.Invoke();
+            return true;
         }
 
         /// <summary>망루 계획 1칸 (M22-3차 W2 — 브러시 3 좌클릭). 문과 달리 기존 계획을 전환하지
@@ -383,7 +438,11 @@ namespace AIVillage.M0
         public bool RemovePlanAt(Vector2Int tile)
         {
             bool removed = _plannedFences.Remove(tile) | _plannedGates.Remove(tile)
-                         | _plannedTraps.Remove(tile) | _plannedTowers.Remove(tile); // M22-3차 W2
+                         | _plannedTraps.Remove(tile) | _plannedTowers.Remove(tile)  // M22-3차 W2
+                         | _blockedFences.Remove(tile);                              // M22-4차 W3
+            // ⚠️ 개간 **지정**은 여기서 안 푼다: 지정은 노드에 걸려 있고 다른 줄이 같은 노드를
+            //    기다릴 수 있다. 지정이 남아도 손해는 나무 한 그루뿐이고, 계획을 지웠는데 노드가
+            //    안 치워지는 쪽이 훨씬 헷갈린다 (관찰 항목 — 명세 §10).
             if (removed) OnPlanChanged?.Invoke();
             return removed;
         }

@@ -266,6 +266,10 @@ namespace AIVillage.M0
             slots[(int)SlotId.GatePlannedCount]    = _gatePlannedCount != null ? _gatePlannedCount() : 0;
             slots[(int)SlotId.TrapPlannedCount]    = _trapPlannedCount != null ? _trapPlannedCount() : 0;
             slots[(int)SlotId.TowerPlannedCount]   = _towerPlannedCount != null ? _towerPlannedCount() : 0;
+            // 개간 대기 수 (M22-4차 W2) — Goal_Clear 트리거의 원천. provider 를 새로 뚫지 않는
+            // 이유: DiscoveryService 는 이미 여기 들어와 있다 (같은 값을 두 경로로 받으면 어긋난다).
+            // 미배선(_discovery == null)이면 0 = 개간 goal 이 조용히 꺼진다 (중립).
+            slots[(int)SlotId.ClearPendingCount]   = _discovery != null ? _discovery.ClearPendingCount : 0;
             // 종족 조우 최대 (M24-1차 W3) — 같은 provider 패턴. 아직 이 슬롯을 읽는 goal은 없다
             // (전략 해금은 W5가 에셋에서 읽는다). 배선을 먼저 두는 것은 W2의 약속을 지키는 것이고,
             // 미배선이면 0이라 중립이다.

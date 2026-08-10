@@ -11,7 +11,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: ddd98af09fda4935a92f1c4b14be0f7d, type: 3}
   m_Name: ActionCatalog
-  m_EditorClassIdentifier:
+  m_EditorClassIdentifier: 
   Actions:
   - {fileID: 11400000, guid: 8662b57f3d074b62819e0064b1a121ba, type: 2}
   - {fileID: 11400000, guid: 6ecb84e93e58482f80a6f44e06b2d39e, type: 2}
@@ -45,3 +45,4 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 579a813497f44e968cfbf8aaa47e8017, type: 2}
   - {fileID: 11400000, guid: 99aee5430b6948b8a942d47607a22b1c, type: 2}
   - {fileID: 11400000, guid: 133b57a3ab6947f5a2eb28d7d59c65a2, type: 2}
+  - {fileID: 11400000, guid: 456723906e7df0d4da292259ca49dd6e, type: 2}

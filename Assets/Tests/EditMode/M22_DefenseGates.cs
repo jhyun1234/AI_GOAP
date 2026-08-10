@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using AIVillage.Core;   // M22-4차 — ResourceNode·ResourceType (개간 게이트)
 using AIVillage.M0;
 using NUnit.Framework;
 using UnityEditor;
@@ -90,10 +91,10 @@ namespace AIVillage.Tests.EditMode
             var d = new DefenseService();
             var line = DefenseService.LineTiles(new Vector2Int(0, 0), new Vector2Int(4, 0)); // 5칸
             bool Buildable(int x, int y) => !(x == 2 && y == 0);
-            Assert.AreEqual(4, d.AddFencePlan(line, Buildable),
+            Assert.AreEqual(4, d.AddFencePlan(line, Buildable).Added,
                 "막힌 칸(2,0) 제외 — 계획과 시공의 점유 어휘는 같다");
             Assert.AreEqual(4, d.PlannedCount);
-            Assert.AreEqual(0, d.AddFencePlan(line, Buildable), "겹쳐 그은 줄은 이중 계획이 안 된다 (dedup)");
+            Assert.AreEqual(0, d.AddFencePlan(line, Buildable).Added, "겹쳐 그은 줄은 이중 계획이 안 된다 (dedup)");
             // (같은 줄을 필터 없이 다시 그으면 아까 막혔던 (2,0)만 추가되는 것이 옳다 —
             //  첫 기대값 0은 검산 오류였고 게이트 red가 잡았다)
 
@@ -126,7 +127,7 @@ namespace AIVillage.Tests.EditMode
             built.CountSlot = SlotId.FenceCount;
             built.MaxDurability = 100f;
             d.NotifyBuilt(built, 4, 4);
-            Assert.AreEqual(0, d.AddFencePlan(new List<Vector2Int> { new Vector2Int(4, 4) }, null),
+            Assert.AreEqual(0, d.AddFencePlan(new List<Vector2Int> { new Vector2Int(4, 4) }, null).Added,
                 "서 있는 시설 칸은 계획 대상이 아니다");
             Assert.IsFalse(d.TryAddGatePlan(new Vector2Int(4, 4), null), "서 있는 시설 칸에 문 계획 금지 (철거 축은 2차+)");
         }
@@ -629,7 +630,7 @@ namespace AIVillage.Tests.EditMode
             var towerSO = AssetDatabase.LoadAssetAtPath<BuildingSO>("Assets/M0Config/Buildings/Watchtower.asset");
 
             // 함정 줄 + 망루 1칸 — 합계·종류별 수가 따로 선다
-            Assert.AreEqual(3, d.AddTrapPlan(DefenseService.LineTiles(new Vector2Int(0, 0), new Vector2Int(2, 0)), null));
+            Assert.AreEqual(3, d.AddTrapPlan(DefenseService.LineTiles(new Vector2Int(0, 0), new Vector2Int(2, 0)), null).Added);
             Assert.IsTrue(d.TryAddTowerPlan(new Vector2Int(5, 5), null));
             Assert.AreEqual(3, d.TrapPlannedCount);
             Assert.AreEqual(1, d.TowerPlannedCount);
@@ -960,6 +961,215 @@ namespace AIVillage.Tests.EditMode
             }
             Assert.IsTrue(slots.Contains(SlotId.WoodStock) && slots.Contains(SlotId.StoneStock),
                 "나무·돌은 반드시 포함 (건설·수리 비용의 두 축)");
+        }
+
+        // ── M22 4차: 개간 (Docs/M22_4차_개간_실행명세서.md) ────────────────────
+        //
+        // 🔴 이 절이 막는 것은 **조용한 구멍**이다. 사용자 Play(2026-08-10): "울타리를 설치하는데
+        //    근처에 나무가 있으면 설치가 안 됐어. 그 사이로 고블린이 들어오고 밭을 다 없애고 다시
+        //    그 빈틈으로 나갔어." 계획이 막힌 칸을 말없이 건너뛴 것이 원인이었다.
+
+        /// <summary>시험용 노드 — 배포 스폰과 무관하게 손으로 세운다 (스폰 설정이 바뀌어도 안 흔들린다).
+        /// ⚠️ 고정한 축을 적는다 (방법론 M20): 여기서 고정한 것은 **좌표와 잔량**뿐이고,
+        /// 맵 크기·마을 위치는 이 검사와 무관하다 (서비스가 좌표를 그대로 받는다).</summary>
+        private static ResourceNode Node(int x, int y, float amount = 10f)
+            => new ResourceNode($"gate_{x}_{y}", ResourceType.Wood, x, y, 50f, 1f, true)
+               { CurrentAmount = amount };
+
+        /// <summary>소스에서 **실제 호출**만 센다 — 주석(`//`·`///`·`*`) 줄은 빼고 본다.
+        /// 산문에 적힌 같은 문자열까지 세면, 규약을 설명한 주석 때문에 게이트가 빨개진다
+        /// (2026-08-10 실제로 그랬다 — 이 헬퍼가 그 자리에서 생겼다).</summary>
+        private static int CountCalls(string src, string needle)
+        {
+            int n = 0;
+            foreach (string raw in src.Split('\n'))
+            {
+                string line = raw.TrimStart();
+                if (line.StartsWith("//") || line.StartsWith("*") || line.StartsWith("/*")) continue;
+                int i = 0;
+                while ((i = line.IndexOf(needle, i, System.StringComparison.Ordinal)) >= 0) { n++; i += needle.Length; }
+            }
+            return n;
+        }
+
+        [Test]
+        public void M22_T18_RemoveNode_IsTheOnlyDoor()
+        {
+            // ADR-C-2 — 제거는 이력·지정 해제·점유 해제·뷰 소멸을 한꺼번에 끌고 다닌다.
+            // 문이 둘이면 반드시 한쪽이 빠뜨린다. 그래서 **소스를 전수로 읽어** 문을 센다.
+            // 🔑 **주석은 안 센다.** 첫 실행에서 이 게이트가 잡은 것은 코드가 아니라 내가
+            //    RemoveNode 위에 적어 둔 "다른 곳에서 부르지 말 것" **주석 속의 같은 문자열**이었다.
+            //    문자열 검사 게이트는 산문을 코드로 읽는다 — 세는 대상을 먼저 좁힌다.
+            string src = System.IO.File.ReadAllText("Assets/Scripts/M0/World/DiscoveryService.cs");
+            int doors = CountCalls(src, "_nodes.Remove(");
+            Assert.AreEqual(1, doors,
+                $"_nodes.Remove( 호출이 {doors}곳 — 제거의 문은 RemoveNode 하나여야 한다 (ADR-C-2)");
+
+            // 실패 가능성 증명 — 검사 대상이 실제로 소스에 있다 (오타면 0곳이라 조용히 '통과'한다).
+            Assert.IsTrue(src.Contains("public int RemoveNode("), "RemoveNode 자체가 없다 — 빈 검사다");
+
+            // 다른 파일이 우회로 지우는 것도 막는다.
+            foreach (string path in System.IO.Directory.GetFiles("Assets/Scripts", "*.cs",
+                                                                 System.IO.SearchOption.AllDirectories))
+            {
+                if (path.Replace('\\', '/').EndsWith("World/DiscoveryService.cs")) continue;
+                Assert.AreEqual(0, CountCalls(System.IO.File.ReadAllText(path), "_nodes.Remove("),
+                    $"{path}: 노드 제거는 DiscoveryService.RemoveNode 를 지나야 한다");
+            }
+        }
+
+        [Test]
+        public void M22_T19_ClearedTilesAreRecordedAndNodeIsGone()
+        {
+            var d = new DiscoveryService();
+            ResourceNode n = Node(3, 4, 7.9f);
+            d.AddResourceNode(n);
+
+            // 실패 가능성 증명 — 지우기 전에는 있다·이력에 없다 (이게 거짓이면 아래가 빈 검사다).
+            Assert.IsTrue(d.HasNodeAt(3, 4), "지우기 전에 노드가 없다 — 빈 검사다");
+            Assert.IsFalse(d.WasCleared(3, 4), "지우기 전에 이미 개간 이력이 있다 — 빈 검사다");
+
+            int recovered = d.RemoveNode(n);
+            Assert.AreEqual(7, recovered, "회수 = 잔량의 내림 (7.9 → 7, ADR-C-6)");
+            Assert.IsFalse(d.HasNodeAt(3, 4), "제거 후에도 타일이 막혀 있다 — 울타리가 못 선다");
+            Assert.IsTrue(d.WasCleared(3, 4), "개간 이력이 없다 — M26 리스폰이 여기 나무를 도로 심는다 (ADR-C-3)");
+            Assert.IsTrue(n.IsRemoved, "IsRemoved 가 안 섰다 — 뷰가 영영 안 사라진다");
+
+            // 두 번째 제거는 조용히 0 (이벤트도 안 뜬다 — 승격이 두 번 돌면 계획이 겹친다).
+            int again = 0, fired = 0;
+            d.OnNodeRemoved += (_, __) => fired++;
+            again = d.RemoveNode(n);
+            Assert.AreEqual(0, again, "이미 없는 노드를 또 지웠는데 회수가 났다");
+            Assert.AreEqual(0, fired, "이미 없는 노드인데 알림이 떴다");
+        }
+
+        [Test]
+        public void M22_T20_ClearPendingNodesDoNotRegenerate()
+        {
+            // ADR-C-7 — 차오르면 회수량이 지연 시간에 비례해 "늦게 칠수록 이득"이 된다.
+            var d = new DiscoveryService();
+            ResourceNode pending = Node(1, 1, 5f), normal = Node(2, 2, 5f);
+            d.AddResourceNode(pending);
+            d.AddResourceNode(normal);
+            Assert.IsTrue(d.MarkForClearing(pending), "개간 지정이 안 걸렸다");
+            Assert.AreEqual(1, d.ClearPendingCount, "지정 수가 안 맞는다");
+            Assert.IsFalse(d.MarkForClearing(pending), "같은 노드가 두 번 지정됐다");
+            Assert.AreEqual(1, d.ClearPendingCount, "중복 지정으로 수가 늘었다");
+
+            d.TickRegeneration(10f);
+            Assert.AreEqual(5f, pending.CurrentAmount, 1e-3f, "개간 대기 노드가 재생했다 (ADR-C-7 위반)");
+            // 실패 가능성 증명 — 같은 틱에서 **비지정 노드는 실제로 오른다**.
+            Assert.Greater(normal.CurrentAmount, 5f, "비지정 노드도 안 올랐다 — 이 게이트는 빈 검사다");
+        }
+
+        [Test]
+        public void M22_T21_FenceLineReportsBlockedCount()
+        {
+            // 🔴 이 차수의 이유. 舊 코드는 막힌 칸을 조용히 건너뛰고 "8칸"이라고만 말했다.
+            var def = new DefenseService();
+            var line = new List<Vector2Int>();
+            for (int x = 0; x < 8; x++) line.Add(new Vector2Int(x, 0));
+            bool IsNode(int x, int y) => x == 3;                    // (3,0) 한 칸만 나무
+            bool Buildable(int x, int y) => !IsNode(x, y);
+
+            DefenseService.PlanResult r = def.AddFencePlan(line, Buildable, IsNode);
+            Assert.AreEqual(7, r.Added, "계획 칸 수가 안 맞는다");
+            Assert.AreEqual(1, r.Blocked, "막힌 칸을 안 셌다 — 플레이어는 구멍을 모른 채 넘어간다");
+            Assert.IsFalse(r.Nothing, "계획도 대기도 있는데 Nothing 이다");
+            CollectionAssert.Contains(def.BlockedFenceTiles, new Vector2Int(3, 0), "대기 목록에 없다");
+
+            // 실패 가능성 증명 — 막힌 칸이 0이면 Blocked 도 0이어야 한다 (늘 1이면 빈 검사다).
+            var clean = new DefenseService();
+            DefenseService.PlanResult r2 = clean.AddFencePlan(line, (x, y) => true, (x, y) => false);
+            Assert.AreEqual(8, r2.Added);
+            Assert.AreEqual(0, r2.Blocked, "안 막혔는데 대기가 생겼다 — 화면에 헛경고가 뜬다");
+
+            // 같은 줄을 다시 그어도 대기가 중복되지 않는다.
+            def.AddFencePlan(line, Buildable, IsNode);
+            Assert.AreEqual(1, def.BlockedFenceTiles.Count, "대기 칸이 중복됐다");
+        }
+
+        [Test]
+        public void M22_T22_BlockedTilesAreNotCountedAsPlanned()
+        {
+            // ADR-C-4 — 대기를 DefensePlannedCount 에 세면 목수 goal 이 켜지고 **공회전**한다.
+            var def = new DefenseService();
+            var line = new List<Vector2Int> { new Vector2Int(0, 0), new Vector2Int(1, 0) };
+            def.AddFencePlan(line, (x, y) => x != 1, (x, y) => x == 1);
+            Assert.AreEqual(1, def.PlannedCount,
+                "대기 칸이 방어 계획 수에 섞였다 — 목수가 못 짓는 칸을 보고 goal 이 공회전한다");
+            Assert.AreEqual(1, def.BlockedFenceTiles.Count, "대기 칸이 안 잡혔다 — 빈 검사다");
+        }
+
+        [Test]
+        public void M22_T23_ClearedTileIsPromotedToFencePlan()
+        {
+            var def = new DefenseService();
+            var line = new List<Vector2Int> { new Vector2Int(0, 0), new Vector2Int(1, 0) };
+            def.AddFencePlan(line, (x, y) => x != 1, (x, y) => x == 1);
+            int before = def.PlannedCount;
+
+            Assert.IsTrue(def.PromoteClearedTile(new Vector2Int(1, 0)), "대기 칸인데 승격이 안 됐다");
+            Assert.AreEqual(before + 1, def.PlannedCount, "승격했는데 계획 수가 안 늘었다 — 담이 안 이어진다");
+            CollectionAssert.Contains(def.PlannedFenceTiles, new Vector2Int(1, 0));
+            Assert.AreEqual(0, def.BlockedFenceTiles.Count, "승격 후에도 대기에 남아 있다");
+
+            // 대기가 아니었던 칸은 승격되지 않는다 (아무 노드나 치웠다고 담이 생기면 안 된다).
+            Assert.IsFalse(def.PromoteClearedTile(new Vector2Int(9, 9)),
+                "대기한 적 없는 칸이 승격됐다 — 그은 적 없는 곳에 담이 선다");
+        }
+
+        [Test]
+        public void M22_T24_NonNodeBlockersDoNotBecomePending()
+        {
+            // 물·맵 밖·기존 건물은 개간해도 못 짓는다 — 대기로 넣으면 **영영 안 닫히는 계획**이 된다.
+            var def = new DefenseService();
+            var line = new List<Vector2Int> { new Vector2Int(0, 0), new Vector2Int(1, 0) };
+            // (1,0)은 막혔지만 노드 때문이 아니다 (blockedByNode 가 false).
+            DefenseService.PlanResult r = def.AddFencePlan(line, (x, y) => x != 1, (x, y) => false);
+            Assert.AreEqual(1, r.Added);
+            Assert.AreEqual(0, r.Blocked, "노드가 아닌 이유로 막힌 칸이 개간 대기가 됐다");
+            Assert.AreEqual(0, def.BlockedFenceTiles.Count, "〃 대기 목록에 들어갔다");
+
+            // 배선 전 중립 — blockedByNode 를 안 넘기면 舊 동작 그대로다.
+            var old = new DefenseService();
+            DefenseService.PlanResult r2 = old.AddFencePlan(line, (x, y) => x != 1);
+            Assert.AreEqual(1, r2.Added);
+            Assert.AreEqual(0, r2.Blocked, "미배선인데 대기가 생겼다 (중립 불변식 위반)");
+        }
+
+        [Test]
+        public void M22_T25_ClearCostsSameAsGathering()
+        {
+            // 🔴 착취 방지 (ADR-C-6). 회수를 전부 주면서 소요를 채집 1회로 두면 개간이
+            //    **5배 빠른 벌목**이 된다 — 플레이어가 담이 아니라 자원을 노리고 줄을 긋는다.
+            //    배포 에셋에서 읽어 검사한다 (상수를 박으면 에셋이 바뀔 때 착취가 조용히 되살아난다).
+            var clear = AssetDatabase.LoadAssetAtPath<ClearActionSO>("Assets/M0Config/Actions/ClearNode.asset");
+            var chop  = AssetDatabase.LoadAssetAtPath<GatherActionSO>("Assets/M0Config/Actions/ChopWood.asset");
+            Assert.IsNotNull(clear, "ClearNode 액션 에셋 없음 — 개간 goal 이 계획을 못 세운다");
+            Assert.IsNotNull(chop, "ChopWood 에셋 없음");
+            Assert.Greater(chop.DurationSec, 0f, "채집 소요가 0 — 이 검사는 나눗셈이 안 된다");
+
+            int yield = 0;
+            foreach (SlotEffect e in chop.Effects)
+                if (e.Op == EffectOp.Add && SlotIds.IsStock(e.Slot)) { yield = e.Value; break; }
+            Assert.Greater(yield, 0, "채집 1회 수확량을 에셋에서 못 읽었다 — 배수의 근거가 없다");
+
+            // 기준 1회분이 같아야 배수가 그대로 총 작업량이 된다.
+            Assert.AreEqual(chop.DurationSec, clear.DurationSec, 1e-3f,
+                "개간의 기준 소요가 채집 1회와 다르다 — 배수를 곱해도 효율이 안 맞는다");
+
+            // 계획이 이 액션으로 goal 을 만족시킬 수 있는가 (플래너 계약 — ADR-C-1의 기각 근거).
+            bool declares = false;
+            foreach (SlotEffect e in clear.Effects)
+                if (e.Slot == SlotId.ClearPendingCount && e.Op == EffectOp.SubClamp0) declares = true;
+            Assert.IsTrue(declares,
+                "개간 액션이 ClearPendingCount 감소를 선언하지 않았다 — 플래너가 Goal_Clear 를 못 푼다");
+
+            // goal 쪽도 한 걸음 증분이어야 한다 (ADR-M0-12).
+            var goal = AssetDatabase.LoadAssetAtPath<GoalSO>("Assets/M0Config/Goals/Goal_Clear.asset");
+            Assert.IsNotNull(goal, "Goal_Clear 에셋 없음");
+            Assert.IsTrue(goal.RelativeToCurrent, "Goal_Clear 가 절대목표다 — 대기가 많으면 플래너가 무너진다");
         }
     }
 }

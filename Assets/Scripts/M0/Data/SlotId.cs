@@ -139,13 +139,19 @@ namespace AIVillage.M0
                                   // 계획 복귀 없음 — ADR-M22-13). 예산 52칸 중 49.
         WatchtowerCount     = 49, // 수치형 — 완공 망루 수. 빈 망루는 탑일 뿐 (ADR-M22-11) —
                                   // 어떤 goal도 이 슬롯을 안전 전제로 걸면 안 된다.
-                                  // 예산 52칸 중 50 (잔여 2칸 — M24 2·3차 몫. 종족 축이 쓸
-                                  // 3칸은 舊 화폐 자리를 재사용했다, 위 M24-1차 W2 절).
+                                  // 예산 52칸 중 50. (종족 축이 쓴 3칸은 舊 화폐 자리를
+                                  // 재사용했다 — 위 M24-1차 W2 절.)
+        ClearPendingCount   = 50, // 수치형 파생 — 개간 대기 노드 수 (원천 = DiscoveryService,
+                                  // M22-4차). Goal_Clear 트리거. 예산 52칸 중 51 (잔여 1칸).
+                                  // 🔴 이 칸은 M24 2·3차 예약분 2칸 중 하나를 깎은 것이다
+                                  // (ADR-C-4). 기존 슬롯 재사용이 전부 거짓말이 되기 때문:
+                                  // DefensePlannedCount 는 "지을 수 있는" 계획의 수라 막힌
+                                  // 칸을 더하면 목수 goal 이 공회전한다 (M5 자가 재검토 🔴).
     }
 
     public static class SlotIds
     {
-        public const int Count = 50;
+        public const int Count = 51;
 
         /// <summary>전역 스톡 슬롯 여부 — EffectApplier/러너가 공유하는 유일한 판정.
         /// ⚠️ 개인 스톡(MyRawFood 등)을 여기 넣으면 안 된다 (명세 M11-A ⚠️①) —
@@ -187,7 +193,8 @@ namespace AIVillage.M0
             || slot == SlotId.TrapPlannedCount || slot == SlotId.TowerPlannedCount
             || slot == SlotId.TrapCount || slot == SlotId.WatchtowerCount       // M22-3차 W1
             || slot == SlotId.ThreatEncounterMax || slot == SlotId.AltarPlannedCount
-            || slot == SlotId.TreasureValue;                                    // M24-1차 W2
+            || slot == SlotId.TreasureValue                                     // M24-1차 W2
+            || slot == SlotId.ClearPendingCount;                                // M22-4차 W2
             // (M21-W5: MyHasWeapon(40)은 논리형이라 제외)
 
         /// <summary>자원 타입 → 스톡 슬롯. M0 미지원 타입이면 null (Iron/Copper/Silver는 M1).</summary>

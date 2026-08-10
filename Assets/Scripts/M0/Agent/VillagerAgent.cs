@@ -75,6 +75,9 @@ namespace AIVillage.M0
         public ConstructionService Construction => _sim.Construction;
         public ZoneService Zones => _sim.Zones; // 구역 배치 결정자 (M9-A)
         public DefenseService Defense => _sim.Defense; // 방어 계획 (M22-W4 — BuildRunner 배치 조회)
+        // 액션 카탈로그 (M22-4차 W4 — ClearRunner 가 짝이 되는 채집 액션의 수확량·소요를 읽는다).
+        // 이미 _sim 이 갖고 있는 것을 그대로 연다 (World·Discovery 와 같은 패턴, 새 배선 0).
+        public ActionCatalog Catalog => _sim.Catalog;
 
         /// <summary>망루 탑승 중인가 (M22-3차 W3, ADR-M22-11) — 위협 희생 선정에서 제외되는
         /// 유일한 근거 (높이). 쓰기는 ManTowerRunner의 탑승/Cleanup 두 지점뿐 — 세이브 대상

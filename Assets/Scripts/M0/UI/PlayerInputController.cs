@@ -544,11 +544,15 @@ namespace AIVillage.M0
                         : $"나무가 부족합니다 — 필요 {required} / 보유 {stock}");
                     return;
                 }
-                int added = isTrap
+                DefenseService.PlanResult r = isTrap
                     ? sim.AddDefenseTrapLine(_defenseDragStart, end)
                     : sim.AddDefenseFenceLine(_defenseDragStart, end);
-                sim.Hud?.Notify(added > 0
-                    ? $"{label} 줄 계획 — {added}칸 · 나무 {added * unitCost}"
+                // 🔴 M22-4차 W3 — 舊 문구는 **빠진 칸을 말하지 않았다.** "8칸 계획"만 보고 넘어간
+                //    플레이어의 담에는 구멍이 남았고 그리로 고블린이 드나들었다 (사용자 Play).
+                //    막힌 칸이 0이면 괄호를 안 붙인다 — 평소 문구를 어지럽히지 않는다.
+                sim.Hud?.Notify(!r.Nothing
+                    ? $"{label} 줄 계획 — {r.Added}칸 · 나무 {r.Added * unitCost}"
+                      + (r.Blocked > 0 ? $" (⚠ {r.Blocked}칸은 나무·돌에 막혀 대기 — 먼저 치웁니다)" : "")
                     : "지을 수 있는 칸이 없습니다 (막힘·중복)");
             }
         }

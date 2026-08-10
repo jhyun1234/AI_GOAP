@@ -187,9 +187,10 @@ namespace AIVillage.M0
         public float DefenseTowerMountOffset
         { get { EnsureDefenseWoodCosts(); return _towerBuildingSO != null ? _towerBuildingSO.MountOffsetTiles : 0f; } }
 
-        /// <summary>함정 줄 계획 추가의 유일한 창구 (M22-3차 W2, PlayerInput 전용 — 브러시 2).</summary>
-        public int AddDefenseTrapLine(Vector2Int start, Vector2Int snappedEnd)
-            => Defense == null ? 0
+        /// <summary>함정 줄 계획 추가의 유일한 창구 (M22-3차 W2, PlayerInput 전용 — 브러시 2).
+        /// ⚠️ 함정은 개간 대기를 안 받는다 (M22-4차 스코프) — 구멍이 되는 것은 줄이지 함정 한 칸이 아니다.</summary>
+        public DefenseService.PlanResult AddDefenseTrapLine(Vector2Int start, Vector2Int snappedEnd)
+            => Defense == null ? default
                : Defense.AddTrapPlan(DefenseService.LineTiles(start, snappedEnd), DefenseTileBuildable);
 
         /// <summary>망루 계획 추가의 유일한 창구 (M22-3차 W2, PlayerInput 전용 — 브러시 3, 1칸).</summary>
@@ -286,16 +287,50 @@ namespace AIVillage.M0
 
         // 계획 입력 필터 (M22-W3R2) — 맵 안 + 빈 타일 + 노드 없음 + 통행 가능.
         // 노드 포함은 M5 자가 재검토 🔴의 계승: 계획과 시공의 점유 어휘가 갈리면 goal이 공회전한다.
+        //
+        // 🔴 **M22-4차에서 둘로 쪼갰다.** 舊 코드는 "맵 밖·통행 불가·기존 건물·노드"를 한 덩어리
+        //    false 로 돌려줬고, 그래서 계획이 **왜** 빠졌는지 말할 수가 없었다 — 화면은 "8칸"이라고만
+        //    하고 빠진 칸을 안 알렸으며, 그 침묵이 곧 울타리 구멍이었다 (2026-08-10 사용자 Play).
+        //    판정 자체는 **안 바꾼다**: 여전히 노드 위에는 못 짓는다. 왜 막혔는지만 따로 답한다.
         private bool DefenseTileBuildable(int x, int y)
+            => DefenseTileFree(x, y) && !Discovery.HasNodeAt(x, y);
+
+        /// <summary>노드를 뺀 나머지 조건 — 맵 안 + 통행 가능 + 기존 건물 없음 (M22-4차 W3).</summary>
+        private bool DefenseTileFree(int x, int y)
             => MapBounds.ToArrayIndex(x, y, out int ax, out int ay)
-               && Walkable[ax, ay] && !Construction.HasBuildingAt(x, y)
-               && !Discovery.HasNodeAt(x, y);
+               && Walkable[ax, ay] && !Construction.HasBuildingAt(x, y);
+
+        /// <summary>이 칸은 **노드만 치우면 지을 수 있는가** (M22-4차 W3 — 개간 대상 판정).
+        /// 물·맵 밖·기존 건물은 여기서 false다: 개간해도 못 짓는 칸을 대기로 넣으면
+        /// 영영 안 닫히는 계획이 된다 (게이트 M22_T24).</summary>
+        private bool DefenseTileBlockedByNode(int x, int y)
+            => DefenseTileFree(x, y) && Discovery.HasNodeAt(x, y);
 
         /// <summary>울타리 줄 계획 추가의 유일한 창구 (PlayerInput 전용, M22-W3R2 — ADR-M22-4 재개정).
-        /// end는 이미 우세축 스냅돼 있어야 한다. 추가된 칸 수를 돌려준다 (0 = 전부 막힘·중복).</summary>
-        public int AddDefenseFenceLine(Vector2Int start, Vector2Int snappedEnd)
-            => Defense == null ? 0
-               : Defense.AddFencePlan(DefenseService.LineTiles(start, snappedEnd), DefenseTileBuildable);
+        /// end는 이미 우세축 스냅돼 있어야 한다. (계획 칸 수, 개간 대기 칸 수)를 돌려준다.
+        ///
+        /// M22-4차 W3: 노드에 막힌 칸을 **대기로 받아** 그 노드를 개간 지정한다 — 여기가
+        /// 개간의 **유일한 입구**다 (ADR-C-5: 마을이 스스로 숲을 밀지 않는다).</summary>
+        public DefenseService.PlanResult AddDefenseFenceLine(Vector2Int start, Vector2Int snappedEnd)
+        {
+            if (Defense == null) return default;
+            DefenseService.PlanResult r = Defense.AddFencePlan(
+                DefenseService.LineTiles(start, snappedEnd), DefenseTileBuildable, DefenseTileBlockedByNode);
+            if (r.Blocked > 0) MarkBlockedTilesForClearing();
+            return r;
+        }
+
+        /// <summary>대기 칸의 노드를 개간 지정한다 (M22-4차 W3). 이미 지정된 노드는 조용히 넘어간다.
+        /// 전수로 도는 이유: 이번 줄이 아니어도 아직 지정 안 된 대기 칸이 남아 있을 수 있다
+        /// (예: 계획 취소 뒤 다시 그은 줄). 대기 칸은 많아야 한 자릿수라 비용이 무의미하다.</summary>
+        private void MarkBlockedTilesForClearing()
+        {
+            foreach (Vector2Int t in Defense.BlockedFenceTiles)
+            {
+                ResourceNode n = Discovery.NodeAt(t.x, t.y);
+                if (n != null) Discovery.MarkForClearing(n);
+            }
+        }
 
         /// <summary>문 계획 추가의 유일한 창구 (PlayerInput 전용) — 우클릭 1칸.</summary>
         public bool TryAddDefenseGate(Vector2Int tile)
@@ -982,6 +1017,10 @@ namespace AIVillage.M0
             Construction = new ConstructionService(World);
             Zones        = new ZoneService(); // M9-A — 배치 결정자 (군집 휴리스틱 대체, ADR-M9-1)
             Defense      = new DefenseService(); // M22-W3 — 방어 계획 (W5에서 내구도까지)
+            // 개간 → 승격 (M22-4차 W3): 노드가 치워지면 기다리던 울타리 칸이 계획이 된다.
+            // 판정은 두 서비스가 각자 소유하고, 여기는 **잇기만** 한다 (M10-C ⚠️③ 패턴).
+            Discovery.OnNodeRemoved += (node, recovered) =>
+                Defense?.PromoteClearedTile(new Vector2Int(node.TileX, node.TileY));
             Planner      = new PlannerGateway(_catalog, _agentConfig); // M11-A — 개인 상한 전제 주입 (ADR-M11-3)
             Goals        = new GoalSelector(_goals);
             Chatter      = new ChatterService(_worldConfig, _agentConfig); // M7-C — 표현 전용 (ADR-M7-1)

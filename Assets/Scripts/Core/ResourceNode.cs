@@ -105,6 +105,17 @@ namespace AIVillage.Core
         public bool IsDiscovered { get; set; } = false;
 
         /// <summary>
+        /// 개간되어 세상에서 지워졌는가 (M22-4차).
+        ///
+        /// 🔴 **고갈과 다르다.** 고갈(CurrentAmount == 0)은 재생이 되살리고 타일도 계속 점유하지만,
+        /// 제거는 되돌아오지 않고 타일이 열린다 — 그래야 그 자리에 울타리가 선다.
+        ///
+        /// 쓰기는 `DiscoveryService.RemoveNode` 한 곳뿐 (ADR-C-2). 뷰는 이 값을 보고 스스로
+        /// 사라진다 — Core가 M0 서비스를 알면 의존이 거꾸로 서므로 이벤트가 아니라 플래그다.
+        /// </summary>
+        public bool IsRemoved { get; set; } = false;
+
+        /// <summary>
         /// 현재 이 노드에서 채집 중인 주민 수. TryOccupy/Release 메서드로만 변경한다.
         /// </summary>
         public int CurrentGatherers { get; private set; } = 0;

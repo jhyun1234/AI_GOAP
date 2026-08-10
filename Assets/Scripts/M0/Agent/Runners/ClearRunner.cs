@@ -19,8 +19,14 @@ namespace AIVillage.M0
     {
         private ResourceNode _node;
         private int _recovered;
+        private AnimKind _anim = AnimKind.None;
 
         public override bool AppliesOwnEffects => true;
+
+        /// <summary>이번에 칠 대상에 맞는 몸짓 — 나무면 도끼, 돌이면 곡괭이 (사용자 관측
+        /// 2026-08-10: *"돌을 도끼로 치는 건 좀 거슬리긴 하지"*). 액션 하나가 두 자원을
+        /// 상대하는데 `ActionSO.Anim`은 한 값뿐이라 생긴 자리다.</summary>
+        public override AnimKind AnimOverride => _anim;
 
         public ClearRunner(ClearActionSO so) : base(so) { }
 
@@ -36,7 +42,10 @@ namespace AIVillage.M0
 
             // 자원별 직업 효율은 채집과 **같은 자**를 쓴다 (ADR-M20-2) — 나무꾼은 나무를,
             // 광부는 돌을 빨리 친다. 개간이라고 다른 표를 만들면 직업 축이 둘로 갈린다.
-            DurationMult = agent.GatherDurationMultOfJob(_node.ResourceType) * WorkMult(agent, _node);
+            GatherActionSO gather = FindGatherFor(agent.Catalog, _node.ResourceType);
+            DurationMult = agent.GatherDurationMultOfJob(_node.ResourceType) * WorkMult(gather, _node);
+            // 몸짓도 같은 자에서 빌린다 — 짝이 없으면 액션 에셋 값 그대로 (중립).
+            _anim = gather != null ? gather.Anim : AnimKind.None;
 
             // 노드 **곁**에 선다 — 채집과 같은 규약 (겹쳐 서기 금지, 2026-08-10 사용자 Play).
             MoveTarget = MapBounds.PickWalkableAdjacent(agent.IsWalkable,
@@ -73,12 +82,10 @@ namespace AIVillage.M0
         /// 짝이 되는 채집 액션을 못 찾으면 1배 — 배선 전과 같은 동작(중립)이고, 그 판에서는
         /// 개간이 채집보다 이득이지만 애초에 채집이 없는 자원이라 비교 대상이 없다.
         /// </summary>
-        private float WorkMult(VillagerAgent agent, ResourceNode node)
+        private float WorkMult(GatherActionSO gather, ResourceNode node)
         {
             float ownSec = Action != null ? Action.DurationSec : 0f;
             if (ownSec <= 0f) return 1f;   // 0초짜리 액션 — 나눌 수 없다 (에셋 사고 방어)
-
-            GatherActionSO gather = FindGatherFor(agent, node.ResourceType);
             if (gather == null) return 1f;
 
             int yield = HarvestAmountOf(gather);
@@ -90,14 +97,25 @@ namespace AIVillage.M0
             return gatherSec * reps / ownSec;
         }
 
-        /// <summary>이 자원을 캐는 채집 액션 (카탈로그에서 찾는다 — 코드에 이름을 안 적는다).</summary>
-        private static GatherActionSO FindGatherFor(VillagerAgent agent, ResourceType type)
+        /// <summary>
+        /// 이 자원을 캐는 채집 액션 (카탈로그에서 찾는다 — 코드에 이름을 안 적는다).
+        /// **개간의 소요와 몸짓이 둘 다 여기서 나온다**: "이 자원을 어떻게 다루는가"의 답은
+        /// 이미 그 채집 액션 에셋에 있고, 개간은 그것을 빌린다 (ADR-M0-2 · ADR-M23-1).
+        /// 새 자원이 늘어도 코드는 안 바뀐다 — 그 자원의 채집 액션만 있으면 저절로 맞는다.
+        /// </summary>
+        public static GatherActionSO FindGatherFor(ActionCatalog catalog, ResourceType type)
         {
-            ActionCatalog catalog = agent.Catalog;
             if (catalog?.Actions == null) return null;
             foreach (ActionSO a in catalog.Actions)
                 if (a is GatherActionSO g && g.TargetResource == type) return g;
             return null;
+        }
+
+        /// <summary>이 자원을 개간할 때의 몸짓 (순수 — 게이트 `M22_T26`). 짝이 없으면 None = 에셋 그대로.</summary>
+        public static AnimKind AnimForResource(ActionCatalog catalog, ResourceType type)
+        {
+            GatherActionSO g = FindGatherFor(catalog, type);
+            return g != null ? g.Anim : AnimKind.None;
         }
 
         /// <summary>채집 1회 수확량 — `GatherRunner.HarvestAmount`와 **같은 읽기 규칙**이다

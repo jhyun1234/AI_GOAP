@@ -1171,5 +1171,34 @@ namespace AIVillage.Tests.EditMode
             Assert.IsNotNull(goal, "Goal_Clear 에셋 없음");
             Assert.IsTrue(goal.RelativeToCurrent, "Goal_Clear 가 절대목표다 — 대기가 많으면 플래너가 무너진다");
         }
+
+        [Test]
+        public void M22_T26_ClearGestureFollowsTheResource()
+        {
+            // 사용자 관측 2026-08-10: "돌을 도끼로 치는 건 좀 거슬리긴 하지."
+            // 액션 하나가 나무·돌을 다 상대하는데 ActionSO.Anim 은 한 값뿐이라 생긴 자리다.
+            // 🔑 코드가 몸짓을 고르지 않는다 (ADR-M23-1) — **그 자원을 캐는 액션의 Anim 을 빌린다.**
+            var cat = AssetDatabase.LoadAssetAtPath<ActionCatalog>("Assets/M0Config/ActionCatalog.asset");
+            Assert.IsNotNull(cat, "ActionCatalog 없음");
+
+            AnimKind wood  = ClearRunner.AnimForResource(cat, ResourceType.Wood);
+            AnimKind stone = ClearRunner.AnimForResource(cat, ResourceType.Stone);
+
+            // 실패 가능성 증명 — 둘 다 None 이면 "다르다"가 무의미해진다.
+            Assert.AreNotEqual(AnimKind.None, wood, "나무 개간 몸짓을 못 찾았다 — 빈 검사다");
+            Assert.AreNotEqual(AnimKind.None, stone, "돌 개간 몸짓을 못 찾았다 — 빈 검사다");
+            Assert.AreNotEqual(wood, stone,
+                $"나무와 돌의 개간 몸짓이 같다 ({wood}) — 돌을 도끼로 팬다");
+
+            // 출처가 채집 액션임을 못박는다 (여기가 어긋나면 코드가 몰래 표를 갖게 된 것이다).
+            var chop = AssetDatabase.LoadAssetAtPath<GatherActionSO>("Assets/M0Config/Actions/ChopWood.asset");
+            var mine = AssetDatabase.LoadAssetAtPath<GatherActionSO>("Assets/M0Config/Actions/MineStone.asset");
+            Assert.AreEqual(chop.Anim, wood, "나무 개간 몸짓이 ChopWood 에셋과 다르다");
+            Assert.AreEqual(mine.Anim, stone, "돌 개간 몸짓이 MineStone 에셋과 다르다");
+
+            // 짝이 없는 자원은 None → 액션 에셋 값 그대로 (중립 폴백).
+            Assert.AreEqual(AnimKind.None, ClearRunner.AnimForResource(null, ResourceType.Wood),
+                "카탈로그 미배선인데 몸짓을 지목했다 (중립 불변식 위반)");
+        }
     }
 }

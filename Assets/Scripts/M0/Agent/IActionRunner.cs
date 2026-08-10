@@ -37,6 +37,14 @@ namespace AIVillage.M0
         /// 판정이 이원화된다(ADR-M0-1 정신). 표기는 SeasonHud가 플레이어 언어로 옮긴다.</summary>
         float DurationMult { get; }
 
+        /// <summary>이번 실행에만 쓸 몸짓 (M22-4차) — `None` = 액션 에셋의 `Anim` 그대로 (중립).
+        ///
+        /// 🔑 액션 하나가 **여러 대상을 상대할 때만** 쓴다: 개간은 나무도 돌도 치우는데
+        /// `ActionSO.Anim`은 한 값뿐이라, 돌을 도끼로 패는 그림이 나온다 (사용자 관측 2026-08-10).
+        /// ⚠️ **코드가 몸짓을 고르는 자리가 아니다** (`ADR-M23-1`) — 러너는 *다른 에셋이 이미 정해
+        /// 둔 값*을 가리킬 뿐이다 (개간은 그 자원을 캐는 채집 액션의 `Anim`을 빌린다).</summary>
+        AnimKind AnimOverride { get; }
+
         string FailReason { get; }
     }
 
@@ -51,6 +59,10 @@ namespace AIVillage.M0
 
         /// <summary>직업 효율 배율 (M20-W10) — Prepare에서 1회 확정. 기본 1 = 중립(무직·비전문).</summary>
         public float DurationMult { get; protected set; } = 1f;
+
+        /// <summary>몸짓 덮어쓰기 (M22-4차) — 기본 None = 에셋 그대로 (중립). ClearRunner만 쓴다.</summary>
+        public virtual AnimKind AnimOverride => AnimKind.None;
+
         public string FailReason { get; protected set; }
 
         protected ActionRunnerBase(ActionSO action)

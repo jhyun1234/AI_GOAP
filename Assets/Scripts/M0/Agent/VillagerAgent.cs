@@ -473,9 +473,13 @@ namespace AIVillage.M0
             if (State == AgentState.Moving && !chatting) TickMoving(Time.deltaTime);
             // 행동 몸짓 (M23-W1) — 어느 몸짓인지는 실행 중 액션의 에셋 필드가 정한다 (ADR-M23-1).
             // 대화 중엔 끈다 (마주보며 도끼질하는 그림 방지).
+            // M22-4차: 러너가 이번 실행의 몸짓을 지목했으면 그것이 이긴다 (개간 = 나무면 도끼·
+            // 돌이면 곡괭이). 지목값의 출처도 **에셋**이다 — 코드는 어느 에셋을 볼지만 안다.
             AnimKind acting = State == AgentState.Acting && !chatting && !SuppressActionGesture
                 && _plan != null && _planIndex >= 0 && _planIndex < _plan.Count
-                ? _plan[_planIndex].Anim : AnimKind.None;
+                ? (_runner != null && _runner.AnimOverride != AnimKind.None
+                   ? _runner.AnimOverride : _plan[_planIndex].Anim)
+                : AnimKind.None;
             _animator?.Tick(Time.deltaTime,
                 State == AgentState.Moving && _hasNextReserved && !chatting, _lastDir, acting);
             TickDepth();

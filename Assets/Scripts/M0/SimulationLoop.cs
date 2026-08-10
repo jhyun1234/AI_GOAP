@@ -145,6 +145,10 @@ namespace AIVillage.M0
         /// <summary>지형 지도 (M26-1차 W2) — null·빈 팔레트 = 지형 없는 판 (오늘과 동일, 중립).</summary>
         public TerrainService Terrain { get; private set; }
 
+        /// <summary>노드가 설 수 있는 땅인가 (M26-2차 W1, ADR-T2-1) — **초기 스폰과 리스폰이 함께 읽는
+        /// 단일 판정**. null = 지형 없는 판 (전부 허용 = 舊 동작). 조립 시 한 번만 만든다.</summary>
+        private System.Func<int, int, bool> _canHostNode;
+
         /// <summary>이 판의 시드 (M26-1차 W2, ADR-T-4) — 지형과 노드 배치가 **함께** 여기서 나온다.
         /// 연대기에 남는다: 이게 없으면 맵이 판마다 다르되 **익명**이라 같은 판을 다시 볼 수 없다.</summary>
         public int RunSeed { get; private set; }
@@ -1229,11 +1233,20 @@ namespace AIVillage.M0
                         blockedTiles++;
                     }
             }
+            // 노드가 설 수 있는 땅의 판정 — **여기 한 곳에서만 만든다** (M26-2차 W1, ADR-T2-1).
+            // 🔴 1차는 이 식을 리스폰에만 넘기고 **초기 스폰에는 안 넘겼다**. 그래서 나무·돌이
+            //    호수·절벽 위에 설 수 있었고, 그 노드가 최근접이면 채집 goal이 반복해서 접혔다.
+            //    복사해 두 벌 두지 않는 이유 = 판정이 둘이면 같은 결함이 다른 모양으로 재발한다.
+            _canHostNode = Terrain.IsEmpty
+                ? null
+                : (System.Func<int, int, bool>)((x, y) => Terrain.IsWalkable(x, y)
+                                                          && !Construction.HasBuildingAt(x, y));
+
             // 리스폰 자리 이동 (M26-1차 W6) — 개간 이력을 **읽는 쪽**이 여기다 (M22-4차 ADR-C-3 이행).
             // 지형이 없으면 켜지 않는다: 옮길 이유(막힌 땅)가 없고, 오늘 동작을 그대로 두는 편이 낫다.
-            if (!Terrain.IsEmpty)
+            if (_canHostNode != null)
                 Discovery.ConfigureRespawn((uint)RunSeed, _nodeRelocateAfterDays, _nodeRelocateRadius,
-                                           (x, y) => Terrain.IsWalkable(x, y) && !Construction.HasBuildingAt(x, y));
+                                           _canHostNode);
 
             // 바닥 색 (M26-1차 W5) — Core 렌더러에 **밀어 넣는다** (Core 는 M0 를 모른다).
             // 팔레트가 비면 안 꽂는다 = 舊 화면과 픽셀 동일 (중립 불변식).
@@ -1431,8 +1444,11 @@ namespace AIVillage.M0
             //    매 실행 랜덤이고 **익명**이었다 — 판마다 다르되 같은 판을 다시 볼 수 없었다.
             //    지형과 노드가 같은 시드에서 나와야 `ADR-M10R-2`가 맵까지 덮는다.
             _nodeSpawner.OverrideSeed(RunSeed);
+            // 🔑 M26-2차 W1: 리스폰이 쓰는 것과 **같은 판정**을 넘긴다 (ADR-T2-1).
+            //    지형이 없는 판이면 null 이라 舊 배치와 픽셀 동일 (중립 불변식).
             bool ok = _nodeSpawner.SpawnAll(
-                _worldConfig.BaseTileX, _worldConfig.BaseTileY, _worldConfig.BaseDiscoverRadius, Discovery);
+                _worldConfig.BaseTileX, _worldConfig.BaseTileY, _worldConfig.BaseDiscoverRadius,
+                Discovery, _canHostNode);
             if (!ok)
             {
                 Debug.LogError("[M0SimulationLoop] 자원 노드 스폰 실패 — 루프를 시작하지 않습니다.");

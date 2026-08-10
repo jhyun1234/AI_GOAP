@@ -55,6 +55,11 @@ namespace AIVillage.Core
         // 판 시드 덮어쓰기 (M26-1차 W2) — 0 = 안 씀 (에셋 randomSeed 규약 그대로).
         private int _seedOverride;
 
+        // 이 칸에 노드가 설 수 있는가 (M26-2차 W1) — null이면 전부 허용 = 舊 동작.
+        // 🔑 **리스폰(DiscoveryService.ConfigureRespawn)이 받는 것과 같은 판정**이다 (ADR-T2-1):
+        //    판정이 둘이면 "리스폰은 피하는데 스폰은 서는" 지금의 결함이 다른 모양으로 재발한다.
+        private System.Func<int, int, bool> _canHostNode;
+
         /// <summary>판 시드를 주입한다 (M26-1차 W2, ADR-T-4) — **SpawnAll 전에** 부른다.
         /// 지형과 노드가 같은 시드에서 나오게 하는 유일한 통로다.</summary>
         public void OverrideSeed(int seed) => _seedOverride = seed;
@@ -75,7 +80,11 @@ namespace AIVillage.Core
         /// 노드 등록처를 주입받아 전체 자원 노드를 배치한다 (M0 DiscoveryService 등).
         /// 舊 SensorSystem 전용 시그니처는 W8에서 폐기됨.
         /// </summary>
-        public bool SpawnAll(int baseTileX, int baseTileY, int discoveryRadius, IResourceNodeSink sink)
+        /// <param name="canHostNode">이 칸에 노드가 설 수 있는가 (M26-2차 W1).
+        /// **null이면 전부 허용 = 舊 동작**(중립 불변식). 지형이 있는 판에서는 호출자가
+        /// 리스폰과 **같은 식**을 넘긴다 (ADR-T2-1) — 안 넘기면 나무가 호수 위에 선다.</param>
+        public bool SpawnAll(int baseTileX, int baseTileY, int discoveryRadius, IResourceNodeSink sink,
+                             System.Func<int, int, bool> canHostNode = null)
         {
             if (sink == null)
             {
@@ -83,6 +92,7 @@ namespace AIVillage.Core
                 return false;
             }
             _sink = sink;
+            _canHostNode = canHostNode;
 
             if (_config == null)
             {
@@ -149,12 +159,20 @@ namespace AIVillage.Core
             for (int c = 0; c < typeData.clusterCount; c++)
             {
                 bool found = false;
+                int terrainRejects = 0;   // 진단용 — 물이 많은 판을 로그로 구분한다
                 for (int attempt = 0; attempt < _config.maxPlacementAttempts; attempt++)
                 {
                     Vector2Int cand = RandomTileInBounds();
                     int dist = Manhattan(cand.x, cand.y, baseTileX, baseTileY);
                     if (dist < typeData.minDistanceFromBase || dist > effectiveMaxDist)
                         continue;
+
+                    // 설 수 없는 땅 (M26-2차 W1) — 중심이 물에 잠기면 클러스터가 통째로 잠긴다.
+                    if (_canHostNode != null && !_canHostNode(cand.x, cand.y))
+                    {
+                        terrainRejects++;
+                        continue;
+                    }
 
                     // 같은 자원 타입의 다른 클러스터와 최소 간격 확인
                     bool tooClose = false;
@@ -176,7 +194,8 @@ namespace AIVillage.Core
                 if (!found)
                     Debug.LogWarning($"[ResourceNodeSpawner] {typeData.resourceType} " +
                                      $"클러스터 중심 {c + 1}/{typeData.clusterCount} 배치 실패 " +
-                                     $"(minDist={typeData.minDistanceFromBase}, spacing={typeData.minClusterSpacing})");
+                                     $"(minDist={typeData.minDistanceFromBase}, spacing={typeData.minClusterSpacing}" +
+                                     $", 지형거절={terrainRejects}/{_config.maxPlacementAttempts})");
             }
 
             // ── Step 2: 클러스터마다 노드 배치 ───────────────────────────────────
@@ -194,6 +213,7 @@ namespace AIVillage.Core
                 for (int n = 0; n < perCluster; n++)
                 {
                     bool placed = false;
+                    int terrainRejects = 0;   // 진단용 — 물 가장자리 클러스터를 로그로 구분한다
                     for (int attempt = 0; attempt < _config.maxPlacementAttempts; attempt++)
                     {
                         int dx = _rng.Next(-typeData.clusterSpreadRadius, typeData.clusterSpreadRadius + 1);
@@ -204,6 +224,14 @@ namespace AIVillage.Core
                         // 기지 최소 거리 재확인 (클러스터 spread로 인해 초과할 수 있음)
                         if (Manhattan(tx, ty, baseTileX, baseTileY) < typeData.minDistanceFromBase)
                             continue;
+
+                        // 설 수 없는 땅 (M26-2차 W1) — 🔴 **중심만 걸러서는 안 된다**:
+                        // clusterSpreadRadius로 흩어진 노드가 호수 가장자리에 빠진다.
+                        if (_canHostNode != null && !_canHostNode(tx, ty))
+                        {
+                            terrainRejects++;
+                            continue;
+                        }
 
                         // 이미 배치된 노드와 최소 간격 확인
                         if (!IsPositionFarEnough(tx, ty))
@@ -228,7 +256,8 @@ namespace AIVillage.Core
 
                     if (!placed)
                         Debug.LogWarning($"[ResourceNodeSpawner] {typeData.resourceType} " +
-                                         $"노드 배치 실패 (남은={remaining})");
+                                         $"노드 배치 실패 (남은={remaining}" +
+                                         $", 지형거절={terrainRejects}/{_config.maxPlacementAttempts})");
                 }
             }
 

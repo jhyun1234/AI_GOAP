@@ -92,6 +92,9 @@ MonoBehaviour:
     regenPerDay: 0.2
     minDistanceFromBase: 40
     maxDistanceFromBase: 0
+    allowedTerrain:
+    - {fileID: 11400000, guid: 14840697d4ee94347a1ce754ccf89a55, type: 2}
+    adjacentTerrain: []
     clusterCount: 4
     minNodesPerCluster: 1
     maxNodesPerCluster: 1
@@ -120,16 +123,21 @@ MonoBehaviour:
     depletedColor: {r: 0.33333334, g: 0.33333334, b: 0.33333334, a: 1}
     nodeSize: 0.9
   - resourceType: 0
-    nodeCount: 0
-    maxAmount: 0
-    regenPerDay: 0
-    minDistanceFromBase: 0
+    nodeCount: 8
+    maxAmount: 25
+    regenPerDay: 3
+    minDistanceFromBase: 20
     maxDistanceFromBase: 0
-    clusterCount: 0
-    minNodesPerCluster: 0
-    maxNodesPerCluster: 0
-    clusterSpreadRadius: 0
-    minClusterSpacing: 0
-    nodeColor: {r: 1, g: 0.18396229, b: 0.18396229, a: 1}
-    depletedColor: {r: 0.509434, g: 0.509434, b: 0.509434, a: 1}
-    nodeSize: 0
+    allowedTerrain: []
+    adjacentTerrain:
+    - {fileID: 11400000, guid: e63a67e9d52c16e478fb33d46c1d60cf, type: 2}
+    clusterCount: 6
+    minNodesPerCluster: 1
+    maxNodesPerCluster: 2
+    clusterSpreadRadius: 2
+    minClusterSpacing: 10
+    nodeSprite: {fileID: -1947992203, guid: 713f57e6852938949869f1a41c536e1f, type: 3}
+    depletedBelowRatio: 0.25
+    nodeColor: {r: 1, g: 0.84313726, b: 0, a: 1}
+    depletedColor: {r: 0.33333334, g: 0.33333334, b: 0.33333334, a: 1}
+    nodeSize: 0.9

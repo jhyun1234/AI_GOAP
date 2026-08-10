@@ -1446,9 +1446,19 @@ namespace AIVillage.M0
             _nodeSpawner.OverrideSeed(RunSeed);
             // 🔑 M26-2차 W1: 리스폰이 쓰는 것과 **같은 판정**을 넘긴다 (ADR-T2-1).
             //    지형이 없는 판이면 null 이라 舊 배치와 픽셀 동일 (중립 불변식).
+            // 🔑 M26-2차 W2: 지형 **조회**도 밀어 넣는다 (Core 는 TerrainService 를 모른다 — W5 규약).
+            //    밀도 분모는 팔레트를 아는 여기서 구한다: 확률로만 쓰면 1 초과가 전부 "항상 채택"이
+            //    되어 숲 1.5 가 평지 1.0 과 같아지기 때문이다.
+            float densityMax = 1f;
+            if (!Terrain.IsEmpty && _terrainPalette != null)
+                foreach (TerrainTypeSO t in _terrainPalette)
+                    if (t != null) densityMax = Mathf.Max(densityMax, t.NodeDensityMult);
+
             bool ok = _nodeSpawner.SpawnAll(
                 _worldConfig.BaseTileX, _worldConfig.BaseTileY, _worldConfig.BaseDiscoverRadius,
-                Discovery, _canHostNode);
+                Discovery, _canHostNode,
+                Terrain.IsEmpty ? null : (System.Func<int, int, TerrainTypeSO>)Terrain.At,
+                densityMax);
             if (!ok)
             {
                 Debug.LogError("[M0SimulationLoop] 자원 노드 스폰 실패 — 루프를 시작하지 않습니다.");

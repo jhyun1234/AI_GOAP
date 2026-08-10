@@ -20,4 +20,4 @@ MonoBehaviour:
   EnterCost: 1
   MoveSpeedMult: 1
   GroundColor: {r: 0.27, g: 0.55, b: 0.27, a: 1}
-  NodeDensityMult: 1
+  NodeDensityMult: 1.5

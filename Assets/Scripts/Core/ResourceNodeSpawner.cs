@@ -60,6 +60,17 @@ namespace AIVillage.Core
         //    판정이 둘이면 "리스폰은 피하는데 스폰은 서는" 지금의 결함이 다른 모양으로 재발한다.
         private System.Func<int, int, bool> _canHostNode;
 
+        // 이 칸의 지형 (M26-2차 W2) — null이면 지형 조건을 무시한다 = 舊 동작.
+        // 🔑 Core 는 M0 의 `TerrainService` 를 **모른다**: 알면 의존이 거꾸로 선다.
+        //    그래서 M0 가 조회를 **밀어 넣는다** (W5 의 `TerrainColorSource` 와 같은 규약).
+        private System.Func<int, int, AIVillage.M0.TerrainTypeSO> _terrainAt;
+
+        // 팔레트 안의 최대 `NodeDensityMult` (M26-2차 W2) — 밀도를 **상대값**으로 읽기 위한 분모.
+        // 🔑 확률로만 쓰면 1을 넘는 값이 전부 "항상 채택"이 되어 **숲 1.5가 평지 1.0과 같아진다.**
+        //    최대값으로 나누면 숲:평지:늪 = 1.5:1.0:0.6 의 **비율**이 그대로 산다.
+        //    분모를 아는 쪽은 팔레트를 가진 M0 다 — 그래서 여기로 넘어온다.
+        private float _densityMax = 1f;
+
         /// <summary>판 시드를 주입한다 (M26-1차 W2, ADR-T-4) — **SpawnAll 전에** 부른다.
         /// 지형과 노드가 같은 시드에서 나오게 하는 유일한 통로다.</summary>
         public void OverrideSeed(int seed) => _seedOverride = seed;
@@ -83,8 +94,13 @@ namespace AIVillage.Core
         /// <param name="canHostNode">이 칸에 노드가 설 수 있는가 (M26-2차 W1).
         /// **null이면 전부 허용 = 舊 동작**(중립 불변식). 지형이 있는 판에서는 호출자가
         /// 리스폰과 **같은 식**을 넘긴다 (ADR-T2-1) — 안 넘기면 나무가 호수 위에 선다.</param>
+        /// <param name="terrainAt">이 칸의 지형 (M26-2차 W2). **null이면 지형 조건 무시 = 舊 동작.**</param>
+        /// <param name="densityMax">팔레트 최대 `NodeDensityMult` — 밀도를 상대값으로 읽는 분모.
+        /// 1 이하면 밀도를 안 쓴다.</param>
         public bool SpawnAll(int baseTileX, int baseTileY, int discoveryRadius, IResourceNodeSink sink,
-                             System.Func<int, int, bool> canHostNode = null)
+                             System.Func<int, int, bool> canHostNode = null,
+                             System.Func<int, int, AIVillage.M0.TerrainTypeSO> terrainAt = null,
+                             float densityMax = 1f)
         {
             if (sink == null)
             {
@@ -93,6 +109,8 @@ namespace AIVillage.Core
             }
             _sink = sink;
             _canHostNode = canHostNode;
+            _terrainAt = terrainAt;
+            _densityMax = Mathf.Max(1f, densityMax);
 
             if (_config == null)
             {
@@ -174,6 +192,13 @@ namespace AIVillage.Core
                         continue;
                     }
 
+                    // 지형 조건 (M26-2차 W2) — 늪 자원의 클러스터는 늪에서 시작해야 늪에 모인다.
+                    if (!TerrainAccepts(typeData, cand.x, cand.y))
+                    {
+                        terrainRejects++;
+                        continue;
+                    }
+
                     // 같은 자원 타입의 다른 클러스터와 최소 간격 확인
                     bool tooClose = false;
                     foreach (Vector2Int existing in centers)
@@ -228,6 +253,14 @@ namespace AIVillage.Core
                         // 설 수 없는 땅 (M26-2차 W1) — 🔴 **중심만 걸러서는 안 된다**:
                         // clusterSpreadRadius로 흩어진 노드가 호수 가장자리에 빠진다.
                         if (_canHostNode != null && !_canHostNode(tx, ty))
+                        {
+                            terrainRejects++;
+                            continue;
+                        }
+
+                        // 지형 조건 (M26-2차 W2) — 여기가 전수 검사(M26B_T2)가 보는 자리다.
+                        // 중심이 늪이어도 spread 로 흩어진 노드는 늪 밖일 수 있다.
+                        if (!TerrainAccepts(typeData, tx, ty))
                         {
                             terrainRejects++;
                             continue;
@@ -331,6 +364,47 @@ namespace AIVillage.Core
         // ─────────────────────────────────────────────────────────────────────────
         // 유틸리티
         // ─────────────────────────────────────────────────────────────────────────
+
+        /// <summary>지형이 이 칸을 받아 주는가 (M26-2차 W2). `_terrainAt`가 null이면 언제나 참 = 舊 동작.
+        ///
+        /// 세 관문이다: ①설 수 있는 지형인가 ②인접해야 할 지형이 곁에 있는가 ③밀도 추첨을 통과했는가.
+        /// 🔑 **①을 건 자원에는 ③을 걸지 않는다**: 설계자가 "여기에만 난다"고 이미 못박았는데
+        ///    밀도까지 곱하면 늪 자원이 늪 밀도(0.6)로 **한 번 더** 깎여 의도의 절반만 남는다.
+        /// </summary>
+        private bool TerrainAccepts(ResourceTypeSpawnData d, int tx, int ty)
+        {
+            if (_terrainAt == null) return true;
+
+            AIVillage.M0.TerrainTypeSO here = _terrainAt(tx, ty);
+
+            bool hasAllowed = d.allowedTerrain != null && d.allowedTerrain.Length > 0;
+            if (hasAllowed && System.Array.IndexOf(d.allowedTerrain, here) < 0) return false;
+
+            if (d.adjacentTerrain != null && d.adjacentTerrain.Length > 0
+                && !HasNeighborTerrain(d.adjacentTerrain, tx, ty)) return false;
+
+            // 밀도 — 지정 지형이 있는 자원은 건너뛴다 (위 주석). 상대값이라 최대치는 항상 통과한다.
+            if (!hasAllowed && here != null && _densityMax > 1f)
+            {
+                float p = Mathf.Clamp01(here.NodeDensityMult / _densityMax);
+                if (p < 1f && _rng.NextDouble() >= p) return false;
+            }
+            return true;
+        }
+
+        /// <summary>8방향 이웃 중 하나라도 이 지형인가 (M26-2차 W2 — "물가"의 뜻).</summary>
+        private bool HasNeighborTerrain(AIVillage.M0.TerrainTypeSO[] wanted, int tx, int ty)
+        {
+            for (int dx = -1; dx <= 1; dx++)
+                for (int dy = -1; dy <= 1; dy++)
+                {
+                    if (dx == 0 && dy == 0) continue;
+                    int nx = tx + dx, ny = ty + dy;
+                    if (nx < _mapMinX || nx > _mapMaxX || ny < _mapMinY || ny > _mapMaxY) continue;
+                    if (System.Array.IndexOf(wanted, _terrainAt(nx, ny)) >= 0) return true;
+                }
+            return false;
+        }
 
         private bool IsPositionFarEnough(int tx, int ty)
         {

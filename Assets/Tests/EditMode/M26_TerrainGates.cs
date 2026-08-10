@@ -385,7 +385,7 @@ namespace AIVillage.Tests.EditMode
                 }
             Assert.AreEqual(168, d.ClearedTiles.Count, "개간 이력 준비가 어긋났다 — 빈 검사다");
 
-            d.ConfigureRespawn(1u, 1f, 6, (x, y) => true);
+            d.ConfigureRespawn(1u, 1f, 6, (type, x, y) => true);
             d.TickRespawn(10f);
             Assert.AreEqual(0, node.TileX, "개간한 자리로 옮겨갔다 — 울타리 구멍이 부활한다 (ADR-C-3)");
             Assert.AreEqual(0, node.TileY, "〃");
@@ -394,7 +394,7 @@ namespace AIVillage.Tests.EditMode
             var d2 = new DiscoveryService();
             var free = new ResourceNode("free", ResourceType.Wood, 0, 0, 50f, 1f, true) { CurrentAmount = 0f };
             d2.AddResourceNode(free);
-            d2.ConfigureRespawn(1u, 1f, 6, (x, y) => true);
+            d2.ConfigureRespawn(1u, 1f, 6, (type, x, y) => true);
             d2.TickRespawn(10f);
             Assert.IsTrue(free.TileX != 0 || free.TileY != 0,
                 "막을 이유가 없는데도 안 옮겼다 — 이 게이트는 빈 검사다");
@@ -406,7 +406,7 @@ namespace AIVillage.Tests.EditMode
             var d3 = new DiscoveryService();
             var blockedNode = new ResourceNode("blk", ResourceType.Wood, 0, 0, 50f, 1f, true) { CurrentAmount = 0f };
             d3.AddResourceNode(blockedNode);
-            d3.ConfigureRespawn(1u, 1f, 6, (x, y) => false);   // 어디에도 못 선다
+            d3.ConfigureRespawn(1u, 1f, 6, (type, x, y) => false);   // 어디에도 못 선다
             d3.TickRespawn(10f);
             Assert.AreEqual(0, blockedNode.TileX, "설 수 없는 땅으로 옮겼다");
             Assert.AreEqual(0, blockedNode.TileY, "〃");

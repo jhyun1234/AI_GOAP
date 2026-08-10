@@ -392,6 +392,38 @@ namespace AIVillage.Core
             return true;
         }
 
+        /// <summary>이 자원 타입이 이 칸을 지형 조건상 받아들이는가 (M26-2차 W2 — **리스폰도 읽는다**).
+        ///
+        /// 🔴 왜 공개인가: 리스폰(`DiscoveryService.TryPickRelocation`)이 이걸 안 보면 은이 고갈 후
+        ///    **평지로 걸어 나온다.** 스폰만 지형을 지키고 리스폰은 안 지키는 것이 정확히
+        ///    `ADR-T2-1`이 막으려던 이원화다 (W1에서 통행에 대해 고친 것과 같은 병).
+        /// ⚠️ **밀도는 여기 없다** — 밀도는 "얼마나 빽빽한가"라 배치 경쟁에만 뜻이 있고,
+        ///    이미 있던 노드가 자리를 옮기는 데 추첨을 다시 돌릴 이유가 없다.
+        /// ⚠️ **한 타입에 원소가 여럿이면**(RawFood = 기본 + 물가) 어느 원소가 낳았는지 노드가
+        ///    기억하지 않는다. 그래서 **조건 없는 원소가 하나라도 있으면 그 타입은 자유**로 본다 —
+        ///    없는 근거로 조이는 것보다 낫다 (은은 원소가 하나라 정확히 조인다).
+        /// </summary>
+        public bool TypeAcceptsTile(ResourceType type, int tx, int ty)
+        {
+            if (_terrainAt == null || _config?.resourceTypes == null) return true;
+
+            bool sawConditioned = false;
+            foreach (ResourceTypeSpawnData d in _config.resourceTypes)
+            {
+                if (d.resourceType != type || d.nodeCount <= 0) continue;
+
+                bool hasAllowed  = d.allowedTerrain  != null && d.allowedTerrain.Length  > 0;
+                bool hasAdjacent = d.adjacentTerrain != null && d.adjacentTerrain.Length > 0;
+                if (!hasAllowed && !hasAdjacent) return true;   // 조건 없는 원소가 있다 = 자유
+
+                sawConditioned = true;
+                if (hasAllowed && System.Array.IndexOf(d.allowedTerrain, _terrainAt(tx, ty)) < 0) continue;
+                if (hasAdjacent && !HasNeighborTerrain(d.adjacentTerrain, tx, ty)) continue;
+                return true;   // 이 원소의 조건을 만족한다
+            }
+            return !sawConditioned;   // 조건부 원소만 있었는데 하나도 못 맞췄다
+        }
+
         /// <summary>8방향 이웃 중 하나라도 이 지형인가 (M26-2차 W2 — "물가"의 뜻).</summary>
         private bool HasNeighborTerrain(AIVillage.M0.TerrainTypeSO[] wanted, int tx, int ty)
         {

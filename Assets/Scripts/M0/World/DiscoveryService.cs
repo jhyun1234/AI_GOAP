@@ -294,7 +294,7 @@ namespace AIVillage.M0
         private readonly Dictionary<ResourceNode, float> _dryFor = new Dictionary<ResourceNode, float>();
 
         /// <summary>리스폰 배선 (M26-1차 W6). null·0 이면 **자리를 안 옮긴다** = 오늘 동작 그대로(중립).</summary>
-        private System.Func<int, int, bool> _canHostNode;   // 그 타일에 노드가 설 수 있는가 (지형·건물)
+        private System.Func<ResourceType, int, int, bool> _canHostNode;   // 그 타일에 노드가 설 수 있는가 (지형·건물)
         private float _relocateAfterDays;
         private int _relocateRadius;
         private uint _runSeed;
@@ -302,8 +302,11 @@ namespace AIVillage.M0
         /// <summary>리스폰을 켠다 (M26-1차 W6) — 조립 1회.
         /// 🔑 자리는 **랜덤이 아니라 시드 롤**이고 **원래 자리 둘레**에서 고른다: 맵 반대편에 나면
         /// "광맥을 따라간다"가 아니라 "숲이 순간이동한다"가 된다 (지도를 외울 수 없게 된다).</summary>
+        /// <param name="canHostNode">이 자원이 이 칸에 설 수 있는가 — **스폰과 같은 판정**
+        /// (`ADR-T2-1`). 자원 타입을 받는 이유(M26-2차 W4 후속): 지형 조건이 자원마다 달라
+        /// 타입을 모르면 은이 고갈 후 늪을 걸어 나온다.</param>
         public void ConfigureRespawn(uint runSeed, float relocateAfterDays, int relocateRadius,
-                                     System.Func<int, int, bool> canHostNode)
+                                     System.Func<ResourceType, int, int, bool> canHostNode)
         {
             _runSeed = runSeed;
             _relocateAfterDays = Mathf.Max(0f, relocateAfterDays);
@@ -317,6 +320,8 @@ namespace AIVillage.M0
         /// 🔴 **개간한 타일에는 절대 안 난다** (`_cleared`) — M22-4차 ADR-C-3의 이행이다.
         /// 안 지키면 애써 개간한 마을 둘레에 나무가 도로 나서 **그 축이 닫은 울타리 구멍이 부활한다.**
         /// 🔴 물·절벽에도 안 난다 (`_canHostNode`) — 아무도 못 가는 노드는 없는 것만 못하다.
+        /// 🔴 **제 지형을 벗어나지도 않는다** (M26-2차) — 은이 고갈 후 평지로 걸어 나오면
+        /// "은은 늪에만 있다"는 약속이 판 도중에 깨진다.
         /// </summary>
         public void TickRespawn(float deltaGameDays)
         {
@@ -362,7 +367,8 @@ namespace AIVillage.M0
                 int x = n.TileX + dx, y = n.TileY + dy;
                 if (WasCleared(x, y)) continue;                 // 🔴 개간한 자리 (ADR-C-3)
                 if (HasNodeAt(x, y)) continue;                  // 이미 노드가 있다
-                if (_canHostNode != null && !_canHostNode(x, y)) continue; // 물·절벽·건물
+                // 통행·건물·개간 **그리고 지형 조건**까지 한 자로 본다 (ADR-T2-1).
+                if (_canHostNode != null && !_canHostNode(n.ResourceType, x, y)) continue;
                 spot = new Vector2Int(x, y);
                 return true;
             }

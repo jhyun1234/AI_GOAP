@@ -208,6 +208,112 @@ namespace AIVillage.Tests.EditMode
         }
 
         [Test]
+        public void M26B_T2b_AdjacentTerrain_IsActuallyEnforced()
+        {
+            // 🔴 이 검사가 따로 있는 이유: T2 는 배포 설정을 쓰는데 RawFood 는 조건 없는 원소
+            //    (기본 식량)가 함께 있어 **타입 전체가 검사에서 빠진다** — 물가 인접이 한 번도
+            //    실행되지 않았다. 조건 하나만 담은 설정으로 **인접 규칙 자체**를 직접 본다.
+            AIVillage.M0.TerrainTypeSO[] palette = Palette();
+            AIVillage.M0.TerrainTypeSO water = System.Array.Find(palette, t => !t.Walkable);
+            Assert.IsNotNull(water, "통행 불가 지형(물)이 팔레트에 없다");
+
+            var cfg = ScriptableObject.CreateInstance<ResourceNodeSpawnConfig>();
+            cfg.nodeMinSpacing = 2;
+            cfg.maxPlacementAttempts = 50;
+            cfg.resourceTypes = new[]
+            {
+                new ResourceTypeSpawnData
+                {
+                    resourceType = ResourceType.RawFood, nodeCount = 8, maxAmount = 10,
+                    minDistanceFromBase = 20, clusterCount = 6,
+                    minNodesPerCluster = 1, maxNodesPerCluster = 2,
+                    clusterSpreadRadius = 2, minClusterSpacing = 10,
+                    adjacentTerrain = new[] { water },
+                }
+            };
+
+            int total = 0;
+            for (int seed = 1; seed <= 20; seed++)
+            {
+                AIVillage.M0.TerrainService terrain = MakeTerrain(seed, palette);
+                foreach (ResourceNode n in RunSpawnWithConfig(cfg, seed, (x, y) => terrain.IsWalkable(x, y),
+                                                              terrain.At, DensityMax(palette)))
+                {
+                    Assert.IsTrue(HasNeighbor(terrain, new[] { water }, n.TileX, n.TileY),
+                        $"시드 {seed}: 물가 노드 ({n.TileX}, {n.TileY})가 물에 붙어 있지 않다");
+                    total++;
+                }
+            }
+            Assert.Greater(total, 0, "20판에서 물가 노드가 하나도 안 났다 — 이 검사는 빈 검사다");
+            Object.DestroyImmediate(cfg);
+        }
+
+        [Test]
+        public void M26B_T2c_Relocation_KeepsResourceOnItsTerrain()
+        {
+            // 🔴 스폰만 지형을 지키고 리스폰은 안 지키면, 은이 고갈 후 평지로 걸어 나온다
+            //    (ADR-T2-1 이 막으려던 이원화). 스포너의 판정을 리스폰이 **같이** 읽는지 본다.
+            AIVillage.M0.TerrainTypeSO[] palette = Palette();
+            AIVillage.M0.TerrainTypeSO swamp =
+                System.Array.Find(palette, t => t.Walkable && t.EnterCost > 1f);
+            Assert.IsNotNull(swamp, "느린 통행 지형(늪)이 팔레트에 없다");
+
+            var cfg = AssetDatabase.LoadAssetAtPath<ResourceNodeSpawnConfig>(ConfigPath);
+            var map = AssetDatabase.LoadAssetAtPath<MapConfig>(MapPath);
+            MapConfig.SetActive(map);
+
+            var go = new GameObject("M26B_RelocProbe");
+            try
+            {
+                ResourceNodeSpawner spawner = go.AddComponent<ResourceNodeSpawner>();
+                var so = new SerializedObject(spawner);
+                so.FindProperty("_config").objectReferenceValue = cfg;
+                so.ApplyModifiedPropertiesWithoutUndo();
+
+                AIVillage.M0.TerrainService terrain = MakeTerrain(3, palette);
+                var disc = new AIVillage.M0.DiscoveryService();
+
+                LogAssert.ignoreFailingMessages = true;
+                try { spawner.SpawnAll(0, 0, 10, disc, (x, y) => terrain.IsWalkable(x, y),
+                                       terrain.At, DensityMax(palette)); }
+                finally { LogAssert.ignoreFailingMessages = false; }
+
+                disc.ConfigureRespawn(3u, 1f, 6,
+                    (type, x, y) => terrain.IsWalkable(x, y) && spawner.TypeAcceptsTile(type, x, y));
+
+                // 늪 전용 자원을 전부 말려서 이동시킨다. 옛 자리를 적어 둔다 — **움직였는지**를
+                // 봐야 한다: 하나도 안 옮겨지면 "늪에 그대로 있다"가 공허하게 참이 된다.
+                var tracked = new List<ResourceNode>();
+                var origin = new List<Vector2Int>();
+                foreach (ResourceNode n in disc.Nodes)
+                    if (n.ResourceType == ResourceType.Silver)
+                    {
+                        n.CurrentAmount = 0f;
+                        tracked.Add(n);
+                        origin.Add(new Vector2Int(n.TileX, n.TileY));
+                    }
+                Assert.Greater(tracked.Count, 0, "늪 전용 노드가 안 났다 — 이 검사는 빈 검사다");
+
+                LogAssert.ignoreFailingMessages = true;
+                try { for (int t = 0; t < 5; t++) disc.TickRespawn(2f); }
+                finally { LogAssert.ignoreFailingMessages = false; }
+
+                int moved = 0;
+                for (int i = 0; i < tracked.Count; i++)
+                {
+                    ResourceNode n = tracked[i];
+                    if (n.TileX != origin[i].x || n.TileY != origin[i].y) moved++;
+                    Assert.AreSame(swamp, terrain.At(n.TileX, n.TileY),
+                        $"늪 전용 자원이 ({n.TileX}, {n.TileY})로 옮겨졌는데 그곳은 늪이 아니다 " +
+                        "— 리스폰이 지형 조건을 안 읽는다 (ADR-T2-1 이원화)");
+                }
+                Assert.Greater(moved, 0,
+                    "한 노드도 안 옮겨졌다 — '늪에 그대로 있다'가 공허하게 참이다 (빈 검사)");
+            }
+            finally { Object.DestroyImmediate(go); }
+        }
+
+        [Test]
         public void M26B_T3_ImpossibleTerrain_YieldsZeroNodesAndWarns()
         {
             // 통행 불가 지형(물)만 허용하면 노드가 설 자리가 없다 — **조용히 0이 되지 않고 경고**해야 한다.

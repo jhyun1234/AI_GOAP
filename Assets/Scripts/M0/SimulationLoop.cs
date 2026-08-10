@@ -1244,9 +1244,12 @@ namespace AIVillage.M0
 
             // 리스폰 자리 이동 (M26-1차 W6) — 개간 이력을 **읽는 쪽**이 여기다 (M22-4차 ADR-C-3 이행).
             // 지형이 없으면 켜지 않는다: 옮길 이유(막힌 땅)가 없고, 오늘 동작을 그대로 두는 편이 낫다.
+            // 🔴 지형 **조건**까지 같은 자로 본다 (M26-2차 자가재검토): 통행만 보면 은이 고갈 후
+            //    늪을 걸어 나온다 — 스폰만 지키고 리스폰은 안 지키는 이원화가 W1과 같은 병이다.
             if (_canHostNode != null)
                 Discovery.ConfigureRespawn((uint)RunSeed, _nodeRelocateAfterDays, _nodeRelocateRadius,
-                                           _canHostNode);
+                                           (type, x, y) => _canHostNode(x, y)
+                                                           && _nodeSpawner.TypeAcceptsTile(type, x, y));
 
             // 채집 선택 (M26-2차 W4) — 지형이 없으면 **켜지 않는다**: 비용이 전부 1이라 점수가
             // 거리와 같아지고, 안 켜는 편이 "오늘과 동일"을 코드로도 분명히 한다 (중립 불변식).

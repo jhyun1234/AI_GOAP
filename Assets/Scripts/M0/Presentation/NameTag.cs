@@ -29,7 +29,7 @@ namespace AIVillage.M0
             text.color = Color.white;
             text.outlineWidth = 0.2f;
             text.outlineColor = new Color32(0, 0, 0, 220);
-            text.text = label;
+            text.SetSafe(label);
 
             var renderer = go.GetComponent<MeshRenderer>();
             // 화면 붙박이 — 앞뒤 정렬 밖(WorldSort.Overlay). 이름표가 집에 가리면 못 읽는다.

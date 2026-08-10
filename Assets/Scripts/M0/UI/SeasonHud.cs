@@ -65,28 +65,28 @@ namespace AIVillage.M0
             // 무엇을 몇 줄 보여줄지는 에셋(WorldConfigSO.HudResources)이 정한다 — 새 자원 = 행 추가.
             _resources = MakeText(root.transform, "Resources", font, new Vector2(12f, -48f), 24f);
             _resources.color = new Color(0.95f, 0.88f, 0.62f); // 옅은 볏짚색 — 달력·알림과 층 구분
-            _resources.text = "";
+            _resources.SetSafe("");
             _notice   = MakeText(root.transform, "Notice",   font, new Vector2(12f, -48f), 24f);
-            _notice.text = "";
+            _notice.SetSafe("");
             // 정보줄 — M13-D부터 2줄 (1줄 = 신상, 2줄 = 이유·문턱). 높이는 Reflow가 실측한다.
             _selectedInfo = MakeText(root.transform, "SelectedInfo", font, new Vector2(12f, -86f), 24f);
-            _selectedInfo.text = "";
+            _selectedInfo.SetSafe("");
             // 결정 프롬프트 (M10-E) — 알림과 달리 상시 유지 (해소될 때까지). 노랑 강조.
             _prompt = MakeText(root.transform, "Prompt", font, new Vector2(12f, -162f), 26f);
             _prompt.color = new Color(1f, 0.85f, 0.4f);
-            _prompt.text = "";
+            _prompt.SetSafe("");
             // 상태 알림 (M13-B) — 순간 사건(Notify)과 달리 조건이 해소될 때까지 남는다
             // ("식량 부족"은 지나가는 소식이 아니라 지금 손쓸 수 있는 상태다 — 예고 휘발성 교훈의 일반화).
             // 폰트는 에셋 값 (WorldConfigSO.HudStatusFontSize — "작다" Play 피드백으로 승격).
             float statusSize = worldCfg != null && worldCfg.HudStatusFontSize > 0f
                 ? worldCfg.HudStatusFontSize : 24f;
             _status = MakeText(root.transform, "Status", font, new Vector2(12f, -200f), statusSize);
-            _status.text = "";
+            _status.SetSafe("");
             // 모드 정보줄 (M22-W3R3) — 울타리 그리기 등 입력 모드의 상시 안내. 프롬프트(적습·방랑자
             // 소유)와 분리 — 한 줄을 나눠 쓰면 모드 종료가 적습 프롬프트를 지우는 사고가 난다.
             _modeInfo = MakeText(root.transform, "ModeInfo", font, new Vector2(12f, -238f), 24f);
             _modeInfo.color = new Color(0.6f, 0.95f, 0.6f);
-            _modeInfo.text = "";
+            _modeInfo.SetSafe("");
 
             // 수직 스택 순서 (위 → 아래) — 달력 → 알림 → 정보줄 → 프롬프트 → 상태 → 모드. 순서 불변이
             // 클릭 매핑의 전제는 아니지만(픽킹은 실제 렌더 좌표 기준), 시선 습관의 전제다.
@@ -149,13 +149,13 @@ namespace AIVillage.M0
             if (line != _lastCalendar)
             {
                 _lastCalendar = line;
-                _calendar.text = line;
+                _calendar.SetSafe(line);
             }
 
             if (_noticeUntil > 0f && Time.time >= _noticeUntil)
             {
                 _noticeUntil = 0f;
-                _notice.text = "";
+                _notice.SetSafe("");
             }
 
             TickSelected();
@@ -197,7 +197,7 @@ namespace AIVillage.M0
                 if (_lastSelectedLine != idle)
                 {
                     _lastSelectedLine = idle;
-                    _selectedInfo.text = idle;
+                    _selectedInfo.SetSafe(idle);
                 }
                 return;
             }
@@ -207,7 +207,7 @@ namespace AIVillage.M0
             if (line != _lastSelectedLine)
             {
                 _lastSelectedLine = line;
-                _selectedInfo.text = line;
+                _selectedInfo.SetSafe(line);
             }
         }
 
@@ -722,7 +722,7 @@ namespace AIVillage.M0
                 rt.sizeDelta = new Vector2(1100f, 90f);
                 _gameOverDetail = txt;
             }
-            _gameOverDetail.text = line ?? "";
+            _gameOverDetail.SetSafe(line ?? "");
         }
 
         /// <summary>
@@ -758,7 +758,7 @@ namespace AIVillage.M0
             txt.alignment = TextAlignmentOptions.Center;
             txt.color = new Color(1f, 0.92f, 0.85f);
             txt.raycastTarget = false;
-            txt.text = text ?? "";
+            txt.SetSafe(text ?? "");
             RectTransform txtRt = txt.rectTransform;
             txtRt.anchorMin = txtRt.anchorMax = new Vector2(0.5f, 0.5f);
             txtRt.pivot = new Vector2(0.5f, 0.5f);
@@ -907,8 +907,8 @@ namespace AIVillage.M0
                 return;
             }
             if (_chroniclePanel == null) BuildChroniclePanel();
-            _chronicleList.text = listText ?? "";
-            _chronicleDetail.text = "판을 클릭하면 그 마을의 명부가 여기 펼쳐진다.";
+            _chronicleList.SetSafe(listText ?? "");
+            _chronicleDetail.SetSafe("판을 클릭하면 그 마을의 명부가 여기 펼쳐진다.");
             // 전멸 화면과 겹치면 두 겹의 밝은 글자가 서로를 뚫고 읽힌다 (Play 검증 스크린샷) —
             // 반투명 배경으로는 못 가리므로 여는 동안 숨긴다.
             if (_gameOver != null) _gameOver.SetActive(false);
@@ -919,7 +919,7 @@ namespace AIVillage.M0
         /// <summary>판 상세 표시 — 클릭한 판의 명부를 하단에 (다른 판 클릭 시 교체).</summary>
         public void ShowChronicleDetail(string detailText)
         {
-            if (_chronicleDetail != null) _chronicleDetail.text = detailText ?? "";
+            if (_chronicleDetail != null) _chronicleDetail.SetSafe(detailText);
         }
 
         private void BuildChroniclePanel()
@@ -1055,7 +1055,7 @@ namespace AIVillage.M0
             string line = _resBuf.ToString();
             if (line == _lastResources) return;
             _lastResources = line;
-            _resources.text = line;
+            _resources.SetSafe(line);
             Reflow(); // 첫 표시·자릿수 변화로 높이가 바뀔 수 있다 — 즉시 재쌓기
         }
 
@@ -1066,7 +1066,7 @@ namespace AIVillage.M0
         {
             if (line == _lastStatus) return;
             _lastStatus = line;
-            _status.text = line ?? "";
+            _status.SetSafe(line ?? "");
         }
 
         /// <summary>상태 알림 클릭 판독 (M13-B 후속) — 화면 좌표가 상태줄의 몇 번째 줄인가.
@@ -1082,20 +1082,20 @@ namespace AIVillage.M0
         /// 플레이어 입력을 기다리는 줄이라 자동 소거가 없다 (놓침 방지 — 예고 휘발성 교훈).</summary>
         /// <summary>모드 정보줄 (M22-W3R3) — 입력 모드(울타리 그리기 등)의 상시 안내.
         /// 프롬프트(적습·방랑자)와 별줄 — 모드 종료가 결정 프롬프트를 지우면 안 된다.</summary>
-        public void SetModeInfo(string line) => _modeInfo.text = line ?? "";
+        public void SetModeInfo(string line) => _modeInfo.SetSafe(line);
 
-        public void ClearModeInfo() => _modeInfo.text = "";
+        public void ClearModeInfo() => _modeInfo.SetSafe("");
 
-        public void SetPrompt(string line) => _prompt.text = line ?? "";
+        public void SetPrompt(string line) => _prompt.SetSafe(line);
 
         /// <summary>결정 프롬프트 소거 — 해소(수락·거절·시간 초과)의 표현 짝.</summary>
-        public void ClearPrompt() => _prompt.text = "";
+        public void ClearPrompt() => _prompt.SetSafe("");
 
         /// <summary>이벤트 알림 1줄 (계절 전환·주민 이탈 등) — 최신 1건만, NOTIFY_SEC 후 소거.</summary>
         public void Notify(string line)
         {
             if (string.IsNullOrEmpty(line)) return;
-            _notice.text = line;
+            _notice.SetSafe(line);
             _noticeUntil = Time.time + NOTIFY_SEC;
         }
     }

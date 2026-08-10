@@ -188,5 +188,109 @@ namespace AIVillage.Tests.EditMode
                     $"{t.resourceType}: 화면 높이 {tiles:0.00}타일 — 노드 하나가 아니다");
             }
         }
+
+        // ── T6: 화면 글자가 배포 폰트 안에 있는가 (2026-08-10) ──────────────────
+
+        private const string ShippedFontPath =
+            "Assets/TextMesh Pro/Fonts/NeoDunggeunmoPro-Regular SDF.asset";
+
+        private static System.Collections.Generic.HashSet<int> _fontGlyphs;
+
+        /// <summary>배포 폰트가 **실제로 담고 있는** 코드포인트 집합.
+        /// TMP API 대신 에셋 YAML 을 직접 읽는다 — 테스트 어셈블리에 TMPro 참조를 새로 달지
+        /// 않기 위해서다(참조를 늘리면 게이트가 배선에 얽힌다). 읽는 값은 같은 것:
+        /// 정적 아틀라스 폰트의 문자표(`m_Unicode`)가 곧 그릴 수 있는 글자의 전부다
+        /// (`m_AtlasPopulationMode: 0` · `m_FallbackFontAssetTable: []`).</summary>
+        private static System.Collections.Generic.HashSet<int> FontGlyphs()
+        {
+            if (_fontGlyphs != null) return _fontGlyphs;
+            Assert.IsTrue(System.IO.File.Exists(ShippedFontPath), $"배포 폰트가 없다: {ShippedFontPath}");
+            var set = new System.Collections.Generic.HashSet<int>();
+            foreach (string raw in System.IO.File.ReadLines(ShippedFontPath))
+            {
+                string line = raw.Trim();
+                if (!line.StartsWith("m_Unicode: ", System.StringComparison.Ordinal)) continue;
+                if (int.TryParse(line.Substring("m_Unicode: ".Length), out int cp)) set.Add(cp);
+            }
+            Assert.Greater(set.Count, 1000, "폰트 문자표를 못 읽었다 — 이 게이트가 통째로 빈 검사가 된다");
+            _fontGlyphs = set;
+            return _fontGlyphs;
+        }
+
+        [Test]
+        public void M23_T6_FontSafeTable_MatchesShippedFont()
+        {
+            // 치환표의 계약 — 왼쪽은 **폰트에 없어야** 하고 오른쪽은 **있어야** 한다.
+            // 이 검사가 없으면 표가 조용히 거짓말을 한다: 이미 있는 글자를 바꾸거나(쓸데없는
+            // 치환), 없는 글자로 바꾸거나(□ 를 □ 로 바꿀 뿐).
+            System.Collections.Generic.HashSet<int> font = FontGlyphs();
+            Assert.Greater(FontSafeText.Table.Length, 0, "치환표가 비었다 — 안전망이 값에 없다");
+
+            foreach ((char from, string to) in FontSafeText.Table)
+            {
+                Assert.IsFalse(font.Contains(from),
+                    $"치환표 왼쪽 U+{(int)from:X4} '{from}' 이 폰트에 이미 있다 — 표에서 빼야 한다");
+                foreach (char c in to)
+                    Assert.IsTrue(font.Contains(c),
+                        $"치환표 오른쪽 U+{(int)c:X4} '{c}' 이 폰트에 없다 — □ 를 □ 로 바꾸는 셈이다");
+            }
+
+            // 실패 가능성 증명 (M17 교훈) — 이 판정이 실제로 갈리는가.
+            Assert.IsTrue(font.Contains('가'), "한글이 폰트에 없다 — 이 게이트는 빈 검사다");
+            Assert.IsFalse(font.Contains(0x2694), "없어야 할 글자(⚔)가 있다 — 〃");
+        }
+
+        [Test]
+        public void M23_T6_ScreenText_GoesThroughTheSanitizer()
+        {
+            // 우회 금지 — TMP 대입은 SetSafe 한 문만 지난다 (ADR-M0-3 쓰기 단일 지점의 표현판).
+            // 직접 `.text =` 를 쓰면 그 문구만 안전망 밖으로 새고, 증상은 한참 뒤 콘솔에서 뜬다.
+            foreach (string path in new[]
+            {
+                "Assets/Scripts/M0/UI/SeasonHud.cs",
+                "Assets/Scripts/M0/Presentation/NameTag.cs",
+                "Assets/Scripts/M0/Presentation/PlanBubble.cs",
+            })
+            {
+                string[] lines = System.IO.File.ReadAllLines(path);
+                for (int i = 0; i < lines.Length; i++)
+                {
+                    string code = lines[i].Split(new[] { "//" }, System.StringSplitOptions.None)[0];
+                    Assert.IsFalse(code.Contains(".text ="),
+                        $"{path}:{i + 1} — TMP 대입이 SetSafe 를 우회했다: {code.Trim()}");
+                }
+            }
+            // 실패 가능성 증명 — 정의부(FontSafeText)는 실제로 직접 대입을 갖고 있다.
+            // 위 목록이 그 파일을 잘못 포함하면 즉시 red 가 되므로, 검사가 무엇을 보는지 분명하다.
+            StringAssert.Contains(".text =",
+                System.IO.File.ReadAllText("Assets/Scripts/M0/UI/FontSafeText.cs"),
+                "안전망 정의부에 대입이 없다 — 검사 대상 문자열이 틀렸다");
+        }
+
+        [Test]
+        public void M23_T6_Sanitizer_ReplacesAndPreservesEverythingElse()
+        {
+            // 원문 보존 — 바꿀 글자가 없으면 **같은 참조**를 돌려준다 (매 틱 호출 자리, 할당 0).
+            const string clean = "고블린 — 2일 뒤";
+            Assert.AreSame(clean, FontSafeText.Sanitize(clean), "멀쩡한 문구인데 새 문자열을 만들었다");
+            Assert.IsNull(FontSafeText.Sanitize(null));
+            Assert.AreEqual("", FontSafeText.Sanitize(""));
+
+            // 실제로 갈리는가 — 2026-08-10 경고를 낸 그 문구.
+            string fixedUp = FontSafeText.Sanitize("⚔ 고블린 3마리 — 마을 습격 중");
+            StringAssert.DoesNotContain("⚔", fixedUp, "치환이 안 됐다");
+            StringAssert.Contains("고블린 3마리", fixedUp, "본문이 상했다");
+
+            // 리치텍스트 태그는 그대로 (치환이 문법을 건드리면 색이 깨진다).
+            const string rich = "<color=#FF8A65>■ 밭 (3,4)</color>";
+            Assert.AreEqual(rich, FontSafeText.Sanitize(rich), "리치텍스트 태그가 변형됐다");
+
+            // 치환 뒤 문구가 **폰트로 전부 그려지는지** 끝까지 확인한다.
+            System.Collections.Generic.HashSet<int> font = FontGlyphs();
+            foreach (char c in FontSafeText.Sanitize("· × → ⚔ ⚠ ± − ≤ ≥ ≈ ※ ★"))
+                if (c != ' ')
+                    Assert.IsTrue(font.Contains(c),
+                        $"치환 뒤에도 폰트에 없는 글자 U+{(int)c:X4} '{c}' 가 남았다");
+        }
     }
 }

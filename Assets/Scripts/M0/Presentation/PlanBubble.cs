@@ -42,7 +42,7 @@ namespace AIVillage.M0
         }
 
         /// <summary>임시 문구 표시 (거부 대사 등). 다음 ShowPlan/Clear가 덮어쓴다.</summary>
-        public void ShowText(string text) => _text.text = text;
+        public void ShowText(string text) => _text.SetSafe(text);
 
         /// <summary>플랜 표시 — 현재 액션은 강조색, 완료분은 생략, 남은 액션은 → 로 연결. prefix는 명령 표시용.</summary>
         public void ShowPlan(IReadOnlyList<ActionSO> plan, int currentIndex, string prefix = null)
@@ -68,9 +68,9 @@ namespace AIVillage.M0
                 lastShown = plan[i].DisplayName;
                 sb.Append(" → ").Append(lastShown);
             }
-            _text.text = sb.ToString();
+            _text.SetSafe(sb.ToString());
         }
 
-        public void Clear() => _text.text = string.Empty;
+        public void Clear() => _text.SetSafe(string.Empty);
     }
 }

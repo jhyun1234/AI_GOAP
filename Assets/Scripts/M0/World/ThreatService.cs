@@ -584,6 +584,41 @@ namespace AIVillage.M0
             return sb.ToString();
         }
 
+        /// <summary>S8 판정 한 줄 (2026-08-10 신설) — **로그만 보고 "종족이 다르게 구는가"를
+        /// 판정할 수 있게** 한다. 화면 관측은 사람의 시간이고 재현이 안 되지만, 이 줄은 판을
+        /// 이어 붙여 표로 만들 수 있다.
+        ///
+        /// 🔑 이 로그가 필요해진 이유: S8 1차 Play(2026-08-10)가 **관측 불가**로 끝났는데,
+        /// 원인이 "차이가 없다"가 아니라 **"압력이 낮아 특성이 하나도 안 열려 있었다"**였다.
+        /// 눈으로는 그 둘이 똑같아 보인다 — 열린 수를 찍어야 구분된다.
+        /// grep 태그는 `[S8]`.</summary>
+        private void LogVerdictLine(string phase, ThreatSO so, IReadOnlyList<WaveEntry> wave,
+                                    int entryCount, string target)
+        {
+            int global = CurrentGlobalPressure(_peakPopulation());
+            int eff = PressureOf(so);
+            InvaderTraitId[] traits = ActiveTraits(so, eff);
+            var sb = new System.Text.StringBuilder(160);
+            sb.Append("[S8] ").Append(phase)
+              .Append(" 서수=").Append(_strikeOrdinal)
+              .Append(" 종족=").Append(so.DisplayName)
+              .Append(" 전역압력=").Append(global)
+              .Append(" 유효=").Append(eff)
+              .Append(" 조우=").Append(EncountersOf(so))
+              .Append(" 수=[");
+            for (int i = 0; i < traits.Length; i++)
+            {
+                if (i > 0) sb.Append(',');
+                sb.Append(traits[i]);
+            }
+            sb.Append(']');
+            if (traits.Length == 0) sb.Append("  ← 열린 수 0 (이 구간은 전 종족이 똑같이 군다)");
+            sb.Append(" 편성=").Append(Describe(wave));
+            if (entryCount > 0) sb.Append(" 진입=").Append(entryCount).Append("곳");
+            if (!string.IsNullOrEmpty(target)) sb.Append(" 타깃=").Append(target);
+            Debug.Log(sb.ToString());
+        }
+
         /// <summary>단독 웨이브 간격 — 미배선이면 25 (에셋 기본값과 같은 수, 중립).</summary>
         private float SoloEvery => _config != null && _config.DemonWaveEveryDays > 0f
                                  ? _config.DemonWaveEveryDays : 25f;
@@ -835,6 +870,7 @@ namespace AIVillage.M0
                 Debug.Log($"[Threat] 예고 — {Describe(_pendingWave)} ({lead:0.#}일 후" +
                           $"{(warn > warnSrc.WarnDays ? " · 정찰 연장" : "")}" +
                           $"{(relief > 0 ? $" · 완충 −{relief}" : "")})");
+                LogVerdictLine("예고", _pendingPrimary, _pendingWave, 0, null);
                 OnForecast?.Invoke(_pendingPrimary);
                 return;
             }
@@ -926,6 +962,8 @@ namespace AIVillage.M0
                 Debug.Log($"[Threat] 우회 진입 — {so.DisplayName}이(가) 망루 감시를 피해 ({entry.x},{entry.y})로 들어온다");
             if (entries.Length > 1)
                 Debug.Log($"[Threat] 다지점 진입 — {so.DisplayName} {waveCount}마리가 {entries.Length}곳에서 들어온다");
+            LogVerdictLine("발동", so, wave, entries.Length,
+                           targetsVillagers ? "주민" : "밭");
             Vector2Int target = PickTargetTile(so, targetsVillagers, entry);
 
             PathResult path = _pathfinder().FindPath(entry.x, entry.y, target.x, target.y);

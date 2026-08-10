@@ -987,40 +987,88 @@ namespace AIVillage.M0
         {
             if (races == null || _isWalkable == null) return 0;
             MapBounds.Get(out int minX, out int maxX, out int minY, out int maxY);
+            long tiles = (long)(maxX - minX + 1) * (maxY - minY + 1);
             int total = 0;
 
             foreach (ThreatSO so in races)
             {
-                if (so == null || !so.IsResident || so.ResidentCount <= 0) continue;
+                if (so == null || !so.IsResident || so.ResidentBandsPer10kTiles <= 0f) continue;
+
+                int bands = BandCount(so.ResidentBandsPer10kTiles, tiles);
                 int placed = 0;
 
-                for (int n = 0; n < so.ResidentCount; n++)
+                for (int b = 0; b < bands; b++)
                 {
-                    uint roll = StableHash.Fnv1a($"{so.name}_{n}", "resident") ^ runSeed;
-                    bool ok = false;
-                    for (int attempt = 0; attempt < 200 && !ok; attempt++)
+                    uint roll = StableHash.Fnv1a($"{so.name}_{b}", "residentband") ^ runSeed;
+                    if (!TryPickHabitatTile(so, roll, terrainAt, safeRadius,
+                                            minX, maxX, minY, maxY, out Vector2Int anchor))
                     {
-                        uint r = roll + (uint)attempt * 2654435761u;
-                        int x = minX + (int)(r % (uint)(maxX - minX + 1));
-                        int y = minY + (int)((r / 7919u) % (uint)(maxY - minY + 1));
-
-                        if (Mathf.Max(Mathf.Abs(x - VillageCenter.x),
-                                      Mathf.Abs(y - VillageCenter.y)) <= safeRadius) continue;
-                        if (!_isWalkable(x, y)) continue;
-                        if (terrainAt != null && so.HabitatTerrain != null && so.HabitatTerrain.Length > 0
-                            && System.Array.IndexOf(so.HabitatTerrain, terrainAt(x, y)) < 0) continue;
-
-                        SpawnOneResident(so, new Vector2Int(x, y));
-                        placed++; total++; ok = true;
-                    }
-                    if (!ok)
-                        Debug.LogWarning($"[Threat] 상주 배치 실패 — {so.DisplayName} {n + 1}/{so.ResidentCount} " +
+                        Debug.LogWarning($"[Threat] 상주 무리 배치 실패 — {so.DisplayName} {b + 1}/{bands} " +
                                          "(서식지 조건을 만족하는 칸을 못 찾았다)");
+                        continue;
+                    }
+
+                    // 무리 크기 — 시드 롤 (같은 판이면 같은 무리, ADR-M10R-2).
+                    int lo = Mathf.Max(1, Mathf.Min(so.ResidentBandMin, so.ResidentBandMax));
+                    int hi = Mathf.Max(lo, so.ResidentBandMax);
+                    int size = lo + (int)(StableHash.Fnv1a($"{so.name}_{b}", "bandsize") % (uint)(hi - lo + 1));
+
+                    for (int m = 0; m < size; m++)
+                    {
+                        // 첫 마리는 앵커, 나머지는 반경 안 산개. 못 서면 그 마리만 거른다.
+                        Vector2Int at = anchor;
+                        if (m > 0)
+                        {
+                            uint mr = roll + (uint)(m * 40503);
+                            int span = so.ResidentBandRadius * 2 + 1;
+                            int dx = (int)(mr % (uint)span) - so.ResidentBandRadius;
+                            int dy = (int)((mr / (uint)span) % (uint)span) - so.ResidentBandRadius;
+                            at = new Vector2Int(anchor.x + dx, anchor.y + dy);
+                            if (!_isWalkable(at.x, at.y)) continue;
+                        }
+                        SpawnOneResident(so, at);
+                        placed++; total++;
+                    }
                 }
                 if (placed > 0)
-                    Debug.Log($"[Threat] 들판 상주 — {so.DisplayName} {placed}마리가 판 시작부터 들판에 산다");
+                    Debug.Log($"[Threat] 들판 상주 — {so.DisplayName} {bands}무리 {placed}마리가 " +
+                              $"판 시작부터 들판에 산다 (맵 {tiles}타일 · 밀도 {so.ResidentBandsPer10kTiles}/10k)");
             }
             return total;
+        }
+
+        /// <summary>맵 넓이에서 무리 수 (순수 — 게이트 `M26B_T8c`).
+        /// 🔑 **밀도로 적는 이유**: 절대 수로 박으면 맵이 9배가 되어도 무리는 그대로라
+        /// **넓어진 맵이 더 안전해진다.** 밀도면 맵을 넓혀도 코드 0줄이다 (2026-08-11 사용자 판단).
+        /// 밀도가 0보다 크면 최소 1무리는 선다 — 작은 맵에서 조용히 0이 되지 않게.</summary>
+        public static int BandCount(float bandsPer10kTiles, long mapTiles)
+        {
+            if (bandsPer10kTiles <= 0f || mapTiles <= 0) return 0;
+            return Mathf.Max(1, Mathf.RoundToInt(bandsPer10kTiles * (mapTiles / 10000f)));
+        }
+
+        /// <summary>서식지 조건·안전반경·통행을 만족하는 칸 찾기 (시드 롤, 결정적).</summary>
+        private bool TryPickHabitatTile(ThreatSO so, uint roll,
+                                        System.Func<int, int, TerrainTypeSO> terrainAt, int safeRadius,
+                                        int minX, int maxX, int minY, int maxY, out Vector2Int spot)
+        {
+            spot = default;
+            for (int attempt = 0; attempt < 400; attempt++)
+            {
+                uint r = roll + (uint)attempt * 2654435761u;
+                int x = minX + (int)(r % (uint)(maxX - minX + 1));
+                int y = minY + (int)((r / 7919u) % (uint)(maxY - minY + 1));
+
+                if (Mathf.Max(Mathf.Abs(x - VillageCenter.x),
+                              Mathf.Abs(y - VillageCenter.y)) <= safeRadius) continue;
+                if (!_isWalkable(x, y)) continue;
+                if (terrainAt != null && so.HabitatTerrain != null && so.HabitatTerrain.Length > 0
+                    && System.Array.IndexOf(so.HabitatTerrain, terrainAt(x, y)) < 0) continue;
+
+                spot = new Vector2Int(x, y);
+                return true;
+            }
+            return false;
         }
 
         /// <summary>상주 1마리 — 제자리가 곧 목표다(`waypoints: null` = AlreadyThere → 즉시 도착·배회).
@@ -1028,7 +1076,7 @@ namespace AIVillage.M0
         /// 곁에 온 주민을 무는 것은 `NotifyStrikeTick` 의 `IsResident` 분기가 맡는다.</summary>
         private void SpawnOneResident(ThreatSO so, Vector2Int at)
             => CreateAgent($"Resident_{so.name}_{at.x}_{at.y}", so, at, at,
-                           null, false, RESIDENT_GROUP, 1f);
+                           null, false, RESIDENT_GROUP, 1f, resident: true);
 
         /// <summary>
         /// 위협 개체가 태어나는 **유일한 문** (게이트 `M24_T7`이 전수로 감시한다).
@@ -1039,7 +1087,7 @@ namespace AIVillage.M0
         /// </summary>
         private ThreatAgent CreateAgent(string name, ThreatSO so, Vector2Int at, Vector2Int target,
                                         List<Vector2Int> waypoints, bool targetsVillagers,
-                                        int groupKey, float gradeMult)
+                                        int groupKey, float gradeMult, bool resident = false)
         {
             var go = new GameObject(name);
             go.transform.SetParent(_parent, worldPositionStays: false);
@@ -1048,6 +1096,9 @@ namespace AIVillage.M0
             agent.Init(so, this, at, target, waypoints, _pathfinder(), targetsVillagers,
                        groupKey, gradeMult,
                        ActiveTraits(so, PressureOf(so))); // 쓰는 수 (M24-1차 W5, 스폰 시 고정)
+            // 🔴 상주는 **개체 속성**이다 — 같은 종족이 들판에도 살고 웨이브로도 오므로
+            //    SO 에서 읽으면 쳐들어온 개체까지 영영 안 나간다 (M26-2차 W5).
+            if (resident) agent.MarkResident();
             _active.Add(agent);
             return agent;
         }

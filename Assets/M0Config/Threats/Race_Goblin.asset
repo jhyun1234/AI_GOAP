@@ -31,6 +31,12 @@ MonoBehaviour:
   CountGrowthEveryDays: 0
   SpawnCountMax: 1
   RoutBelowPct: 0.5
+  IsResident: 1
+  HabitatTerrain: []
+  ResidentBandsPer10kTiles: 4
+  ResidentBandMin: 3
+  ResidentBandMax: 5
+  ResidentBandRadius: 3
   WanderRadiusTiles: 5
   HungrySeasonChanceMult: 2
   HungrySeasonStayMult: 2

@@ -87,9 +87,16 @@ namespace AIVillage.M0
         public bool Staying => _arrived && !_exiting;
 
         /// <summary>들판 상주형인가 (M26-2차 W5) — 서식지에 태어나 **퇴장하지 않는다**.
-        /// 🔑 `TargetsVillagers` 와 **다른 축**이다: 상주는 밭형처럼 제자리에 도착해 배회하되
+        ///
+        /// 🔴 **SO가 아니라 개체가 가진다.** 같은 종족이 들판에도 살고 웨이브로도 오기 때문이다
+        /// (고블린이 그렇다). SO에서 읽으면 **쳐들어온 고블린도 상주가 되어 영영 안 나간다** —
+        /// `ThreatSO.IsResident` 는 "이 종족을 들판에 놓는가"이지 "이 개체가 상주인가"가 아니다.
+        /// 🔑 `TargetsVillagers` 와도 **다른 축**이다: 상주는 밭형처럼 제자리에 도착해 배회하되
         /// (그래서 마을까지 걸어가지 않는다) 타격 대상은 주민이다.</summary>
-        public bool IsResident => So != null && So.IsResident;
+        public bool IsResident { get; private set; }
+
+        /// <summary>상주로 표시한다 (M26-2차 W5) — `ThreatService.CreateAgent` 만 부른다.</summary>
+        public void MarkResident() => IsResident = true;
 
         /// <summary>체류 시작 시각 (게임일) — MaxStayDays 판정의 원본. 쓰기는 MarkArrived.</summary>
         public float ArrivedDay { get; private set; }

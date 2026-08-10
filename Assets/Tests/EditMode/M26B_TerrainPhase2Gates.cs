@@ -467,9 +467,11 @@ namespace AIVillage.Tests.EditMode
             {
                 if (so.IsResident)
                 {
-                    // 상주인데 마릿수가 0이면 아무 일도 안 일어난다 — 켜 놓고 잊은 상태를 잡는다.
-                    Assert.Greater(so.ResidentCount, 0,
-                        $"{so.name}: 상주형인데 ResidentCount 가 0이다 (켜 놓고 잊었다)");
+                    // 상주인데 밀도가 0이면 아무 일도 안 일어난다 — 켜 놓고 잊은 상태를 잡는다.
+                    Assert.Greater(so.ResidentBandsPer10kTiles, 0f,
+                        $"{so.name}: 상주형인데 무리 밀도가 0이다 (켜 놓고 잊었다)");
+                    Assert.LessOrEqual(so.ResidentBandMin, so.ResidentBandMax,
+                        $"{so.name}: 무리 크기 하한이 상한보다 크다");
                     // 상주는 제자리에 도착해 배회한다 — 반경이 0이면 한 칸에 굳는다.
                     Assert.Greater(so.WanderRadiusTiles, 0,
                         $"{so.name}: 상주형인데 배회 반경이 0이다 (들판에 박제가 선다)");
@@ -477,8 +479,8 @@ namespace AIVillage.Tests.EditMode
                 else
                 {
                     // 🔑 중립 불변식 — 상주가 아닌 종족은 W5 배선 전과 **완전히 같다**.
-                    Assert.AreEqual(0, so.ResidentCount,
-                        $"{so.name}: 상주형이 아닌데 ResidentCount 가 0이 아니다 (아무도 안 읽는 값)");
+                    Assert.AreEqual(0f, so.ResidentBandsPer10kTiles, 1e-6f,
+                        $"{so.name}: 상주형이 아닌데 무리 밀도가 0이 아니다 (아무도 안 읽는 값)");
                     Assert.IsTrue(so.HabitatTerrain == null || so.HabitatTerrain.Length == 0,
                         $"{so.name}: 상주형이 아닌데 서식지가 설정돼 있다 (아무도 안 읽는 값)");
                 }
@@ -503,6 +505,30 @@ namespace AIVillage.Tests.EditMode
                 "상주가 밭을 치러 든다 — 들판엔 밭이 없어 아무 일도 안 일어난다");
             Assert.IsTrue(AIVillage.M0.ThreatService.StrikesVillagers(true, true),
                 "주민형 상주가 주민을 안 친다");
+        }
+
+        [Test]
+        public void M26B_T8c_BandDensity_ScalesWithMapArea()
+        {
+            // 🔴 이 검사가 지키는 것: **맵을 넓혔을 때 들판이 더 안전해지지 않는다.**
+            //    절대 마릿수로 적으면 면적이 9배가 되어도 무리는 그대로라 마주칠 확률이 1/9이 된다
+            //    (2026-08-11 사용자 판단 — "우리 맵은 100×100이 되지는 않을 것").
+            const float density = 4f;   // 10,000타일당 4무리 = 100×100에 4곳
+
+            Assert.AreEqual(4, AIVillage.M0.ThreatService.BandCount(density, 100L * 100),
+                "100×100 에서 4무리가 아니다 — 기준점이 어긋났다");
+            Assert.AreEqual(16, AIVillage.M0.ThreatService.BandCount(density, 200L * 200),
+                "면적 4배인데 무리가 4배가 아니다 — 넓은 맵이 더 안전해진다");
+            Assert.AreEqual(36, AIVillage.M0.ThreatService.BandCount(density, 300L * 300),
+                "면적 9배인데 무리가 9배가 아니다");
+
+            // 밀도가 0이면 상주 없음 (중립 불변식 — 켜지 않은 종족은 아무 일도 없다).
+            Assert.AreEqual(0, AIVillage.M0.ThreatService.BandCount(0f, 100L * 100),
+                "밀도 0인데 무리가 섰다");
+
+            // 작은 맵에서도 조용히 0이 되지 않는다 — 0.5무리는 1무리다.
+            Assert.AreEqual(1, AIVillage.M0.ThreatService.BandCount(density, 30L * 30),
+                "작은 맵에서 상주가 통째로 사라졌다 (반올림이 0을 만들었다)");
         }
 
         // ── T1-c: 중립 불변식 — 판정을 안 넘기면 舊 배치와 완전히 같다 ────────────

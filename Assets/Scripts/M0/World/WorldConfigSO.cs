@@ -125,6 +125,12 @@ namespace AIVillage.M0
         [Tooltip("수락/거절 응답 대기 (게임일). 초과 시 자동 퇴장 — 결정을 미루는 것도 결정이다.")]
         public float WandererWaitDays = 0.7f;
 
+        [Tooltip("자비 장치 (M24-1차 W9) — 인구가 역대 최고 대비 바닥일 때의 도착 주기 배율. " +
+                 "1 = 자비 없음(기존 동작). 0.4 = 최악일 때 주기가 40%로 줄어 방랑자가 2.5배 자주 온다. " +
+                 "🔑 이것은 난이도가 아니라 자비다 — 압력은 한 점도 안 내려간다(ADR-M24-1). " +
+                 "손을 내미는 것은 방랑자뿐이고, 그 손을 잡을지는 여전히 플레이어가 정한다.")]
+        [Range(0.1f, 1f)] public float WandererMercyMinMult = 0.4f;
+
         [Header("식량 수지 (M9-G — ADR-M9-10: 식량 가치의 유일한 출처는 소비 액션)")]
         [Tooltip("식량 소비 액션 목록 (EatCookedFood·EatRawFood 등). FoodDaysLeft 계산이 이 액션들의 " +
                  "효과(스톡 SubClamp0 + MySatiety Add)에서 1개당 포만을 파생한다 — 가치 이중 기입 금지. " +

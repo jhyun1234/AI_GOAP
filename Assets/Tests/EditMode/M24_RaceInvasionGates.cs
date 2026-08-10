@@ -754,5 +754,98 @@ namespace AIVillage.Tests.EditMode
 
             Object.DestroyImmediate(r);
         }
+
+        // ── T12: 자비 장치 (W9) ───────────────────────────────────────────────
+
+        [Test]
+        public void M24_T12_MercyMult_IsNeutralAtPeakAndBeforeAnyLoss()
+        {
+            // 중립 불변식 — 아직 아무도 안 잃었으면 기존 동작 그대로다.
+            Assert.AreEqual(1f, WandererService.WanderIntervalMult(8, 8, 0.4f), 1e-5f,
+                "인구 = 역대최고인데 도착이 빨라졌다 (중립 불변식 위반)");
+            Assert.AreEqual(1f, WandererService.WanderIntervalMult(0, 0, 0.4f), 1e-5f,
+                "판 시작 전(역대최고 0)인데 자비가 켜졌다");
+            Assert.AreEqual(1f, WandererService.WanderIntervalMult(3, 8, 1f), 1e-5f,
+                "계수 1(자비 없음)인데 주기가 바뀌었다 — 끄는 문이 없다");
+        }
+
+        [Test]
+        public void M24_T12_MercyMult_ShortensIntervalAsPopulationCollapses()
+        {
+            const float min = 0.4f;
+            // 40% 남았을 때 — "눈에 띄게 짧아진다"의 수치 확인 (0.4 + 0.6×0.4 = 0.64).
+            float at40 = WandererService.WanderIntervalMult(4, 10, min);
+            Assert.AreEqual(0.64f, at40, 1e-4f, "역대최고의 40%인데 배율이 예상과 다르다");
+            Assert.Less(at40, 0.8f, "40%까지 무너졌는데 도착 주기가 거의 그대로다 — 자비가 안 닿는다");
+            // 단조 — 사람이 줄수록 빨라지기만 한다 (되돌아가면 "잃을수록 손이 멀어진다"가 된다).
+            float prev = 2f;
+            for (int alive = 10; alive >= 0; alive--)
+            {
+                float m = WandererService.WanderIntervalMult(alive, 10, min);
+                Assert.LessOrEqual(m, prev + 1e-5f, $"생존 {alive}: 사람이 더 줄었는데 도착이 늦어졌다");
+                prev = m;
+            }
+            Assert.AreEqual(min, WandererService.WanderIntervalMult(0, 10, min), 1e-5f,
+                "전멸 직전인데 배율이 하한에 안 닿는다");
+        }
+
+        [Test]
+        public void M24_T12_Mercy_DoesNotTouchPressure()
+        {
+            // 🔑 이 축의 두 번째 계약 — **자비는 난이도를 건드리지 않는다** (ADR-M24-1).
+            // 압력은 역대최고만 읽고 생존 인구는 아예 입력이 아니다. 인구가 10→0으로 무너지는
+            // 동안 자비 배율은 실제로 움직이고, 압력은 한 점도 안 움직여야 한다.
+            WorldConfigSO c = Config();
+            int pressureAtStart = ThreatService.GlobalPressure(30f, 10, c.PressureDaysPerPoint,
+                                                               c.PressurePopPerPoint);
+            var mults = new System.Collections.Generic.HashSet<float>();
+            for (int alive = 10; alive >= 0; alive--)
+            {
+                mults.Add(WandererService.WanderIntervalMult(alive, 10, 0.4f));
+                Assert.AreEqual(pressureAtStart,
+                    ThreatService.GlobalPressure(30f, 10, c.PressureDaysPerPoint, c.PressurePopPerPoint),
+                    "생존 인구가 무너지는 동안 압력이 움직였다 (ADR-M24-1 위반)");
+            }
+            // 실패 가능성 증명 — 자비 배율이 실제로 움직였는가. 안 움직였으면 위 검사는
+            // "아무 일도 안 일어나는 동안 아무 일도 안 일어났다"는 빈 검사다.
+            Assert.Greater(mults.Count, 1, "인구가 10→0인데 자비 배율이 한 값뿐 — 빈 검사다");
+
+            // 자비 장치가 위협 쪽으로 새지 않았는가 (구조 검사 — 값이 아니라 배치를 본다).
+            string threatSrc = System.IO.File.ReadAllText("Assets/Scripts/M0/World/ThreatService.cs");
+            StringAssert.DoesNotContain("WanderIntervalMult", threatSrc,
+                "위협 쪽이 자비 배율을 읽는다 — 난이도에 손을 대는 경로가 생겼다");
+        }
+
+        [Test]
+        public void M24_T12_PopulationInflow_StillHasExactlyOneDoor()
+        {
+            // W9 DoD — 인구 유입 경로는 여전히 하나다. 자비 장치는 **주기만** 바꾼다:
+            // 두 번째 유입 경로가 생기면 반려 (SimulationLoop:527 규약).
+            int callSites = 0;
+            foreach (string path in System.IO.Directory.GetFiles(
+                         "Assets/Scripts", "*.cs", System.IO.SearchOption.AllDirectories))
+            {
+                if (path.EndsWith("SimulationLoop.cs")) continue; // 정의부
+                foreach (string line in System.IO.File.ReadAllLines(path))
+                {
+                    int at = line.IndexOf("SpawnVillager(", System.StringComparison.Ordinal);
+                    if (at < 0) continue;
+                    if (line.TrimStart().StartsWith("//") || line.Contains("///")) continue; // 주석
+                    callSites++;
+                }
+            }
+            Assert.AreEqual(1, callSites,
+                $"주민 스폰 호출이 {callSites}곳 — 방랑자 수락(WandererService.Resolve) 하나여야 한다");
+        }
+
+        [Test]
+        public void M24_T12_ShippedConfig_HasMercyWired()
+        {
+            // 반쪽 배선 금지 (M22-T16 동형) — 계수가 1이면 코드는 돌지만 화면에선 아무 일도 없다.
+            WorldConfigSO c = Config();
+            Assert.Greater(c.WandererMercyMinMult, 0f, "자비 계수가 0 이하 — 도착이 멈춘다");
+            Assert.Less(c.WandererMercyMinMult, 1f,
+                "자비 계수가 1 — 장치가 꺼진 채 배포됐다 (W9가 값에 없다)");
+        }
     }
 }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using AIVillage.Core;
 using UnityEngine;
 
@@ -66,6 +67,47 @@ namespace AIVillage.M0
             _nextArriveDay = config.WandererIntervalDays; // 첫 도착 = 시작 + 주기 (위협 6과 위상차 5)
         }
 
+        // ── 자비 장치 (M24-1차 W9) ────────────────────────────────────────────
+
+        /// <summary>
+        /// 도착 주기 배율 (순수 — 게이트 M24-T12). 인구가 역대 최고 대비 낮을수록 자주 온다:
+        /// 인구 = 역대최고 → 1 (기존 동작 그대로, 중립 불변식) · 인구 = 0 → `minMult`.
+        ///
+        /// 🔑 **이것은 난이도가 아니라 자비다** — 압력은 한 점도 내려가지 않는다(`ADR-M24-1`).
+        /// 현재/최고는 **비단조 신호**라 위협에 걸면 `ADR-M10R-1`이 막은 음성 피드백 루프가
+        /// 그대로 돌아온다(사망 → 약해진 적 → 영구 안정). 여기서는 거는 대상이 위협이 아니라
+        /// **구원**이므로 그 루프가 생기지 않는다: 사람이 줄면 적이 순해지는 게 아니라
+        /// **문을 두드리는 사람이 잦아질 뿐**이고, 그 손을 잡을지는 여전히 플레이어가 정한다.
+        ///
+        /// 역대최고 0(판 시작 전)은 1 = 자비 없음 — 아직 잃은 것이 없다.
+        /// </summary>
+        public static float WanderIntervalMult(int alive, int peak, float minMult)
+            => Mathf.Lerp(Mathf.Clamp01(minMult), 1f,
+                          peak <= 0 ? 1f : Mathf.Clamp01(alive / (float)peak));
+
+        /// <summary>이 판의 지금 배율 — 미배선(계수 0 이하)이면 1 = 기존 동작 (중립).</summary>
+        private float MercyMult()
+        {
+            if (_sim == null || _config == null || _config.WandererMercyMinMult <= 0f) return 1f;
+            int alive = 0;
+            IReadOnlyList<VillagerAgent> agents = _sim.Agents;
+            if (agents != null)
+                for (int i = 0; i < agents.Count; i++)
+                    if (agents[i] != null && agents[i].State != AgentState.Dead) alive++;
+            return WanderIntervalMult(alive, _sim.PeakPopulation, _config.WandererMercyMinMult);
+        }
+
+        /// <summary>다음 도착 예약 — 주기 갱신의 **유일한 문** (M24-1차 W9). 자비 배율이
+        /// 여기 한 곳에만 얹혀야 세 갈래(거절·수락·경로 없음)가 같은 규칙을 쓴다.</summary>
+        private void ScheduleNextArrival()
+        {
+            float mult = MercyMult();
+            _nextArriveDay = _lastTickDay + _config.WandererIntervalDays * mult;
+            if (mult < 1f)
+                Debug.Log($"[Wanderer] 자비 — 인구가 역대 최고에 못 미쳐 다음 도착이 " +
+                          $"{_config.WandererIntervalDays * mult:0.#}일 뒤로 당겨진다 (배율 {mult:0.##})");
+        }
+
         public void Tick(float gameTime)
         {
             _lastTickDay = gameTime;
@@ -108,7 +150,7 @@ namespace AIVillage.M0
             if (path.Kind == PathResultKind.Unreachable)
             {
                 Debug.LogWarning($"[Wanderer] 진입 경로 없음 ({entry.x},{entry.y})→({dest.x},{dest.y}) — 이번 도착 생략");
-                _nextArriveDay = _lastTickDay + _config.WandererIntervalDays;
+                ScheduleNextArrival();
                 return;
             }
 
@@ -153,7 +195,7 @@ namespace AIVillage.M0
             _marker = null;
             _candPersonality = null;
             _candJob = null;
-            _nextArriveDay = _lastTickDay + _config.WandererIntervalDays;
+            ScheduleNextArrival();
             OnResolved?.Invoke(accept);
         }
 

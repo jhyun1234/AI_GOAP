@@ -359,7 +359,31 @@ namespace AIVillage.M0
         public int CurrentGlobalPressure(int peakPopulation)
             => _config == null ? 0
              : GlobalPressure(_gameTime, peakPopulation,
-                              _config.PressureDaysPerPoint, _config.PressurePopPerPoint);
+                              _config.PressureDaysPerPoint, _config.PressurePopPerPoint)
+#if UNITY_EDITOR
+               + _debugPressureBonus
+#endif
+             ;
+
+#if UNITY_EDITOR
+        // 디버그 압력 부스트 (2026-08-10 신설) — S8("종족별로 다른 대비를 하게 되는가")을
+        // 재는 도구다. 특성 해금이 압력 6~22에 걸려 있는데 초반 판의 압력은 5 안팎이라,
+        // 부스트 없이는 **네 종족이 전부 정면으로 오는 구간만** 관측된다 (2026-08-10 Play).
+        private int _debugPressureBonus;
+#endif
+
+#if UNITY_EDITOR
+        /// <summary>압력을 올린다 (에디터 전용). 새 값을 돌려준다.
+        /// 🔴 **되돌릴 수 없다** — `ADR-M24-1`(압력은 어떤 경로로도 안 내려간다)을 디버그에서도
+        /// 지킨다. 내리는 키를 만들면 "압력이 내려가는 경로"가 코드에 생기고, 그 순간 게이트가
+        /// 지키는 계약이 거짓말이 된다. 낮은 압력을 다시 보려면 **새 판을 시작한다.**
+        /// 🔑 이 값은 세이브 대상이 아니다 — 디버그 상태는 판을 이어 받지 않는다.</summary>
+        public int DebugBoostPressure(int amount)
+        {
+            _debugPressureBonus += Mathf.Max(0, amount);
+            return CurrentGlobalPressure(_peakPopulation());
+        }
+#endif
 
         // ── 편성 구매 (M24-1차 W4 — 舊 PickTier의 자리) ───────────────────────
         //

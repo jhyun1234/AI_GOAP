@@ -87,6 +87,10 @@ namespace AIVillage.M0
         private AIVillage.UI.CameraController _cameraCtrl; // 상태줄 클릭 점프 (M13-B 후속) — null이면 점프 생략
 #if UNITY_EDITOR
         private int _debugRaceIdx = -1; // 디버그 종족 순환 소환 커서 (첫 누름 = 0번 종족)
+
+        /// <summary>압력 부스트 1회분 (디버그 상수 — 밸런스 아님). 6이면 한 번에 최저 해금
+        /// (기사단 시설 우선)이 열리고, 세 번이면 고블린 우회(14)까지 닿는다.</summary>
+        private const int DEBUG_PRESSURE_STEP = 6;
 #endif
 
         private void Start()
@@ -177,6 +181,21 @@ namespace AIVillage.M0
                         dbgHud?.Notify($"디버그 소환 — {summoned.DisplayName} " +
                                        $"({_debugRaceIdx + 1}/{races.Count} · Ctrl+F11로 다음 종족)");
                     }
+                }
+
+                // 압력 부스트 — 특성 해금이 압력 6~22에 걸려 있는데 초반 판은 5 안팎이라,
+                // 이 키가 없으면 **네 종족이 전부 정면으로 오는 구간만** 관측된다 (2026-08-10 Play).
+                // 🔴 되돌릴 수 없다 (ADR-M24-1) — 낮은 압력을 다시 보려면 새 판을 시작한다.
+                // 🔑 S8을 재려면 F12로 압력을 올린 뒤 **F10**(예고 경유)을 쓴다. F11은 예고를
+                //    건너뛰므로 "예고를 보고 다르게 준비한다"를 관측할 수 없다.
+                if (Input.GetKeyDown(KeyCode.F12) && threats != null)
+                {
+                    int now = threats.DebugBoostPressure(DEBUG_PRESSURE_STEP);
+                    dbgHud?.Notify($"디버그 — 압력 +{DEBUG_PRESSURE_STEP} → 현재 {now} " +
+                                   "(되돌릴 수 없음 · 다음은 Ctrl+F10으로 예고부터)");
+                    Debug.Log($"[Debug] 압력 부스트 → {now} — 해금: " +
+                              $"기사단 시설우선 6 · 고블린 야습 8 · 오크 결사 10 · " +
+                              $"기사단 다지점 12 · 고블린 우회 14 · 고블린 함정학습 22");
                 }
             }
 #endif

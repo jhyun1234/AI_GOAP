@@ -847,5 +847,151 @@ namespace AIVillage.Tests.EditMode
             Assert.Less(c.WandererMercyMinMult, 1f,
                 "자비 계수가 1 — 장치가 꺼진 채 배포됐다 (W9가 값에 없다)");
         }
+
+        // ── T1: 늑대·곰 심볼 검출기 (W10, 성공 기준 S1) ────────────────────────
+
+        /// <summary>이 문자열에 폐기 종족의 심볼이 있는가 (순수 — 검출기 본체).
+        /// 대상은 **식별자·에셋 이름**이고 산문 주석은 아니다: 코드가 왜 그렇게 생겼는지
+        /// 설명하려면 "늑대 시절엔 …" 같은 문장이 필요하고, 그것까지 막으면 이력이 지워진다.</summary>
+        private static string FindLegacyBeastSymbol(string text)
+        {
+            foreach (string sym in new[] { "Wolf", "Bear", "Tier1_", "Tier2_", "Tier3_" })
+                if (text.IndexOf(sym, System.StringComparison.Ordinal) >= 0) return sym;
+            return null;
+        }
+
+        /// <summary>주석을 뺀 코드 부분만 (한 줄 주석 · 문서 주석 · 블록 주석 본문 제거).</summary>
+        private static string StripComments(string line)
+        {
+            string t = line.TrimStart();
+            if (t.StartsWith("//") || t.StartsWith("*") || t.StartsWith("/*")) return "";
+            int at = line.IndexOf("//", System.StringComparison.Ordinal);
+            return at >= 0 ? line.Substring(0, at) : line;
+        }
+
+        [Test]
+        public void M24_T1_LegacyBeastSymbols_AreGoneFromCodeAndAssets()
+        {
+            // 실패 가능성 증명 (M17 교훈) — 검출기가 실제로 무언가를 잡는지 먼저 확인한다.
+            // 이게 없으면 "0건 통과"가 "검출기가 고장 나서 아무것도 안 잡는다"와 구분되지 않는다.
+            Assert.AreEqual("Wolf", FindLegacyBeastSymbol("Threat_Tier1_Wolf.asset"),
+                "검출기가 옛 에셋 이름을 못 잡는다 — 이 게이트는 빈 검사다");
+            Assert.AreEqual("Bear", FindLegacyBeastSymbol("BearSprites"), "〃");
+            Assert.IsNull(FindLegacyBeastSymbol("Race_Goblin.asset"), "검출기가 현행 이름을 오탐한다");
+            // 산문은 통과해야 한다 — 위 주석의 이유.
+            Assert.IsNull(FindLegacyBeastSymbol(StripComments("            // 늑대 시절 답은 울타리였다")),
+                "주석의 이력 서술까지 막으면 코드가 왜 그렇게 생겼는지 못 적는다");
+
+            // ① 런타임 코드 — 주석을 뺀 부분에 심볼 0건
+            foreach (string path in System.IO.Directory.GetFiles(
+                         "Assets/Scripts", "*.cs", System.IO.SearchOption.AllDirectories))
+            {
+                string[] lines = System.IO.File.ReadAllLines(path);
+                for (int i = 0; i < lines.Length; i++)
+                {
+                    string sym = FindLegacyBeastSymbol(StripComments(lines[i]));
+                    Assert.IsNull(sym, $"{path}:{i + 1} 에 폐기 종족 심볼 '{sym}' 이 남았다 (S1)");
+                }
+            }
+
+            // ② 에셋 파일 이름
+            foreach (string path in System.IO.Directory.GetFiles(
+                         "Assets/M0Config", "*.asset", System.IO.SearchOption.AllDirectories))
+            {
+                string sym = FindLegacyBeastSymbol(System.IO.Path.GetFileName(path));
+                Assert.IsNull(sym, $"{path} — 파일 이름에 폐기 종족 심볼 '{sym}' 이 남았다 (S1)");
+            }
+
+            // ③ 화면에 뜨는 이름 — 파일 이름을 갈아도 표시명이 옛것이면 플레이어에겐 그대로다
+            int races = 0;
+            foreach (string guid in AssetDatabase.FindAssets("t:ThreatSO"))
+            {
+                var so = AssetDatabase.LoadAssetAtPath<ThreatSO>(AssetDatabase.GUIDToAssetPath(guid));
+                if (so == null) continue;
+                races++;
+                StringAssert.DoesNotContain("늑대", so.DisplayName, $"{so.name}: 표시명이 아직 늑대다");
+                StringAssert.DoesNotContain("곰", so.DisplayName, $"{so.name}: 표시명이 아직 곰이다");
+            }
+            Assert.Greater(races, 0, "위협 에셋이 하나도 없다 — 루프가 안 돌아 공허 통과다");
+        }
+
+        [Test]
+        public void M24_T8_BandSelection_StaysDeleted()
+        {
+            // 舊 게임일 밴드 3단(PickTier)은 압력 예산제로 대체됐다. 되살아나면 마릿수·등급의
+            // 산식이 둘이 되고, 그 순간 "압력이 예산을 준다"는 이 축의 문장이 거짓이 된다.
+            // 주석에서의 이력 언급은 허용한다 (T1과 같은 규약 — 왜 사라졌는지는 적혀 있어야 한다).
+            foreach (string path in System.IO.Directory.GetFiles(
+                         "Assets/Scripts", "*.cs", System.IO.SearchOption.AllDirectories))
+            {
+                string[] lines = System.IO.File.ReadAllLines(path);
+                for (int i = 0; i < lines.Length; i++)
+                    StringAssert.DoesNotContain("PickTier", StripComments(lines[i]),
+                        $"{path}:{i + 1} — 밴드 선택(PickTier)이 코드로 돌아왔다 (ADR-M24-2)");
+            }
+        }
+
+        // ── T3: 개입 창 (W10, 성공 기준 S3 · 명세 §4.3) ────────────────────────
+
+        /// <summary>개입 창(초) — 첫 타격부터 사망까지 (순수, 명세 §4.3).
+        /// 죽는 데 필요한 타격 수 × 재타격 간격 × 하루 길이.</summary>
+        private static float InterventionSeconds(float hp, float damagePerHit,
+                                                 float repeatDays, float secondsPerDay)
+        {
+            if (damagePerHit <= 0f) return float.PositiveInfinity; // 아무도 안 죽는다
+            int hits = Mathf.CeilToInt(hp / damagePerHit);
+            return hits * repeatDays * secondsPerDay;
+        }
+
+        [Test]
+        public void M24_T3_InterventionWindow_StaysAboveTheFloorAtEveryPressure()
+        {
+            const float FLOOR_SEC = 8f;   // 명세 §4.3 제안 하한
+            WorldConfigSO c = Config();
+            var agentCfg = AssetDatabase.LoadAssetAtPath<AgentConfigSO>("Assets/M0Config/AgentConfig.asset");
+            Assert.IsNotNull(agentCfg, "AgentConfig 로드");
+            float hp = agentCfg.MaxHp;
+            // 하루 길이의 원천은 에셋 하나다 (게임일/실초 환산 = 1 / GameTimeScale, ADR-M0-2).
+            Assert.Greater(c.GameTimeScale, 0f, "GameTimeScale이 0 — 시간이 안 흐른다");
+            float secondsPerDay = 1f / c.GameTimeScale;
+
+            // 실패 가능성 증명 — 이 산식이 하한을 **깰 수 있는** 물건인지 먼저 확인한다.
+            Assert.Less(InterventionSeconds(hp, hp, 0.05f, secondsPerDay), FLOOR_SEC,
+                "한 방에 죽고 재타격이 0.05일이어도 하한을 안 깬다 — 이 게이트는 빈 검사다");
+
+            var races = new System.Collections.Generic.List<ThreatSO>();
+            foreach (string guid in AssetDatabase.FindAssets("t:ThreatSO"))
+            {
+                var so = AssetDatabase.LoadAssetAtPath<ThreatSO>(AssetDatabase.GUIDToAssetPath(guid));
+                if (so != null) races.Add(so);
+            }
+            Assert.Greater(races.Count, 0, "위협 에셋이 하나도 없다 — 공허 통과다");
+
+            // 압력 0~50 전수 — 압력이 사 오는 **모든 편성의 모든 칸**을 실제로 훑는다.
+            // (고정한 축: 종족 에셋의 StrikeDamage·RepeatStrikePeriodDays. 방법론 M20)
+            int checkedEntries = 0;
+            for (int pressure = 0; pressure <= 50; pressure++)
+                for (int ord = 0; ord < 4; ord++)
+                    foreach (ThreatService.WaveEntry e in ThreatService.BuyWave(races, pressure, ord))
+                    {
+                        checkedEntries++;
+                        // 🔴 피해는 **등급 배율을 안 탄다** — ExecuteStrike가 so.StrikeDamage를
+                        //    그대로 넘긴다. 등급이 키우는 것은 체력뿐이다 (ThreatAgent.Init).
+                        //    명세 §4.3의 "StrikeDamage × 스탯배율"은 코드와 다르고, 실제 경로가
+                        //    정본이다. 아래 구조 검사가 이 전제를 붙잡는다.
+                        float win = InterventionSeconds(hp, e.Race.StrikeDamage,
+                                                        e.Race.RepeatStrikePeriodDays, secondsPerDay);
+                        Assert.GreaterOrEqual(win, FLOOR_SEC,
+                            $"압력 {pressure}·서수 {ord}: {e.Race.name} 등급 {e.Grade} 의 개입 창이 " +
+                            $"{win:0.#}초 — 하한 {FLOOR_SEC}초를 깼다 (플레이어가 손쓸 틈이 없다)");
+                    }
+            Assert.Greater(checkedEntries, 0, "압력 0~50에서 편성이 하나도 안 나왔다 — 공허 통과다");
+
+            // 구조 검사 — 위 계산이 선 전제("피해에 등급 배율이 안 붙는다")를 코드로 못박는다.
+            // 붙이는 순간 이 게이트가 red 가 되고, 그때 개입 창을 다시 재게 된다.
+            string src = System.IO.File.ReadAllText("Assets/Scripts/M0/World/ThreatService.cs");
+            StringAssert.Contains("TakeDamage(so.StrikeDamage, DamageCause.Combat)", src,
+                "주민 피해 경로가 바뀌었다 — 개입 창 계산의 전제(등급 배율 없음)를 다시 확인할 것");
+        }
     }
 }

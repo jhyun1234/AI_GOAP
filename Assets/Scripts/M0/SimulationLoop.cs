@@ -196,6 +196,94 @@ namespace AIVillage.M0
         public bool TryAddDefenseTower(Vector2Int tile)
             => Defense != null && Defense.TryAddTowerPlan(tile, DefenseTileBuildable);
 
+#if UNITY_EDITOR
+        /// <summary>
+        /// 디버그 방어선 즉석 배치 (2026-08-10 신설, `Ctrl+F8`) — 마을 둘레에 울타리·문·망루를
+        /// 완공 상태로 깐다. 돌려주는 것은 (울타리, 문, 망루) 실제 완공 수.
+        ///
+        /// 🔑 **왜 필요한가**: S8 관측(2026-08-10)에서 44일을 돌렸는데 **울타리 0·망루 0**이었다.
+        /// M22 방어 건설은 플레이어가 B 모드로 줄을 그어야 목수가 짓는 구조라, 무인 방치면
+        /// 영영 0이다. 그런데 침입 특성 8개 중 **3개가 지킬 것이 있어야만 발동한다** —
+        /// `TargetDefense`(부술 시설) · `ApproachFlank`(피할 망루) · `TrapLearning`(밟을 함정).
+        /// 게다가 망루 탑승(`Goal_ManTower`)도 트리거가 안 걸린다. **대비를 해야 특성이 보이고
+        /// 특성이 보여야 대비할 이유가 생기는 닭-달걀**을 여는 도구다.
+        ///
+        /// 🔑 완공은 `Construction.Complete` **한 문**을 지난다 (`ADR-M0-3`) — 디버그가 하는 일은
+        /// **비용을 대 주는 것뿐**이다. 여기서 본 것이 실전과 같아야 관측이 값을 한다.
+        ///
+        /// 🔴 **망루는 두 변에만 세운다** (북·서). 네 변이 모두 감시되면 `ApproachFlank`가
+        /// 기존 동작으로 돌아가(명세 M24 W7) 우회를 영영 관측할 수 없다.
+        /// 🔴 **각 변 중앙은 문**이다. 완전히 둘러싸면 주민이 못 나가 채집이 막히고, 그러면
+        /// 방어가 아니라 아사를 관측하게 된다.
+        /// </summary>
+        public (int fences, int gates, int towers) DebugBuildDefenseRing(int radius)
+        {
+            EnsureDefenseWoodCosts();
+            if (Defense == null || Construction == null || _fenceBuildingSO == null)
+                return (0, 0, 0);
+
+            int cx = _worldConfig.BaseTileX, cy = _worldConfig.BaseTileY;
+            int r = Mathf.Max(2, radius);
+            var ring = new List<Vector2Int>();
+            for (int x = cx - r; x <= cx + r; x++)
+            {
+                ring.Add(new Vector2Int(x, cy - r));
+                ring.Add(new Vector2Int(x, cy + r));
+            }
+            for (int y = cy - r + 1; y <= cy + r - 1; y++)
+            {
+                ring.Add(new Vector2Int(cx - r, y));
+                ring.Add(new Vector2Int(cx + r, y));
+            }
+
+            // 각 변 중앙 = 문 (드나들 구멍이 없으면 아사를 관측하게 된다)
+            var gates = new HashSet<Vector2Int>
+            {
+                new Vector2Int(cx, cy - r), new Vector2Int(cx, cy + r),
+                new Vector2Int(cx - r, cy), new Vector2Int(cx + r, cy),
+            };
+            // 망루 = 북·서 **두 변만** (전 변 감시면 우회가 안 보인다)
+            var towers = new List<Vector2Int>
+            {
+                new Vector2Int(cx - 2, cy + r - 1), new Vector2Int(cx + 2, cy + r - 1),
+                new Vector2Int(cx - r + 1, cy - 2), new Vector2Int(cx - r + 1, cy + 2),
+            };
+
+            int nf = 0, ng = 0, nt = 0;
+            foreach (Vector2Int t in ring)
+            {
+                if (!DefenseTileBuildable(t.x, t.y)) continue;
+                bool isGate = gates.Contains(t) && _gateBuildingSO != null;
+                BuildingSO b = isGate ? _gateBuildingSO : _fenceBuildingSO;
+                DebugAfford(b);
+                if (!Construction.Complete(b, t.x, t.y, "debug")) continue;
+                if (isGate) ng++; else nf++;
+            }
+            if (_towerBuildingSO != null)
+                foreach (Vector2Int t in towers)
+                {
+                    if (!DefenseTileBuildable(t.x, t.y)) continue;
+                    DebugAfford(_towerBuildingSO);
+                    if (Construction.Complete(_towerBuildingSO, t.x, t.y, "debug")) nt++;
+                }
+
+            Debug.Log($"[Debug] 방어선 배치 — 울타리 {nf} · 문 {ng} · 망루 {nt} " +
+                      $"(중심 {cx},{cy} 반지름 {r} · 망루는 북·서 두 변에만)");
+            return (nf, ng, nt);
+        }
+
+        /// <summary>디버그 완공의 비용을 대 준다 — 부족분만 채운다 (완공 자체는 Complete 몫).</summary>
+        private void DebugAfford(BuildingSO b)
+        {
+            if (b == null || b.Costs == null) return;
+            foreach (ResourceCost c in b.Costs)
+            {
+                int lack = c.Amount - World.GetStock(c.StockSlot);
+                if (lack > 0) World.AddStock(c.StockSlot, lack);
+            }
+        }
+#endif
+
         // 계획 입력 필터 (M22-W3R2) — 맵 안 + 빈 타일 + 노드 없음 + 통행 가능.
         // 노드 포함은 M5 자가 재검토 🔴의 계승: 계획과 시공의 점유 어휘가 갈리면 goal이 공회전한다.
         private bool DefenseTileBuildable(int x, int y)

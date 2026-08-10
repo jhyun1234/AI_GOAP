@@ -88,6 +88,9 @@ namespace AIVillage.M0
 #if UNITY_EDITOR
         private int _debugRaceIdx = -1; // 디버그 종족 순환 소환 커서 (첫 누름 = 0번 종족)
 
+        /// <summary>디버그 방어선 반지름 (타일). 마을 앵커 기준 사각 링.</summary>
+        private const int DEBUG_RING_RADIUS = 9;
+
         /// <summary>압력 부스트 1회분 (디버그 상수 — 밸런스 아님). 6이면 한 번에 최저 해금
         /// (기사단 시설 우선)이 열리고, 세 번이면 고블린 우회(14)까지 닿는다.</summary>
         private const int DEBUG_PRESSURE_STEP = 6;
@@ -181,6 +184,17 @@ namespace AIVillage.M0
                         dbgHud?.Notify($"디버그 소환 — {summoned.DisplayName} " +
                                        $"({_debugRaceIdx + 1}/{races.Count} · Ctrl+F11로 다음 종족)");
                     }
+                }
+
+                // 방어선 즉석 배치 — 침입 특성 8개 중 **3개가 지킬 것이 있어야만 발동한다**
+                // (시설 우선·우회·함정 학습) + 망루 탑승 트리거도 망루가 있어야 걸린다.
+                // 2026-08-10 S8 관측에서 44일을 돌렸는데 울타리 0·망루 0이었다 — 그 구간에서는
+                // 특성의 절반이 화면에 나올 수가 없다. 🔴 F9는 디버그 전멸이라 F8을 쓴다.
+                if (Input.GetKeyDown(KeyCode.F8))
+                {
+                    (int f, int g, int t) = M0SimulationLoop.Instance.DebugBuildDefenseRing(DEBUG_RING_RADIUS);
+                    dbgHud?.Notify($"디버그 방어선 — 울타리 {f} · 문 {g} · 망루 {t} " +
+                                   "(망루는 북·서 두 변에만 — 전 변 감시면 우회가 안 보인다)");
                 }
 
                 // 압력 부스트 — 특성 해금이 압력 6~22에 걸려 있는데 초반 판은 5 안팎이라,

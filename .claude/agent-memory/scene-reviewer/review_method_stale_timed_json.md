@@ -29,5 +29,10 @@ metadata:
   (자체 계산식을 적었으면 정정 요구).
 - 스틸 확인용으로 `render.mjs --still` 을 돌리면 `build/stills/*.png` 가 생긴다 —
   그건 `timed.json` 을 만들지 않으므로 안전하고, 리포트의 증거로 인용한다.
+- 🟢 **양성 확인 절차(ep14s-1 에서 확립)** — 코디네이터가 이미 TTS 를 돌려 놓았을 때는
+  `node tools/scene-video/tts.mjs <ep>` 를 **한 번 더 돌린다.** 출력이
+  **`새로 만듦 0 · 재사용 N`**(N = 자막 줄 수)이면 캐시가 현재 `say` 전부와 해시로 일치한다는
+  뜻이라 **그 `timed.json` 이 이 대본의 것임이 증명된다.** 재생성 비용도 0이다.
+  하나라도 「새로 만듦」이 뜨면 그 줄의 자막이 TTS 뒤에 바뀐 것이니 그 자체가 조사 대상.
 
 관련: [[review-method-wide-longform]] · [[feedback-no-length-rejection]]

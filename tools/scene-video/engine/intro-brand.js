@@ -19,7 +19,18 @@ import {
    타이밍: 전부 인트로 자막 한 줄의 cue(0) 에 물린다. t 로 도는 것은 사건이 아닌
    것뿐이다(커서 깜빡임 · 주민 흔들림 · 점선 흐름) — 문턱 없음. */
 
-const LINES = ['$ claude code', '> build my village', 'placing...'];
+/* 🔤 개정 ADR-V-10(2026-08-10, 사용자 지시) — 화면 글자는 한국어가 기본이다.
+   `$ claude code` 만 영어로 남는다: **실제로 치는 명령**이라 예외 ⓐ(코드를 그대로 인용)다.
+   나머지 둘은 지어낸 문구였으므로 한국어로 옮겼다 — 사용자가 실제로 클로드 코드에
+   한국어로 프롬프트를 치므로 오히려 사실에 가깝다.
+   🔴 그래서 **줄마다 폰트가 다르다.** mono(JetBrains Mono)는 라틴 전용이라 한국어를 넣으면
+   그 글자만 시스템 폴백으로 떨어져 한 줄 안에서 폰트가 갈린다(리포가 이미 겪은 사고).
+   `cjk: true` 인 줄은 Pretendard 로 그린다. */
+const LINES = [
+  { s: '$ claude code' },
+  { s: '> 마을을 지어줘', cjk: true },
+  { s: '배치 중...', cjk: true },
+];
 const BOB = 2.3;          // 주민이 제자리에서 흔들리는 주기(초)
 
 export default {
@@ -42,18 +53,18 @@ export default {
 
     /* 코드 타이핑 — k 0~0.55 에 세 줄이 순서대로 찍힌다 */
     const typed = clamp(k / 0.55);
-    const totalCh = LINES.reduce((a, l) => a + l.length, 0);
+    const totalCh = LINES.reduce((a, l) => a + l.s.length, 0);
     let budget = Math.round(typed * totalCh);
     ctx.textAlign = 'left';
     LINES.forEach((line, i) => {
-      const n = Math.max(0, Math.min(line.length, budget)); budget -= line.length;
+      const n = Math.max(0, Math.min(line.s.length, budget)); budget -= line.s.length;
       if (!n) return;
-      ctx.font = mono(700, 12.5);
+      ctx.font = line.cjk ? disp(700, 12.5) : mono(700, 12.5);
       ctx.fillStyle = i === 0 ? tone('ink') : tone('sub');
-      ctx.fillText(line.slice(0, n), TX + 14, TY + 40 + i * 19);
+      ctx.fillText(line.s.slice(0, n), TX + 14, TY + 40 + i * 19);
       // 캐럿 — 지금 치는 줄 끝에서 깜빡인다 (주기적 · 사건 아님)
-      if (n < line.length || (i === LINES.length - 1 && frac(t / 0.9) < 0.55)) {
-        const cw = ctx.measureText(line.slice(0, n)).width;
+      if (n < line.s.length || (i === LINES.length - 1 && frac(t / 0.9) < 0.55)) {
+        const cw = ctx.measureText(line.s.slice(0, n)).width;
         ctx.fillStyle = tone('accent');
         ctx.fillRect(TX + 15 + cw, TY + 30 + i * 19, 7, 12);
       }

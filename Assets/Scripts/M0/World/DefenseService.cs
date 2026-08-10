@@ -425,6 +425,18 @@ namespace AIVillage.M0
             return found;
         }
 
+        /// <summary>완공 시설 타일 전부 — 슬롯 지정판 (M24-1차 W7, 진입점 우회가 망루를 읽는다).
+        /// `BuiltGateTiles` 와 같은 규약: 전용 등록부를 새로 파지 않고 **내구도 등록부에서 파생**한다
+        /// (NotifyBuilt/NotifyRemoved 가 이미 생사를 안다). 순서는 결정적이지 않으므로 — 호출자가
+        /// 순서에 의존하면 안 된다. 진입점 우회는 "이 후보가 감시되나"만 묻는다 (순서 무관).
+        /// 버퍼는 호출자 소유 (매 출몰 1회 — 할당을 만들지 않는다).</summary>
+        public void CollectBuiltTiles(SlotId slot, List<Vector2Int> into)
+        {
+            if (into == null) return;
+            foreach (KeyValuePair<(SlotId slot, Vector2Int tile), (float, float, int)> e in _durability)
+                if (e.Key.slot == slot) into.Add(e.Key.tile);
+        }
+
         /// <summary>from 곁(체비쇼프 ≤ range)의 계획·시설 타일 — 드래그 시작점 달라붙기(줄 연결)용.
         /// 최근접 우선, 동률은 좌표순 (결정적).</summary>
         public bool TryGetNearestPlanOrStructureTile(Vector2Int from, int range, out Vector2Int tile)

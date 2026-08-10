@@ -1053,7 +1053,11 @@ namespace AIVillage.M0
                                             transform, Defense, // Defense = 공성 대상 조회 (M22-W5)
                                             // 예산의 성장 항 (M24-1차 W4) — **역대 최고** 인구다.
                                             // 현재 인구(_agents.Count)를 넘기면 ADR-M24-1 위반.
-                                            () => PeakPopulation);
+                                            () => PeakPopulation,
+                                            // 망루 감시 사거리 (M24-1차 W7, ApproachFlank) — 요격
+                                            // 사거리와 **같은 값**을 넘긴다. 감시의 정의가 둘로
+                                            // 갈리면 "피했는데 맞는다"가 된다 (ADR-M0-2).
+                                            () => DefenseTowerRange);
                 // 공성 표현 (M22-W5) — 판정은 서비스, 여기는 알림·대사만 (M10-C ⚠️③)
                 Threats.OnStructureStruck += (t, slot, tile, remain, max) =>
                 {

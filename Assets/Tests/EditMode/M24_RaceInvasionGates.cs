@@ -537,5 +537,134 @@ namespace AIVillage.Tests.EditMode
             }
             Assert.Greater(n, 0, "ThreatSO 가 하나도 없다 — 게이트가 빈 검사가 됐다");
         }
+
+        // ── T10: 진입점 규칙 (W7 — 우회·다지점) ───────────────────────────────
+
+        // 시험용 맵 — 변 중앙이 서(0,10)·동(20,10)·남(10,0)·북(10,20).
+        private const int MinX = 0, MaxX = 20, MinY = 0, MaxY = 20;
+
+        private static InvaderTraitId[] T(params InvaderTraitId[] ids) => ids;
+
+        private static System.Collections.Generic.List<Vector2Int> Towers(params Vector2Int[] t)
+            => new System.Collections.Generic.List<Vector2Int>(t);
+
+        [Test]
+        public void M24_T10_EntryPoints_IsNeutralWithoutTraits()
+        {
+            // 중립 불변식 (W7 DoD ①) — 특성이 없으면 **망루가 있어도** 舊 EntryPoint 그대로다.
+            // 망루를 넘겨 두는 것이 요점이다: "입력이 늘었을 뿐 판정은 안 바뀐다"를 증명한다.
+            System.Collections.Generic.List<Vector2Int> towers = Towers(new Vector2Int(MinX, 10));
+            for (uint seed = 0; seed < 64; seed++)
+            {
+                Vector2Int[] e = ThreatService.EntryPoints(seed, MinX, MaxX, MinY, MaxY,
+                                                           System.Array.Empty<InvaderTraitId>(), towers, 5, 9);
+                Assert.AreEqual(1, e.Length, $"시드 {seed}: 특성이 없는데 진입점이 나뉘었다");
+                Assert.AreEqual(ThreatService.EntryPoint(seed, MinX, MaxX, MinY, MaxY), e[0],
+                    $"시드 {seed}: 특성이 없는데 좌표가 달라졌다 (중립 불변식 위반)");
+            }
+        }
+
+        [Test]
+        public void M24_T10_EntryPoints_FlankDefersWatchedEdges()
+        {
+            // 서쪽 변 중앙에 망루 1기, 사거리 5 — 그 변만 감시된다 (동·남·북은 거리 20·20·20).
+            System.Collections.Generic.List<Vector2Int> towers = Towers(new Vector2Int(MinX, 10));
+            var west = new Vector2Int(MinX, 10);
+
+            // 실패 가능성 증명 (M17 교훈) — 특성이 없으면 **어떤 시드는 실제로 서쪽을 고른다**.
+            // 이게 거짓이면 아래 검사는 무엇이든 통과하는 빈 검사가 된다.
+            bool plainEverPicksWest = false;
+            for (uint seed = 0; seed < 8; seed++)
+                if (ThreatService.EntryPoint(seed, MinX, MaxX, MinY, MaxY) == west) plainEverPicksWest = true;
+            Assert.IsTrue(plainEverPicksWest, "특성 없이도 서쪽이 안 나온다 — 이 게이트는 빈 검사다");
+
+            for (uint seed = 0; seed < 64; seed++)
+            {
+                Vector2Int[] e = ThreatService.EntryPoints(seed, MinX, MaxX, MinY, MaxY,
+                                                           T(InvaderTraitId.ApproachFlank), towers, 5, 1);
+                Assert.AreNotEqual(west, e[0],
+                    $"시드 {seed}: 우회 특성인데 감시 중인 서쪽 변으로 들어왔다");
+            }
+        }
+
+        [Test]
+        public void M24_T10_EntryPoints_FlankFallsBackWhenEveryEdgeIsWatched()
+        {
+            // 🔴 배제가 아니라 미루기다 (명세 W7 ⚠️) — 네 변이 모두 감시되면 기존 동작으로 돌아가야
+            // 한다. 여기서 진입을 접거나 감시 밖을 억지로 만들면 망루가 무용지물이 된다.
+            System.Collections.Generic.List<Vector2Int> all = Towers(
+                new Vector2Int(MinX, 10), new Vector2Int(MaxX, 10),
+                new Vector2Int(10, MinY), new Vector2Int(10, MaxY));
+            for (uint seed = 0; seed < 32; seed++)
+            {
+                Vector2Int[] e = ThreatService.EntryPoints(seed, MinX, MaxX, MinY, MaxY,
+                                                           T(InvaderTraitId.ApproachFlank), all, 5, 1);
+                Assert.AreEqual(ThreatService.EntryPoint(seed, MinX, MaxX, MinY, MaxY), e[0],
+                    $"시드 {seed}: 전 변 감시인데 기존 진입점으로 안 돌아왔다");
+            }
+
+            // 망루 0기·사거리 0 도 같은 자리로 떨어진다 (미배선 = 중립).
+            Vector2Int[] none = ThreatService.EntryPoints(3u, MinX, MaxX, MinY, MaxY,
+                                                          T(InvaderTraitId.ApproachFlank), null, 0, 1);
+            Assert.AreEqual(ThreatService.EntryPoint(3u, MinX, MaxX, MinY, MaxY), none[0],
+                "망루 미배선인데 진입점이 바뀌었다");
+        }
+
+        [Test]
+        public void M24_T10_EntryPoints_MultiPointSplitsAndStaysOnEdges()
+        {
+            // W7 DoD ③ — 6마리면 진입점 2곳 이상. 좌표는 서로 달라야 한다 (같은 칸 둘 = 안 나뉜 것).
+            Vector2Int[] e = ThreatService.EntryPoints(0u, MinX, MaxX, MinY, MaxY,
+                                                       T(InvaderTraitId.ApproachMultiPoint), null, 0, 6);
+            Assert.GreaterOrEqual(e.Length, 2, "6마리 다지점인데 한 곳에서만 들어온다");
+            var seen = new System.Collections.Generic.HashSet<Vector2Int>(e);
+            Assert.AreEqual(e.Length, seen.Count, "진입점에 같은 칸이 중복됐다");
+            foreach (Vector2Int p in e)
+                Assert.IsTrue(p.x == MinX || p.x == MaxX || p.y == MinY || p.y == MaxY,
+                    $"({p.x},{p.y})는 가장자리가 아니다 — 위협이 마을 안에서 태어난다");
+
+            // 1마리는 못 나눈다 (갈래가 마릿수를 넘으면 빈 진입점이 생긴다).
+            Assert.AreEqual(1, ThreatService.EntryPoints(0u, MinX, MaxX, MinY, MaxY,
+                                                        T(InvaderTraitId.ApproachMultiPoint), null, 0, 1).Length,
+                "1마리인데 진입점이 여럿이다");
+            // 네 변뿐이므로 갈래는 4를 넘지 않는다.
+            Assert.LessOrEqual(ThreatService.EntryPoints(0u, MinX, MaxX, MinY, MaxY,
+                                                        T(InvaderTraitId.ApproachMultiPoint), null, 0, 99).Length, 4,
+                "변이 넷인데 진입점이 다섯 곳 이상이다");
+        }
+
+        [Test]
+        public void M24_T10_EntryPoints_AreDeterministic()
+        {
+            // 결정성 (W7 DoD ④, ADR-M10R-2) — 같은 입력이면 같은 판이다.
+            System.Collections.Generic.List<Vector2Int> towers = Towers(new Vector2Int(MinX, 10));
+            InvaderTraitId[] both = T(InvaderTraitId.ApproachFlank, InvaderTraitId.ApproachMultiPoint);
+            for (uint seed = 0; seed < 16; seed++)
+            {
+                Vector2Int[] a = ThreatService.EntryPoints(seed, MinX, MaxX, MinY, MaxY, both, towers, 5, 6);
+                Vector2Int[] b = ThreatService.EntryPoints(seed, MinX, MaxX, MinY, MaxY, both, towers, 5, 6);
+                CollectionAssert.AreEqual(a, b, $"시드 {seed}: 같은 입력에 다른 진입점이 나왔다");
+            }
+        }
+
+        [Test]
+        public void M24_T10_ShippedRaces_UseBothApproachTraits()
+        {
+            // 배선의 반쪽 방지 (M22-T16 동형) — 두 수가 **에셋에 실려 있어야** 이 축이 값에 있다.
+            // 하나라도 0건이면 코드는 돌지만 화면에선 아무 일도 안 일어난다.
+            int flank = 0, multi = 0;
+            foreach (string guid in AssetDatabase.FindAssets("t:ThreatSO"))
+            {
+                var so = AssetDatabase.LoadAssetAtPath<ThreatSO>(AssetDatabase.GUIDToAssetPath(guid));
+                if (so?.Traits == null) continue;
+                foreach (InvaderTrait t in so.Traits)
+                {
+                    if (t.Id == InvaderTraitId.ApproachFlank) flank++;
+                    if (t.Id == InvaderTraitId.ApproachMultiPoint) multi++;
+                }
+            }
+            Assert.Greater(flank, 0, "우회(ApproachFlank)를 쓰는 종족이 없다 — W7 배선이 값에 없다");
+            Assert.Greater(multi, 0, "다지점(ApproachMultiPoint)을 쓰는 종족이 없다 — 〃");
+        }
     }
 }

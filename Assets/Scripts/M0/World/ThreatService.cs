@@ -46,6 +46,8 @@ namespace AIVillage.M0
         private readonly Dictionary<string, int> _encounters = new Dictionary<string, int>(4);
         private readonly HashSet<string> _seenBuf = new HashSet<string>();  // 편성 내 종족 중복 제거용
         private readonly Func<int> _peakPopulation;                          // 역대 최고 인구 (예산의 성장 항)
+        private readonly Func<int> _towerRange;                              // 망루 감시 사거리 (W7 우회 판정)
+        private readonly List<Vector2Int> _towerBuf = new List<Vector2Int>(4); // 완공 망루 타일 (출몰 1회용)
         // 함정을 밟아 본 종족 (M24-1차 W5, TrapLearning) — 키 = 에셋 이름. 세이브 대상 (ADR-M0-10).
         // 🔑 "학습"을 확률이 아니라 **경험**으로 둔 이유: 결정성(ADR-M10R-2)을 지키면서
         // 플레이어가 인과를 짚을 수 있게 — "한 번 걸렸더니 그 뒤로 피한다".
@@ -145,8 +147,13 @@ namespace AIVillage.M0
                              WorldConfigSO config, Func<IPathfinder> pathfinder,
                              Func<int, int, bool> isWalkable, Transform parent,
                              DefenseService defense = null,
-                             Func<int> peakPopulation = null)
+                             Func<int> peakPopulation = null,
+                             Func<int> towerRange = null)
         {
+            // 망루 감시 사거리 (M24-1차 W7) — 원천은 에셋(Watchtower.asset TowerRangeTiles)이고
+            // 그 파생값을 이미 SimulationLoop 이 갖고 있다 (ADR-M0-2 이중 기입 금지).
+            // 미배선 = 0 = 우회 특성이 조용히 꺼진다 (중립 불변식).
+            _towerRange = towerRange ?? (() => 0);
             // 역대 최고 인구 (M24-1차 W3·W4) — 예산의 성장 항. 미배선이면 0 = 시간 항만 (중립).
             // 🔴 현재 인구를 넘기면 ADR-M24-1 위반이다 (게이트 M24-T2가 그 계약을 지킨다).
             _peakPopulation = peakPopulation ?? (() => 0);
@@ -627,6 +634,71 @@ namespace AIVillage.M0
             }
         }
 
+        // ── 진입점 규칙 (M24-1차 W7 — 우회·다지점) ────────────────────────────
+
+        /// <summary>다지점 진입 1곳이 맡는 마릿수 (M24-1차 W7). 6마리면 3곳, 2마리면 2곳.
+        /// 에셋 값이 아닌 이유: 이건 종족의 성격이 아니라 **"나눈다"의 정의**다 (특성 자체가
+        /// 종족별 데이터이므로, 나누는 잘기까지 종족마다 다르게 둘 이유가 없다).</summary>
+        private const int MultiPointPerEntry = 2;
+
+        /// <summary>다지점 진입의 최소 갈래 — 나눈다면 최소 둘이다 (하나면 안 나눈 것).</summary>
+        private const int MultiPointMinEntries = 2;
+
+        /// <summary>이 타일이 망루 감시 안인가 (순수). 사거리 판정은 탑승 요격과 **같은 자**
+        /// (맨해튼 ≤ range, ManTowerRunner) — 감시의 정의가 둘로 갈리면 "피했는데 맞는다"가 된다.</summary>
+        private static bool IsWatched(Vector2Int tile, IReadOnlyList<Vector2Int> towers, int range)
+        {
+            if (towers == null || range <= 0) return false;
+            for (int i = 0; i < towers.Count; i++)
+                if (Mathf.Abs(towers[i].x - tile.x) + Mathf.Abs(towers[i].y - tile.y) <= range) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// 진입점들 (순수·결정적 — 게이트 M24-T10). 특성이 **후보를 거를 뿐** 새 계산을 하지 않는다:
+        ///   `ApproachFlank`      → 망루 감시 안 후보를 **뒤로 미룬다** (배제가 아니다)
+        ///   `ApproachMultiPoint` → 마릿수를 진입점 여럿에 나눈다
+        /// 특성이 없으면 길이 1 배열이고 그 한 칸은 `EntryPoint`와 **같은 좌표**다 (중립 불변식).
+        ///
+        /// 🔴 우회는 배제가 아니다 — 전부 피하면 망루가 무용지물이 된다. 네 변이 모두 감시되면
+        /// 순서가 그대로라 기존 동작으로 돌아가고, 그때 망루는 제 값을 한다 (명세 W7 ⚠️).
+        /// </summary>
+        /// <param name="towers">완공 망루 타일. **탑승 여부를 묻지 않는다** — 탑승은 위협이 나타난
+        /// 뒤에 일어나므로(ManTower 트리거 = ThreatNear) 출몰 시점엔 언제나 0기다. 탑승을 조건으로
+        /// 걸면 이 수는 영영 안 발동한다. 그래서 여기서 감시 = **서 있는 망루**이고, 답도 그것과
+        /// 짝을 이룬다: 답은 "사람을 더 태워라"가 아니라 **"망루를 옮겨라"**다.</param>
+        /// <param name="count">이번 편성의 총 마릿수 (다지점 갈래 수의 상한 — 1마리는 못 나눈다).</param>
+        public static Vector2Int[] EntryPoints(uint seed, int minX, int maxX, int minY, int maxY,
+                                               InvaderTraitId[] traits, IReadOnlyList<Vector2Int> towers,
+                                               int towerRange, int count)
+        {
+            // 후보 4변 — [0]은 舊 EntryPoint 와 같은 좌표(시드 그대로), 뒤는 변 순서로 회전.
+            // 산식을 복제하지 않고 그 함수를 네 번 부른다 (진입점의 정의는 한 곳에 있다).
+            var cand = new Vector2Int[4];
+            for (int k = 0; k < 4; k++) cand[k] = EntryPoint(seed + (uint)k, minX, maxX, minY, maxY);
+
+            if (Has(traits, InvaderTraitId.ApproachFlank))
+            {
+                // 감시 밖을 앞으로, 감시 안을 뒤로 — **순서만** 바꾼다 (안정 분할: 같은 편 안에서는
+                // 시드 순서 보존). 전부 감시거나 전부 밖이면 순서가 그대로 = 기존 동작.
+                var sorted = new Vector2Int[4];
+                int w = 0;
+                for (int k = 0; k < 4; k++) if (!IsWatched(cand[k], towers, towerRange)) sorted[w++] = cand[k];
+                for (int k = 0; k < 4; k++) if (IsWatched(cand[k], towers, towerRange)) sorted[w++] = cand[k];
+                cand = sorted;
+            }
+
+            int n = 1;
+            if (Has(traits, InvaderTraitId.ApproachMultiPoint))
+                n = Mathf.Clamp(count / MultiPointPerEntry, MultiPointMinEntries, cand.Length);
+            n = Mathf.Clamp(n, 1, Mathf.Max(1, count)); // 마릿수보다 많은 갈래는 빈 진입점이 된다
+
+            if (n >= cand.Length) return cand;
+            var result = new Vector2Int[n];
+            Array.Copy(cand, result, n);
+            return result;
+        }
+
         /// <summary>
         /// 주민 희생 선정 (순수·결정적): 거리 제곱 오름차순 앞 count개, 동률은 id 사전순(ordinal).
         /// 재해의 시드 셔플과 달리 거리순인 이유 — 부상은 "도망치지 않아서"의 결과여야 서사가
@@ -782,7 +854,24 @@ namespace AIVillage.M0
             bool targetsVillagers = RollTargetsVillagers(so, _strikeOrdinal, chance);
             MapBounds.Get(out int minX, out int maxX, out int minY, out int maxY);
             uint seed = StableHash.Fnv1a(_strikeOrdinal.ToString(), so.DisplayName);
-            Vector2Int entry = EntryPoint(seed, minX, maxX, minY, maxY);
+            InvaderTraitId[] primaryTraits = ActiveTraits(so, PressureOf(so));
+
+            // 진입점 (M24-1차 W7) — 우회·다지점. 특성이 없으면 후보 1개이고 그 칸은 舊 EntryPoint
+            // 와 같은 좌표라 아래 전부가 배선 전과 동일하게 돈다 (중립 불변식, DoD ①).
+            // 🔑 타깃·공성 판정은 **주 진입점(entries[0]) 하나**를 따른다 — 한 웨이브는 한 곳을
+            //    노리고, 다지점이 바꾸는 것은 "어디로 들어오나"뿐이다 (목표를 쪼개면 무리가 아니다).
+            _towerBuf.Clear();
+            _defense?.CollectBuiltTiles(SlotId.WatchtowerCount, _towerBuf);
+            int waveCount = 0;
+            foreach (WaveEntry e in wave) waveCount += e.Count;
+            Vector2Int[] entries = EntryPoints(seed, minX, maxX, minY, maxY,
+                                               primaryTraits, _towerBuf, _towerRange(), waveCount);
+            Vector2Int entry = entries[0];
+            // 관측 로그 — 이 두 수는 화면에서 "왜 저기로 들어왔지"로만 보이므로 근거를 남긴다.
+            if (entry != EntryPoint(seed, minX, maxX, minY, maxY))
+                Debug.Log($"[Threat] 우회 진입 — {so.DisplayName}이(가) 망루 감시를 피해 ({entry.x},{entry.y})로 들어온다");
+            if (entries.Length > 1)
+                Debug.Log($"[Threat] 다지점 진입 — {so.DisplayName} {waveCount}마리가 {entries.Length}곳에서 들어온다");
             Vector2Int target = PickTargetTile(so, targetsVillagers, entry);
 
             PathResult path = _pathfinder().FindPath(entry.x, entry.y, target.x, target.y);
@@ -792,7 +881,6 @@ namespace AIVillage.M0
             // 舊 공성(M22-W5)은 "막혔을 때의 대안"이었는데, 이 수를 쓰는 종족에게는 그게 목적이다.
             // 🔑 그래서 답이 갈린다: 늑대 시절 답은 "울타리를 두껍게"였지만, 여기 답은 **분산·이중화**다
             //    (한 곳에 몰아 지으면 그 한 곳이 통째로 목표가 된다).
-            InvaderTraitId[] primaryTraits = ActiveTraits(so, PressureOf(so));
             if (Has(primaryTraits, InvaderTraitId.TargetDefense)
                 && _defense != null && _defense.HasStructures && so.StructureDamage > 0f
                 && _defense.TryGetNearestStructure(entry, out SlotId dslot, out Vector2Int dtile))
@@ -857,12 +945,22 @@ namespace AIVillage.M0
                 i++;
                 ThreatSO race = entryDef.Race;
                 float mult = GradeMult(race, entryDef.Grade);
-                // 첫 마리 = 진입점 그대로 (1마리면 기존과 완전 동일 — 중립 불변식, DoD ③).
-                // 나머지 = 진입점 곁 산개 (겹침 방지 오프셋 — 표현이므로 난수 허용, ADR-M21-10).
-                Vector2Int at = i == 0 || _isWalkable == null
-                    ? entry : MapBounds.PickWalkableNear(_isWalkable, entry.x, entry.y, 2);
+                // 진입점 배분 (M24-1차 W7) — 마릿수를 진입점들에 돌아가며 나눈다. 후보가 1개면
+                // 언제나 entry 라 아래 두 줄이 舊 코드와 완전히 같아진다 (중립 불변식, DoD ①·③).
+                Vector2Int myEntry = entries[i % entries.Length];
+                // 갈래마다 첫 마리 = 그 진입점 그대로. 나머지 = 곁 산개 (겹침 방지 오프셋 —
+                // 표현이므로 난수 허용, ADR-M21-10).
+                Vector2Int at = i < entries.Length || _isWalkable == null
+                    ? myEntry : MapBounds.PickWalkableNear(_isWalkable, myEntry.x, myEntry.y, 2);
                 PathResult p = at == entry
                     ? path : _pathfinder().FindPath(at.x, at.y, target.x, target.y);
+                if (p.Kind == PathResultKind.Unreachable && myEntry != entry)
+                {
+                    // 갈래 진입점이 막혔다 — 주 진입점으로 되돌린다(생략하지 않는다). 마릿수는
+                    // 예산이 정한 값이고(ADR-M24-2) 다지점은 "어디로"의 문제지 "몇이"의 문제가 아니다.
+                    at = entry;
+                    p = path;
+                }
                 if (p.Kind == PathResultKind.Unreachable)
                 {
                     // 이 마리만 생략 (⚠️③ — Unreachable 생략 규약을 마리 단위로). 분모에도 안 센다.

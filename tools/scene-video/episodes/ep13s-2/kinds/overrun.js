@@ -7,11 +7,22 @@ import { ease, clamp, lerp, frac, disp, mono, tone, fitCanvas, mkCanvas, roundRe
 
    cue 0 : 촘촘한 폭(1)으로 걸음 칸이 오른쪽으로 계속 자라 세로 「탐색 한도」
            선을 넘어간다. 넘어간 칸은 사그라들고 「계획 실패」가 뜬다.
-   cue 1 : 값이 1 에서 8 로 올라 칸이 굵어지고 줄이 한도선 **앞에서** 멈춘다.
+   cue 1 : 오른쪽에서 「간호 8」 칩이 들어와 앉고, 그러자 **최소 비용이 1 에서 5 로
+           돌아온다.** 칸이 굵어지고 줄이 한도선 **앞에서** 멈춘다.
            그리고 축선 아래에 강조색 「기준선」이 새로 그어진다 — 그 밑에서
            올라오려던 작은 값 칸이 선에 닿기 전에 점선으로 풀려 사라지고,
            그 자리에 「테스트가 먼저 실패」가 선다. 0.8초 주기로 되풀이된다.
-           ("고쳤다" 는 값 하나이고, "다시는 안 생기게 했다" 는 이 선이다.)
+           ("고쳤다" 는 칩 하나이고, "다시는 안 생기게 했다" 는 이 선이다.)
+
+   🔴 **1차 검수 반려를 고친 자리다(2026-08-10).** 처음엔 「최소 비용 1 → 8」로 적었는데
+      원문의 수로 풀면 틀린다 — *"가장 싼 액션이 5였다가"* + *"간호 비용을 1에서 8로
+      올리는 한 줄"* 이므로 간호를 8 로 올리면 8 > 5 라 **카탈로그 최소는 5 로 돌아온다.**
+      `8` 은 실재하는 수지만 **간호 액션의 값**이지 최소 비용이 아니다.
+      그래서 ①「최소 비용」 슬롯은 S2 와 같은 뜻(카탈로그 최저)을 지킨 채 **1 → 5** 로 되돌리고
+      ②나레이션이 부르는 `8` 은 **「간호 8」 칩**이 진다(S2 의 「간호 1」 칩과 짝이다 —
+      거기서는 칩이 최저를 끌어내렸고 여기서는 칩이 최저를 놓아 준다).
+      ③걸음 폭도 같이 고쳤다: `pitchTo` 26 → **30**. S2 의 척도가 「폭 6 = 비용 1」이므로
+      30 이 곧 5 다. 26 은 「최소 비용 ≈ 4.3」이라 **글자와 폭이 다른 말을 하고 있었다.**
 
    🔴 흰 것과 강조색이 닿지 않게 **부등식으로** 막았다.
      · 걸음 칸·한도선(흰) = 축선 **위**(176~216) / 기준선(강조색) = 축선 **아래**(250)
@@ -24,9 +35,11 @@ import { ease, clamp, lerp, frac, disp, mono, tone, fitCanvas, mkCanvas, roundRe
       화면 밖으로 나가 잘린 것처럼 보이지 않게 하려는 것이다.
    🔴 글로우는 이 회차에서 한 곳도 안 썼다.
 
-   세로 예산(캔버스 307) — 구획 이름 40 · 값 74 · MAX_NODES 128 · 탐색 한도 146 ·
-   한도선 156~216 · 걸음 칸 176~200 · 축선 200 · 판정 232 · 기준선 250 ·
-   되풀이 칸 266~302. 최저 302. */
+   세로 예산(캔버스 307) — 구획 이름 40 · 값 74 · 「간호 8」 칩 52~84 · MAX_NODES 128 ·
+   탐색 한도 146 · 한도선 156~216 · 걸음 칸 176~200 · 축선 200 · 판정 232 · 기준선 250 ·
+   되풀이 칸 266~302. 최저 302.
+   가로 — 칩은 x 240 에서 들어와 150 에 앉는다(오른쪽 끝 최대 324 < w−22). 흰 라벨
+   「최소 비용」은 x 22~84 라 칩과 66px 뜨고, 캔버스 밖으로도 안 나간다. */
 
 const M = 22;
 const AXIS = 200;
@@ -58,14 +71,30 @@ export default {
     const c0 = cue(spec.overCue ?? 0, 0.15, 0.85);
     const grow = ease(clamp((c0 - 0.08) / 0.52));    // 줄이 자라 한도를 넘는다
     const c1 = cue(spec.fixCue ?? 1, 0.15, 0.80);
-    const fix = ease(clamp(c1 / 0.36));              // 값이 1 → 8
+    const fix = ease(clamp(c1 / 0.36));              // 「간호 8」 칩이 앉고 최소 비용이 1 → 5
     const gate = ease(clamp((c1 - 0.52) / 0.28));    // 기준선이 그어진다
 
     /* ── 구획 이름 ─────────────────────────────────── */
     ctx.font = disp(800, 12.5); ctx.fillStyle = tone('sub');
     ctx.fillText(spec.panelLabel ?? '', M, 40);
 
-    /* ── 최소 비용 : 1 이 8 로 올라간다 ─────────────── */
+    /* ── 「간호 8」 칩 — 오른쪽에서 들어와 앉는다 ──────
+       나레이션이 부르는 `8` 은 **간호 액션의 값**이므로 이 칩이 진다.
+       아래 「최소 비용」 슬롯은 카탈로그 최저(S2 와 같은 뜻)이고 5 로 돌아간다. */
+    if (spec.chipLabel) {
+      const cx = lerp(240, 150, fix);
+      ctx.save();
+      ctx.globalAlpha = clamp(fix * 1.6);
+      ctx.strokeStyle = tone('accent'); ctx.lineWidth = 3;
+      roundRect(ctx, cx, 52, 84, 32, 6); ctx.stroke();
+      ctx.font = disp(800, 15);
+      const tw = ctx.measureText(spec.chipLabel).width;
+      ctx.fillStyle = tone('accent');
+      ctx.fillText(spec.chipLabel, cx + (84 - tw) / 2, 74);
+      ctx.restore();
+    }
+
+    /* ── 최소 비용 : 1 이 5 로 돌아온다 ─────────────── */
     ctx.font = disp(700, 12.5); ctx.fillStyle = tone('sub');
     ctx.fillText(spec.minLabel ?? '', M, 74);
     {
@@ -104,9 +133,14 @@ export default {
     ctx.restore();
 
     /* ── 걸음 칸이 자란다 ───────────────────────────
-       폭은 cue 1 에서 굵어지고, 그때 줄 끝은 한도선 앞으로 물러난다. */
-    const pitch = lerp(spec.pitchFrom ?? 6, spec.pitchTo ?? 26, fix);
-    const endX = lerp(M + (CAP - M) * grow + 46 * grow, CAP - 34, fix);
+       폭은 cue 1 에서 굵어지고, 그때 줄 끝은 한도선 앞으로 물러난다.
+       🔴 척도는 S2 `notch` 와 같다: **6px = 비용 1** → 폭 6 = 최소 비용 1 ·
+       폭 30 = 최소 비용 5. 고친 뒤 최소 비용이 5 이므로 30 으로 돌아온다.
+       (1차 검수 전에는 26 이었고 그건 「최소 비용 ≈ 4.3」이라 글자와 폭이 어긋났다.) */
+    const pitch = lerp(spec.pitchFrom ?? 6, spec.pitchTo ?? 30, fix);
+    /* 끝점 256 은 폭 30 에서 마지막 칸이 230 에 끝나게 하는 값이다 —
+       한도선(264, 획 반폭 2.5) 앞에서 31.5px 남기고 멈춘다. */
+    const endX = lerp(M + (CAP - M) * grow + 46 * grow, CAP - 8, fix);
     ctx.strokeStyle = tone('ink'); ctx.lineWidth = 3;
     for (let x = M; x + pitch - 2 < endX; x += pitch) {
       const over = x + pitch - 2 - CAP;

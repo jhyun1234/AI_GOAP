@@ -45,12 +45,23 @@ const RUN_FROM = [206, LANE_Y], RUN_TO = [280, 194];
 const STONE_H = 42, STONE_W = 18;
 const GRAVE_LBL_Y = 248;
 
+/* 🔴 **1차 반려 ③이 난 자리다.** 이 파일만 가로 점선을 세 번(y 84 · 126 · 276) 부르는데,
+   30fps 결정성 3패스에서 44/1062 프레임이 어긋났고 **어긋난 2,653px 이 전부 그 세 줄**의
+   안티에일리어싱(`tone('track')` 알파 21↔19)이었다. 다른 요소는 한 픽셀도 안 어긋났고
+   다른 회차는 0 이었다.
+   → 원인 후보를 둘 다 없앴다. ①긴 축정렬 점선이 타는 **Skia dash 경로 효과**를 안 쓴다
+   (조각을 `fillRect` 로 직접 채운다 — 순수 산술이라 같은 `t` 면 같은 픽셀이다).
+   ②위상을 `((v % P) + P) % P` 로 **양수 정규화**한다(JS 의 `%` 는 음수를 남긴다).
+   모양은 이전과 같다 — 7px 조각 · 7px 틈 · 두께 3 · y 중심이라 좌표 감사도 안 바뀐다. */
 function dashRule(ctx, y, x0, x1, t, speed) {
+  const P = 14, DASH = 7;
+  const off = (((t * speed) % P) + P) % P;
   ctx.save();
-  ctx.strokeStyle = tone('track'); ctx.lineWidth = 3;
-  ctx.setLineDash([7, 7]);
-  ctx.lineDashOffset = -(t * speed) % 14;
-  ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x1, y); ctx.stroke();
+  ctx.fillStyle = tone('track');
+  for (let x = x0 - P + off; x < x1; x += P) {
+    const a = Math.max(x0, x), b = Math.min(x1, x + DASH);
+    if (b > a) ctx.fillRect(a, y - 1.5, b - a, 3);
+  }
   ctx.restore();
 }
 
@@ -173,7 +184,7 @@ export default {
       ctx.globalAlpha = walpha * 0.75;
       ctx.strokeStyle = tone('accent'); ctx.lineWidth = 3;
       ctx.setLineDash([6, 8]);
-      ctx.lineDashOffset = -(t * 22) % 14;
+      ctx.lineDashOffset = (((-(t * 22)) % 14) + 14) % 14;   // 양수 정규화(값은 동일)
       ctx.beginPath();
       ctx.moveTo(40, LANE_Y);
       ctx.lineTo(Math.min(150, wx), LANE_Y);
@@ -197,7 +208,7 @@ export default {
       ctx.globalAlpha = scarK * 0.9;
       ctx.strokeStyle = tone('ink'); ctx.lineWidth = 3;
       ctx.setLineDash([5, 6]);
-      ctx.lineDashOffset = -(t * 18) % 11;
+      ctx.lineDashOffset = (((-(t * 18)) % 11) + 11) % 11;   // 양수 정규화(값은 동일)
       ctx.beginPath(); ctx.arc(RUN_TO[0], RUN_TO[1], 13, 0, Math.PI * 2); ctx.stroke();
       ctx.restore();
     }
@@ -239,7 +250,7 @@ export default {
       ctx.globalAlpha = seat * 0.85;
       ctx.strokeStyle = tone('accent'); ctx.lineWidth = 3;
       ctx.setLineDash([6, 8]);
-      ctx.lineDashOffset = -(t * 12) % 14;
+      ctx.lineDashOffset = (((-(t * 12)) % 14) + 14) % 14;   // 양수 정규화(값은 동일)
       ctx.beginPath();
       ctx.ellipse(RUN_TO[0], 210, 32 * seat, 8 * seat, 0, 0, Math.PI * 2);
       ctx.stroke();

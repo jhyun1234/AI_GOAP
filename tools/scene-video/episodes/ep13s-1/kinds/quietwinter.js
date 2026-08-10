@@ -14,7 +14,9 @@ import {
    🔴 이 샷이 회차의 어휘를 세운다 — 왼쪽 위 범례가 **강조색 쐐기 = 늑대**를 못 박고,
    그 뒤 S2 · S3 는 같은 쐐기를 라벨 없이 쓴다. 흰 것은 전부 마을의 것(사람 · 밭 · 계기).
 
-   ⏱ cue 0(겨울 자막) = 시간 띠가 왼쪽에서 오른쪽으로 차고 끝에서 「봄」이 켜진다.
+   ⏱ cue 0(겨울 자막) = 시간 띠가 왼쪽에서 오른쪽으로 차고 끝에서 「겨울 끝」이 켜진다.
+      🔴 초고의 끝 라벨은 「봄」이었는데 **원문에 없는 낱말**이라 1차 검수에서 반려됐다
+      (원본·브리프 양쪽 0회). 원문이 실제로 준 말은 「겨울이 끝났고」까지다.
       cue 1(늑대 자막) = 쐐기가 왼쪽 밖에서 들어와 가운데 밭을 부수고 오른쪽으로 나간다.
       「부상자 0」 계기는 켜진 뒤 **끝까지 0 그대로**다 — 안 변하는 것이 이 샷의 사건이다.
       `t` 로만 도는 것 = 사람 표식의 바운스 · 띠 점선 흐름 · 시간 띠 안 홈의 흐름.
@@ -25,11 +27,13 @@ import {
      좌우로는 캔버스 밖에서 들어오되 알파가 x 14 안쪽에서 0 이라 가장자리에 잉크가 안 남는다.
    · 범례 쐐기는 **후광을 안 준다**(위 점선 80 과 8px 뿐이라 후광을 주면 닿는다).
      x 14~30 이고 첫 표식(x 56~76)과 26px 떨어져 있다.
-   · 흰↔흰: 「겨울」·「봄」 글리프 바닥 37 ↔ 시간 띠 위 44.5 = 7.5px(둘은 **띠를 가리키는 한 쌍**) ·
+   · 흰↔흰: 「겨울」·「겨울 끝」 글리프 바닥 37 ↔ 시간 띠 위 44.5 = 7.5px(둘은 **띠를 가리키는 한 쌍**) ·
      띠 바닥 65.5 ↔ 위 점선 80 = 14.5 · 범례 글자 바닥 104 ↔ 표식 위 114 = 10 ·
      표식 바닥 142 ↔ 밭 위 212 = 70 · 밭 바닥 236 ↔ 아래 점선 250 = 14 ·
      점선 250 ↔ 계기 상자 위 256.5 = 6.5 · 계기 안 「부상자」와 「0」은 x 로 20px 갈라 놨다.
-   · 「겨울」(좌 x16~)과 「봄」(우 ~w−16)은 같은 행이지만 x 가 화면 양 끝이라 안 겹친다. */
+   · 「겨울」(좌 x 16~41)과 「겨울 끝」(우 x 286~336)은 같은 행이지만 x 로 245px 떨어져 있다.
+     끝 라벨이 2자 → 4자로 길어졌어도 **우측정렬 + `fitFont(…, 12.5, 110)`** 이라 왼쪽으로만
+     자라므로 새 겹침이 안 생긴다. */
 
 const BAR_Y = 46, BAR_H = 18;
 const TOP_RULE = 80, BOT_RULE = 250;
@@ -41,12 +45,17 @@ const FIELD_Y = 212, FIELD_S = 24;
 const FIELD_CX = [96, 176, 256];
 const CHIP_Y = 258, CHIP_H = 34;
 
+/* 🔴 가로 점선은 `setLineDash` 를 안 쓴다 — 조각을 직접 채운다(결정성).
+   사유는 `firstgrave.js` 의 같은 함수 주석에 적어 뒀다. 모양은 이전과 같다. */
 function dashRule(ctx, y, x0, x1, t, speed) {
+  const P = 14, DASH = 7;
+  const off = (((t * speed) % P) + P) % P;
   ctx.save();
-  ctx.strokeStyle = tone('track'); ctx.lineWidth = 3;
-  ctx.setLineDash([7, 7]);
-  ctx.lineDashOffset = -(t * speed) % 14;
-  ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x1, y); ctx.stroke();
+  ctx.fillStyle = tone('track');
+  for (let x = x0 - P + off; x < x1; x += P) {
+    const a = Math.max(x0, x), b = Math.min(x1, x + DASH);
+    if (b > a) ctx.fillRect(a, y - 1.5, b - a, 3);
+  }
   ctx.restore();
 }
 
@@ -158,7 +167,8 @@ export default {
       ctx.save();
       ctx.globalAlpha = 1 - 0.45 * gone;
       ctx.strokeStyle = tone('ink'); ctx.lineWidth = 3;
-      if (gone > 0.3) { ctx.setLineDash([5, 5]); ctx.lineDashOffset = -(t * 12) % 10; }
+      /* 위상을 양수로 정규화한다 — 값은 mod 10 으로 같으므로 그림은 안 바뀐다 */
+      if (gone > 0.3) { ctx.setLineDash([5, 5]); ctx.lineDashOffset = (((-(t * 12)) % 10) + 10) % 10; }
       roundRect(ctx, FIELD_CX[i] - FIELD_S / 2, FIELD_Y, FIELD_S, FIELD_S, 4);
       ctx.stroke();
       ctx.restore();

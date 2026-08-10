@@ -38,12 +38,22 @@ const HEADS = [
   { x: 308, y: 168 }, { x: 86, y: 200 }
 ];
 
+/* 🔴 마을 띠의 가로 점선은 `setLineDash` 로 그리지 않는다 — 조각을 직접 채운다.
+   1차 검수에서 `chase.js` 의 같은 함수가 30fps 결정성 44/1062 를 냈고, 어긋난 픽셀이
+   전부 이 가로 점선 세 줄의 안티에일리어싱(알파 21↔19)이었다. 긴 축정렬 점선은 Skia 의
+   dash 경로 효과를 타는데 그 경로가 패스 순서에 따라 다르게 래스터화됐다.
+   `fillRect` 는 순수 산술이라 같은 `t` 면 같은 픽셀이 나온다.
+   위상은 `((v % P) + P) % P` 로 **양수 정규화**한다(JS 의 `%` 는 음수를 남긴다).
+   모양은 이전과 같다 — 7px 조각 · 7px 틈 · 두께 3 · y 중심. */
 function dashRule(ctx, y, x0, x1, t, speed) {
+  const P = 14, DASH = 7;
+  const off = (((t * speed) % P) + P) % P;
   ctx.save();
-  ctx.strokeStyle = tone('track'); ctx.lineWidth = 3;
-  ctx.setLineDash([7, 7]);
-  ctx.lineDashOffset = -(t * speed) % 14;
-  ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x1, y); ctx.stroke();
+  ctx.fillStyle = tone('track');
+  for (let x = x0 - P + off; x < x1; x += P) {
+    const a = Math.max(x0, x), b = Math.min(x1, x + DASH);
+    if (b > a) ctx.fillRect(a, y - 1.5, b - a, 3);
+  }
   ctx.restore();
 }
 

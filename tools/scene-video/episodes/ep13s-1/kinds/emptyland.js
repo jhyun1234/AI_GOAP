@@ -46,12 +46,17 @@ const LBL_Y = 204, EMPTY_Y = 238;
 const XS = [110, 170, 226, 272, 316];  // 반경 큰 순서 = 도망 순서
 const LEAD = 50, RAMP = 20;            // 후광이 원에 닿기 전에 원이 꺼지도록 앞당긴 문턱
 
+/* 🔴 가로 점선은 `setLineDash` 를 안 쓴다 — 조각을 직접 채운다(결정성).
+   사유는 `firstgrave.js` 의 같은 함수 주석에 적어 뒀다. 모양은 이전과 같다. */
 function dashRule(ctx, y, x0, x1, t, speed) {
+  const P = 14, DASH = 7;
+  const off = (((t * speed) % P) + P) % P;
   ctx.save();
-  ctx.strokeStyle = tone('track'); ctx.lineWidth = 3;
-  ctx.setLineDash([7, 7]);
-  ctx.lineDashOffset = -(t * speed) % 14;
-  ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x1, y); ctx.stroke();
+  ctx.fillStyle = tone('track');
+  for (let x = x0 - P + off; x < x1; x += P) {
+    const a = Math.max(x0, x), b = Math.min(x1, x + DASH);
+    if (b > a) ctx.fillRect(a, y - 1.5, b - a, 3);
+  }
   ctx.restore();
 }
 
@@ -121,7 +126,7 @@ export default {
         ctx.globalAlpha = 1 - fl;
         ctx.strokeStyle = tone('track'); ctx.lineWidth = 3;
         ctx.setLineDash([6, 7]);
-        ctx.lineDashOffset = -(t * 16 + i * 5) % 13;
+        ctx.lineDashOffset = (((-(t * 16 + i * 5)) % 13) + 13) % 13;   // 양수 정규화(값은 동일)
         ctx.beginPath(); ctx.arc(x, ROW_Y, r, 0, Math.PI * 2); ctx.stroke();
         ctx.restore();
       }

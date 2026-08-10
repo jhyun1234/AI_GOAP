@@ -990,7 +990,8 @@ namespace AIVillage.M0
             IReadOnlyList<(string name, int satiety, int foodDays, bool critical)> starving,
             int untendedInjured, int threatDaysLeft, string threatName,
             int freezeDaysLeft = -1,
-            IReadOnlyList<(string name, int days)> unprepared = null)
+            IReadOnlyList<(string name, int days)> unprepared = null,
+            bool threatSolo = false)
         {
             bool threat = threatDaysLeft >= 0 && !string.IsNullOrEmpty(threatName);
             bool anyStarving = starving != null && starving.Count > 0;
@@ -1013,8 +1014,12 @@ namespace AIVillage.M0
                 }
             if (untendedInjured > 0)
                 sb.Append($"<color=#FF6B6B>■ 치료가 필요한 부상자 {untendedInjured}명</color>\n");
+            // 단독 웨이브(악마)는 **별도 표기**다 (M24-1차 W8) — 다른 종족과 섞이지 않고 그
+            // 회차를 통째로 가져가는 유일한 위협이라, 같은 주황으로 쓰면 "평소 습격 하나"로 읽힌다.
             if (threat)
-                sb.Append($"<color=#FF8A65>■ {threatName} — {threatDaysLeft}일 뒤</color>\n");
+                sb.Append(threatSolo
+                    ? $"<color=#C77DFF>■ {threatName} 단독 강림 — {threatDaysLeft}일 뒤</color>\n"
+                    : $"<color=#FF8A65>■ {threatName} — {threatDaysLeft}일 뒤</color>\n");
             // 확장 규칙 준수 — 굶는 줄 뒤에만 추가 (클릭 매핑 "굶는 줄 = 맨 앞" 전제 보존)
             if (winterAlert)
             {

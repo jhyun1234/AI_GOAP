@@ -1068,10 +1068,16 @@ namespace AIVillage.M0
                 Threats.OnStructureDestroyed += (t, slot, tile) =>
                     Hud?.Notify($"{(slot == SlotId.GateCount ? "문" : "울타리")}이(가) 부서졌습니다! " +
                                 $"— {t.DisplayName}이(가) 밀고 들어옵니다");
+                // 잔여 일수는 실제 스케줄에서 읽는다 (M21-W8) — 정찰 연장 시 WarnDays 상수로
+                // 표기하면 "1일 뒤"가 거짓말이 된다 (판정과 표시는 한 시계).
+                // 이름은 상태 줄과 **같은 문구**를 쓴다 (M24-1차 W8) — 토스트는 "고블린",
+                // 상태 줄은 "고블린 · 오크"면 같은 웨이브가 둘로 보인다.
                 Threats.OnForecast += t =>
-                    // 잔여 일수는 실제 스케줄에서 읽는다 (M21-W8) — 정찰 연장 시 WarnDays 상수로
-                    // 표기하면 "1일 뒤"가 거짓말이 된다 (판정과 표시는 한 시계).
-                    Hud?.Notify($"{t.DisplayName}이(가) 다가옵니다 — {Threats.DaysToStrike(GameTime):0.#}일 뒤");
+                {
+                    string who = ThreatService.DescribeForecast(Threats.ForecastingWave);
+                    if (string.IsNullOrEmpty(who)) who = t.DisplayName; // 편성 미배선 판 = 중립
+                    Hud?.Notify($"{who}이(가) 다가옵니다 — {Threats.DaysToStrike(GameTime):0.#}일 뒤");
+                };
                 Threats.OnStruck += (t, struckVillagers, n, tile, victims) =>
                 {
                     // 빈 타격(0명·0개)은 "아무 일도 없었다" — 알림도 대사도 내지 않는다.
@@ -1305,10 +1311,15 @@ namespace AIVillage.M0
 
                 int threatDaysLeft = -1;
                 string threatName = null;
+                bool threatSolo = false;
                 if (Threats != null && Threats.Forecasting != null)
                 {
                     threatDaysLeft = Mathf.CeilToInt(Threats.DaysToStrike(GameTime));
-                    threatName = Threats.Forecasting.DisplayName;
+                    // 편성 전체의 종족 이름 (M24-1차 W8) — 주력 하나만 쓰면 오크·기사단이 함께
+                    // 오는 회차에서 화면이 절반만 말한다. 마릿수는 공개하지 않는다.
+                    threatName = ThreatService.DescribeForecast(Threats.ForecastingWave);
+                    if (string.IsNullOrEmpty(threatName)) threatName = Threats.Forecasting.DisplayName;
+                    threatSolo = Threats.ForecastingSolo;
                 }
 
                 // 겨울 경보 (M14-W4) — "누가 겨울을 못 넘기는가"의 예방 열거. 봉쇄 중(0)·창 밖은
@@ -1332,7 +1343,7 @@ namespace AIVillage.M0
                 }
                 Hud?.TickStatus(SeasonHud.ComposeStatus(_starvingBuf, CountUntendedInjured(),
                                                         threatDaysLeft, threatName,
-                                                        freezeDaysLeft, _unpreparedBuf));
+                                                        freezeDaysLeft, _unpreparedBuf, threatSolo));
 
                 // 적습 상시 프롬프트 (M21-W8, ADR-M21-7 — 개입 시점은 화면이 알려준다).
                 // 방랑자 제안이 떠 있으면 양보한다 (프롬프트 슬롯은 하나 — 결정 요구가 관측보다

@@ -530,6 +530,36 @@ namespace AIVillage.M0
             return sb.ToString();
         }
 
+        /// <summary>예고 문구 (순수 — 게이트 M24-T11, W8). `Describe`의 화면판:
+        /// **종족 이름만** 공개하고 등급도 마릿수도 감춘다.
+        ///
+        /// 🔴 마릿수는 **어떤 조건에서도 공개하지 않는다** (2026-08-10 사용자 결정 — 명세의
+        /// "망루 탑승 중이면 마릿수까지"는 폐기). 실사해 보니 탑승 트리거가 `ThreatNear`라
+        /// 예고 구간에는 탑승 주민이 **구조적으로 0명**이었다(예고 1일 전 · 체류 0.75일 ·
+        /// 주기 5일 → 예고 시점의 활성 위협은 언제나 0). 조건을 다른 것으로 갈아 끼우는 대신
+        /// **기능을 접었다**: 망루의 값은 정찰 정보가 아니라 **요격**이다.
+        ///
+        /// 🔑 한 종족이 지휘관·졸개 두 칸으로 나뉘어 있으므로 **종족 단위로 묶는다**
+        /// (`Spawn`의 조우 카운트와 같은 규약 — 칸이 아니라 종족이 단위다).
+        /// 순서는 편성 순서 그대로 = 예산을 많이 쓴 주력이 앞에 온다.</summary>
+        public static string DescribeForecast(IReadOnlyList<WaveEntry> wave)
+        {
+            if (wave == null || wave.Count == 0) return "";
+            var sb = new System.Text.StringBuilder(32);
+            for (int i = 0; i < wave.Count; i++)
+            {
+                ThreatSO race = wave[i].Race;
+                if (race == null) continue;
+                bool first = true;
+                for (int j = 0; j < i; j++)
+                    if (wave[j].Race == race) { first = false; break; } // 앞에 있었다 = 이미 적었다
+                if (!first) continue;
+                if (sb.Length > 0) sb.Append(" · ");
+                sb.Append(race.DisplayName);
+            }
+            return sb.ToString();
+        }
+
         /// <summary>단독 웨이브 간격 — 미배선이면 25 (에셋 기본값과 같은 수, 중립).</summary>
         private float SoloEvery => _config != null && _config.DemonWaveEveryDays > 0f
                                  ? _config.DemonWaveEveryDays : 25f;

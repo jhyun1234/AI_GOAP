@@ -117,7 +117,7 @@ namespace AIVillage.Tests.EditMode
             return t;
         }
 
-        private static int TotalCount(System.Collections.Generic.List<ThreatService.WaveEntry> w)
+        private static int TotalCount(System.Collections.Generic.IReadOnlyList<ThreatService.WaveEntry> w)
         {
             int n = 0; foreach (ThreatService.WaveEntry e in w) n += e.Count; return n;
         }
@@ -665,6 +665,94 @@ namespace AIVillage.Tests.EditMode
             }
             Assert.Greater(flank, 0, "우회(ApproachFlank)를 쓰는 종족이 없다 — W7 배선이 값에 없다");
             Assert.Greater(multi, 0, "다지점(ApproachMultiPoint)을 쓰는 종족이 없다 — 〃");
+        }
+
+        // ── T11: 예고 UI (W8) ─────────────────────────────────────────────────
+
+        [Test]
+        public void M24_T11_ForecastText_ShowsRaceNamesOnly()
+        {
+            ThreatSO gob = Race("GOB", 0f, 1, 4);
+            ThreatSO orc = Race("ORC", 0f, 3);
+            gob.DisplayName = "고블린"; orc.DisplayName = "오크";
+            // 한 종족이 지휘관·졸개 두 칸으로 나뉜 실제 편성 모양 그대로.
+            var wave = new System.Collections.Generic.List<ThreatService.WaveEntry>
+            {
+                new ThreatService.WaveEntry(gob, 1, 1),
+                new ThreatService.WaveEntry(gob, 0, 3),
+                new ThreatService.WaveEntry(orc, 0, 2),
+            };
+
+            // 실패 가능성 증명 — 입력이 실제로 **마릿수 2 이상·같은 종족 2칸**을 갖고 있어야
+            // "숫자가 안 보인다"·"이름이 안 겹친다"가 의미 있는 검사가 된다.
+            Assert.AreEqual(3, wave[1].Count, "입력에 마릿수 2 이상인 칸이 없다 — 빈 검사다");
+            Assert.AreSame(wave[0].Race, wave[1].Race, "입력에 같은 종족 두 칸이 없다 — 빈 검사다");
+
+            string text = ThreatService.DescribeForecast(wave);
+            Assert.AreEqual("고블린 · 오크", text, "예고 문구가 종족 이름 목록이 아니다");
+            foreach (char c in text)
+                Assert.IsFalse(char.IsDigit(c), $"예고에 숫자가 샜다 — 마릿수는 공개하지 않는다: '{text}'");
+            StringAssert.DoesNotContain("G0", text, "등급 이름이 예고에 샜다");
+
+            // 대조군 — 로그용 Describe 는 여전히 등급·마릿수를 말한다 (둘은 다른 문구다).
+            StringAssert.Contains("3", ThreatService.Describe(wave),
+                "로그용 Describe 까지 숫자를 잃었다 — 관측 근거가 사라진다");
+
+            Object.DestroyImmediate(gob);
+            Object.DestroyImmediate(orc);
+        }
+
+        [Test]
+        public void M24_T11_ForecastText_IsEmptyWhenNoWave()
+        {
+            Assert.AreEqual("", ThreatService.DescribeForecast(null), "편성 없음인데 문구가 생겼다");
+            Assert.AreEqual("", ThreatService.DescribeForecast(
+                new System.Collections.Generic.List<ThreatService.WaveEntry>()), "빈 편성인데 문구가 생겼다");
+        }
+
+        [Test]
+        public void M24_T11_SoloWave_IsMarkedApartFromOrdinaryRaids()
+        {
+            var none = new System.Collections.Generic.List<(string, int, int, bool)>();
+            string ordinary = SeasonHud.ComposeStatus(none, 0, 2, "타락천사");
+            string solo = SeasonHud.ComposeStatus(none, 0, 2, "타락천사", -1, null, true);
+            Assert.AreNotEqual(ordinary, solo, "단독 웨이브가 평소 습격과 똑같이 표시된다");
+            StringAssert.Contains("단독", solo, "단독 웨이브 표기가 없다");
+            StringAssert.Contains("2일 뒤", solo, "잔여 일수가 사라졌다");
+            // 중립 불변식 — 인자를 안 주면 기존 문구 그대로 (기존 게이트·화면 보존).
+            Assert.AreEqual(ordinary, SeasonHud.ComposeStatus(none, 0, 2, "타락천사", -1, null),
+                "기본 인자인데 문구가 바뀌었다");
+        }
+
+        [Test]
+        public void M24_T11_Forecast_IsFixedAtAnnouncement()
+        {
+            // ADR-M24-3 — 예고한 그 편성이 온다. 예고 뒤에 압력이 뛰어도 편성은 안 바뀐다.
+            ThreatSO r = Race("R", 0f, 1, 2, 4);
+            r.DisplayName = "시험종족";
+            r.WarnDays = 2f;                        // 예고가 발동보다 2일 이르다 (틱 두 번을 태울 창)
+            int peak = 4;
+            var svc = new ThreatService(new[] { r }, null, null, null, Config(),
+                                        null, null, null, null, () => peak);
+
+            svc.Tick(3.0f);                         // 예고 진입 (0 + 5 - 2)
+            Assert.IsNotNull(svc.ForecastingWave, "예고가 안 섰다 — 이 게이트는 빈 검사가 됐다");
+            string announced = ThreatService.Describe(svc.ForecastingWave);
+            int announcedCount = TotalCount(svc.ForecastingWave);
+
+            peak = 40;                              // 압력 급등 — 다시 계산하면 편성이 커진다
+            svc.Tick(4.5f);                         // 아직 발동 전 (< 5)
+
+            Assert.AreEqual(announced, ThreatService.Describe(svc.ForecastingWave),
+                "예고 뒤에 압력이 오르자 편성이 바뀌었다 (ADR-M24-3 위반)");
+            Assert.AreEqual(announcedCount, TotalCount(svc.ForecastingWave),
+                "예고 뒤에 마릿수가 바뀌었다");
+
+            // 실패 가능성 증명 — 압력이 실제로 더 큰 편성을 살 수 있는 값이었는가.
+            Assert.Greater(TotalCount(ThreatService.BuyWave(new[] { r }, 40, 1)), announcedCount,
+                "압력 40이 예고 편성보다 큰 편성을 못 산다 — 이 게이트는 빈 검사다");
+
+            Object.DestroyImmediate(r);
         }
     }
 }

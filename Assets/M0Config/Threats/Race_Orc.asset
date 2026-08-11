@@ -13,9 +13,9 @@ MonoBehaviour:
   m_Name: Race_Orc
   m_EditorClassIdentifier:
   DisplayName: "오크 무리"
-  UnlockDay: 12
+  UnlockDay: 2
   PeriodDays: 5
-  WarnDays: 1
+  WarnDays: 0.2
   VillagerTargetChance: 0.5
   StrikeRadiusTiles: 3
   DangerRadiusTiles: 6
@@ -25,8 +25,8 @@ MonoBehaviour:
   MaxHp: 60
   FleeBelowHpPct: 0.4
   StrikeDamage: 34
-  RepeatStrikePeriodDays: 0.25
-  MaxStayDays: 0.75
+  RepeatStrikePeriodDays: 0.04
+  MaxStayDays: 0.125
   SpawnCountBase: 2
   CountGrowthEveryDays: 10
   SpawnCountMax: 5

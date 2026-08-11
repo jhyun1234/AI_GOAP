@@ -13,9 +13,9 @@ MonoBehaviour:
   m_Name: Race_Knight
   m_EditorClassIdentifier:
   DisplayName: "약탈 기사단"
-  UnlockDay: 20
+  UnlockDay: 3
   PeriodDays: 5
-  WarnDays: 1
+  WarnDays: 0.2
   VillagerTargetChance: 0.5
   StrikeRadiusTiles: 3
   DangerRadiusTiles: 6
@@ -25,8 +25,8 @@ MonoBehaviour:
   MaxHp: 60
   FleeBelowHpPct: 0.4
   StrikeDamage: 34
-  RepeatStrikePeriodDays: 0.25
-  MaxStayDays: 0.75
+  RepeatStrikePeriodDays: 0.04
+  MaxStayDays: 0.125
   SpawnCountBase: 2
   CountGrowthEveryDays: 10
   SpawnCountMax: 5

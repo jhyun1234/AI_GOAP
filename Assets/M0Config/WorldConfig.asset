@@ -24,7 +24,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 5a1c9e3d7b2f4a86c0d1e9f3a7b5c8d2, type: 2}
   - {fileID: 11400000, guid: b1fe294e4d424ad4a029a40ee0e79cf9, type: 2}
   - {fileID: 11400000, guid: 050728de4ded48e3ab557819f75696bd, type: 2}
-  ForecastDays: 3
+  ForecastDays: 0.5
   SeasonPrologueDays: 0
   Disasters:
   - {fileID: 11400000, guid: 8f2b4d6a1c3e5079b8d2f4a6c1e3b5d7, type: 2}
@@ -36,12 +36,16 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 2c23c91444f0f0b92467d163e56679c6, type: 2}
   - {fileID: 11400000, guid: 716d6af9517c043fda663202af02c8f6, type: 2}
   ThreatReliefStackMax: 3
-  ThreatReliefDelayDays: 2
+  ThreatReliefDelayDays: 0.3
   ResidentHatchSightMult: 1.5
   ResidentRecallSightMult: 2
-  ResidentRearmCooldownDays: 3
-  WandererIntervalDays: 5
-  WandererWaitDays: 0.7
+  ResidentRearmCooldownDays: 0.5
+  PressureDaysPerPoint: 0.5
+  WavePeriodDays: 1
+  DemonWaveEveryDays: 4
+  DemonCountGrowthDays: 5
+  WandererIntervalDays: 0.8
+  WandererWaitDays: 0.12
   FoodSources:
   - {fileID: 11400000, guid: b2e8f4a6c1d94073a8e5f6b2d90c4a38, type: 2}
   - {fileID: 11400000, guid: 42a0aaccf8874c8a8dd0efab36d42543, type: 2}
@@ -64,6 +68,7 @@ MonoBehaviour:
   ReportTimeoutSec: 60
   MoneyBasePrice: 10
   PriceCapPct: 400
+  ProfilerIntervalDays: 1
   HudResources:
   - Slot: 0
     Label: 나무

@@ -871,18 +871,21 @@ namespace AIVillage.Tests.EditMode
             // ADR-M24-3 — 예고한 그 편성이 온다. 예고 뒤에 압력이 뛰어도 편성은 안 바뀐다.
             ThreatSO r = Race("R", 0f, 1, 2, 4);
             r.DisplayName = "시험종족";
-            r.WarnDays = 2f;                        // 예고가 발동보다 2일 이르다 (틱 두 번을 태울 창)
+            // (M27 개정: 舊 리터럴 2일·3.0·4.5는 배포 WavePeriodDays 5를 암묵 전제 — 눈금 개정으로
+            //  주기가 1일이 되자 예고 창 밖을 틱해 NRE. 배포 주기에서 유도한다. ADR-M27-1)
+            float period = Config().WavePeriodDays;
+            r.WarnDays = 0.4f * period;             // 예고 창 = 주기의 40% (틱 두 번을 태울 창)
             int peak = 4;
             var svc = new ThreatService(new[] { r }, null, null, null, Config(),
                                         null, null, null, null, () => peak);
 
-            svc.Tick(3.0f);                         // 예고 진입 (0 + 5 - 2)
+            svc.Tick(period - r.WarnDays);          // 예고 진입 (주기 − 예고 창)
             Assert.IsNotNull(svc.ForecastingWave, "예고가 안 섰다 — 이 게이트는 빈 검사가 됐다");
             string announced = ThreatService.Describe(svc.ForecastingWave);
             int announcedCount = TotalCount(svc.ForecastingWave);
 
             peak = 40;                              // 압력 급등 — 다시 계산하면 편성이 커진다
-            svc.Tick(4.5f);                         // 아직 발동 전 (< 5)
+            svc.Tick(0.9f * period);                // 아직 발동 전 (< 주기)
 
             Assert.AreEqual(announced, ThreatService.Describe(svc.ForecastingWave),
                 "예고 뒤에 압력이 오르자 편성이 바뀌었다 (ADR-M24-3 위반)");

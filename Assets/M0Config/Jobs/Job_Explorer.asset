@@ -18,7 +18,7 @@ MonoBehaviour:
   FarmCostMult: 1
   BuildCostMult: 1
   ExploreCostMult: 0.6
-  WarnBonusDays: 1
+  WarnBonusDays: 0.2
   RoutineGoal: {fileID: 11400000, guid: 519bd4c62b75468e9ebe843e585d370b, type: 2}
   PreferWeights:
   - Trait: 3

@@ -799,8 +799,12 @@ namespace AIVillage.Tests.EditMode
 
             var explorer = AssetDatabase.LoadAssetAtPath<JobSO>("Assets/M0Config/Jobs/Job_Explorer.asset");
             Assert.IsNotNull(explorer, "Job_Explorer 에셋 로드");
-            Assert.GreaterOrEqual(explorer.WarnBonusDays, 1f,
-                "정찰 연장 0 = 재탄생이 껍데기다 (부재 시나리오 소멸)");
+            // (M27 개정: 舊 하한 1일 = 하루 100초 시절의 실시간 100초 — 일수 리터럴은 눈금이
+            //  바뀌면 뜻이 바뀐다. 실시간 하한으로 잰다: 현 배포 0.2일 × 600초 = 120초. ADR-M27-1)
+            var worldCfg = AssetDatabase.LoadAssetAtPath<WorldConfigSO>("Assets/M0Config/WorldConfig.asset");
+            Assert.IsNotNull(worldCfg, "WorldConfig 로드");
+            Assert.GreaterOrEqual(explorer.WarnBonusDays / worldCfg.GameTimeScale, 60f,
+                "정찰 연장이 실시간 1분 미만 = 재탄생이 껍데기다 (부재 시나리오 소멸)");
 
             // DoD ④ 중립 불변식 — 사냥꾼 외 전 직업의 전투 간격·비사냥 직업의 정찰 연장 불변
             foreach (string guid in AssetDatabase.FindAssets("t:JobSO"))

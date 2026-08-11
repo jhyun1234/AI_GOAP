@@ -374,6 +374,127 @@ namespace AIVillage.Tests.EditMode
             return false;
         }
 
+        // ── W3→W8: 거리 = 희귀도 (배포 사다리가 실제 배치에 드러난다) ─────────────
+        //
+        // 🔴 고정한 축: ①희귀도 순서는 **명세 §5의 표 그대로**다 — 검사가 순서를 발명하지 않는다.
+        //    ②지형 없음(terrainAt null) — 지형 거절이 거리 분포를 흔들면 "거리" 축이 안 보인다.
+        //    ③판정 통계는 **타입별 최근접 거리**다. 명세 초안은 중앙값이었으나 W8에서 개정
+        //      (사유 명세 §5): min 컷(5~40)이 맵(100)에 비해 작아 인접 단의 중앙값 차이가
+        //      0.4타일 — 표본 노이즈(±2타일)에 잠기고, RawFood 는 물가(20) 혼합으로 중앙값이
+        //      설계상 역전된다. 최근접은 각 단의 컷에 붙어 단마다 갈리고, 플레이어 경험
+        //      ("가장 가까운 은은 가장 가까운 나무보다 멀다")과 같은 말이다.
+
+        /// <summary>이 타입·조건 조합의 배포 원소가 가진 `minDistanceFromBase`.
+        /// RawFood 는 원소가 둘(조건 없음 = 기본 · 물 인접 = 물가)이라 조건 유무로 갈라 찾는다.</summary>
+        private static int RungOf(ResourceNodeSpawnConfig cfg, ResourceType type, bool conditioned)
+        {
+            foreach (ResourceTypeSpawnData d in cfg.resourceTypes)
+            {
+                if (d.resourceType != type || d.nodeCount <= 0) continue;
+                bool has = (d.allowedTerrain != null && d.allowedTerrain.Length > 0)
+                        || (d.adjacentTerrain != null && d.adjacentTerrain.Length > 0);
+                if (has == conditioned) return d.minDistanceFromBase;
+            }
+            Assert.Fail($"배포 설정에 {type}(조건 {(conditioned ? "있음" : "없음")}) 원소가 없다 " +
+                        "— 명세 §5 사다리의 발판이 사라졌다");
+            return -1;
+        }
+
+        [Test]
+        public void M26B_T5_DistanceLadder_RarerSpawnsFarther()
+        {
+            var cfg = AssetDatabase.LoadAssetAtPath<ResourceNodeSpawnConfig>(ConfigPath);
+            Assert.IsNotNull(cfg, $"ResourceNodeSpawnConfig 에셋 없음: {ConfigPath}");
+
+            // ① 에셋 사다리 — 명세 §5의 희귀도 순서대로 min 거리가 **순증가**해야 한다.
+            var ladder = new (string label, int rung)[]
+            {
+                ("RawFood(기본)", RungOf(cfg, ResourceType.RawFood, false)),
+                ("Wood",          RungOf(cfg, ResourceType.Wood,    false)),
+                ("Stone",         RungOf(cfg, ResourceType.Stone,   false)),
+                ("RawFood(물가)", RungOf(cfg, ResourceType.RawFood, true)),
+                ("Iron",          RungOf(cfg, ResourceType.Iron,    false)),
+                ("Silver",        RungOf(cfg, ResourceType.Silver,  true)),
+            };
+            for (int i = 1; i < ladder.Length; i++)
+                Assert.Greater(ladder[i].rung, ladder[i - 1].rung,
+                    $"{ladder[i].label}({ladder[i].rung}) ≤ {ladder[i - 1].label}({ladder[i - 1].rung}) " +
+                    "— 희귀한 것이 흔한 것보다 가까이 난다 (거리 = 희귀도가 깨졌다)");
+
+            // ② 행동 — 20시드 전수에서 타입별 **최근접** 노드 거리.
+            var minObs = new Dictionary<ResourceType, int>();
+            var counts = new Dictionary<ResourceType, int>();
+            for (int seed = 1; seed <= 20; seed++)
+                foreach (ResourceNode n in RunSpawn(seed, null))
+                {
+                    int dist = Mathf.Abs(n.TileX) + Mathf.Abs(n.TileY);   // 기지 = (0, 0)
+                    if (!minObs.ContainsKey(n.ResourceType) || dist < minObs[n.ResourceType])
+                        minObs[n.ResourceType] = dist;
+                    counts[n.ResourceType] = counts.TryGetValue(n.ResourceType, out int c) ? c + 1 : 1;
+                }
+
+            // 타입 단(원소가 여럿이면 가장 낮은 발판): 최근접이 제 단 아래로 내려오지 않고,
+            // 다음 단이 시작되기 전에 실제로 선다 (가까운 단이 비면 사다리가 화면에 없다).
+            var types = new[]
+            {
+                (ResourceType.RawFood, ladder[0].rung),   // 기본(5)이 물가(20)보다 낮은 발판
+                (ResourceType.Wood,    ladder[1].rung),
+                (ResourceType.Stone,   ladder[2].rung),
+                (ResourceType.Iron,    ladder[4].rung),
+                (ResourceType.Silver,  ladder[5].rung),
+            };
+            for (int i = 0; i < types.Length; i++)
+            {
+                (ResourceType t, int rung) = types[i];
+                Assert.IsTrue(counts.ContainsKey(t) && counts[t] > 0,
+                    $"{t}: 20판 전체에서 노드가 하나도 안 났다 — 이 검사는 빈 검사다");
+                Assert.GreaterOrEqual(minObs[t], rung,
+                    $"{t}: 최근접 노드({minObs[t]})가 제 단({rung})보다 가깝다 — 스포너가 min 거리를 안 읽는다");
+                if (i + 1 < types.Length)
+                    Assert.Less(minObs[t], types[i + 1].Item2,
+                        $"{t}: 최근접 노드({minObs[t]})가 다음 단({types[i + 1].Item2}) 너머에 있다 " +
+                        "— 제 단 부근이 비어 사다리가 화면에서 안 보인다");
+            }
+        }
+
+        [Test]
+        public void M26B_T5b_LoweredRung_ActuallyPullsNodesCloser()
+        {
+            // 실패 가능성 증명 — 발판을 에셋에서 내리면 은이 실제로 문앞에 선다.
+            // 이게 안 일어나면 T5 의 "min ≥ 단"은 config 를 읽어서가 아니라 다른 우연
+            // (클러스터 간격 등)으로 성립하는 빈 검사다.
+            var deployed = AssetDatabase.LoadAssetAtPath<ResourceNodeSpawnConfig>(ConfigPath);
+            int woodRung = RungOf(deployed, ResourceType.Wood, false);
+
+            var cfg = ScriptableObject.CreateInstance<ResourceNodeSpawnConfig>();
+            cfg.nodeMinSpacing = 2;
+            cfg.maxPlacementAttempts = 50;
+            cfg.resourceTypes = new[]
+            {
+                new ResourceTypeSpawnData
+                {
+                    resourceType = ResourceType.Silver, nodeCount = 30, maxAmount = 10,
+                    minDistanceFromBase = 1, clusterCount = 15,
+                    minNodesPerCluster = 1, maxNodesPerCluster = 2,
+                    clusterSpreadRadius = 2, minClusterSpacing = 5,
+                }
+            };
+
+            int minDist = int.MaxValue, total = 0;
+            for (int seed = 1; seed <= 20; seed++)
+                foreach (ResourceNode n in RunSpawnWithConfig(cfg, seed, null, null, 1f))
+                {
+                    minDist = Mathf.Min(minDist, Mathf.Abs(n.TileX) + Mathf.Abs(n.TileY));
+                    total++;
+                }
+
+            Assert.Greater(total, 0, "발판을 내렸는데 노드가 안 났다 — 이 검사는 빈 검사다");
+            Assert.Less(minDist, woodRung,
+                $"은의 발판을 1로 내렸는데 최근접({minDist})이 나무 단({woodRung}) 밖이다 " +
+                "— 거리가 에셋이 아닌 다른 무언가에 지배되고 있다 (T5 가 빈 검사)");
+            Object.DestroyImmediate(cfg);
+        }
+
         // ── W4: 채집 선택 통로 (이 차수의 심장) ───────────────────────────────────
         //
         // 🔴 고정한 축: 노드 배치는 **손으로 세운 격자**다 (스폰을 쓰면 시드마다 후보 수가 달라

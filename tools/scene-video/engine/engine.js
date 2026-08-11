@@ -318,7 +318,13 @@ function buildDom() {
      🔴 없으면 안 그린다 — 옛 회차는 이 필드가 없고 그대로 돌아야 한다.
      🔑 `siblings` 와 다르다. siblings 는 형제 편 목록이고 이건 **다음 회차 하나**다. */
   const ocNext = String(o.next ?? '').trim();
-  $('ocNext').textContent = ocNext ? `다음 편 · ${ocNext}` : '';
+  /* 🔄 2026-08-11 개정 (사용자 승인 · d01s 중간 리뷰) — 접두를 `outro.nextKind` 로 가른다.
+     'episode'(기본) = 「다음 편」: 연속극·dNNs 중간 편처럼 next 가 실재하는 다음 회차일 때.
+     'item' = 「다음 항목」: dNNs 마지막 편처럼 next 가 회차가 아니라 **이월 작업**일 때 —
+     「다음 편」이라 적으면 발행 순서에 따라 거짓이 된다(d01s-2 마스터 판정이 발원).
+     🔴 track 으로 가르면 안 된다 — dNNs 중간 편(d01s-1)은 「다음 편」이 참이다. */
+  const nextPrefix = (o.nextKind === 'item') ? '다음 항목' : '다음 편';
+  $('ocNext').textContent = ocNext ? `${nextPrefix} · ${ocNext}` : '';
   $('ocNext').hidden = !ocNext;
   $('ocAi').textContent = scene.hud.aiHook || '';
   fitOutroCard();

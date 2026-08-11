@@ -1,5 +1,5 @@
 {
-  "_": "커밋 직송 트랙(dNNs) 원장. schedule.json 과 섞지 않는다 — ADR-D-2 (schedule.json 은 클라우드 자동 머지 allowlist 에 있어 트랙 데이터를 섞으면 연속극 자동화가 dNNs 상태를 물고 돈다). 원문 = devlog/sessions/*.md 산문 (ADR-D-1), 사건 기준 = ADR-D-5 셋(행동·화면 변화 + 원인 서사 + 브랜드 §3 물음), 예고 = 같은 원문의 이월 문장 예정형 (ADR-D-3). 기입은 scene-source 가 한다.",
+  "_": "커밋 직송 트랙(dNNs) 원장. schedule.json 과 섞지 않는다 — ADR-D-2 (schedule.json 은 클라우드 자동 머지 allowlist 에 있어 트랙 데이터를 섞으면 연속극 자동화가 dNNs 상태를 물고 돈다). 원문 = devlog/sessions/*.md 산문 (ADR-D-1), 사건 기준 = ADR-D-5 셋(행동·화면 변화 + 원인 서사 + 브랜드 §3 물음), 예고 = 같은 원문의 이월 문장 — 시제는 갈래: 미래 이월은 예정형·이미 벌어진 형제 사건은 단정형 허용 (ADR-D-3 개정 2026-08-11). 기입은 scene-source 가 한다.",
   "next": 2,
   "episodes": {
     "d01s": {

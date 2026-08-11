@@ -777,7 +777,11 @@ namespace AIVillage.Tests.EditMode
         private static readonly Dictionary<string, string[]> RestrictedFlagUsage = new Dictionary<string, string[]>
         {
             // ADR-M2-5 (쿨다운 면제 = 물러설 수 없는 goal의 자격)
-            ["SkipFailureCooldown"] = new[] { "Goal_P0_Hunger", "Goal_P0_Fatigue", "Goal_Flee" },
+            // 2026-08-11 개정: Goal_TreatInjured 추가 (ADR 본문 함께 개정 — Docs/M2_생산체인 §3).
+            //   구조 추격의 "대상 이동" 실패는 버그가 아니라 정상 경로인데, 쿨다운 3초마다
+            //   치료사가 하위 goal로 새서 절뚝이는 부상자를 영영 못 따라잡았다 (사용자 Play).
+            ["SkipFailureCooldown"] = new[] { "Goal_P0_Hunger", "Goal_P0_Fatigue", "Goal_Flee",
+                                              "Goal_TreatInjured" },
             // GoalSO.DirectActionPool 툴팁의 자격 3조건
             // (M20-W12: Goal_SeekCarpenter는 집 부탁 사슬 삭제(ADR-M20-7)와 함께 목록에서 제거)
             // M21-W4 개정: Goal_Fight 추가 — 자격 ⓐ의 두 번째 종류("끝이 슬롯 밖에 있는 것")다.

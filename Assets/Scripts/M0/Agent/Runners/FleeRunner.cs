@@ -20,7 +20,19 @@ namespace AIVillage.M0
         public override bool Prepare(VillagerAgent agent)
         {
             int cx, cy;
-            if (agent.ResolveAnchor(_so.AnchorPriority, out Vector2Int safe)) // 내 집 우선 (M8-C)
+            bool hasAnchor = agent.ResolveAnchor(_so.AnchorPriority, out Vector2Int safe); // 내 집 우선 (M8-C)
+
+            // 부상자의 피신 범위 (W7R3, 사용자 제기 2026-08-11): 절뚝(0.4×)이는 몸으로 먼 집까지
+            // 달리면 피신이 **사망 행군**이 된다 — 들판 부상자가 마을로 걷다 출혈로 죽었다 (Play).
+            // 집이 피신 거리 안이면 집으로, 멀면 **위협 반대편으로 그 거리만** 달아나고 멈춘다 —
+            // 멈춘 자리에서 치료(102)·구조 명령·위치 없는 알림이 이어받는다.
+            // 건강한 주민은 기존 그대로 (중립 — 제 발로 집까지 갈 수 있는 몸이다).
+            if (hasAnchor && agent.Injury != InjurySeverity.None
+                && Mathf.Max(Mathf.Abs(safe.x - agent.TileX), Mathf.Abs(safe.y - agent.TileY))
+                   > _so.FleeDistanceTiles)
+                hasAnchor = false;
+
+            if (hasAnchor)
             {
                 cx = safe.x; cy = safe.y;
             }

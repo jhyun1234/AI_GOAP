@@ -15,7 +15,7 @@ MonoBehaviour:
   InitialWoodStock: 10
   InitialRawFoodStock: 0
   InitialStoneStock: 5
-  GameTimeScale: 0.01
+  GameTimeScale: 0.00166667
   BaseTileX: 0
   BaseTileY: 0
   BaseDiscoverRadius: 12

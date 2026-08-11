@@ -1097,8 +1097,10 @@ namespace AIVillage.Tests.EditMode
             float secondsPerDay = 1f / c.GameTimeScale;
 
             // 실패 가능성 증명 — 이 산식이 하한을 **깰 수 있는** 물건인지 먼저 확인한다.
-            Assert.Less(InterventionSeconds(hp, hp, 0.05f, secondsPerDay), FLOOR_SEC,
-                "한 방에 죽고 재타격이 0.05일이어도 하한을 안 깬다 — 이 게이트는 빈 검사다");
+            // (M27 개정: 舊 0.05일은 하루 100초 시절의 "실시간 5초"였다 — 일수 리터럴은 눈금이
+            //  바뀌면 뜻이 바뀌므로, 퇴화 사례는 실시간 초로 적고 일수로 환산한다. ADR-M27-1)
+            Assert.Less(InterventionSeconds(hp, hp, 5f / secondsPerDay, secondsPerDay), FLOOR_SEC,
+                "한 방에 죽고 재타격이 실시간 5초여도 하한을 안 깬다 — 이 게이트는 빈 검사다");
 
             var races = new System.Collections.Generic.List<ThreatSO>();
             foreach (string guid in AssetDatabase.FindAssets("t:ThreatSO"))

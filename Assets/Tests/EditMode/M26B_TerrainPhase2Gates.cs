@@ -539,6 +539,38 @@ namespace AIVillage.Tests.EditMode
         }
 
         [Test]
+        public void M26B_T9_HatchAndRecall_HappenOutsideVision()
+        {
+            // A2 (2026-08-11 사용자 관측): 지형 기억 위에 개체까지 그리면 회수가 눈앞의 증발로
+            // 보인다. 개체 렌더는 현재 시야로 가렸고, 이 검사는 그 전제인 **기하 불변식**을 지킨다:
+            //   시야 < 부화  → 나타나는 순간이 절대 안 보인다
+            //   시야 < 회수 − 배회 → 사라지는 순간이 절대 안 보인다 (무리는 앵커에서 배회 반경까지 간다)
+            // 🔴 이 산수가 깨지면 A2 는 조용히 거짓말이 된다 — 렌더 코드는 그대로 green 이므로
+            //    여기서만 잡힌다 (반경은 전부 에셋이라 밸런스 패치가 깰 수 있다).
+            var world = AssetDatabase.LoadAssetAtPath<AIVillage.M0.WorldConfigSO>(
+                "Assets/M0Config/WorldConfig.asset");
+            var map = AssetDatabase.LoadAssetAtPath<MapConfig>(MapPath);
+            Assert.IsNotNull(world); Assert.IsNotNull(map);
+
+            int sight = map.villagerSightRadius;
+            int hatch = Mathf.RoundToInt(sight * world.ResidentHatchSightMult);
+            int recall = Mathf.RoundToInt(sight * world.ResidentRecallSightMult);
+
+            Assert.Greater(hatch, sight,
+                $"부화({hatch}) ≤ 시야({sight}) — 무리가 눈앞에서 나타난다");
+
+            foreach (string guid in AssetDatabase.FindAssets("t:ThreatSO"))
+            {
+                var so = AssetDatabase.LoadAssetAtPath<AIVillage.M0.ThreatSO>(
+                    AssetDatabase.GUIDToAssetPath(guid));
+                if (so == null || !so.IsResident) continue;
+                Assert.Greater(recall - so.WanderRadiusTiles, sight,
+                    $"{so.name}: 회수({recall}) − 배회({so.WanderRadiusTiles}) ≤ 시야({sight}) — " +
+                    "배회로 앵커에서 벗어난 개체가 눈앞에서 사라질 수 있다");
+            }
+        }
+
+        [Test]
         public void M26B_T8c_BandDensity_ScalesWithMapArea()
         {
             // 🔴 이 검사가 지키는 것: **맵을 넓혔을 때 들판이 더 안전해지지 않는다.**

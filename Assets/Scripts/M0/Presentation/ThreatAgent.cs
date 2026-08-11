@@ -236,6 +236,17 @@ namespace AIVillage.M0
             // 그림자는 제 몸 아래 띠 (주민과 같은 규약 — 선택 링·밭 위, 서 있는 것 아래).
             if (_shadowSr != null)
                 _shadowSr.sortingOrder = WorldSort.Order(transform.position.y, WorldSort.Ghost);
+
+            // A2 — 움직이는 것은 **현재 시야**에서만 보인다 (M26-2차, 2026-08-11 사용자 관측).
+            // 지형 기억(탐험됨) 위에 개체까지 그리면 회수·부화가 눈앞의 증발·등장으로 보인다.
+            // RTS 문법: 지형은 기억으로 남고 유닛은 시야가 닿아야 보인다. **판정은 안 바뀐다** —
+            // 꺼지는 것은 렌더러뿐 (표현이 판정을 바꾸지 않는다, M10-C ⚠️③). W5R의 반경이
+            // 시야(10) < 부화(15) < 회수-배회(20-5=15) 라 부화·회수 순간은 기하학적으로 시야 밖이다.
+            // FowManager 부재(테스트·FoW 없는 판) = 항상 보임 (중립 불변식).
+            bool fowVisible = FowManager.Instance == null
+                              || FowManager.Instance.GetFowState(TileX, TileY) == FowManager.FOW_VISIBLE;
+            if (_sr != null && _sr.enabled != fowVisible) _sr.enabled = fowVisible;
+            if (_shadowSr != null && _shadowSr.enabled != fowVisible) _shadowSr.enabled = fowVisible;
             TickFlash();
 
             // 그림 틱 (M22-3차 W5c) — 걷는가/무엇을 하는가만 넘기고 프레임 선택은 애니메이터가.

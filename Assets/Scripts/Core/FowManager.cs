@@ -58,9 +58,12 @@ namespace AIVillage.Core
 
         // FoW 상태 값 (byte 타입)
         // 가독성을 위해 명명된 상수를 사용한다.
+        // FOW_VISIBLE 만 public (M26-2차 A2, 2026-08-11) — 동적 개체(위협)가 "현재 시야에서만
+        // 렌더"를 판정할 때 GetFowState 반환값과 비교할 이름이 필요하다. 리터럴 2를 밖에
+        // 흩뿌리는 것보다 상수 노출이 싸다 (재사용 라이브러리 최소 절제).
         private const byte FOW_UNEXPLORED = 0; // 미탐험: 완전 검정
         private const byte FOW_EXPLORED   = 1; // 탐험됨(기억): 반투명 회색
-        private const byte FOW_VISIBLE    = 2; // 가시: 원본 타일 색상 100%
+        public  const byte FOW_VISIBLE    = 2; // 가시: 원본 타일 색상 100%
 
         #endregion
 

@@ -810,7 +810,8 @@ namespace AIVillage.M0
         }
 
         /// <summary>부상자 목록 재수집 — **위치는 싣지 않는다** (찾는 것이 플레이어의 일, 명세 §9).
-        /// 선택된 치료사 본인은 뺀다 (자기 치료 명령은 뜻이 없다 — TendRunner 가 어차피 거른다).</summary>
+        /// 선택된 치료사 본인은 뺀다 — 자가 치료(W7R2)는 자율로 이미 하고, 다친 주민에게는
+        /// 명령 자체가 서지 않는다 (TryGiveOrder 부상 거절 — 몸의 사정은 하나).</summary>
         private void RebuildRescueList()
         {
             _rescueList.Clear();

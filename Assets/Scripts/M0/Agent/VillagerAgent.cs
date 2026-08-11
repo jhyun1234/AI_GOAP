@@ -653,8 +653,10 @@ namespace AIVillage.M0
         public static bool WithinSight(int dx, int dy, int radius)
             => dx * dx + dy * dy <= radius * radius;
 
-        /// <summary>내가 아는 부상자 수 (W7R) — 시야 내 + 지목 대상. **자신은 빼고** 센다:
-        /// 치료 goal이 자기 부상으로 발동하면 대상이 없어 공회전한다 (TendRunner가 자신을 거른다).</summary>
+        /// <summary>내가 아는 부상자 수 (W7R) — 시야 내 + 지목 대상 + **나 자신** (W7R2,
+        /// 사용자 결정 2026-08-11 "치료사는 스스로 치료할 수 있게"): 제 상처는 언제나 안다.
+        /// 자가 치료가 유효해지면서 자신 제외의 공회전 근거도 사라졌다 — 탐색(FindInjuredPass)도
+        /// 치료사 모드에서 자신을 후보로 넣는다 (거리 0 = 다친 치료사는 제 몸부터 고친다).</summary>
         private int CountKnownInjured()
         {
             int sight = AIVillage.Core.MapConfig.Active != null
@@ -664,9 +666,9 @@ namespace AIVillage.M0
             for (int i = 0; i < agents.Count; i++)
             {
                 VillagerAgent a = agents[i];
-                if (a == null || a == this || a.State == AgentState.Dead
+                if (a == null || a.State == AgentState.Dead
                     || a.Injury == InjurySeverity.None) continue;
-                if (a == OrderTargetVillager
+                if (a == this || a == OrderTargetVillager
                     || WithinSight(a.TileX - TileX, a.TileY - TileY, sight)) n++;
             }
             return n;

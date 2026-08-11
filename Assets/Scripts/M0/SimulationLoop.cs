@@ -655,7 +655,9 @@ namespace AIVillage.M0
             _injuredKeyBuf.Clear();
             foreach (VillagerAgent a in _agents)
             {
-                if (a == null || a == tender || a.State == AgentState.Dead
+                // 치료사는 자신도 후보다 (W7R2 — 자가 치료. 거리 0이라 다친 치료사는 언제나
+                // 제 몸부터 고친 뒤 남에게 간다 — 절뚝이며 왕진하는 일이 구조적으로 없다).
+                if (a == null || (a == tender && !healerMode) || a.State == AgentState.Dead
                     || a.Injury == InjurySeverity.None) continue;
                 if (!healerMode && a.IsStabilized) continue; // 일반 간호자는 안정화 완료자 제외
                 if (untendedOnly && a.IsTended) continue;

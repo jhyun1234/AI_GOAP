@@ -140,3 +140,6 @@ InitTestScene*.unity*
 /[Aa]ssets/Screenshots.meta
 /[Aa]ssets/mcp.log
 /[Aa]ssets/mcp.log.meta
+
+# 디스코드 웹훅 URL — 비밀. 가진 사람은 누구나 그 채널에 글을 쓴다.
+tools/scene-video/.discord-webhook

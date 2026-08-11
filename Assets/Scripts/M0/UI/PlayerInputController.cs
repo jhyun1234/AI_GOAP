@@ -827,7 +827,9 @@ namespace AIVillage.M0
             for (int i = 0; i < _rescueList.Count && i < 9; i++)
             {
                 VillagerAgent a = _rescueList[i];
-                sb.AppendLine($"{i + 1}) {a.ShortName} — {(a.IsStabilized ? "안정됨" : "위독")}");
+                // 🔴 판정은 IsStabilized가 아니라 **시계** (2026-08-11 사용자 Play): 유예가 만료돼
+                // 출혈이 재개된 부상자가 "안정됨"으로 떠서, 누구부터 구할지 목록이 거짓말을 했다.
+                sb.AppendLine($"{i + 1}) {a.ShortName} — {(a.IsInjuryClockRunning ? "위독" : "안정됨")}");
             }
             return sb.ToString();
         }

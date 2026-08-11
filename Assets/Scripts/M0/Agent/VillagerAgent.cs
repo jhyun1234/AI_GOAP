@@ -807,8 +807,26 @@ namespace AIVillage.M0
         public bool IsTended => Time.time < _tendedUntil;
 
         /// <summary>응급조치를 받아 안정화됐는가 (M11-I) — 일반 간호자의 대상 제외 판정.
-        /// 안정화된 부상자는 UntendedInjuredCount에서 빠져 군중이 해산한다 (crowding 해소).</summary>
+        /// 안정화된 부상자는 UntendedInjuredCount에서 빠져 군중이 해산한다 (crowding 해소).
+        /// ⚠️ 표시용으로 쓰지 말 것 (2026-08-11 사용자 Play): 이 플래그의 뜻은 "응급조치 1회
+        /// 소진"이라 **유예가 만료돼 출혈이 재개돼도 true다** — 죽어가는 사람이 "안정됨"으로
+        /// 읽힌다. 화면 판정은 IsInjuryClockRunning(시계가 도는가)이 맡는다.</summary>
         public bool IsStabilized => _stabilized;
+
+        /// <summary>부상 방치 시계 판정 (순수 — 게이트 M26B_T10). NextInjuryStateV2의 우선순위
+        /// (치료사 간호 > 첫 응급조치 > 유예 > 방치)와 **같은 갈래**여야 한다 — 갈리면 목록이
+        /// 상태 기계와 다른 말을 한다.</summary>
+        public static bool InjuryClockRunning(bool tended, bool tendedByHealer,
+                                              bool stabilized, float graceLeft)
+            => !(tended && tendedByHealer)
+               && !(tended && !tendedByHealer && !stabilized)
+               && graceLeft <= 0f;
+
+        /// <summary>이 부상자의 방치 시계가 지금 돌고 있는가 (T 목록의 위독/안정 판정 —
+        /// M26-2차 W7 후속 2026-08-11).</summary>
+        public bool IsInjuryClockRunning
+            => Injury != InjurySeverity.None
+               && InjuryClockRunning(IsTended, _tendedByHealer, _stabilized, _graceLeft);
 
         /// <summary>최근접 부상자 조회 (TendRunner 전용) — healer는 전 부상자, 일반은 미안정 부상자만
         /// (M11-I 이원화). 안정화 완료 대상에 일반 간호자가 계속 붙는 crowding을 여기서 끊는다.</summary>

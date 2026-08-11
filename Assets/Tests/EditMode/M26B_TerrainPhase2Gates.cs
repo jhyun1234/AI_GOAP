@@ -851,6 +851,43 @@ namespace AIVillage.Tests.EditMode
                 "TendRunner 가 지목(OrderTargetVillager)을 안 읽는다 — 목록에서 골라도 최근접에게 간다");
         }
 
+        // ── W7 후속: T10 — 위독/안정 표기는 상태 기계와 같은 말을 해야 한다 ────────
+        //
+        // 🔴 재발 방지 (2026-08-11 사용자 Play): T 목록이 IsStabilized(응급조치 1회 소진 표식)를
+        //    "안정됨"으로 읽어, 유예가 만료돼 **출혈이 재개된 부상자가 안정됨으로 떴다** —
+        //    누구부터 구할지 고르는 목록의 거짓말. 고정한 축: **정본은 NextInjuryStateV2**
+        //    (방치 시계의 유일한 규칙)이고 표시 판정(InjuryClockRunning)은 그 그림자다 —
+        //    16조합 전수로 두 함수가 같은 갈래인지 대조한다 (표시 쪽을 어떻게 고쳐도
+        //    상태 기계와 갈리면 red — 검사가 특정 구현을 강요하지 않는다).
+
+        [Test]
+        public void M26B_T10_InjuryClockPredicate_MatchesStateMachine()
+        {
+            const float graceDays = 0.5f, dt = 0.1f;
+            foreach (bool tended in new[] { false, true })
+            foreach (bool healerFlag in new[] { false, true })
+            foreach (bool stabilized in new[] { false, true })
+            foreach (float grace in new[] { 0f, 0.5f })
+            {
+                bool byHealer = tended && healerFlag;
+                bool byHelper = tended && !healerFlag;
+                (_, float neglect, _, _) = AIVillage.M0.VillagerAgent.NextInjuryStateV2(
+                    0f, 0f, stabilized, grace, byHealer, byHelper, 1f, graceDays, dt);
+                bool clockRan = neglect > 0f;   // 방치가 쌓였다 = 시계가 돌았다 (출혈 재개)
+
+                Assert.AreEqual(clockRan,
+                    AIVillage.M0.VillagerAgent.InjuryClockRunning(tended, healerFlag, stabilized, grace),
+                    $"tended={tended} healer={healerFlag} stab={stabilized} grace={grace}: " +
+                    "표시 판정이 상태 기계와 다른 갈래다 — 목록이 거짓말을 한다");
+            }
+
+            // 사용자가 본 바로 그 조합을 명시로 못박는다: 안정화됐지만 유예가 끝났고 간호도
+            // 없다 → 출혈 재개 = **위독**이다. "안정됨"이 다시 뜨면 여기서 잡힌다.
+            Assert.IsTrue(AIVillage.M0.VillagerAgent.InjuryClockRunning(
+                              tended: false, tendedByHealer: false, stabilized: true, graceLeft: 0f),
+                "유예 만료 + 미간호 부상자가 위독으로 판정되지 않는다 — 舊 IsStabilized 표기 버그의 재발");
+        }
+
         // ── T1-c: 중립 불변식 — 판정을 안 넘기면 舊 배치와 완전히 같다 ────────────
 
         [Test]

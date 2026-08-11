@@ -53,7 +53,7 @@ namespace AIVillage.M0
                 {
                     (bool ok, _) = VillagerAgent.NextPersonalStock(
                         agent.GetPersonalStock(e.Slot), e.Op, e.Value,
-                        VillagerAgent.PersonalCapOf(e.Slot, agent.AgentConfig.BodyCarryCap)); // 돈 = 상한 없음 (M16)
+                        agent.AgentConfig.BodyCarryCap);
                     if (!ok)
                     {
                         // Add 상한 초과로 여기 오면 컴파일러 주입이 있는 한 플랜이 성립하지 않았어야 한다

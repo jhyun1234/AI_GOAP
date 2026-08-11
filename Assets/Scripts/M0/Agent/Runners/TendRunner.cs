@@ -53,7 +53,7 @@ namespace AIVillage.M0
             int dist = Mathf.Abs(agent.TileX - _target.TileX) + Mathf.Abs(agent.TileY - _target.TileY);
             if (dist <= _so.TendRangeTiles) return true; // 이미 곁 — 제자리 실행
 
-            // 대상 타일 정확히가 아니라 곁의 통행 가능 타일 — 예약 충돌·겹쳐 서기 방지 (VisitRunner 패턴)
+            // 대상 타일 정확히가 아니라 곁의 통행 가능 타일 — 예약 충돌·겹쳐 서기 방지
             MoveTarget = MapBounds.PickWalkableNear(agent.IsWalkable, _target.TileX, _target.TileY, 1);
             return true;
         }

@@ -224,15 +224,8 @@ namespace AIVillage.M0
                  "쫓아가지 않고 자연스러운 근접에서 정산. 제안치 3~4.")]
         public int RewardSettleRadiusTiles = 3;
 
-        // [DEPRECATED 2026-07-18] 조각 Y로 보고 심부름(쫓아가기) → 마주치면 정산으로 교체됨.
-        // 아래 둘은 더 이상 참조되지 않는다(휴면). 관련 에셋(ReportErrand goal·VisitAction) 정리는
-        // 후속 작업 — Docs/퀘스트보드_및_보고심부름정리_후속.md 참조.
-        [Tooltip("[DEPRECATED — 조각 Y로 대체, 미사용] 완공 보고 심부름 goal.")]
-        public GoalSO ReportErrandGoal;
-
-        [Tooltip("[DEPRECATED — 조각 Y로 대체, 미사용] 보고 심부름 마감 초.")]
-        public float ReportTimeoutSec = 60f;
-
+        // 보고 심부름 잔재(ReportErrandGoal·ReportTimeoutSec)는 2026-08-11 삭제
+        // (조각 Y "마주치면 정산" 전환의 후속 정리 이행 — 복원은 git 히스토리에서).
     }
 
     /// <summary>맵-비례 배치 산식 (M11-K, 순수 — 게이트 대상). 맵이 커지면 마을·선호 거리가

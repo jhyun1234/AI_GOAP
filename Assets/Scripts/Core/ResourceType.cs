@@ -28,28 +28,6 @@ namespace AIVillage.Core
         Silver     = 6   // 은: 희귀 자원, 침략 트리거 조건 포함
     }
 
-    /// <summary>
-    /// 주민 사망 시 현재 위치에 드롭되는 아이템 종류.
-    /// PickUpDroppedItem GOAP Action의 Precondition 판별에 사용.
-    /// </summary>
-    public enum ItemType
-    {
-        Axe,             // 나무꾼 도구
-        Pickaxe,         // 광부 도구
-        Weapon,          // 전투용 무기 (Forge 제작)
-        PrimitiveWeapon, // 원시 무기 (Wood 3 + Stone 2, Forge 불필요)
-        Food             // 인벤토리에 보유 중이던 식량
-    }
-
-    /// <summary>
-    /// 게임 내 계절. 4계절 순환이며 Winter에 식량 위기가 발생한다.
-    /// GameTimeManager가 gameDay 기준으로 자동 전환.
-    /// </summary>
-    public enum Season
-    {
-        Spring = 0,
-        Summer = 1,
-        Autumn = 2,  // 가을 시작 시 GatherResources 가중치 ×3 자동 적용
-        Winter = 3   // 겨울 경보 임계값: cookedFoodStock < (주민 수 × 3 × 30)
-    }
+    // ItemType(폐기된 PickUpDroppedItem용)·Season enum(SeasonSO 에셋 체계 M6가 정본)은
+    // 2026-08-11 삭제 — 호출자 0건 (복원은 git 히스토리에서).
 }

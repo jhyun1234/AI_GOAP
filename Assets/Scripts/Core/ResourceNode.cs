@@ -85,12 +85,6 @@ namespace AIVillage.Core
         /// </summary>
         public float RegenerationRate { get; set; }
 
-        /// <summary>
-        /// 계절 배율 적용 전 기본 재생량. 생성자에서만 설정된다.
-        /// SeasonManager는 RegenerationRate = BaseRegenerationRate * multiplier 형태로만 수정한다.
-        /// </summary>
-        public float BaseRegenerationRate { get; private set; }
-
         #endregion
 
         #region ── 상태 플래그 ──
@@ -164,8 +158,7 @@ namespace AIVillage.Core
             TileY                 = tileY;
             MaxAmount             = maxAmount;
             CurrentAmount         = maxAmount;   // 신규 노드는 꽉 찬 상태로 시작
-            BaseRegenerationRate  = regenPerDay;
-            RegenerationRate      = regenPerDay; // 계절 배율은 M2 이후 (배율 시스템 폐기 상태)
+            RegenerationRate      = regenPerDay; // 계절 배율은 SimulationLoop이 regenMult로 별도 적용
             IsDiscovered          = isDiscovered;
         }
 
@@ -194,15 +187,6 @@ namespace AIVillage.Core
         #endregion
 
         #region ── 공개 헬퍼 메서드 ──
-
-        /// <summary>
-        /// 현재 채집 가능한 상태인지 여부를 반환한다.
-        /// CurrentAmount > 0 AND 다른 주민이 채집 중이지 않아야 한다.
-        /// </summary>
-        public bool IsAvailableForHarvest()
-        {
-            return CurrentAmount > 0f && CurrentGatherers < MaxGatherers;
-        }
 
         /// <summary>
         /// 채집 자리를 1개 점유한다. CurrentGatherers >= MaxGatherers이면 false를 반환한다.
@@ -246,8 +230,5 @@ namespace AIVillage.Core
 
         #endregion
 
-        #region ── 정적 헬퍼 ──
-
-        #endregion
     }
 }

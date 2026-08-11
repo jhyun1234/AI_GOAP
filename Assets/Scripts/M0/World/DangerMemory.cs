@@ -42,9 +42,6 @@ namespace AIVillage.M0
             _decayPerDay = Mathf.Max(0f, decayPerDay);
         }
 
-        /// <summary>기억 개수 (게이트·관측용).</summary>
-        public int Count => _incidents.Count;
-
         /// <summary>당했다 — 이 자리를 기억한다. 같은 반경 안에서 또 당하면 강도가 쌓인다
         /// (합치지 않으면 한 자리에서 세 번 물린 기억이 목록 세 칸을 먹는다 — 뜻은 같은데 값만 다르다).</summary>
         public void Remember(int tileX, int tileY, float amount)

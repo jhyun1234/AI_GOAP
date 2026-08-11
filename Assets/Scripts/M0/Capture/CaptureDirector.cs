@@ -143,7 +143,6 @@ namespace AIVillage.M0.Capture
             EventId.Healed => 30,
             EventId.OrderRefused => 30,
             EventId.OrderTaken => 20,
-            EventId.Traded => 25,
             EventId.FoodShared => 30,
             _ => -1,   // GotHome·Built·Repelled·Hunted — 서비스 이벤트 쪽이 정본
         };

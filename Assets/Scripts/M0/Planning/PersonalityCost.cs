@@ -14,10 +14,6 @@ namespace AIVillage.M0
         public const int JITTER_BUILD   = 2;
         public const int JITTER_EXPLORE = 3;
 
-        /// <summary>성격+편차 → 배율 배열 (M4 호환 진입점 — 직업 없음, 벡터 = 성격 원본).</summary>
-        public static float[] Build(ActionCatalog catalog, PersonalitySO p, float[] jitter)
-            => Build(catalog, p, p != null ? p.Traits : null, null, jitter);
-
         /// <summary>
         /// 성격×직업×편차 → 배율 배열 (ADR-M5-3 — 배율 결합 지점은 여기가 유일).
         /// 성격·직업 둘 다 null이면 null 반환 = 완전 중립 (ADR-M4-2 불변식 경로).

@@ -805,7 +805,10 @@ namespace AIVillage.Tests.EditMode
             // M22-3차 W3 개정: Goal_ManTower 추가 — 교전과 같은 자격 ⓐ 두 번째 종류(끝 =
             //   '감지 해소' = ThreatService 상태, 슬롯에 못 적는다). ⓑ 풀 1개 ⓒ 요격 드랍은
             //   CombatService가 넣는다. GoalSO.DirectActionPool 툴팁(ADR 본문)도 같이 개정됨.
-            ["DirectActionPool"] = new[] { "Goal_Fight", "Goal_Leisure", "Goal_ManTower", "Goal_ReportDone",
+            // 2026-08-11 개정: Goal_ReportDone 제거 — 보고 심부름 사슬 삭제(조각 Y "마주치면 정산"
+            //   전환의 후속 정리 이행, Docs/퀘스트보드_및_보고심부름정리_후속.md). ADR 본문
+            //   (GoalSO.DirectActionPool 툴팁)도 같이 개정됨 — 목록만 고치지 않았다.
+            ["DirectActionPool"] = new[] { "Goal_Fight", "Goal_Leisure", "Goal_ManTower",
                                            "Goal_Routine_Explorer", "Goal_Routine_Farmer" },
             // M21-W4 B1 (명령 원정 특례) — 자율에 열면 전 맵 주민이 밭 늑대로 몰려간다.
             // 원정은 플레이어 개입의 값이므로 명령 경로에만 연다. 두 번째 용도 = 규칙 재검토 신호.

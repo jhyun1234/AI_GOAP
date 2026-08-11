@@ -112,11 +112,9 @@ namespace AIVillage.M0
             if (Time.time < _nextHitAt) return RunnerResult.Running;
             _nextHitAt = Time.time + Interval(agent);
 
-            HitOutcome outcome = agent.Combat.VillagerHit(agent.AgentId, _so.HitDamage, _target);
+            agent.Combat.VillagerHit(agent.AgentId, _so.HitDamage, _target);
             // 격퇴·사냥이면 이 대상과의 교전은 끝 — 다음 틱의 재타겟이 다음 상대를 찾거나 완료한다.
             // 여기서 곧바로 Succeeded로 끝내지 않는 이유: 적이 여럿이면 계속 싸워야 한다 (W6 대비).
-            if (outcome == HitOutcome.Missed && (_target == null || _target.IsFleeing || _target.IsExiting))
-                return RunnerResult.Running; // 다음 틱 재타겟이 처리
             return RunnerResult.Running;
         }
     }

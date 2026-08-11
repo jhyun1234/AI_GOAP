@@ -373,16 +373,8 @@ namespace AIVillage.Core
         }
 
         /// <summary>
-        /// 타일의 기본(FoW 적용 전) 색상을 반환한다.
-        /// 현재는 전부 grassColor를 반환한다 (지형 타입 시스템 없음).
-        ///
-        /// 확장 포인트:
-        ///   나중에 지형 타입 맵(Forest 영역 등)을 추가할 때 이 메서드만 수정한다.
-        ///   예시:
-        ///     if (TerrainMap.Instance.GetType(tileX, tileY) == TileType.Forest)
-        ///         return MapConfig.Active.forestColor;
-        ///
-        /// ✅ **M26-1차 W5에서 이 TODO를 채웠다** — 아래 <see cref="TerrainColorSource"/>.
+        /// 타일의 기본(FoW 적용 전) 색상을 반환한다 — 원천은 <see cref="TerrainColorSource"/>
+        /// (M26-1차 W5), 훅이 비어 있으면 grassColor.
         /// </summary>
         private static Color32 GetBaseTileColor(int tileX, int tileY)
         {

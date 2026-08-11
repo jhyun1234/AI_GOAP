@@ -36,9 +36,6 @@ namespace AIVillage.Core
                  "비워두면 원형 마커를 코드로 자동 생성하므로 프리팹 없이도 동작한다.")]
         [SerializeField] private GameObject _nodeViewPrefab;
 
-        // ── 상태 ─────────────────────────────────────────────────────────────────
-        public bool HasSpawned { get; private set; } = false;
-
         // ── 내부 ─────────────────────────────────────────────────────────────────
         // 모든 자원 타입에 걸쳐 이미 배치된 타일 위치 — 겹침 방지용
         private readonly List<Vector2Int> _allPlacedPositions = new List<Vector2Int>();
@@ -153,7 +150,6 @@ namespace AIVillage.Core
                     totalSpawned += SpawnResourceType(typeData, baseTileX, baseTileY, discoveryRadius);
             }
 
-            HasSpawned = true;
             Debug.Log($"[ResourceNodeSpawner] 스폰 완료 — 총 {totalSpawned}개 노드 | 시드={seed}");
             return true;
         }

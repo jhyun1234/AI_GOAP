@@ -950,6 +950,22 @@ namespace AIVillage.M0
             Requests?.ReleaseBy(agent.AgentId);     // 이탈 시 진행 부탁 정리 (M8-D — 유령 유예 방지)
         }
 
+        /// <summary>tile 최근접 생존 주민 1·2위 (표현 전용 — 반응 대사 화자 선정의 공용 붓.
+        /// 2026-08-11 복붙 4벌 통합 — 화자 몇 명이 말할지는 각 호출처가 정한다).</summary>
+        private void NearestAgentsTo(Vector2Int tile, out VillagerAgent a1, out VillagerAgent a2)
+        {
+            a1 = null; a2 = null;
+            int d1 = int.MaxValue, d2 = int.MaxValue;
+            foreach (VillagerAgent a in _agents)
+            {
+                if (a == null || a.State == AgentState.Dead) continue;
+                int dx = a.TileX - tile.x, dy = a.TileY - tile.y;
+                int dist = dx * dx + dy * dy;
+                if (dist < d1) { d2 = d1; a2 = a1; d1 = dist; a1 = a; }
+                else if (dist < d2) { d2 = dist; a2 = a; }
+            }
+        }
+
         /// <summary>재해 반응 대사 (M9-C, 표현 전용) — 밭 구역 앵커 최근접 최대 2명이 StrikeLines를
         /// 내뱉는다. 릴레이 아님(마주보기·응수 없음). 결정성 불요라 Random 허용 (소실은 결정적, 대사는 표현).</summary>
         private void ShowStrikeLines(DisasterSO d)
@@ -957,16 +973,7 @@ namespace AIVillage.M0
             if (d.StrikeLines == null || d.StrikeLines.Length == 0 || _agents.Count == 0) return;
             if (!Zones.TryGetZone(SlotId.FarmPlotCount, out Vector2Int anchor, out _)) return;
 
-            VillagerAgent a1 = null, a2 = null;
-            int d1 = int.MaxValue, d2 = int.MaxValue;
-            foreach (VillagerAgent a in _agents)
-            {
-                if (a == null || a.State == AgentState.Dead) continue;
-                int dx = a.TileX - anchor.x, dy = a.TileY - anchor.y;
-                int dist = dx * dx + dy * dy;
-                if (dist < d1) { d2 = d1; a2 = a1; d1 = dist; a1 = a; }
-                else if (dist < d2) { d2 = dist; a2 = a; }
-            }
+            NearestAgentsTo(anchor, out VillagerAgent a1, out VillagerAgent a2);
             a1?.ShowTransient(d.StrikeLines[Random.Range(0, d.StrikeLines.Length)]);
             a2?.ShowTransient(d.StrikeLines[Random.Range(0, d.StrikeLines.Length)]);
         }
@@ -1404,55 +1411,30 @@ namespace AIVillage.M0
                 v?.ShowTransient(t.StrikeLinesVillager[Random.Range(0, t.StrikeLinesVillager.Length)]);
         }
 
-        /// <summary>밭 소실 반응 대사 (M10-C, 표현 전용) — 다친 사람이 없으므로 타격 지점 최근접
-        /// 생존 주민 최대 2명이 내뱉는다 (재해 ShowStrikeLines 패턴 — 릴레이 아님, 대사만 Random 허용).</summary>
-        /// <summary>공성 반응 대사 (M22-W5) — 화자 = 타격 지점 최근접 주민 1명 (ShowFarmStrikeLines
-        /// 동형·단일 화자: 시설 타격은 재타격 주기마다 반복이라 2명이 말하면 소음이 된다).</summary>
         /// <summary>함정 발동 대사 (M22-3차 W4) — 화자 = 최근접 주민 (공성 대사와 같은 문법).
         /// 에셋 값이 켜는 분기에 대사가 비면 침묵 발동이 된다 (W5 1차 교훈).</summary>
         private void ShowTrapLines(ThreatSO t, Vector2Int tile)
         {
             if (t.TrapHitLines == null || t.TrapHitLines.Length == 0 || _agents.Count == 0) return;
-            VillagerAgent best = null;
-            int bd = int.MaxValue;
-            foreach (VillagerAgent a in _agents)
-            {
-                if (a == null || a.State == AgentState.Dead) continue;
-                int dx = a.TileX - tile.x, dy = a.TileY - tile.y;
-                int dist = dx * dx + dy * dy;
-                if (dist < bd) { bd = dist; best = a; }
-            }
+            NearestAgentsTo(tile, out VillagerAgent best, out _);
             best?.ShowTransient(t.TrapHitLines[Random.Range(0, t.TrapHitLines.Length)]);
         }
 
+        /// <summary>공성 반응 대사 (M22-W5) — 화자 = 타격 지점 최근접 주민 1명 (단일 화자:
+        /// 시설 타격은 재타격 주기마다 반복이라 2명이 말하면 소음이 된다).</summary>
         private void ShowStructureStrikeLines(ThreatSO t, Vector2Int tile)
         {
             if (t.StrikeLinesStructure == null || t.StrikeLinesStructure.Length == 0 || _agents.Count == 0) return;
-            VillagerAgent best = null;
-            int bd = int.MaxValue;
-            foreach (VillagerAgent a in _agents)
-            {
-                if (a == null || a.State == AgentState.Dead) continue;
-                int dx = a.TileX - tile.x, dy = a.TileY - tile.y;
-                int dist = dx * dx + dy * dy;
-                if (dist < bd) { bd = dist; best = a; }
-            }
+            NearestAgentsTo(tile, out VillagerAgent best, out _);
             best?.ShowTransient(t.StrikeLinesStructure[Random.Range(0, t.StrikeLinesStructure.Length)]);
         }
 
+        /// <summary>밭 소실 반응 대사 (M10-C, 표현 전용) — 다친 사람이 없으므로 타격 지점 최근접
+        /// 생존 주민 최대 2명이 내뱉는다 (재해 ShowStrikeLines 패턴 — 릴레이 아님, 대사만 Random 허용).</summary>
         private void ShowFarmStrikeLines(ThreatSO t, Vector2Int tile)
         {
             if (t.StrikeLinesFarm == null || t.StrikeLinesFarm.Length == 0 || _agents.Count == 0) return;
-            VillagerAgent a1 = null, a2 = null;
-            int d1 = int.MaxValue, d2 = int.MaxValue;
-            foreach (VillagerAgent a in _agents)
-            {
-                if (a == null || a.State == AgentState.Dead) continue;
-                int dx = a.TileX - tile.x, dy = a.TileY - tile.y;
-                int dist = dx * dx + dy * dy;
-                if (dist < d1) { d2 = d1; a2 = a1; d1 = dist; a1 = a; }
-                else if (dist < d2) { d2 = dist; a2 = a; }
-            }
+            NearestAgentsTo(tile, out VillagerAgent a1, out VillagerAgent a2);
             a1?.ShowTransient(t.StrikeLinesFarm[Random.Range(0, t.StrikeLinesFarm.Length)]);
             a2?.ShowTransient(t.StrikeLinesFarm[Random.Range(0, t.StrikeLinesFarm.Length)]);
         }

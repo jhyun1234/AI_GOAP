@@ -509,10 +509,6 @@ namespace AIVillage.M0
              : EffectivePressure(CurrentGlobalPressure(_peakPopulation()),
                                  EncountersOf(so), so.EncounterPressureK);
 
-        /// <summary>이 종족이 함정을 밟아 본 적이 있는가 — `TrapLearning`의 유일한 원천.
-        /// 세이브 대상 (ADR-M0-10): "배웠다"는 판을 이어 받아도 유지돼야 한다.</summary>
-        public bool HasTastedTrap(ThreatSO so) => so != null && _trapped.Contains(so.name);
-
         /// <summary>단독 웨이브 종족 (순수) — `SoloWave` 표시가 붙은 첫 종족. 없으면 null.
         /// 코드에 "악마"를 박지 않기 위한 조회다 (ADR-M24-4).</summary>
         public static ThreatSO SoloRace(ThreatSO[] races)
@@ -1406,7 +1402,7 @@ namespace AIVillage.M0
         {
             if (targetsVillagers)
             {
-                CollectVictimCandidates(entry, int.MaxValue, excludeInjured: false);
+                CollectVictimCandidates(entry, int.MaxValue);
                 if (_victimKeyBuf.Count > 0)
                 {
                     int idx = M0SimulationLoop.PickNearestIndex(entry.x, entry.y, _victimKeyBuf);
@@ -1496,7 +1492,7 @@ namespace AIVillage.M0
         /// </summary>
         public bool TryPickChaseTile(int fromX, int fromY, out Vector2Int tile)
         {
-            CollectVictimCandidates(new Vector2Int(fromX, fromY), int.MaxValue, excludeInjured: false);
+            CollectVictimCandidates(new Vector2Int(fromX, fromY), int.MaxValue);
             int idx = M0SimulationLoop.PickNearestIndex(fromX, fromY, _victimKeyBuf);
             if (idx >= 0)
             {
@@ -1513,7 +1509,7 @@ namespace AIVillage.M0
         public bool IsInStrikeRange(ThreatAgent agent)
         {
             CollectVictimCandidates(new Vector2Int(agent.TileX, agent.TileY),
-                                    agent.So.StrikeRadiusTiles, excludeInjured: false);
+                                    agent.So.StrikeRadiusTiles);
             return _victimKeyBuf.Count > 0;
         }
 
@@ -1641,7 +1637,7 @@ namespace AIVillage.M0
         /// <summary>사거리 안에 생존 주민이 있는가 — 빈 타격 거르기 전용 (퇴장 판정 아님).</summary>
         private bool HasVillagerTargetsNear(ThreatSO so, Vector2Int tile)
         {
-            CollectVictimCandidates(tile, so.StrikeRadiusTiles, excludeInjured: false);
+            CollectVictimCandidates(tile, so.StrikeRadiusTiles);
             return _victimKeyBuf.Count > 0;
         }
 
@@ -1779,7 +1775,7 @@ namespace AIVillage.M0
             {
                 // 후보 = 타격 반경 내 생존 주민. 부상자도 포함한다 (M21-W2 A1) — 체류형에서
                 // 제외를 유지하면 다친 사람이 무적이 되어 위협이 누구도 못 죽인다.
-                CollectVictimCandidates(tile, so.StrikeRadiusTiles, excludeInjured: false);
+                CollectVictimCandidates(tile, so.StrikeRadiusTiles);
                 int loss = DisasterService.LossCount(_victimKeyBuf.Count,
                     so.BaseLossPct, so.PerTargetPct, so.MaxLossPct);
                 PickNearestVictims(tile.x, tile.y, _victimKeyBuf, loss, _victimIdxBuf);
@@ -1825,10 +1821,10 @@ namespace AIVillage.M0
                              targetsVillagers ? (IReadOnlyList<VillagerAgent>)_struckBuf : EmptyVictims);
         }
 
-        /// <summary>타격 후보 수집 — 생존 주민 중 기준점 radius(맨해튼) 이내. excludeInjured면
-        /// 기존 부상자 제외. **M21-W2 이후 호출처는 전부 false다** (A1 — 부상자 재타격 허용).
-        /// 인자는 남겨 둔다: 부상자를 빼야 하는 새 판정(예: 구조 대상 선정)이 오면 그 자리다.</summary>
-        private void CollectVictimCandidates(Vector2Int from, int radius, bool excludeInjured)
+        /// <summary>타격 후보 수집 — 생존 주민 중 기준점 radius(맨해튼) 이내. 부상자도 포함한다
+        /// (M21-W2 A1 — 부상자 재타격 허용. excludeInjured 인자는 전 호출처 false 고정이라
+        /// 2026-08-11 삭제 — 부상자를 빼는 새 판정이 오면 그때 되살린다).</summary>
+        private void CollectVictimCandidates(Vector2Int from, int radius)
         {
             _victimAgentBuf.Clear();
             _victimKeyBuf.Clear();
@@ -1836,7 +1832,6 @@ namespace AIVillage.M0
             {
                 if (a == null || a.State == AgentState.Dead) continue;
                 if (a.IsOnTower) continue; // 망루 위는 닿지 않는다 (높이 — M22-3차 W3, ADR-M22-11)
-                if (excludeInjured && a.Injury != InjurySeverity.None) continue;
                 if (Mathf.Abs(a.TileX - from.x) + Mathf.Abs(a.TileY - from.y) > radius) continue;
                 _victimAgentBuf.Add(a);
                 _victimKeyBuf.Add((a.AgentId, a.TileX, a.TileY));

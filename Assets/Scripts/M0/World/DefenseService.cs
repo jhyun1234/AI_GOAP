@@ -180,6 +180,11 @@ namespace AIVillage.M0
         /// <summary>from 최근접(맨해튼) 시설 — 공성 타깃 선정 (ADR-M22-2). 동률은 좌표순 (결정적,
         /// ADR-M10-1 — 같은 판이면 같은 울타리를 두드린다).</summary>
         public bool TryGetNearestStructure(Vector2Int from, out SlotId slot, out Vector2Int tile)
+            => NearestIn(null, from, out slot, out tile);
+
+        /// <summary>최근접 탐색의 공용 몸통 (2026-08-11 두 벌 통합) — filter 지정 시 그 슬롯만.
+        /// 동률은 좌표순 (결정적 — ADR-M10-1).</summary>
+        private bool NearestIn(SlotId? filter, Vector2Int from, out SlotId slot, out Vector2Int tile)
         {
             slot = default;
             tile = default;
@@ -187,6 +192,7 @@ namespace AIVillage.M0
             bool found = false;
             foreach (KeyValuePair<(SlotId slot, Vector2Int tile), (float, float, int)> e in _durability)
             {
+                if (filter.HasValue && e.Key.slot != filter.Value) continue;
                 Vector2Int t = e.Key.tile;
                 int d = Mathf.Abs(t.x - from.x) + Mathf.Abs(t.y - from.y);
                 if (d > best) continue;
@@ -471,25 +477,9 @@ namespace AIVillage.M0
         }
 
         /// <summary>from 최근접(맨해튼) 완공 시설 — 슬롯 지정판 (M22-3차 W3, 탑승 러너의 목적지).
-        /// 동률은 좌표순 (결정적 — TryGetNearestStructure 동형).</summary>
+        /// 동률은 좌표순 (결정적 — TryGetNearestStructure와 같은 몸통).</summary>
         public bool TryGetNearestBuiltTile(SlotId slot, Vector2Int from, out Vector2Int tile)
-        {
-            tile = default;
-            int best = int.MaxValue;
-            bool found = false;
-            foreach (KeyValuePair<(SlotId slot, Vector2Int tile), (float, float, int)> e in _durability)
-            {
-                if (e.Key.slot != slot) continue;
-                Vector2Int t = e.Key.tile;
-                int d = Mathf.Abs(t.x - from.x) + Mathf.Abs(t.y - from.y);
-                if (d > best) continue;
-                if (d == best && (t.x > tile.x || (t.x == tile.x && t.y >= tile.y)) && found) continue;
-                best = d;
-                tile = t;
-                found = true;
-            }
-            return found;
-        }
+            => NearestIn(slot, from, out _, out tile);
 
         /// <summary>완공 시설 타일 전부 — 슬롯 지정판 (M24-1차 W7, 진입점 우회가 망루를 읽는다).
         /// `BuiltGateTiles` 와 같은 규약: 전용 등록부를 새로 파지 않고 **내구도 등록부에서 파생**한다

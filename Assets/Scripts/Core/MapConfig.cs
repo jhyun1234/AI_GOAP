@@ -90,17 +90,8 @@ namespace AIVillage.Core
 
         #endregion
 
-        #region ── 이동 속도 ──
-
-        [Header("이동 속도")]
-        [Tooltip("주민의 기본 이동 속도 (타일/초). 기획서 확정 수치: 2.0f. " +
-                 "현재 VillagerFSM.VILLAGER_MOVE_SPEED 상수와 동기화되어야 한다.")]
-        public float villagerMoveSpeed = 2.0f;  // 기획서 수치: 주민 이동속도 2.0f
-
-        [Tooltip("적 유닛의 기본 이동 속도 (타일/초). 기획서 확정 수치: 1.5f.")]
-        public float enemyMoveSpeed = 1.5f;     // 기획서 수치: 적 이동속도 1.5f
-
-        #endregion
+        // 이동 속도 필드(villagerMoveSpeed·enemyMoveSpeed)는 2026-08-11 삭제 — 정본은
+        // AgentConfigSO.BaseMoveSpeed(주민)·ThreatSO.MoveSpeed(위협). 판독자 0건이었다.
 
         #region ── 타일 색상 (설계 결정 D: 2타입 색상) ──
 
@@ -108,9 +99,8 @@ namespace AIVillage.Core
         [Tooltip("초원(Grass) 타일의 RGBA 색상. 기본: (100, 180, 80, 255) — 밝은 초록.")]
         public Color32 grassColor    = new Color32(100, 180,  80, 255);
 
-        [Tooltip("숲(Forest) 타일의 RGBA 색상. 기본: (40, 110, 40, 255) — 짙은 초록. " +
-                 "현재 지형 타입 시스템 없음 — MapChunkRenderer.GetBaseTileColor() 확장 시 사용됨.")]
-        public Color32 forestColor   = new Color32( 40, 110,  40, 255);
+        // forestColor는 2026-08-11 삭제 — 지형 색 정본은 M26-W5의 TerrainTypeSO.GroundColor
+        // → TerrainColorSource 훅. 판독자 0건이었다.
 
         [Tooltip("FoW 미탐험(Unexplored) 색상. 완전 검정으로 가림. (0, 0, 0, 255)")]
         public Color32 fowUnexplored = new Color32(  0,   0,   0, 255);

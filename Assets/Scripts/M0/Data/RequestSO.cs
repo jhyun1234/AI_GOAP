@@ -53,9 +53,8 @@ namespace AIVillage.M0
         [Tooltip("대상이 넘길 실물 슬롯 (개인 스톡만 — 예: MyRawFood)")]
         public SlotId TradeGiveSlot = SlotId.MyRawFood;
 
-        [Tooltip("구매자 불평 응수 (M16-W5, 확정 보완 9 — 물가 > 100% 성사 거래에서만. " +
-                 "공유 시세: 몰랐다가 아는 게 아니라 알면서 마음에 안 드는 것)")]
-        public string[] TradeInflatedLines;
+        // TradeInflatedLines(M16-W5 물가 불평 대사)는 2026-08-11 삭제 — 화폐 철거(M19)로
+        // 발화 조건("물가 > 100%")이 소멸, 판독자 0건이었다.
 
         [Tooltip("수락 시 대상의 개인 사다리에 주입할 goal — RelativeToCurrent 재사용 (M1-C 사본 규약)")]
         public GoalSO InjectGoal;
@@ -96,9 +95,8 @@ namespace AIVillage.M0
                  "모자라면 지급이 아니라 '연기' — 빚은 남고 다음 마주침에 다시 시도한다")]
         public int RewardCostAmount;
 
-        [Tooltip("휴면 필드 (M11-H 폐지) — 포만 직접 지급 경로는 삭제됐다. 수행자는 받은 식량을 " +
-                 "먹어서 포만을 얻는다 (결정 10). 0으로 둘 것")]
-        public int RewardSatietyGain;
+        // RewardSatietyGain(M11-H 폐지 잔재)은 2026-08-11 삭제 — 수행자는 받은 식량을 먹어서
+        // 포만을 얻는다 (결정 10). 판독자는 자기 자신을 지키는 OnValidate 경고뿐이었다.
 
         [Tooltip("수락 즉시 지급 (M17-R4) — 성격의 선불 요구(AgentConfig.DemandsUpfront)와 무관하게 " +
                  "**언제나** 선불로 처리한다.\n" +
@@ -152,9 +150,6 @@ namespace AIVillage.M0
                 && (RequesterTraits == null || RequesterTraits.Length == 0))
                 Debug.LogWarning($"[RequestSO] {name}: TraitBypassConditions가 있는데 RequesterTraits가 " +
                                  "비었습니다 — 우회할 성향 조건이 없어 아무 효과도 없습니다.", this);
-            if (RewardSatietyGain != 0)
-                Debug.LogWarning($"[RequestSO] {name}: RewardSatietyGain({RewardSatietyGain})은 휴면 필드입니다 " +
-                                 "— 포만 직접 지급은 M11-H에서 폐지됐습니다 (수행자는 받은 식량을 먹는다). 0 권장.", this);
         }
     }
 }

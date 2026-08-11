@@ -291,8 +291,7 @@ namespace AIVillage.M0
             => (Personality != null ? Personality.FleeRadiusMult : 1f)
                * TraitVector.Threshold(MyTraits, _cfg.FleeRadiusBias, 1f); // 개체 편차 포함 (M14-W3)
 
-        /// <summary>배율 개체 편차 [채집, 농사, 건설, 탐험] — 스폰 1회 고정, M4-B 비용 배열 계산에 사용.</summary>
-        public float[] MultJitter => _multJitter;
+        // 배율 개체 편차 [채집, 농사, 건설, 탐험] — 스폰 1회 고정, M4-B 비용 배열 계산에 사용.
         private float[] _multJitter;
 
         // 포만 감쇠율 개체 편차 (2026-07-17 웨이브 수정) — FNV-1a 결정적, 세이브 불필요 (재계산)
@@ -1802,50 +1801,14 @@ namespace AIVillage.M0
             if (_request != null && _requestIsRuntimeClone) Destroy(_request);
             _request = null;
             _requestIsRuntimeClone = false;
-            VisitTargetAgentId = null;
         }
 
-        // ── [DEPRECATED 2026-07-18 — 조각 Y] 완공 보고 심부름 (M8 후속 — "알리러 가기") ────────
-        // 보고가 "쫓아가기"에서 "마주치면 정산"(RequestService.TickRewardSettlement)으로 바뀌며 휴면.
-        // GiveReportErrand는 더 이상 호출되지 않아 아래 전부 죽은 경로. 후속 정리 대상
-        // (Docs/퀘스트보드_및_보고심부름정리_후속.md).
-
-        /// <summary>방문 심부름의 대상 주민 ID (VisitRunner가 읽는다). null = 심부름 없음.</summary>
-        public string VisitTargetAgentId { get; private set; }
-
-        /// <summary>방문 대상 조회 — 이탈(Dead)·소멸이면 null (러너가 실패로 승격).</summary>
-        public VillagerAgent FindVisitTarget()
-        {
-            if (string.IsNullOrEmpty(VisitTargetAgentId)) return null;
-            foreach (VillagerAgent a in _sim.Agents)
-                if (a != null && a.State != AgentState.Dead && a.AgentId == VisitTargetAgentId)
-                    return a;
-            return null;
-        }
+        // 완공 보고 심부름(조각 Y — VisitTargetAgentId·GiveReportErrand 사슬)은 "마주치면 정산"
+        // (RequestService.TickRewardSettlement) 전환으로 2026-08-11 삭제 (ADR-M0-4 폐기=삭제,
+        // Docs/퀘스트보드_및_보고심부름정리_후속.md 이행. 복원은 git 히스토리에서).
 
         // FindNearestWithJob(M17-R3)은 M20-W12에서 SeekJob 사슬(유일한 호출처)과 함께 삭제
         // (ADR-M0-4 폐기=삭제 — 집 부탁 철거 ADR-M20-7의 귀결. 복원은 git 히스토리에서).
-
-        /// <summary>
-        /// 보고 심부름 부여 (RequestService 전용) — 부탁 슬롯 재사용 (ADR-M8-4: 새 실행 경로 없음).
-        /// 심부름 goal은 GoalConditions가 비어 완수 판정을 타지 않는다 — 소멸은 PlayReport/타임아웃.
-        /// </summary>
-        public void GiveReportErrand(GoalSO errand, string targetAgentId)
-        {
-            if (errand == null || string.IsNullOrEmpty(targetAgentId)) return;
-            ClearRequestInstance(); // 방어 — 기존 슬롯 정리 후 (완수 경로에선 이미 비어 있음)
-            _request = errand;
-            _requestIsRuntimeClone = false;
-            VisitTargetAgentId = targetAgentId;
-            _goalRetryAt.Remove(errand);
-            if (State == AgentState.Idle) _idleCooldownSec = 0f;
-        }
-
-        /// <summary>방문 도착 통지 (VisitRunner 전용) — 장면·보상·심부름 정리는 RequestService.</summary>
-        public void CompleteVisit() => _sim.Requests?.PlayReport(this);
-
-        /// <summary>심부름 회수 (RequestService 전용 — 보고 완료·타임아웃·의뢰인 이탈).</summary>
-        public void ClearRequestErrand() => ClearRequestInstance();
 
         /// <summary>명령 취소 (주민 우클릭). 수행 중이었다면 즉시 자율 복귀.</summary>
         public void CancelOrder()
@@ -1998,9 +1961,8 @@ namespace AIVillage.M0
             => slot == SlotId.MyRawFood ? MyRaw
              : slot == SlotId.MyCookedFood ? MyCooked : 0;
 
-        /// <summary>개인 스톡 슬롯별 상한 (M19-W5: 돈 예외 철거 — 전 슬롯 몸 상한 하나).</summary>
-        public static int PersonalCapOf(SlotId slot, int bodyCarryCap)
-            => bodyCarryCap;
+        // PersonalCapOf(slot, cap)는 2026-08-11 삭제 — M19 지갑 철거 후 slot 무시 항등 함수였다.
+        // 상한은 전 슬롯 BodyCarryCap 하나 (M19-W5).
 
         /// <summary>
         /// 개인 스톡 계단 (순수 — 게이트 M11-T1): Sub 부족 = 실패(무변경), Add 상한 초과 = 실패
@@ -2031,7 +1993,7 @@ namespace AIVillage.M0
         {
             if (!SlotIds.IsPersonalStock(slot)) return false;
             (bool ok, int next) = NextPersonalStock(GetPersonalStock(slot), op, value,
-                                                    PersonalCapOf(slot, _cfg.BodyCarryCap));
+                                                    _cfg.BodyCarryCap);
             if (!ok) return false;
             if (slot == SlotId.MyRawFood) MyRaw = next;
             else if (slot == SlotId.MyCookedFood) MyCooked = next;
@@ -2048,10 +2010,9 @@ namespace AIVillage.M0
         public bool CanPayReward(SlotId slot, int amount)
             => CanPay(GetPersonalStock(slot), HomeStockOf(slot), amount);
 
-        /// <summary>수령 공간 — 상한은 슬롯별이다 (M11-A 개정). 몸에만 받는다 (집은 걸어가야 하므로).
-        /// 돈은 상한 없음 (PersonalCapOf — M16 실사 ④).</summary>
+        /// <summary>수령 공간 — 몸에만 받는다 (집은 걸어가야 하므로). 상한은 BodyCarryCap.</summary>
         public bool HasRoomFor(SlotId slot, int amount)
-            => amount <= 0 || PersonalCapOf(slot, _cfg.BodyCarryCap) - GetPersonalStock(slot) >= amount;
+            => amount <= 0 || _cfg.BodyCarryCap - GetPersonalStock(slot) >= amount;
 
         /// <summary>내 집 저장 잔량 — 무주택·미배선이면 0.</summary>
         private int HomeStockOf(SlotId slot)
@@ -2113,18 +2074,8 @@ namespace AIVillage.M0
                 Debug.LogWarning($"[Inventory] {AgentId}: 몸 소지 복원 실패 {fromBody} — 소실");
         }
 
-        /// <summary>내 식량 총 개수 (M16-W4 — 물가 분모 Q의 재료: 몸+집, 생식+조리).
-        /// EstimateMyFoodDays(일수 환산)와 다르다 — 물가는 재화 "개수" 대 돈의 비율이다.</summary>
-        public int TotalFoodCount()
-        {
-            int home = 0;
-            if (HomeStorage != null && TryGetHomeTile(out Vector2Int t))
-            {
-                (int raw, int cooked) = HomeStorage.Get(t);
-                home = raw + cooked;
-            }
-            return MyRaw + MyCooked + home;
-        }
+        // TotalFoodCount(M16-W4 물가 분모 Q 재료)는 2026-08-11 삭제 — 화폐 축이 M19에서
+        // 철거되며 호출자 0건 (복원은 git 히스토리에서).
 
         /// <summary>피격 경험 (M11-G, MyWasAttacked 슬롯의 유일한 원천) — 쓰기는 Injure뿐이고
         /// 되돌리는 경로는 없다 (영구). 회복·간호는 이 값을 건드리지 않는다.</summary>

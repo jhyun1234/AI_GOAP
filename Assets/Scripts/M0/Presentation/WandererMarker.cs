@@ -40,12 +40,9 @@ namespace AIVillage.M0
                 ? M0SimulationLoop.Instance.SpriteSet : null;
             if (set != null)
             {
-                // Kenmi 조각은 피벗이 좌하단 — 자식 오프셋으로 타일 중앙 정렬 (VillagerAgent와 동형)
-                var view = new GameObject("View");
-                view.transform.SetParent(transform, worldPositionStays: false);
-                view.transform.localScale = Vector3.one * set.Scale;
-                view.transform.localPosition = new Vector3(-set.Scale, -set.Scale, 0f);
-                _sr = view.AddComponent<SpriteRenderer>();
+                // 장착의 유일한 지점(SpriteViewRig) 경유 — 舊 좌하단 피벗 보정은 반 칸짜리
+                // 어긋남으로 판명(2026-08-10 실측)돼 2026-08-11 이 경로로 이관.
+                _sr = SpriteViewRig.Attach(transform, set);
                 _anim = new AgentAnimator(_sr, set, Color.white);
                 _sr.color = Color.Lerp(Color.white, VisitorTint, 0.3f); // 애니메이터 틴트 위에 덮어쓴다
 

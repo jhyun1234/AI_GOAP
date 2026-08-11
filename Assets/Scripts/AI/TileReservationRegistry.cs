@@ -14,9 +14,6 @@ namespace AIVillage.AI
         private static readonly Dictionary<Vector2Int, string> _reservations
             = new Dictionary<Vector2Int, string>(256);
 
-        /// <summary>현재 등록된 예약 개수. EditMode 게이트 M22 / 디버그 훅용.</summary>
-        public static int Count => _reservations.Count;
-
         /// <summary>
         /// tile이 비어 있거나 ownerId가 이미 소유 중이면 true를 반환하며 예약을 확정한다.
         /// 같은 owner의 재요청은 항상 true (idempotent) — 이동 파이프라인의 반복 확인을 허용.
@@ -36,12 +33,6 @@ namespace AIVillage.AI
         {
             if (_reservations.TryGetValue(tile, out string existing) && existing == ownerId)
                 _reservations.Remove(tile);
-        }
-
-        /// <summary>tile이 ownerId 소유인지 여부. 예약이 없거나 다른 소유자면 false.</summary>
-        public static bool IsOwnedBy(Vector2Int tile, string ownerId)
-        {
-            return _reservations.TryGetValue(tile, out string existing) && existing == ownerId;
         }
 
         /// <summary>

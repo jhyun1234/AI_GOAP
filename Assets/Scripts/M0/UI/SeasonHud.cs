@@ -684,31 +684,55 @@ namespace AIVillage.M0
         public bool GameOverShown => _gameOver != null;
 
         /// <summary>
-        /// 회고 명부 클릭 판독 (M13 — 드릴다운). 화면 좌표 → 명부 몇 번째 사람인가.
+        /// 원문 줄 계산 클릭 판독 공용부 (M13 회고 명부 · M15 판 목록 — 2026-08-11 2차 감사 통합).
         /// 렌더 줄이 아니라 **원문 줄**로 계산한다 — lineInfo의 첫 문자 → 원문 인덱스 →
         /// 개행 수. 오토사이즈로 줄바꿈(wrap)돼도 매핑이 밀리지 않는다 (상태줄 클릭의
-        /// 🟡줄바꿈 밀림을 여기선 구조적으로 차단).
-        /// 헤더 2줄(제목·빈 줄) 뒤가 명부다. 명부 밖 = false.
+        /// 🟡줄바꿈 밀림을 여기선 구조적으로 차단). 헤더 headerLines줄 뒤가 목록. 목록 밖 = false.
         /// </summary>
-        public bool TryPickGameOverRosterIndex(Vector2 screenPos, out int rosterIndex)
+        private static bool TryPickComposedLine(TMP_Text target, Vector2 screenPos, int headerLines,
+                                                out int index)
         {
-            rosterIndex = -1;
-            if (_gameOverText == null || string.IsNullOrEmpty(_gameOverText.text)) return false;
-            int line = TMP_TextUtilities.FindIntersectingLine(_gameOverText, screenPos, null);
+            index = -1;
+            if (target == null || string.IsNullOrEmpty(target.text)) return false;
+            int line = TMP_TextUtilities.FindIntersectingLine(target, screenPos, null);
             if (line < 0) return false;
 
-            TMP_TextInfo info = _gameOverText.textInfo;
+            TMP_TextInfo info = target.textInfo;
             if (line >= info.lineCount) return false;
             int chArr = info.lineInfo[line].firstCharacterIndex;
             if (chArr < 0 || chArr >= info.characterCount) return false;
             int src = info.characterInfo[chArr].index; // 원문 문자 위치
 
-            string t = _gameOverText.text;
+            string t = target.text;
             int composedLine = 0;
             for (int i = 0; i < src && i < t.Length; i++)
                 if (t[i] == '\n') composedLine++;
-            rosterIndex = composedLine - 2; // 제목 + 빈 줄
-            return rosterIndex >= 0;
+            index = composedLine - headerLines;
+            return index >= 0;
+        }
+
+        /// <summary>회고 명부 클릭 판독 (M13 — 드릴다운). 헤더 2줄(제목·빈 줄) 뒤가 명부.</summary>
+        public bool TryPickGameOverRosterIndex(Vector2 screenPos, out int rosterIndex)
+            => TryPickComposedLine(_gameOverText, screenPos, 2, out rosterIndex);
+
+        /// <summary>오버레이 텍스트 공용 생성부 (회고·연대기 4곳 — 2026-08-11 2차 감사 통합).
+        /// 폰트 공유(W6 패턴)·오토사이즈(M13-C1 방침 — 내용이 길어지면 박스에 맞춰 축소)·
+        /// 중앙 정렬·레이캐스트 차단까지. 배치(anchor/pivot/size)는 호출처가 정한다.</summary>
+        private TextMeshProUGUI MakeOverlayText(string name, Transform parent,
+                                                float sizeMin, float sizeMax, Color color)
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(parent, false);
+            var txt = go.AddComponent<TextMeshProUGUI>();
+            if (_calendar.font != null) txt.font = _calendar.font;
+            txt.fontSize = sizeMax;
+            txt.enableAutoSizing = true;
+            txt.fontSizeMin = sizeMin;
+            txt.fontSizeMax = sizeMax;
+            txt.alignment = TextAlignmentOptions.Center;
+            txt.color = color;
+            txt.raycastTarget = false;
+            return txt;
         }
 
         /// <summary>드릴다운 상세 표시 (M13) — 회고 하단에 클릭한 주민의 연대기 한 줄.
@@ -718,17 +742,8 @@ namespace AIVillage.M0
             if (_gameOver == null) return;
             if (_gameOverDetail == null)
             {
-                var go = new GameObject("GameOverDetail");
-                go.transform.SetParent(_gameOver.transform, false);
-                var txt = go.AddComponent<TextMeshProUGUI>();
-                if (_calendar.font != null) txt.font = _calendar.font;
-                txt.fontSize = 26f;
-                txt.enableAutoSizing = true; // 긴 연대기 — 박스에 맞춰 축소 (명부와 동일 방침)
-                txt.fontSizeMin = 16f;
-                txt.fontSizeMax = 26f;
-                txt.alignment = TextAlignmentOptions.Center;
-                txt.color = new Color(0.92f, 0.9f, 0.78f);
-                txt.raycastTarget = false;
+                var txt = MakeOverlayText("GameOverDetail", _gameOver.transform,
+                                          16f, 26f, new Color(0.92f, 0.9f, 0.78f));
                 RectTransform rt = txt.rectTransform;
                 rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0f); // 하단 중앙
                 rt.pivot = new Vector2(0.5f, 0f);
@@ -758,20 +773,10 @@ namespace AIVillage.M0
             bgRt.anchorMax = Vector2.one;
             bgRt.offsetMin = bgRt.offsetMax = Vector2.zero; // 풀스크린
 
-            var txtGo = new GameObject("GameOverText");
-            txtGo.transform.SetParent(_gameOver.transform, false);
-            var txt = txtGo.AddComponent<TextMeshProUGUI>();
+            // 명부는 주민 수만큼 길어지므로 고정 44pt로는 넘친다 — 오토사이즈 (M13-C1, 명세 §12-2)
+            var txt = MakeOverlayText("GameOverText", _gameOver.transform,
+                                      18f, 44f, new Color(1f, 0.92f, 0.85f));
             _gameOverText = txt; // 드릴다운 클릭 판독 대상 (M13)
-            if (_calendar.font != null) txt.font = _calendar.font; // 한글 폰트 공유 (W6 패턴)
-            txt.fontSize = 44f;
-            // 오토사이즈 (M13-C1 — 명세 §12-2 제안 채택): 명부는 주민 수만큼 길어지므로
-            // 통계 3줄 기준 고정 44pt로는 넘친다. 스크롤 UI 없이 박스에 맞춰 축소.
-            txt.enableAutoSizing = true;
-            txt.fontSizeMin = 18f;
-            txt.fontSizeMax = 44f;
-            txt.alignment = TextAlignmentOptions.Center;
-            txt.color = new Color(1f, 0.92f, 0.85f);
-            txt.raycastTarget = false;
             txt.SetSafe(text ?? "");
             RectTransform txtRt = txt.rectTransform;
             txtRt.anchorMin = txtRt.anchorMax = new Vector2(0.5f, 0.5f);
@@ -885,28 +890,9 @@ namespace AIVillage.M0
             return line;
         }
 
-        /// <summary>판 목록 클릭 판독 — TryPickGameOverRosterIndex와 같은 기법 (원문 줄 계산 —
-        /// wrap 밀림 차단). 헤더 2줄 뒤가 목록. 목록 밖 = false.</summary>
+        /// <summary>판 목록 클릭 판독 (M15) — 회고 명부와 같은 공용부. 헤더 2줄 뒤가 목록.</summary>
         public bool TryPickChronicleRunIndex(Vector2 screenPos, out int runIndex)
-        {
-            runIndex = -1;
-            if (_chronicleList == null || string.IsNullOrEmpty(_chronicleList.text)) return false;
-            int line = TMP_TextUtilities.FindIntersectingLine(_chronicleList, screenPos, null);
-            if (line < 0) return false;
-
-            TMP_TextInfo info = _chronicleList.textInfo;
-            if (line >= info.lineCount) return false;
-            int chArr = info.lineInfo[line].firstCharacterIndex;
-            if (chArr < 0 || chArr >= info.characterCount) return false;
-            int src = info.characterInfo[chArr].index;
-
-            string t = _chronicleList.text;
-            int composedLine = 0;
-            for (int i = 0; i < src && i < t.Length; i++)
-                if (t[i] == '\n') composedLine++;
-            runIndex = composedLine - 2; // 제목 + 빈 줄
-            return runIndex >= 0;
-        }
+            => TryPickComposedLine(_chronicleList, screenPos, 2, out runIndex);
 
         // ── 구조 명령 목록 (M26-2차 W7 · W8 후속 개정 2026-08-11) ──────────────────
         //
@@ -1017,32 +1003,17 @@ namespace AIVillage.M0
             bgRt.anchorMax = Vector2.one;
             bgRt.offsetMin = bgRt.offsetMax = Vector2.zero;
 
-            var listGo = new GameObject("ChronicleList");
-            listGo.transform.SetParent(_chroniclePanel.transform, false);
-            _chronicleList = listGo.AddComponent<TextMeshProUGUI>();
-            if (_calendar.font != null) _chronicleList.font = _calendar.font;
-            _chronicleList.enableAutoSizing = true; // 판이 쌓이면 길어진다 — 회고 명부와 동일 방침
-            _chronicleList.fontSizeMin = 16f;
-            _chronicleList.fontSizeMax = 36f;
-            _chronicleList.alignment = TextAlignmentOptions.Center;
-            _chronicleList.color = new Color(1f, 0.92f, 0.85f);
-            _chronicleList.raycastTarget = false;
+            // 판이 쌓이면 길어진다 — 회고 명부와 동일한 오토사이즈 방침
+            _chronicleList = MakeOverlayText("ChronicleList", _chroniclePanel.transform,
+                                             16f, 36f, new Color(1f, 0.92f, 0.85f));
             RectTransform listRt = _chronicleList.rectTransform;
             listRt.anchorMin = listRt.anchorMax = new Vector2(0.5f, 0.5f);
             listRt.pivot = new Vector2(0.5f, 0f);
             listRt.anchoredPosition = new Vector2(0f, -20f); // 화면 상반부 = 목록
             listRt.sizeDelta = new Vector2(900f, 340f);
 
-            var detailGo = new GameObject("ChronicleDetail");
-            detailGo.transform.SetParent(_chroniclePanel.transform, false);
-            _chronicleDetail = detailGo.AddComponent<TextMeshProUGUI>();
-            if (_calendar.font != null) _chronicleDetail.font = _calendar.font;
-            _chronicleDetail.enableAutoSizing = true;
-            _chronicleDetail.fontSizeMin = 14f;
-            _chronicleDetail.fontSizeMax = 26f;
-            _chronicleDetail.alignment = TextAlignmentOptions.Center;
-            _chronicleDetail.color = new Color(0.92f, 0.9f, 0.78f); // 드릴다운과 같은 톤
-            _chronicleDetail.raycastTarget = false;
+            _chronicleDetail = MakeOverlayText("ChronicleDetail", _chroniclePanel.transform,
+                                               14f, 26f, new Color(0.92f, 0.9f, 0.78f)); // 드릴다운과 같은 톤
             RectTransform detailRt = _chronicleDetail.rectTransform;
             detailRt.anchorMin = detailRt.anchorMax = new Vector2(0.5f, 0.5f);
             detailRt.pivot = new Vector2(0.5f, 1f);

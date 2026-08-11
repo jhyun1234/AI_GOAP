@@ -5,6 +5,8 @@ using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
 
+using static AIVillage.Tests.EditMode.GateHelpers;
+
 namespace AIVillage.Tests.EditMode
 {
     /// <summary>
@@ -13,20 +15,7 @@ namespace AIVillage.Tests.EditMode
     /// </summary>
     public class M6_SeasonGates
     {
-        private static SeasonSO MakeSeason(string name, float days, bool crisis)
-        {
-            var s = ScriptableObject.CreateInstance<SeasonSO>();
-            s.name = name;
-            s.DisplayName = name;
-            s.DurationDays = days;
-            s.IsCrisis = crisis;
-            return s;
-        }
-
-        private static void DestroyAll(params Object[] objs)
-        {
-            foreach (Object o in objs) Object.DestroyImmediate(o);
-        }
+        // MakeSeason·DestroyAll·Snap → GateHelpers (2026-08-11 2차 감사 통합)
 
         /// <summary>
         /// 첫 사이클 유예 (2026-07-24) — 준비 기간만 늘리고 이후 리듬은 불변. 0 = 중립 불변식.
@@ -217,13 +206,6 @@ namespace AIVillage.Tests.EditMode
         }
 
         // ── M6-T1b: 중립 불변식 — 계절 미배선 = M5와 동일 판정 ───────────────
-
-        private static WorldSnapshot Snap(params (SlotId slot, int value)[] pairs)
-        {
-            var slots = new int[PlanningConfig.TotalSlots];
-            foreach ((SlotId slot, int value) in pairs) slots[(int)slot] = value;
-            return new WorldSnapshot(slots);
-        }
 
         [Test]
         public void M6_T1b_NeutralInvariant_UnwiredSeasonSlotDefaults()

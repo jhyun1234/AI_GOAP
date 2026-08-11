@@ -3,6 +3,8 @@ using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
 
+using static AIVillage.Tests.EditMode.GateHelpers;
+
 namespace AIVillage.Tests.EditMode
 {
     /// <summary>
@@ -11,14 +13,7 @@ namespace AIVillage.Tests.EditMode
     /// </summary>
     public class M7_ChatterGates
     {
-        private static GoalSO MakeGoal(string name, int priority)
-        {
-            var g = ScriptableObject.CreateInstance<GoalSO>();
-            g.name = name;
-            g.DisplayName = name;
-            g.Priority = priority;
-            return g;
-        }
+        // MakeGoal·DestroyAll → GateHelpers (2026-08-11 2차 감사 통합)
 
         private static ChatterSO MakeChatter(GoalSO speakerGoal = null,
                                              int minSpeaker = 8, int maxTarget = 2)
@@ -29,11 +24,6 @@ namespace AIVillage.Tests.EditMode
             c.MinSpeakerGoalPriority = minSpeaker;
             c.MaxTargetGoalPriority = maxTarget;
             return c;
-        }
-
-        private static void DestroyAll(params Object[] objs)
-        {
-            foreach (Object o in objs) Object.DestroyImmediate(o);
         }
 
         // ── M7-T1: Matches 순수 판정 (ADR-M7-2 — 원본 Priority 대역만) ─────────

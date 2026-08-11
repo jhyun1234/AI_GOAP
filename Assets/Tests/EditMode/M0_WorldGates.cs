@@ -3,6 +3,8 @@ using AIVillage.M0;
 using NUnit.Framework;
 using UnityEngine;
 
+using static AIVillage.Tests.EditMode.GateHelpers;
+
 namespace AIVillage.Tests.EditMode
 {
     /// <summary>
@@ -13,13 +15,7 @@ namespace AIVillage.Tests.EditMode
     /// </summary>
     public class M0_WorldGates
     {
-        private static WorldConfigSO Config(int wood, int raw)
-        {
-            var c = ScriptableObject.CreateInstance<WorldConfigSO>();
-            c.InitialWoodStock = wood;
-            c.InitialRawFoodStock = raw;
-            return c;
-        }
+        // Config → GateHelpers (2026-08-11 2차 감사 통합)
 
         private static BuildingSO CampfireBuilding()
         {

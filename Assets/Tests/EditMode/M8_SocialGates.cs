@@ -2,6 +2,8 @@ using AIVillage.M0;
 using NUnit.Framework;
 using UnityEngine;
 
+using static AIVillage.Tests.EditMode.GateHelpers;
+
 namespace AIVillage.Tests.EditMode
 {
     /// <summary>
@@ -10,10 +12,7 @@ namespace AIVillage.Tests.EditMode
     /// </summary>
     public class M8_SocialGates
     {
-        private static void DestroyAll(params Object[] objs)
-        {
-            foreach (Object o in objs) Object.DestroyImmediate(o);
-        }
+        // DestroyAll·MakeGoal → GateHelpers (2026-08-11 2차 감사 통합)
 
         // ── M8-T1: 관계 축적 (ADR-M8-1 — 쓰기 단일 지점의 계약) ────────────────
 
@@ -137,15 +136,6 @@ namespace AIVillage.Tests.EditMode
         // 완수뿐)와 함께 삭제됨. 빈집 재활용 정책이 생기면 그때 새 게이트와 함께.
 
         // ── M8-T2: 부탁 판정 (ADR-M8-2 — 결정적, 바쁨→배고픔→피로→친밀) ────────
-
-        private static GoalSO MakeGoal(string name, int priority)
-        {
-            var g = ScriptableObject.CreateInstance<GoalSO>();
-            g.name = name;
-            g.DisplayName = name;
-            g.Priority = priority;
-            return g;
-        }
 
         private static WorldSnapshot Snap()
             => new WorldSnapshot(new int[PlanningConfig.TotalSlots]);

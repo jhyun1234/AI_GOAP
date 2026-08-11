@@ -4,6 +4,8 @@ using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
 
+using static AIVillage.Tests.EditMode.GateHelpers;
+
 namespace AIVillage.Tests.EditMode
 {
     /// <summary>
@@ -434,13 +436,6 @@ namespace AIVillage.Tests.EditMode
         }
 
         // ── M21-T9: 교전 goal — 피신과의 대칭 (W4 DoD ①③⑤) ─────────────────
-
-        private static GoalSO LoadGoal(string n)
-        {
-            var g = AssetDatabase.LoadAssetAtPath<GoalSO>($"Assets/M0Config/Goals/{n}.asset");
-            Assert.IsNotNull(g, $"{n} 에셋 로드");
-            return g;
-        }
 
         private static WorldSnapshot SnapThreat(int threatNear)
         {
@@ -948,22 +943,6 @@ namespace AIVillage.Tests.EditMode
             Object.DestroyImmediate(c);
         }
 
-        private static WorldSnapshot Snap(params (SlotId slot, int value)[] pairs)
-        {
-            var slots = new int[PlanningConfig.TotalSlots];
-            foreach ((SlotId slot, int value) in pairs) slots[(int)slot] = value;
-            return new WorldSnapshot(slots);
-        }
-
-        private static (PlanStatus status, ActionSO[] plan) RunPlan(
-            PlannerGateway gw, WorldSnapshot snap, GoalSO goal)
-        {
-            PlannerGateway.PendingPlan pending = gw.RequestPlan(snap, goal);
-            Assert.IsNotNull(pending, "RequestPlan이 null을 반환했습니다.");
-            gw.CompleteNow(pending);
-            Assert.IsTrue(gw.TryGetResult(pending, out PlanStatus status, out ActionSO[] plan, out _),
-                "CompleteNow 이후에도 TryGetResult가 false입니다.");
-            return (status, plan);
-        }
+        // LoadGoal·Snap·RunPlan → GateHelpers (2026-08-11 2차 감사 통합)
     }
 }

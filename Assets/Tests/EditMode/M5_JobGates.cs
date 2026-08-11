@@ -4,6 +4,8 @@ using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
 
+using static AIVillage.Tests.EditMode.GateHelpers;
+
 namespace AIVillage.Tests.EditMode
 {
     /// <summary>
@@ -44,19 +46,7 @@ namespace AIVillage.Tests.EditMode
 
         // ── M5-B: 실효 우선순위 + 배율 결합 ─────────────────────────────────
 
-        private static GoalSO LoadGoal(string name)
-        {
-            var g = AssetDatabase.LoadAssetAtPath<GoalSO>($"Assets/M0Config/Goals/{name}.asset");
-            Assert.IsNotNull(g, $"goal 에셋 없음: {name}");
-            return g;
-        }
-
-        private static WorldSnapshot Snap(params (SlotId slot, int value)[] pairs)
-        {
-            var slots = new int[PlanningConfig.TotalSlots];
-            foreach ((SlotId slot, int value) in pairs) slots[(int)slot] = value;
-            return new WorldSnapshot(slots);
-        }
+        // LoadGoal·Snap → GateHelpers (2026-08-11 2차 감사 통합)
 
         [Test]
         public void M5_T1_NeutralInvariant_SelectIdenticalToM4()

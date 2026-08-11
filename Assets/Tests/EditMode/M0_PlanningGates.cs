@@ -5,6 +5,8 @@ using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
 
+using static AIVillage.Tests.EditMode.GateHelpers;
+
 namespace AIVillage.Tests.EditMode
 {
     /// <summary>
@@ -17,7 +19,6 @@ namespace AIVillage.Tests.EditMode
     public class M0_PlanningGates
     {
         private const string CatalogPath   = "Assets/M0Config/ActionCatalog.asset";
-        private const string GoalDir       = "Assets/M0Config/Goals/";
 
         private static ActionCatalog LoadCatalog()
         {
@@ -26,30 +27,7 @@ namespace AIVillage.Tests.EditMode
             return catalog;
         }
 
-        private static GoalSO LoadGoal(string name)
-        {
-            var goal = AssetDatabase.LoadAssetAtPath<GoalSO>($"{GoalDir}{name}.asset");
-            Assert.IsNotNull(goal, $"Goal 에셋 없음: {name}");
-            return goal;
-        }
-
-        /// <summary>지정 슬롯만 세팅한 스냅샷 생성. 나머지는 0.</summary>
-        private static WorldSnapshot Snap(params (SlotId slot, int value)[] pairs)
-        {
-            var slots = new int[PlanningConfig.TotalSlots];
-            foreach ((SlotId slot, int value) in pairs) slots[(int)slot] = value;
-            return new WorldSnapshot(slots);
-        }
-
-        private static (PlanStatus status, ActionSO[] plan) RunPlan(PlannerGateway gw, WorldSnapshot snap, GoalSO goal)
-        {
-            PlannerGateway.PendingPlan pending = gw.RequestPlan(snap, goal);
-            Assert.IsNotNull(pending, "RequestPlan이 null을 반환했습니다.");
-            gw.CompleteNow(pending);
-            bool done = gw.TryGetResult(pending, out PlanStatus status, out ActionSO[] plan, out _);
-            Assert.IsTrue(done, "CompleteNow 이후에도 TryGetResult가 false입니다.");
-            return (status, plan);
-        }
+        // LoadGoal·Snap·RunPlan → GateHelpers (2026-08-11 2차 감사 통합)
 
         // ── M0-T1: 컴파일 라운드트립 ─────────────────────────────────────────
 

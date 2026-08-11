@@ -4,6 +4,8 @@ using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
 
+using static AIVillage.Tests.EditMode.GateHelpers;
+
 namespace AIVillage.Tests.EditMode
 {
     /// <summary>
@@ -33,13 +35,6 @@ namespace AIVillage.Tests.EditMode
 
         private static SlotCondition C(SlotId slot, CompareOp op, int v)
             => new SlotCondition { Slot = slot, Op = op, Value = v };
-
-        private static WorldSnapshot Snap(params (SlotId slot, int value)[] pairs)
-        {
-            var slots = new int[PlanningConfig.TotalSlots];
-            foreach ((SlotId slot, int value) in pairs) slots[(int)slot] = value;
-            return new WorldSnapshot(slots);
-        }
 
         // ── M1-T1: 거부 판정 경계 (ADR-M1-2) ────────────────────────────────
 

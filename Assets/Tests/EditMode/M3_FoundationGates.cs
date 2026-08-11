@@ -4,6 +4,8 @@ using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
 
+using static AIVillage.Tests.EditMode.GateHelpers;
+
 namespace AIVillage.Tests.EditMode
 {
     /// <summary>
@@ -13,13 +15,7 @@ namespace AIVillage.Tests.EditMode
     /// </summary>
     public class M3_FoundationGates
     {
-        private static WorldConfigSO Config(int wood, int raw)
-        {
-            var c = ScriptableObject.CreateInstance<WorldConfigSO>();
-            c.InitialWoodStock = wood;
-            c.InitialRawFoodStock = raw;
-            return c;
-        }
+        // Config → GateHelpers (2026-08-11 2차 감사 통합)
 
         /// <summary>수량형 대역 — HouseCount 슬롯은 M3-D에서 생기므로 FarmPlotCount로 메커니즘을 검증한다.</summary>
         private static BuildingSO Countable()

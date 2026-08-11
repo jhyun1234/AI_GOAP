@@ -4,6 +4,8 @@ using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
 
+using static AIVillage.Tests.EditMode.GateHelpers;
+
 namespace AIVillage.Tests.EditMode
 {
     /// <summary>
@@ -13,13 +15,7 @@ namespace AIVillage.Tests.EditMode
     /// </summary>
     public class M2_ProductionGates
     {
-        private static WorldConfigSO Config(int wood, int raw)
-        {
-            var c = ScriptableObject.CreateInstance<WorldConfigSO>();
-            c.InitialWoodStock = wood;
-            c.InitialRawFoodStock = raw;
-            return c;
-        }
+        // Config → GateHelpers (2026-08-11 2차 감사 통합)
 
         /// <summary>수량형 밭 (ADR-M2-3): CountSlot=FarmPlotCount, 비용 Wood 5 (§4 제안치).</summary>
         private static BuildingSO FarmBuilding()

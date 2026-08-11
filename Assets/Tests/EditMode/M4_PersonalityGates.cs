@@ -4,6 +4,8 @@ using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
 
+using static AIVillage.Tests.EditMode.GateHelpers;
+
 namespace AIVillage.Tests.EditMode
 {
     /// <summary>
@@ -53,12 +55,8 @@ namespace AIVillage.Tests.EditMode
             return (status, plan);
         }
 
-        private static WorldSnapshot Snap(params (SlotId slot, int value)[] pairs)
-        {
-            var slots = new int[PlanningConfig.TotalSlots];
-            foreach ((SlotId slot, int value) in pairs) slots[(int)slot] = value;
-            return new WorldSnapshot(slots);
-        }
+        // Snap → GateHelpers (2026-08-11 2차 감사 통합). RunPlan(costMult)은 게이트웨이를
+        // 스스로 만드는 이 파일 고유 변형이라 남긴다.
 
         [Test]
         public void M4_T1_NeutralInvariant_PlansIdentical()

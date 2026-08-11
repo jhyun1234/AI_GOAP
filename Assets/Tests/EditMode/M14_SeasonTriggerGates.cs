@@ -3,6 +3,8 @@ using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
 
+using static AIVillage.Tests.EditMode.GateHelpers;
+
 namespace AIVillage.Tests.EditMode
 {
     /// <summary>
@@ -12,18 +14,8 @@ namespace AIVillage.Tests.EditMode
     /// </summary>
     public class M14_SeasonTriggerGates
     {
-        private static SeasonSO MakeSeason(string name, float days, bool crisis, bool frozen = false,
-                                           float growthMult = 1f)
-        {
-            var s = ScriptableObject.CreateInstance<SeasonSO>();
-            s.name = name;
-            s.DisplayName = name;
-            s.DurationDays = days;
-            s.IsCrisis = crisis;
-            s.ForageFrozen = frozen;
-            s.GrowthMult = growthMult;
-            return s;
-        }
+        // MakeSeason·DestroyAll → GateHelpers (2026-08-11 2차 감사 통합 — SeasonSO[] 통째는
+        // params Object[]가 배열 공변으로 그대로 받는다)
 
         /// <summary>실측 구성 사이클 — 온화 [0,3) · 여름 [3,6) · 가을 [6,8) · 겨울 [8,12).</summary>
         private static SeasonSO[] MakeStandardCycle()
@@ -34,11 +26,6 @@ namespace AIVillage.Tests.EditMode
                 MakeSeason("가을", 2f, crisis: false),
                 MakeSeason("겨울", 4f, crisis: true, frozen: true, growthMult: 0f),
             };
-
-        private static void DestroyAll(SeasonSO[] cycle)
-        {
-            foreach (SeasonSO s in cycle) Object.DestroyImmediate(s);
-        }
 
         // ── M14-T1-a: DaysToFreeze 순수 코어 — 술어는 봉쇄이지 위기가 아니다 (ADR-M14-2) ──
 

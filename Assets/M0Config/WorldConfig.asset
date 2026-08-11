@@ -69,3 +69,5 @@ MonoBehaviour:
     Label: 나무
   - Slot: 8
     Label: 돌
+  HudPanelSprite: {fileID: -4494089286520263261, guid: 00db7ef1b31d42e4b83905764d25fbb4,
+    type: 3}

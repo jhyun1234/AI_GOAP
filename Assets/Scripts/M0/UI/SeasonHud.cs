@@ -908,27 +908,71 @@ namespace AIVillage.M0
             return runIndex >= 0;
         }
 
-        // ── 구조 명령 목록 (M26-2차 W7) — 방랑자 프롬프트와 같은 "결정 줄" 계열 ──
+        // ── 구조 명령 목록 (M26-2차 W7 · W8 후속 개정 2026-08-11) ──────────────────
+        //
+        // 🔴 개정 사유 (사용자 Play 스크린샷): 첫 판은 좌측 스택 밖 **고정 오프셋 (12, -240)**
+        //    이었다 — 2026-07-31 Reflow 개정이 폐기한 바로 그 병을 새 블록이 다시 밟아,
+        //    배고픈 주민 상태줄과 겹쳐 글자가 뭉개졌다 (W7 검증 판에는 배고픈 주민이 없어
+        //    겹칠 상대가 화면에 없었다 — 화면 검증은 상태 조합까지 덮어야 한다).
+        // 개정: 좌측 텍스트 기둥을 떠나 **화면 중앙 결정 패널**로 — 결정을 요구하는 UI는
+        //    정보 스택이 아니라 시선 중앙이 자리다 (방랑자 프롬프트의 다음 세대).
+        //    배경은 UI 팩 프레임 (WorldConfigSO.HudPanelSprite — **UI 팩 첫 적용**).
+        //    팩이 없는 체크아웃(gitignore 유료 에셋)은 프레임 없는 패널 (겹침 수정은 폴백에도 산다).
         private TMP_Text _rescue;
+        private RectTransform _rescuePanel;
+
+        private const float RESCUE_TEXT_WIDTH = 560f; // 목록 한 줄 폭 (연출 상수)
+        private const float RESCUE_PAD = 30f;         // 프레임 안 여백 — 9-slice 테두리 두께보다 넓게
+        private const float RESCUE_Y = 140f;          // 화면 중앙에서 위로 — 선택한 치료사를 덜 가리게
 
         /// <summary>구조 목록 표시 — 치료사를 고른 채 T. null·빈 문자열 = 닫기.
-        /// 전용 라벨인 이유: `_prompt` 는 방랑자 Y/N 이 쓰는 줄이라 겹치면 결정 둘이 한 줄을 다툰다.</summary>
+        /// `_prompt`(방랑자 Y/N)와 분리 — 결정 둘이 한 줄을 다투면 안 된다.</summary>
         public void ShowRescueList(string text)
         {
             if (string.IsNullOrEmpty(text))
             {
-                if (_rescue != null) _rescue.gameObject.SetActive(false);
+                if (_rescuePanel != null) _rescuePanel.gameObject.SetActive(false);
                 return;
             }
-            if (_rescue == null)
-            {
-                _rescue = MakeText(_calendar.rectTransform.parent, "RescueList", _calendar.font,
-                                   new Vector2(12f, -240f), 24f);
-                _rescue.rectTransform.sizeDelta = new Vector2(760f, 320f); // 부상자 9줄까지
-                _rescue.color = new Color(1f, 0.85f, 0.6f);                // 프롬프트 계열 색
-            }
+            if (_rescuePanel == null) BuildRescuePanel();
             _rescue.SetSafe(text);
-            _rescue.gameObject.SetActive(true);
+            // 패널 크기 = 텍스트 실측 + 여백 (부상자 증감을 매 프레임 따라간다 — Reflow와 같은 정신)
+            float h = _rescue.GetPreferredValues(text, RESCUE_TEXT_WIDTH, 0f).y;
+            _rescuePanel.sizeDelta = new Vector2(RESCUE_TEXT_WIDTH + RESCUE_PAD * 2f,
+                                                 h + RESCUE_PAD * 2f);
+            _rescuePanel.gameObject.SetActive(true);
+        }
+
+        private void BuildRescuePanel()
+        {
+            var go = new GameObject("RescuePanel");
+            go.transform.SetParent(_calendar.rectTransform.parent, false);
+            _rescuePanel = go.AddComponent<RectTransform>();
+            _rescuePanel.anchorMin = _rescuePanel.anchorMax = new Vector2(0.5f, 0.5f);
+            _rescuePanel.pivot = new Vector2(0.5f, 0.5f);
+            _rescuePanel.anchoredPosition = new Vector2(0f, RESCUE_Y);
+
+            Sprite frame = _worldCfg != null ? _worldCfg.HudPanelSprite : null;
+            if (frame != null)
+            {
+                var img = go.AddComponent<UnityEngine.UI.Image>();
+                img.sprite = frame;
+                img.type = UnityEngine.UI.Image.Type.Sliced;
+                // 34px 프레임(테두리 11px)을 화면용으로 3배 — 테두리가 ~33px로 서고 픽셀이 살아 보인다
+                img.pixelsPerUnitMultiplier = 1f / 3f;
+                img.raycastTarget = false;
+            }
+
+            _rescue = MakeText(go.transform, "RescueList", _calendar.font, Vector2.zero, 24f);
+            RectTransform rt = _rescue.rectTransform;
+            rt.anchorMin = Vector2.zero;                 // 패널을 가득 채우고 여백만 남긴다
+            rt.anchorMax = Vector2.one;
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.offsetMin = new Vector2(RESCUE_PAD, RESCUE_PAD);
+            rt.offsetMax = new Vector2(-RESCUE_PAD, -RESCUE_PAD);
+            // 프레임(양피지) 위는 진갈색, 프레임 없는 폴백은 舊 프롬프트 계열 색 유지
+            _rescue.color = frame != null ? new Color(0.30f, 0.19f, 0.09f)
+                                          : new Color(1f, 0.85f, 0.6f);
         }
 
         /// <summary>연대기 패널 토글 — 열 때 목록 텍스트를 받고 상세는 비운다. 닫기 = SetActive

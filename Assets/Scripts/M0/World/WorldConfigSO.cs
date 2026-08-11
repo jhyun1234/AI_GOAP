@@ -175,6 +175,12 @@ namespace AIVillage.M0
             public string Label;
         }
 
+        [Tooltip("결정 패널 배경 (UI 팩 첫 적용 2026-08-11 — 구조 명령 목록부터). 9-slice Sprite. " +
+                 "비면 프레임 없는 텍스트 패널 (중립 폴백 — 겹침 수정 자체는 폴백에도 산다).\n" +
+                 "🔴 팩(Assets/Kenmi/Cute_Fantasy_UI)은 gitignore 유료 에셋 — 이 GUID는 로컬에만 " +
+                 "실재한다 (기존 규약: 그림은 조달·리포엔 참조만).")]
+        public Sprite HudPanelSprite;
+
         [Tooltip("성격별 행동 프로파일 로그 주기(게임일, M12-J). 0 = 계측 끄기(중립). 제안치 7 — " +
                  "계절 길이(8)와 어긋나게 잡아야 특정 계절만 찍히는 편향이 안 생긴다. 읽기 전용 관측.")]
         public float ProfilerIntervalDays = 7f;

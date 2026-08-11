@@ -36,7 +36,14 @@ namespace AIVillage.M0
                 && picked.Injury != InjurySeverity.None)
                 _target = picked;
             else
-                _target = agent.FindNearestInjured(IsHealer(agent));
+            {
+                // 시야 제한 (W7R, 사용자 결정 2026-08-11): 자율 치료는 **보이는 부상자**만 —
+                // 맵 반대편 부상을 아는 전지 인지를 끊는다. 시야 밖 구조는 명령(T 지목)의 몫 =
+                // 플레이어 개입의 값 (M13 "제때 개입"). 트리거(내가 아는 부상자 수)와 같은 반경.
+                int sight = AIVillage.Core.MapConfig.Active != null
+                    ? AIVillage.Core.MapConfig.Active.villagerSightRadius : -1;
+                _target = agent.FindNearestInjured(IsHealer(agent), sight);
+            }
             if (_target == null)
             {
                 FailReason = "간호 대상 없음 (완치·안정화·소멸 — 재평가로 해소)";

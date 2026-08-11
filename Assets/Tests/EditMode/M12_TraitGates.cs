@@ -867,7 +867,9 @@ namespace AIVillage.Tests.EditMode
             "Goal_Snack", "Goal_StoreFood",
             // 간호 계열 — 부상자 1명당 1단계. 🟠 부상 6명이면 3,567노드(한계의 87%)로
             // 절벽에 붙는다. 증분 전환 이월 항목 (2026-08-06 실측).
-            "Goal_TendInjured", "Goal_TreatInjured",
+            // W7R(2026-08-11): Goal_TendInjured(응급조치)는 폐기 — 목록 동기화. 남은 치료
+            // goal은 시야 기반 개인 카운트라 절벽 위험도 시야 내 인원으로 줄었다.
+            "Goal_TreatInjured",
         };
 
         [Test]
@@ -898,8 +900,9 @@ namespace AIVillage.Tests.EditMode
             // 결함 5의 처방(결정 16): 자존이 ③문턱에만 있으면 고집쟁이·새침이는 방치 시 평범하다.
             // ①에 자리를 만들어 "저 사람은 마을 일을 안 도와"가 눈에 보이게 한다.
             // Goal_RequestHouse는 M20-W12에서 집 부탁 사슬과 함께 삭제 (목록 동기화)
+            // Goal_TendInjured(응급조치)는 W7R(2026-08-11)에서 폐기 (목록 동기화)
             var communal = new[] { "Goal_GatherWood", "Goal_GatherStone", "Goal_BuildHouse",
-                                   "Goal_TendInjured", "Goal_TreatInjured" };
+                                   "Goal_TreatInjured" };
             // Goal_SaveForHome은 M19-W1에서 화폐와 함께 삭제 (저축 goal 소멸 — 목록 동기화)
             var personal = new[] { "Goal_BuildMyHouse", "Goal_StoreFood",
                                    "Goal_Plant", "Goal_HarvestCrop" };

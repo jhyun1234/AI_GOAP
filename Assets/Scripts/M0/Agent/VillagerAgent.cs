@@ -596,6 +596,18 @@ namespace AIVillage.M0
                 }
             }
 
+            // 치료 붙잡힘 (M26-2차 W7R, 사용자 결정 2026-08-11 "치료받을 때는 가만히"):
+            // 간호가 닿는 중이면 이동을 멈추고 제자리에 선다 — 환자가 채널링마다 걸어 나가면
+            // 치료사가 영영 못 고친다. 문턱 위 goal(피신 105)만 예외 — 고블린 앞에서 붙잡아
+            // 두면 치료가 사형 명령이 된다. 멈춘 뒤에는 TickIdle의 보류가 이어받는다.
+            if (State == AgentState.Moving && Injury != InjurySeverity.None && IsTended
+                && _goal != null && _cfg.TendHoldMaxPriority > 0
+                && _goal.Priority <= _cfg.TendHoldMaxPriority)
+            {
+                AbortPlan("치료를 받는다 (제자리)", warn: false, cooldown: false);
+                return;
+            }
+
             switch (State)
             {
                 case AgentState.Idle:     TickIdle(dtSec);   break;
@@ -615,7 +627,7 @@ namespace AIVillage.M0
             (int homeRaw, int homeCooked) = hasHome && HomeStorage != null
                 ? HomeStorage.Get(home) : (0, 0);
             bool hasCampfire = _sim.Ownership.TryGetOwned(AgentId, SlotId.CampfireCount, out _); // M11-K
-            return World.BuildSnapshot(Mathf.RoundToInt(Satiety), Mathf.RoundToInt(Fatigue),
+            WorldSnapshot snap = World.BuildSnapshot(Mathf.RoundToInt(Satiety), Mathf.RoundToInt(Fatigue),
                 hasHome, // MyHasHome (M8-C)
                 _sim.Threats != null && _sim.Threats.IsNearThreat(TileX, TileY,
                     FleeRadius()),                                             // ThreatNear (M10-D + M12-D)
@@ -627,6 +639,37 @@ namespace AIVillage.M0
                 hasCampfire,                                                   // 내 모닥불 (M11-K)
                 MyWasStarved,                                                  // 아사 직전 경험 (M12-G)
                 MyHasWeapon);                                                  // 무기 소유 (M21-W5)
+            // 부상 인지의 개인화 (M26-2차 W7R, 사용자 결정 2026-08-11 — 전지 인지 제거):
+            // "부상자 수"는 세계의 수가 아니라 **내가 아는** 수다 — 시야 안에 보이는 사람 +
+            // 촌장이 지목해 준 사람(명령 = 정보 전달). ThreatNear 개인 계산과 같은 정신이고,
+            // 원천 집계(CountInjured)는 WorldModel에 남는다 — 이 슬롯의 소비자는 치료 goal뿐이다.
+            // 🔑 지목을 세는 것이 명령 원정의 성립 조건이다: 시야 밖 지목이 0으로 잡히면
+            //    트리거·플래너가 "부상자 없음"으로 읽어 명령이 시작도 못 한다.
+            snap.Slots[(int)SlotId.InjuredCount] = CountKnownInjured();
+            return snap;
+        }
+
+        /// <summary>시야 판정 (순수 — W7R): FoW 공개와 같은 감각의 원형 반경.</summary>
+        public static bool WithinSight(int dx, int dy, int radius)
+            => dx * dx + dy * dy <= radius * radius;
+
+        /// <summary>내가 아는 부상자 수 (W7R) — 시야 내 + 지목 대상. **자신은 빼고** 센다:
+        /// 치료 goal이 자기 부상으로 발동하면 대상이 없어 공회전한다 (TendRunner가 자신을 거른다).</summary>
+        private int CountKnownInjured()
+        {
+            int sight = AIVillage.Core.MapConfig.Active != null
+                ? AIVillage.Core.MapConfig.Active.villagerSightRadius : int.MaxValue;
+            int n = 0;
+            IReadOnlyList<VillagerAgent> agents = _sim.Agents;
+            for (int i = 0; i < agents.Count; i++)
+            {
+                VillagerAgent a = agents[i];
+                if (a == null || a == this || a.State == AgentState.Dead
+                    || a.Injury == InjurySeverity.None) continue;
+                if (a == OrderTargetVillager
+                    || WithinSight(a.TileX - TileX, a.TileY - TileY, sight)) n++;
+            }
+            return n;
         }
 
         /// <summary>
@@ -829,8 +872,10 @@ namespace AIVillage.M0
                && InjuryClockRunning(IsTended, _tendedByHealer, _stabilized, _graceLeft);
 
         /// <summary>최근접 부상자 조회 (TendRunner 전용) — healer는 전 부상자, 일반은 미안정 부상자만
-        /// (M11-I 이원화). 안정화 완료 대상에 일반 간호자가 계속 붙는 crowding을 여기서 끊는다.</summary>
-        public VillagerAgent FindNearestInjured(bool healerMode) => _sim.FindNearestInjured(this, healerMode);
+        /// (M11-I 이원화). maxDistTiles ≥ 0 이면 그 반경(시야) 안만 본다 (W7R — 자율 치료의
+        /// 전지 인지 제거). 음수 = 무제한 (舊 동작 = 명령 경로).</summary>
+        public VillagerAgent FindNearestInjured(bool healerMode, int maxDistTiles = -1)
+            => _sim.FindNearestInjured(this, healerMode, maxDistTiles);
 
         /// <summary>
         /// 부상 계단 갱신 (순수 — 게이트 M10-T1): 간호 중 = 회복 진행·방치 정지(홀드 — 리셋 아님,
@@ -1033,8 +1078,21 @@ namespace AIVillage.M0
 
             WorldSnapshot snap = BuildSnapshot();
 
-            // 명령 완수 판정 — 목표 충족 시 자동 소멸 (ADR-M1-1)
-            if (_order != null && _order.GoalConditions != null && _order.GoalConditions.Length > 0
+            // 지목 명령의 완수는 **지목 대상**이 판정한다 (W7R 2026-08-11): "A를 치료해"의 끝은
+            // A의 완치·소멸이지 슬롯 값이 아니다 — 슬롯(내가 아는 부상자 수)으로 판정하면
+            // 다른 부상자가 시야에 있는 한 명령이 안 끝나고, 시야 밖 지목은 시작 전에 끝난다.
+            if (_order != null && OrderTargetVillager != null)
+            {
+                if (OrderTargetVillager.State == AgentState.Dead
+                    || OrderTargetVillager.Injury == InjurySeverity.None)
+                {
+                    Debug.Log($"[VillagerAgent] {AgentId}: 명령 완수 — {_order.DisplayName} (지목 대상 해소)");
+                    PayReward();
+                    ClearOrderInstance();
+                }
+            }
+            // 명령 완수 판정 — 목표 충족 시 자동 소멸 (ADR-M1-1). 지목 명령은 위에서만 끝난다.
+            else if (_order != null && _order.GoalConditions != null && _order.GoalConditions.Length > 0
                 && GoalSelector.AllHold(_order.GoalConditions, snap))
             {
                 Debug.Log($"[VillagerAgent] {AgentId}: 명령 완수 — {_order.DisplayName}");
@@ -1059,17 +1117,16 @@ namespace AIVillage.M0
                 return;
             }
 
-            // 대상 협조 최소형 (M26-2차 W7 후속 2026-08-11 — ADR 경로탐색 트리거 B-3의 처방):
-            // 간호받는 중인 부상자는 **급하지 않은 일(간식급)**을 미루고 제자리에 머문다 —
-            // 환자가 채널링마다 걸어 나가면 치료사가 영영 못 고친다 (사용자 Play 관측).
-            // 🔴 전부 묶지 않는 이유: 부상 중 허용 goal은 생존 4종뿐이고 완치 채널링은 게임일
-            // 단위라, P0 허기(100)·피로(90)·피신(105)까지 막으면 치료받다 굶어 죽는다 —
-            // 문턱(제안치 50) 위는 통과시키고 치료사가 따라간다 (추격은 쿨다운 면제가 지탱).
+            // 대상 협조 (M26-2차 W7R — ADR 경로탐색 트리거 B-3의 처방, 사용자 결정 2026-08-11
+            // "치료받을 때는 가만히"): 간호받는 중인 부상자는 새 일을 미루고 제자리에 머문다 —
+            // 환자가 채널링마다 걸어 나가면 치료사가 영영 못 고친다 (사용자 Play 관측 2회).
+            // 문턱(제안치 100) 위 = 피신(105)만 통과 — 고블린 앞에서 붙잡아 두면 치료가 사형
+            // 명령이 된다. 허기(100)·피로(90)도 잡아 두는 대신, 간호가 끊기면(0.3초) 즉시 풀린다.
             if (Injury != InjurySeverity.None && IsTended
                 && _cfg.TendHoldMaxPriority > 0 && _goal.Priority <= _cfg.TendHoldMaxPriority)
             {
                 _goal = null;
-                _idleCooldownSec = 0.5f; // 치료 우선 — 간식은 다 나은 뒤에
+                _idleCooldownSec = 0.5f; // 치료 우선 — 밥은 다 나은 뒤에
                 return;
             }
             _sim.Goals.Claim(_goal); // 착수 선언 (ADR-M3-4) — 해제는 ToIdle 단일 지점

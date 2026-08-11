@@ -636,15 +636,20 @@ namespace AIVillage.M0
         /// AgentId 사전순 (결정적 — ADR-M10-1). 미간호가 없으면 간호 중인 부상자도 반환 —
         /// 두 번째 간호자는 무해(표시 갱신뿐)하고, 첫 간호자가 P0로 떠날 때 끊김 없이 인계된다.
         /// </summary>
-        public VillagerAgent FindNearestInjured(VillagerAgent tender, bool healerMode)
+        public VillagerAgent FindNearestInjured(VillagerAgent tender, bool healerMode,
+                                                int maxDistTiles = -1)
         {
             // 일반 간호자(응급조치)는 미안정 부상자만 대상 — 안정화 완료자를 계속 붙잡지 않는다
             // (crowding 해소, M11-I). 치료사(healer)는 전 부상자 대상 (안정화 여부 무관).
-            VillagerAgent found = FindInjuredPass(tender, untendedOnly: true, healerMode);
-            return found != null ? found : FindInjuredPass(tender, untendedOnly: false, healerMode);
+            // ⚠️ 응급조치 goal은 W7R(2026-08-11)에서 폐기 — helper 경로는 현장 안정화 명세의
+            // 재설계 때까지 휴면이다 (상태 기계 NextInjuryStateV2와 함께 보존).
+            // maxDistTiles ≥ 0 = 시야 반경 제한 (W7R — 자율 치료의 전지 인지 제거).
+            VillagerAgent found = FindInjuredPass(tender, untendedOnly: true, healerMode, maxDistTiles);
+            return found != null ? found : FindInjuredPass(tender, untendedOnly: false, healerMode, maxDistTiles);
         }
 
-        private VillagerAgent FindInjuredPass(VillagerAgent tender, bool untendedOnly, bool healerMode)
+        private VillagerAgent FindInjuredPass(VillagerAgent tender, bool untendedOnly, bool healerMode,
+                                              int maxDistTiles)
         {
             _injuredBuf.Clear();
             _injuredKeyBuf.Clear();
@@ -654,6 +659,8 @@ namespace AIVillage.M0
                     || a.Injury == InjurySeverity.None) continue;
                 if (!healerMode && a.IsStabilized) continue; // 일반 간호자는 안정화 완료자 제외
                 if (untendedOnly && a.IsTended) continue;
+                if (maxDistTiles >= 0 && !VillagerAgent.WithinSight(
+                        a.TileX - tender.TileX, a.TileY - tender.TileY, maxDistTiles)) continue;
                 _injuredBuf.Add(a);
                 _injuredKeyBuf.Add((a.AgentId, a.TileX, a.TileY));
             }

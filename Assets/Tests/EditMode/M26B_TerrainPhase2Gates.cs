@@ -675,6 +675,61 @@ namespace AIVillage.Tests.EditMode
             Assert.Greater(forever.PenaltyAt(0, 0), 0f, "감쇠 0인데 잊었다 — Decay가 값을 무시한다");
         }
 
+        // ── W7-0: 구조가 구조적으로 가능한가 (성공 기준 ⑥ — 이 검산이 W7 UI 의 존재 조건) ──
+
+        [Test]
+        public void M26B_T7_RescueIsStructurallyPossible()
+        {
+            // 🔴 부상 방치 사망 소요가 "맵 끝까지 걷는 시간"보다 짧으면 구조 명령 UI 는 장식이다
+            //    (명세 §9 W7-0 — 짧으면 W7 을 만들지 않고 수치 판단으로 되돌린다).
+            // 고정한 축: 거리 상계 = 마을(0,0)→모서리 **맨해튼**(대각 이동이 있어 실제는 더 짧다) ·
+            // 속도 = 건강한 치료사 전속 (부상자가 아니라 **구조자**가 걷는다) · 지형 감속 미포함
+            //   (감속은 늪뿐이고 치료사가 늪을 최단으로 질러가는 경우만 악화 — 여유율이 흡수).
+            var agentCfg = AssetDatabase.LoadAssetAtPath<AIVillage.M0.AgentConfigSO>(
+                "Assets/M0Config/AgentConfig.asset");
+            var worldCfg = AssetDatabase.LoadAssetAtPath<AIVillage.M0.WorldConfigSO>(
+                "Assets/M0Config/WorldConfig.asset");
+            var map = AssetDatabase.LoadAssetAtPath<MapConfig>(MapPath);
+            Assert.IsNotNull(agentCfg); Assert.IsNotNull(worldCfg); Assert.IsNotNull(map);
+
+            int worstManhattan = map.mapSize;                       // (0,0) → (±50,±50) = 100
+            float walkSec = worstManhattan / Mathf.Max(0.01f, agentCfg.BaseMoveSpeed);
+            float walkDays = walkSec * worldCfg.GameTimeScale;      // 초 × 배율 = 게임일 (SimLoop 과 같은 환산)
+            float deathDays = agentCfg.InjuryDeathAfterDays;
+
+            Assert.Greater(deathDays, walkDays,
+                $"부상 방치 사망 {deathDays:0.##}일 ≤ 맵 끝 도보 {walkDays:0.##}일 — " +
+                "구조가 구조적으로 불가능하다. W7 UI 를 만들지 말고 수치 판단으로 돌아갈 것");
+
+            // 여유율도 기록해 둔다 — 알림을 보고 명령하는 사람의 반응 시간이 이 여유 안에 산다.
+            // 시간 밸런스 세션에서 일 단위 수치를 흔들면 이 비율이 먼저 알려 준다.
+            Assert.GreaterOrEqual(deathDays / walkDays, 1.5f,
+                $"여유율 {deathDays / walkDays:0.##}× < 1.5× — 걷는 시간은 되지만 " +
+                "플레이어가 알아채고 명령할 틈이 없다");
+        }
+
+        [Test]
+        public void M26B_T7b_RescueOrder_IsWiredToExistingGoal()
+        {
+            // W7 은 **새 goal 0** 이 계약이다 — 구조 명령은 기존 Goal_TreatInjured 의 주입이어야
+            // 한다. 이 게이트는 두 가지를 못박는다: ①씬의 _orderTreat 가 그 에셋을 가리킨다
+            //    (배선 누락은 컴파일이 못 잡고 Play 에서 T 가 조용히 안 먹는 것으로만 드러난다)
+            // ②지목 통로(OrderTargetVillager)를 TendRunner 가 실제로 읽는다 (소스 스캔 — M24_T7 방식).
+            string meta = System.IO.File.ReadAllText("Assets/M0Config/Goals/Goal_TreatInjured.asset.meta");
+            string guid = null;
+            foreach (string line in meta.Split('\n'))
+                if (line.StartsWith("guid:")) { guid = line.Substring(5).Trim(); break; }
+            Assert.IsNotNull(guid, "Goal_TreatInjured.asset.meta 에서 guid 를 못 읽었다");
+
+            string scene = System.IO.File.ReadAllText("Assets/Scenes/M0Scene.unity");
+            StringAssert.Contains("_orderTreat: {fileID: 11400000, guid: " + guid, scene,
+                "씬의 _orderTreat 가 Goal_TreatInjured 를 가리키지 않는다 — T 명령이 조용히 죽는다");
+
+            string tend = System.IO.File.ReadAllText("Assets/Scripts/M0/Agent/Runners/TendRunner.cs");
+            StringAssert.Contains("OrderTargetVillager", tend,
+                "TendRunner 가 지목(OrderTargetVillager)을 안 읽는다 — 목록에서 골라도 최근접에게 간다");
+        }
+
         // ── T1-c: 중립 불변식 — 판정을 안 넘기면 舊 배치와 완전히 같다 ────────────
 
         [Test]

@@ -908,6 +908,29 @@ namespace AIVillage.M0
             return runIndex >= 0;
         }
 
+        // ── 구조 명령 목록 (M26-2차 W7) — 방랑자 프롬프트와 같은 "결정 줄" 계열 ──
+        private TMP_Text _rescue;
+
+        /// <summary>구조 목록 표시 — 치료사를 고른 채 T. null·빈 문자열 = 닫기.
+        /// 전용 라벨인 이유: `_prompt` 는 방랑자 Y/N 이 쓰는 줄이라 겹치면 결정 둘이 한 줄을 다툰다.</summary>
+        public void ShowRescueList(string text)
+        {
+            if (string.IsNullOrEmpty(text))
+            {
+                if (_rescue != null) _rescue.gameObject.SetActive(false);
+                return;
+            }
+            if (_rescue == null)
+            {
+                _rescue = MakeText(_calendar.rectTransform.parent, "RescueList", _calendar.font,
+                                   new Vector2(12f, -240f), 24f);
+                _rescue.rectTransform.sizeDelta = new Vector2(760f, 320f); // 부상자 9줄까지
+                _rescue.color = new Color(1f, 0.85f, 0.6f);                // 프롬프트 계열 색
+            }
+            _rescue.SetSafe(text);
+            _rescue.gameObject.SetActive(true);
+        }
+
         /// <summary>연대기 패널 토글 — 열 때 목록 텍스트를 받고 상세는 비운다. 닫기 = SetActive
         /// (재생성 없음). 열 때 SetAsLastSibling — 전멸 오버레이가 나중에 생겨도 그 위로 뜬다.</summary>
         public void ToggleChronicle(string listText)

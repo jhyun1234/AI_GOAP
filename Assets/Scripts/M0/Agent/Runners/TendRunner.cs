@@ -28,7 +28,15 @@ namespace AIVillage.M0
 
         public override bool Prepare(VillagerAgent agent)
         {
-            _target = agent.FindNearestInjured(IsHealer(agent));
+            // 촌장이 지목한 부상자 (M26-2차 W7) — GatherRunner 의 OrderTargetNode 와 같은 규약.
+            // 지목이 죽었거나 이미 나았으면 **최근접 폴백** (명령을 무효로 접지 않는다 —
+            // "치료하러 가라"는 뜻은 남아 있다).
+            VillagerAgent picked = agent.OrderTargetVillager;
+            if (picked != null && picked.State != AgentState.Dead
+                && picked.Injury != InjurySeverity.None)
+                _target = picked;
+            else
+                _target = agent.FindNearestInjured(IsHealer(agent));
             if (_target == null)
             {
                 FailReason = "간호 대상 없음 (완치·안정화·소멸 — 재평가로 해소)";

@@ -326,6 +326,11 @@ namespace AIVillage.M0
         /// <summary>촌장이 지목한 노드 ("저거 캐와"의 '저거'). GatherRunner가 최우선 대상으로 삼는다.</summary>
         public ResourceNode OrderTargetNode { get; private set; }
 
+        /// <summary>명령이 지목한 부상자 (M26-2차 W7) — "저 사람을 치료해"의 '저 사람'.
+        /// `OrderTargetNode`(M1-C '저거 캐와')와 같은 문법이다 — 대상만 노드에서 주민으로.
+        /// TendRunner 만 읽는다. 세이브 대상 아님 (명령·플랜은 저장하지 않는다, ADR-M0-10).</summary>
+        public VillagerAgent OrderTargetVillager { get; private set; }
+
         /// <summary>보상 약속 (M6-E — 에스크로 차감 완료 상태). 세이브 대상 (ADR-M4-5 목록 추가 예정).</summary>
         public RewardSO PromisedReward => _promisedReward;
         private RewardSO _promisedReward;
@@ -348,6 +353,7 @@ namespace AIVillage.M0
             _order = null;
             _orderIsRuntimeClone = false;
             OrderTargetNode = null;
+            OrderTargetVillager = null;
         }
 
         /// <summary>보상 지급 — 명령 완수 지점 전용 (ADR-M6-5). 지급 후 null 처리로 반환 경로 차단.
@@ -1494,7 +1500,8 @@ namespace AIVillage.M0
         /// reward(M6-E): 거부 문턱 오프셋 + 수락 시 에스크로 차감. 재고 부족이면 판정 전에
         /// FailedNoStock — 없는 것을 약속할 수 없다 (선검사 일괄, ADR-M0-8 원자성).
         /// </summary>
-        public OrderResult TryGiveOrder(GoalSO order, ResourceNode targetNode = null, RewardSO reward = null)
+        public OrderResult TryGiveOrder(GoalSO order, ResourceNode targetNode = null, RewardSO reward = null,
+                                        VillagerAgent targetVillager = null)
         {
             if (order == null) return OrderResult.Accepted;
 
@@ -1553,6 +1560,7 @@ namespace AIVillage.M0
             // 상대 목표 해석: "지금보다 +N" — 수신 시점 절대값으로 고정한 런타임 사본 생성
             _order = ResolveRelativeGoal(order, out _orderIsRuntimeClone);
             OrderTargetNode = targetNode;
+            OrderTargetVillager = targetVillager;   // 구조 명령의 '저 사람' (M26-2차 W7)
             _goalRetryAt.Remove(_order); // 새 명령은 과거 실패 쿨다운을 잊는다
 
             // 즉시 착수: 현재 일이 명령보다 낮으면 중단 (실패 아님 — 쿨다운 없음)

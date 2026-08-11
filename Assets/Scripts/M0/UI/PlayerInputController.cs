@@ -38,6 +38,10 @@ namespace AIVillage.M0
                  "goal 순위에서 이미 말한다.")]
         [SerializeField] private GoalSO _orderFight;
 
+        [Tooltip("「치료하러 가라」 명령 goal (M26-2차 W7) — Goal_TreatInjured 를 연결한다. " +
+                 "새 goal 이 아니라 **기존 치료 goal 의 명령 주입**이다 (F 의 _orderFight 와 같은 규약).")]
+        [SerializeField] private GoalSO _orderTreat;
+
         // 픽킹 반경 (M22-W3R3 — 줌 불변): 舊 월드 고정 1.5타일은 줌인(orthoSize 3)에서 화면
         // 270px로 부풀어 엉뚱한 대상을 잡았고("클릭이 정확히 안 된다"의 정체 절반), 줌아웃에선
         // 감각보다 좁았다. 화면 픽셀 기준을 월드로 환산한다 — 어느 줌에서든 손맛이 같다.
@@ -243,7 +247,8 @@ namespace AIVillage.M0
             }
 
             // 배속 (M10 관측 도구) — 숫자키 1=1× 2=2× 3=4× 4=8× (기본 배열 기준, Inspector 조정 가능)
-            if (_speedSteps != null)
+            // ⚠️ 구조 목록이 열려 있으면 숫자는 **환자 선택**이다 (M26-2차 W7) — 배속에 양보하지 않는다.
+            if (_speedSteps != null && !_rescueOpen)
                 for (int i = 0; i < _speedSteps.Length && i < 9; i++)
                     if (Input.GetKeyDown((KeyCode)((int)KeyCode.Alpha1 + i)))
                         SetSpeed(Mathf.Max(0.1f, _speedSteps[i]));
@@ -259,6 +264,12 @@ namespace AIVillage.M0
                     M0SimulationLoop.Instance.Hud?.Notify($"{_selected.ShortName}에게 맞서라고 명령했습니다");
                 // 거부는 주민의 말풍선·로그가 이미 말한다 (기존 명령 통로와 같은 규약)
             }
+
+            // 「치료하러 가라」 명령 (T키, M26-2차 W7) — 치료사를 고른 채 T = 부상자 목록,
+            // 숫자로 지목, 다시 T = 닫기. F(맞서라)와 같은 명령 통로 + 지목 한 단계.
+            // 🔑 지목 문법이 F에는 없고 여기는 있는 이유: 교전 대상은 "최근접"이 답이지만
+            //    구조 대상은 **누구를 살릴 것인가**라는 선택 그 자체가 놀이다 (M13 — 제때 개입).
+            TickRescueCommand();
 
             // 일시정지 토글 (0키, 2026-08-07 개입 인프라) — 개입은 "무엇을 할지 정하는 시간"을
             // 필요로 하는데, 최저 배속이 1×면 판을 멈추고 생각할 방법이 없었다. 다시 0을 누르면
@@ -735,5 +746,91 @@ namespace AIVillage.M0
             M0SimulationLoop.Instance.Hud?.SetSelected(null); // 정보줄 소거 (M7-A)
             _cameraCtrl?.StopFollow(); // 선택 해제 = 자유 카메라 복귀 (M13-B 후속)
         }
+        // ── 구조 명령 (M26-2차 W7) ────────────────────────────────────────────────
+
+        private bool _rescueOpen;
+        private readonly System.Collections.Generic.List<VillagerAgent> _rescueList
+            = new System.Collections.Generic.List<VillagerAgent>(9);
+
+        /// <summary>T 목록의 수명: 열기(치료사 선택 + T) → 숫자 지목 → 닫기(T·Esc·선택 해제·전원 회복).</summary>
+        private void TickRescueCommand()
+        {
+            SeasonHud hud = M0SimulationLoop.Instance != null ? M0SimulationLoop.Instance.Hud : null;
+            if (hud == null || _orderTreat == null) return;
+
+            // 열려 있는 동안의 유지 조건 — 선택이 풀리거나 부상자가 다 나으면 스스로 닫힌다.
+            if (_rescueOpen)
+            {
+                RebuildRescueList();
+                if (_selected == null || _rescueList.Count == 0
+                    || Input.GetKeyDown(KeyCode.T) || Input.GetKeyDown(KeyCode.Escape))
+                {
+                    CloseRescue(hud);
+                    return;
+                }
+                hud.ShowRescueList(ComposeRescueText());   // 부상자 증감·사망을 매 프레임 반영
+
+                for (int i = 0; i < _rescueList.Count && i < 9; i++)
+                {
+                    if (!Input.GetKeyDown((KeyCode)((int)KeyCode.Alpha1 + i))) continue;
+                    VillagerAgent patient = _rescueList[i];
+                    VillagerAgent.OrderResult r = _selected.TryGiveOrder(_orderTreat,
+                                                                         targetVillager: patient);
+                    if (r == VillagerAgent.OrderResult.Accepted)
+                        hud.Notify($"{_selected.ShortName}에게 {patient.ShortName} 치료를 명령했습니다");
+                    // 거부는 주민의 말풍선·로그가 말한다 (F와 같은 규약)
+                    CloseRescue(hud);
+                    return;
+                }
+                return;
+            }
+
+            // 닫혀 있을 때 — 치료사를 고른 채 T 로만 연다. 치료사가 아니면 조용 (에러 없음).
+            if (!Input.GetKeyDown(KeyCode.T)) return;
+            if (_selected == null || _selected.Job == null || !_selected.Job.CanTreatInjury) return;
+
+            RebuildRescueList();
+            if (_rescueList.Count == 0)
+            {
+                hud.Notify("치료할 부상자가 없습니다");
+                return;
+            }
+            _rescueOpen = true;
+            hud.ShowRescueList(ComposeRescueText());
+        }
+
+        private void CloseRescue(SeasonHud hud)
+        {
+            _rescueOpen = false;
+            hud.ShowRescueList(null);
+        }
+
+        /// <summary>부상자 목록 재수집 — **위치는 싣지 않는다** (찾는 것이 플레이어의 일, 명세 §9).
+        /// 선택된 치료사 본인은 뺀다 (자기 치료 명령은 뜻이 없다 — TendRunner 가 어차피 거른다).</summary>
+        private void RebuildRescueList()
+        {
+            _rescueList.Clear();
+            var agents = M0SimulationLoop.Instance.Agents;
+            for (int i = 0; i < agents.Count && _rescueList.Count < 9; i++)
+            {
+                VillagerAgent a = agents[i];
+                if (a == null || a == _selected || a.State == AgentState.Dead) continue;
+                if (a.Injury == InjurySeverity.None) continue;
+                _rescueList.Add(a);
+            }
+        }
+
+        private string ComposeRescueText()
+        {
+            var sb = new System.Text.StringBuilder(160);
+            sb.AppendLine("누구를 치료하러 갈까요? (숫자 선택 · T 닫기)");
+            for (int i = 0; i < _rescueList.Count && i < 9; i++)
+            {
+                VillagerAgent a = _rescueList[i];
+                sb.AppendLine($"{i + 1}) {a.ShortName} — {(a.IsStabilized ? "안정됨" : "위독")}");
+            }
+            return sb.ToString();
+        }
+
     }
 }

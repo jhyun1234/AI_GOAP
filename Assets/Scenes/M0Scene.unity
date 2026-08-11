@@ -1097,6 +1097,7 @@ MonoBehaviour:
     Order: {fileID: 11400000, guid: e7f06572b81c4aa9876912d436eef31b, type: 2}
   _rewardOnOrder: {fileID: 11400000, guid: e3acacc3f8ca4219a25371dcbf231ad5, type: 2}
   _orderFight: {fileID: 11400000, guid: 5a2f8d61c7b34e09a4d1e6f2b930c85d, type: 2}
+  _orderTreat: {fileID: 11400000, guid: b8d24f1a7c3e490582a1d6b0e937c418, type: 2}
   _speedSteps:
   - 1
   - 2

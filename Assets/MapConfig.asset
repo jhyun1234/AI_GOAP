@@ -16,7 +16,7 @@ MonoBehaviour:
   mapOffset: 50
   chunkSize: 16
   initialRevealRadius: 15
-  villagerSightRadius: 10
+  villagerSightRadius: 7
   villagerMoveSpeed: 2
   enemyMoveSpeed: 1.5
   grassColor:

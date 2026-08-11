@@ -1,5 +1,25 @@
 {
   "_": "커밋 직송 트랙(dNNs) 원장. schedule.json 과 섞지 않는다 — ADR-D-2 (schedule.json 은 클라우드 자동 머지 allowlist 에 있어 트랙 데이터를 섞으면 연속극 자동화가 dNNs 상태를 물고 돈다). 원문 = devlog/sessions/*.md 산문 (ADR-D-1), 사건 기준 = ADR-D-5 셋(행동·화면 변화 + 원인 서사 + 브랜드 §3 물음), 예고 = 같은 원문의 이월 문장 예정형 (ADR-D-3). 기입은 scene-source 가 한다.",
-  "next": 1,
-  "episodes": {}
+  "next": 2,
+  "episodes": {
+    "d01s": {
+      "date": "2026-08-11",
+      "logs": [
+        "devlog/sessions/2026-08-05.md",
+        "devlog/sessions/2026-08-06.md",
+        "devlog/sessions/2026-08-07.md",
+        "devlog/sessions/2026-08-08.md",
+        "devlog/sessions/2026-08-09.md",
+        "devlog/sessions/2026-08-10.md",
+        "devlog/sessions/2026-08-11.md"
+      ],
+      "commits": {
+        "from": "6eec76504d9215eb8de32c285d1c7e6c1bdc577c",
+        "to": "4c9b874a2fdf66c9ccd5fa33caee55dfbe0af665"
+      },
+      "event": "M26-2차 W5R 상주는 예약이다 — 들판 상주 고블린의 첫 Play가 결함 셋(Day 0 습격 배너 · F가 미발견 적을 찾아감 · 14마리 밀집 표기)을 드러내 예약·부화·회수·재무장으로 재설계, A2 시야 규칙까지",
+      "split": 2,
+      "splitNote": "기획 판정 2026-08-11 — 사건 2(배너+홀로 죽음→예약제 / 증발→시야 규칙). 3편안 비권고(결론 중복·한 커밋). ADR-D-7 분할 규약 상속(d01s-1·d01s-2)."
+    }
+  }
 }

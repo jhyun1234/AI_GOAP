@@ -395,7 +395,13 @@ if (timed) {
      본문을 평균 **+1.7초** 늘렸다. 쉬운 말은 전문 용어보다 음절이 길다. 그 결과
      **7편 중 6편이 warn** 을 띄웠고 — **상시 켜지는 경고는 경고가 아니다.**
      🔑 이 대역은 지어낸 값이 아니라 **관측에서 나왔다**: 하한은 고정비 최솟값 + 본문 하한,
-     상한은 사용자가 연 35±3 안에서 fail(38)에 여유 1초를 남긴 값이다. */
+     상한은 사용자가 연 35±3 안에서 fail(38)에 여유 1초를 남긴 값이다.
+     🔄 **2026-08-11 재개정 — 상단 37 → 38**(사용자 판정 · 채널 재측정이 근거).
+     스튜디오 실측(창 7/13~8/9, 34편): ①절대 시청 시간은 길이와 무관하게 12~30초 대역
+     (84~150초 시절부터 37초 4단까지 동일) ②조회율 하락(37.8%)이 배포에 불이익 없음 —
+     12편 3형제가 1~2일 만에 2.2~2.7천 회로 채널 최고 페이스. **본문을 깎아 짧출 이득이
+     실측에 없으므로** 37~38 사이 완충 warn 을 없애고 대역을 fail 직전까지 연다.
+     (ep14s-4 37.53초 같은 편이 warn 을 상시 띄우던 것도 해소 — 상시 경고는 경고가 아니다.) */
   if (WIDE) {
     /* 롱폼 길이 판정(본편 300~600초 = 명세 S1)은 W7 문법 문서 확정 후 게이트로 승격한다
        (ADR-LF-9: 실측 전 규칙 금지). 지금은 실측값만 찍는다 — 판정 아님. */
@@ -405,8 +411,8 @@ if (timed) {
   } else {
     add(totalSec <= 38, '총 길이 38초 이하',
       `${totalSec.toFixed(1)}초 = 자막 ${subSec.toFixed(1)} + 꼬리 ${(SHOT_TAIL * timed.shots.length).toFixed(2)}` +
-      ` (목표 33~37초 · 이 값이 실제 mp4 길이다)`);
-    add(totalSec >= 33 && totalSec <= 37, '총 길이 33~37초 권장대역',
+      ` (목표 33~38초 · 이 값이 실제 mp4 길이다)`);
+    add(totalSec >= 33 && totalSec <= 38, '총 길이 33~38초 권장대역',
       `${totalSec.toFixed(1)}초`, 'warn');
   }
 
@@ -548,18 +554,28 @@ try {
   } else {
 
   const SAFE_BOTTOM = 1477;
+  /* 🔴 2026-08-10 정정 — 옛 판은 `.cap` 과 `.vis` **컨테이너**를 쟀다. 둘 다
+     `position:absolute` 에 `bottom` 이 고정이라 **어떤 대본으로도 실패할 수 없었다**
+     (CSS 상수를 상수와 비교). 이 트랙의 **두 번째 「항상 참인 검사」**다(첫째 = 피크 천장,
+     `synth()` 가 스스로 gain 을 깎아 출력이 정의상 못 넘는다).
+     🔑 게이트를 새로 만들 때마다 물어라 — **이 검사가 실패할 수 있는 입력이 존재하는가.**
+     지금은 **안에서 실제로 그려진 것**(자막 `p` · 샷 자식)을 잰다. */
   const low = await cdp.evaluate(`(()=>{
     const st = document.querySelector('.stage') || document.body;
     const S = st.getBoundingClientRect();
-    const y = el => (el.getBoundingClientRect().bottom - S.top) / S.height * 1920;
+    const y = r => (r.bottom - S.top) / S.height * 1920;
     const worst = {};
+    const put = (k, v) => { if (!(worst[k] >= v)) worst[k] = v; };
     // 자막은 페이드 중 translateY 로 움직인다. 한 프레임만 보면 안 되고 전 구간에서 최저점을 본다.
     const N = 24;
     for (let i = 0; i < N; i++) {
       window.seek(window.TOTAL * i / (N - 1));
-      for (const sel of ['.cap', '.vis']) {
-        const el = document.querySelector(sel); if (!el) continue;
-        const b = y(el); if (!(worst[sel] >= b)) worst[sel] = b;
+      const p = document.querySelector('.cap p');
+      if (p && p.textContent.trim()) put('자막 글자', y(p.getBoundingClientRect()));
+      for (const el of document.querySelectorAll('.vis .shot')) {
+        if (el.offsetParent === null) continue;
+        const r = el.getBoundingClientRect();
+        if (r.height > 0) put('샷 내용', y(r));
       }
     }
     return worst;
@@ -568,7 +584,58 @@ try {
   add(over.length === 0, `하단 안전영역 (바닥 ${1920 - SAFE_BOTTOM}px 비움)`,
     over.length
       ? over.map(([s, v]) => `${s} 바닥 ${v.toFixed(0)} > 한계 ${SAFE_BOTTOM}`).join(', ')
-      : `자막 바닥 ${low['.cap']?.toFixed(0)} · 비주얼 바닥 ${low['.vis']?.toFixed(0)} (한계 ${SAFE_BOTTOM})`);
+      : Object.entries(low).map(([k, v]) => `${k} ${v.toFixed(0)}`).join(' · ') + ` (한계 ${SAFE_BOTTOM})`);
+
+  /* 🔴 아웃트로 카드 넘침 — ep15s 트랙 판정(2026-08-10)으로 신설.
+     A 가 근본(내용이 상자를 넘는가), B 가 증상(넘친 것이 자막·HUD 와 겹치는가).
+     🔑 **A 만 두면** 나중에 상자 좌표가 바뀔 때 못 잡고, **B 만 두면** 자막이 짧은 회차에서
+     우연히 통과한다. 둘 다 둔다.
+     🔴 **허용 오차 0.** 「N px 까지는 봐준다」는 순간 그 N 이 지어낸 임계값이 되어
+     `ADR-V-11`(근거 없는 임계값 금지)에 걸린다. 값은 DOM 에서 나오고 임계값이 0 이라
+     지어낼 여지가 없다 — `ADR-V-11` 본문이 *"관측되면 그때 근거를 갖고 만든다"* 로
+     직접 허가하고, 실측 사고가 **둘**이다(ep15s-3 HUD 관통 · ep15s-1 `.oc-ai` 겹침).
+     🔴 **소급 적용 금지** — `ADR-V-15` 로 `ep13s`·`ep14s` 는 재렌더하지 않는다.
+     이 게이트에 `ep14s-1`(넘침 26.5 · 겹침 1.4)·`ep14s-4`(넘침 1.5)가 걸리지만
+     **둘 다 화면상 깨끗함을 스틸로 확인했다**(상자 겹침 ≠ 글자 겹침). 업로드하는 사람이
+     걸린 편을 보고 멈추지 않도록 여기 적어 둔다. */
+  const oc = await cdp.evaluate(`(()=>{
+    const card = document.getElementById('outroCard');
+    if (!card) return null;
+    const OUT = 3000, N = 12;   // 아웃트로 3초 창을 따로 훑는다 — 위 N=24 스윕은 여기 표본이 둘뿐이다
+    let over = 0, hit = [];
+    for (let i = 0; i < N; i++) {
+      window.seek(window.TOTAL - OUT + OUT * i / (N - 1));
+      if (card.hidden) continue;
+      const box = card.getBoundingClientRect();
+      const kids = [...card.children].filter(el => !el.hidden && el.offsetParent !== null);
+      if (!kids.length) continue;
+      let top = Infinity, bot = -Infinity;
+      for (const el of kids) { const r = el.getBoundingClientRect(); top = Math.min(top, r.top); bot = Math.max(bot, r.bottom); }
+      over = Math.max(over, (box.top - top) + (bot - box.bottom));
+      for (const el of kids) {
+        const a = el.getBoundingClientRect();
+        for (const sel of ['.cap p', '.hud']) {
+          const o = document.querySelector(sel); if (!o) continue;
+          if (sel === '.cap p' && !o.textContent.trim()) continue;
+          const b = o.getBoundingClientRect();
+          const ov = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+          const oh = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+          if (ov > 0 && oh > 0) hit.push(\`\${el.className || el.id} × \${sel} \${ov.toFixed(1)}px\`);
+        }
+      }
+    }
+    return { over, hit: [...new Set(hit)], fit: window.__ocFit || null };
+  })()`);
+  if (oc) {
+    /* 🔑 사다리 칸을 함께 찍는다 — **0칸이면 옛 회차와 픽셀이 같다**는 뜻이고,
+       1칸 이상이면 그 편은 원래 넘치고 있었다는 뜻이다(엔진 수정의 영향 범위가 보인다). */
+    const rung = oc.fit ? ` · 사다리 ${oc.fit.rung}칸${oc.fit.rung === 0 ? '(현행 그대로)' : ''}` : '';
+    add(oc.over <= 0, '아웃트로 카드 넘침 없음',
+      (oc.over > 0 ? `내용이 상자를 ${oc.over.toFixed(1)}px 넘는다 — 형제 줄 수·outro.next 길이를 줄여라`
+                   : '내용이 상자 안') + rung);
+    add(oc.hit.length === 0, '아웃트로 카드 × 자막·HUD 겹침 없음',
+      oc.hit.length ? oc.hit.join(' · ') : '겹침 0');
+  }
   }
 
   frame = await cdp.evaluate(`(async () => {

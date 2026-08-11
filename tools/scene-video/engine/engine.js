@@ -218,6 +218,71 @@ function buildTimeline(timed) {
    check.mjs 의 같은 이름 상수와 맞춰라. */
 const OUTRO_MS = 3000;
 
+/* 🔴 불변식: **아웃트로 카드 내용은 자기 상자를 넘지 않는다** (2026-08-10 · ep15s 트랙 판정).
+   `.outrocard` 는 고정 높이 + `justify-content:center` 라, 내용이 상자보다 크면
+   **위아래로 똑같이** 넘친다. 아래로 넘친 `.oc-ai` 는 자막(`.cap` z-index 4)에 깔리고,
+   위로 넘친 `.oc-hook` 은 `.hud` 진행 바에 관통당한다 — ep15s 에서 **둘 다 실물로 났다**
+   (ep15s-1 아래 59.0px·위 11.2px · ep15s-3 위쪽 관통).
+   🔴 드라이버가 **둘**이다: 형제 줄 수 **그리고** `.oc-next` 가 두 줄로 접히는지.
+   그래서 `ep14s-1` 은 형제가 넷인데도 +1.4px 넘쳤다 — **"형제 4줄이면 안전"은 거짓이다.**
+
+   재서 넘치면 사다리를 한 칸씩 내려 **들어가는 첫 칸**을 고른다. 순수하게 내용의 함수라
+   결정적이고 벽시계에 안 기댄다. 🔴 **0칸(현행)이 첫 칸이므로 안 넘치는 회차는 한 픽셀도
+   안 바뀐다** — 엔진 층 수정이 과거 회차 레이아웃을 건드리지 않는다는 증명이 여기 있다.
+   🔴 어느 칸으로도 안 들어가면 **조용히 넘기지 않고 던진다.** 뭉개진 프레임을 렌더하는
+   것보다 빌드가 서는 편이 싸다. */
+const OC_LADDER = [
+  {},                                                       // 0 = 현행(손대지 않음)
+  { fs: 10.5, pad: 3, gap: 9,   sibGap: 5 },
+  { fs: 10,   pad: 2, gap: 8,   sibGap: 4 },
+  { fs: 9.5,  pad: 2, gap: 7,   sibGap: 4 },
+  { fs: 9,    pad: 2, gap: 6,   sibGap: 3 },
+  { fs: 8.5,  pad: 1, gap: 5,   sibGap: 3 },
+  { fs: 8,    pad: 1, gap: 4.5, sibGap: 2.5 },
+  { fs: 7.5,  pad: 1, gap: 4,   sibGap: 2 },
+  { fs: 7,    pad: 0, gap: 3.5, sibGap: 2 },
+  { fs: 6.5,  pad: 0, gap: 3,   sibGap: 1.5 },
+];
+
+/* 내용 높이 = 보이는 첫 자식의 머리부터 보이는 마지막 자식의 발까지.
+   🔴 `hidden` 인 자식은 뺀다(`.oc-hook`·`.oc-next` 는 회차에 따라 안 뜬다).
+   🔑 `scrollHeight` 를 안 쓰는 이유: `center` 로 **위로** 넘친 몫을 그 값이 안 잡는다. */
+function ocOverflow(card) {
+  const kids = [...card.children].filter(el => !el.hidden && el.offsetParent !== null);
+  if (!kids.length) return 0;
+  const box = card.getBoundingClientRect();
+  let top = Infinity, bottom = -Infinity;
+  for (const el of kids) {
+    const r = el.getBoundingClientRect();
+    top = Math.min(top, r.top); bottom = Math.max(bottom, r.bottom);
+  }
+  return Math.max(0, (box.top - top) + (bottom - box.bottom));
+}
+
+function fitOutroCard() {
+  const card = $('outroCard');
+  if (!card) return;
+  const wasHidden = card.hidden;
+  /* 재려면 레이아웃이 있어야 한다(`[hidden]` 은 `display:none`). 눈에는 안 띄게 띄운다. */
+  if (wasHidden) { card.hidden = false; card.style.visibility = 'hidden'; }
+  let picked = -1;
+  for (let i = 0; i < OC_LADDER.length; i++) {
+    const r = OC_LADDER[i];
+    card.style.setProperty('--oc-sib-fs',  r.fs     != null ? `${r.fs}px`     : '');
+    card.style.setProperty('--oc-sib-pad', r.pad    != null ? `${r.pad}px`    : '');
+    card.style.setProperty('--oc-gap',     r.gap    != null ? `${r.gap}px`    : '');
+    card.style.setProperty('--oc-sib-gap', r.sibGap != null ? `${r.sibGap}px` : '');
+    if (ocOverflow(card) <= 0) { picked = i; break; }
+  }
+  const over = ocOverflow(card);
+  if (wasHidden) { card.hidden = true; card.style.visibility = ''; }
+  if (picked < 0) {
+    throw new Error(`아웃트로 카드가 상자를 ${over.toFixed(1)}px 넘는다 — 사다리 `
+      + `${OC_LADDER.length}칸으로도 안 들어간다. 형제 줄 수나 outro.next 길이를 줄여라.`);
+  }
+  window.__ocFit = { rung: picked, overflow: over };   // check.mjs 가 읽는다
+}
+
 function buildDom() {
   $('hudTitle').textContent = scene.hud.title;
 
@@ -256,6 +321,7 @@ function buildDom() {
   $('ocNext').textContent = ocNext ? `다음 편 · ${ocNext}` : '';
   $('ocNext').hidden = !ocNext;
   $('ocAi').textContent = scene.hud.aiHook || '';
+  fitOutroCard();
 
   const vis = $('vis'); vis.innerHTML = '';
   shots.forEach(s => {

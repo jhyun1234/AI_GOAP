@@ -274,6 +274,11 @@ py train_style.py --name anjyo --gender M --target-wav-path voices/anjyo.wav --r
   멈춘다(벤더 프리셋으로 조용히 넘어가지 않는다 — 다른 목소리로 회차가 나가는 것이
   멈추는 것보다 나쁘다).
 
+  📦 **보관 위치 = `D:\AI_GOAP-backup\voice\`** (2026-08-11). `ME.json` · 체크포인트 7종 ·
+  녹음 원본, 76MB. 성한지는 같은 폴더의 `CHECKSUMS.txt` 로 대조한다
+  (`ME.json` = `79143ee` / sha256 `ffa9d10e…`). ⚠️ **아직 같은 PC 안이다** — 디스크 고장은
+  막지만 기기 분실·화재는 못 막는다. 드라이브에 한 벌 더 두는 건 판단 대기.
+
   ⚠️ **이미 원격 이력에 올라가 있다.** 추적 해제는 앞으로를 막을 뿐 지난 커밋의 blob 은
   GitHub 에 그대로 남는다. 완전히 지우려면 이력 재작성(`git filter-repo` 등)과 강제 푸시가
   필요하고, 그건 별도 결정이다.

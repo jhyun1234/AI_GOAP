@@ -98,13 +98,30 @@ body{background:#000;color:var(--ink);font-family:var(--mono);
   letter-spacing:.08em;white-space:nowrap}
 
 /* ── 아웃트로 카드 ─────────────────────────────────
-   `.vis` 와 **정확히 같은 상자**를 쓴다(top/left/right/bottom 동일). 안전영역·가장자리
-   검사가 이미 그 상자 기준으로 통과하고 있어서, 새 좌표를 발명하면 그 검사들을
-   처음부터 다시 맞춰야 한다. z-index 는 샷(기본) 위·자막(4) 아래.
-   배경을 칠하는 이유: 뒤 샷이 비쳐 보이면 3색 팔레트 검사가 섞인 색으로 읽는다. */
+   `.vis` 와 **정확히 같은 상자**를 쓴다(top/left/right/bottom 동일). z-index 는
+   샷(기본) 위·자막(4) 아래.
+   배경을 칠하는 이유: 뒤 샷이 비쳐 보이면 3색 팔레트 검사가 섞인 색으로 읽는다.
+
+   🔴 **2026-08-10 정정 — 옛 주석의 "안전영역·가장자리 검사가 이미 그 상자 기준으로
+   통과하고 있어서"는 사실이 아니었다.** 그 검사들은 `.outrocard` 를 **읽지 않는다**
+   (`.cap`·`.vis` 만 본다). 그래서 아래 사고 둘을 아무도 못 봤다 — 게이트가 통과시킨
+   것이 아니라 **보지도 않았다.**
+
+   🔴 **불변식: 카드 내용은 자기 상자(420~1266 @1080×1920)를 넘지 않는다.**
+   `justify-content:center` 라 내용이 상자보다 크면 **위아래로 똑같이 넘치고**,
+   아래로 넘친 `.oc-ai` 는 `.cap`(z-index 4)에 깔리고 위로 넘친 `.oc-hook` 은
+   `.hud` 진행 바에 관통당한다(둘 다 ep15s 에서 실물로 났다).
+   이 불변식 하나가 **두 충돌 모두의 충분조건**이다 — 바깥 층을 잴 필요가 없다:
+     내용이 상자 안 ⇒ 바닥 ≤ 1266 < 1291.2(`.cap p` 머리)   → 아래 충돌 불가
+     내용이 상자 안 ⇒ 머리 ≥  420 >  407.6(`.hud` 바닥)      → 위  충돌 불가
+   ⚠️ 전제 = `hud.title` **2줄 이하**(상한 28자). 3줄이면 `.hud` 바닥이 468.1 로 내려와
+   증명이 깨진다 — 그 상한은 이제 이 불변식의 **전제**다.
+   지키는 것은 `engine.js` 의 `fitOutroCard()` 다(내용을 재서 사다리를 내린다).
+   🔴 드라이버는 형제 줄 수 **하나가 아니다** — `.oc-next` 가 두 줄로 접히면 형제 4줄
+   에서도 넘친다(`ep14s-1` 실측 +1.4px). **"형제 4줄이면 안전"은 선례가 아니다.** */
 .outrocard{position:absolute;top:21.875%;left:20px;right:20px;bottom:34.0625%;
   z-index:3;background:var(--bg);display:flex;flex-direction:column;
-  justify-content:center;gap:9px}
+  justify-content:center;gap:var(--oc-gap,9px)}
 .outrocard[hidden]{display:none}
 /* 🔴 훅은 카드 맨 위다(2026-08-04). 원래 마지막 샷 canvas 가 그렸는데,
    .outrocard 가 .vis 와 좌표가 한 픽셀도 다르지 않고 배경이 불투명이라
@@ -121,9 +138,12 @@ body{background:#000;color:var(--ink);font-family:var(--mono);
 .oc-hook[hidden]{display:none}
 .oc-src{font-family:var(--disp);font-weight:800;font-size:15px;line-height:1.3;
   letter-spacing:-.02em;color:var(--ink)}
-.oc-sibs{list-style:none;display:flex;flex-direction:column;gap:5px}
-.oc-sibs li{font-family:var(--mono);font-size:11px;line-height:1.4;color:var(--sub);
-  border-left:3px solid var(--track);padding:3px 0 3px 9px}
+/* 🔴 아래 셋이 `fitOutroCard()` 의 사다리 손잡이다(기본값 = 옛 고정값 그대로라
+   안 넘치는 회차는 한 픽셀도 안 바뀐다). 손으로 인라인 지정하지 마라. */
+.oc-sibs{list-style:none;display:flex;flex-direction:column;gap:var(--oc-sib-gap,5px)}
+.oc-sibs li{font-family:var(--mono);font-size:var(--oc-sib-fs,11px);line-height:1.4;
+  color:var(--sub);border-left:3px solid var(--track);
+  padding:var(--oc-sib-pad,3px) 0 var(--oc-sib-pad,3px) 9px}
 .oc-sibs li.me{color:var(--ink);border-left-color:var(--accent)}
 /* 다음 편 (2026-08-06, 25초 전환 W2). 음성 예고를 뺀 회차에서 이 줄이 예고를 진다 —
    그러니 형제 목록보다 크고 강조색이다. `siblings` 와 나란히 서면 안 된다. */

@@ -852,6 +852,10 @@ namespace AIVillage.M0
         {
             _gameTime = gameTime; // 체류 개체의 시계 (M21-W2) — 아래 조기 반환보다 먼저 갱신할 것
 
+            // 상주 예약 (M26-2차 W5R) — 🔴 웨이브 스케줄의 조기 반환(종족 미해금 등)보다 **먼저**:
+            // 상주는 웨이브가 아니라서 그 정지에 같이 멎으면 안 된다.
+            TickResidentReservations();
+
             // 예고 진입 — 밴드는 예고 시점 게임일로 확정하고 발동까지 고정 (예고한 그놈이 온다).
             // 지연(_delayDays, M21-W7)은 예고·발동 **둘 다**에 얹는다 — 예고만 제때 나가고 발동이
             // 늦으면 "1일 후"가 거짓말이 된다 (예고 문구와 실제 간격은 한 값이어야 한다).
@@ -967,35 +971,73 @@ namespace AIVillage.M0
         public static bool StrikesVillagers(bool targetsVillagers, bool isResident)
             => targetsVillagers || isResident;
 
-        /// <summary>상주 무리 키 (M26-2차 W5) — `_strikeOrdinal`(1부터)과 절대 겹치지 않는 음수다.
-        /// 🔑 `_groupSpawned`에 **등록하지 않는다**: 등록하면 한 마리가 죽을 때 무리 도주선이
-        /// 발동해 들판의 상주가 통째로 도망친다 (상주는 무리가 아니라 개체다).</summary>
-        private const int RESIDENT_GROUP = -1;
+        // ── 들판 상주 = 예약제 (M26-2차 W5R — 2026-08-11 사용자 Play 관측으로 개정) ──────
+        //
+        // 🔴 W5(즉시 배치)가 Play 첫 판에 세 결함을 드러냈다: ①Day 0부터 "습격 중" 배너
+        //    ②F 명령이 **미발견** 고블린을 정확히 찾아감("주민이 맵을 밝힌다" 위반) ③개체가
+        //    판 시작부터 전부 살아 있음. 사용자 설계 = **좌표만 예약하고, 주민이 다가오면 부화**.
+        // 🔑 덤: 활성 개체 수가 맵 면적이 아니라 **주민 활동 면적**에 비례하게 된다 —
+        //    맵 대형화(트리거 B)에서 예약은 좌표 몇 개일 뿐이다.
+        //
+        // 수명 주기: 무장 --주민 접근(부화 반경)--> 부화 --전멸--> 쿨다운 --경과--> 무장
+        //                                          └--주민 이탈(회수 반경) + 무손실--> 무장(즉시)
+        // 🔴 부화 < 회수 반경 (히스테리시스) — 같으면 경계를 걷는 주민 앞에서 깜빡인다.
+        // 🔴 다친 무리는 회수하지 않는다 — "때리고 물러났다 오면 체력이 찬다" 방지.
+        // 🔴 쿨다운은 재무장 = 전리품(MeatDrop)의 재생 주기다. 1회 부화면 고기 공급원이 마른다
+        //    (사용자 판단). ⚠️ 값 3일은 제안치 — **시간 밸런스 세션**(별도 명세)에서 29개
+        //    일 단위 필드와 함께 재조정한다 (1년 = 12일인 지금 눈금에서 3일 = 분기다).
+
+        private enum ResState { Armed, Hatched, Cooldown }
+
+        /// <summary>상주 무리 예약 1건. **세이브 대상** (ADR-M0-10 선언): State·CooldownUntil이
+        /// 없으면 로드 직후 전멸했던 무리가 즉시 부화해 쿨다운이 무력화된다. 구현은 세이브 축에서.</summary>
+        private sealed class ResidentReservation
+        {
+            public ThreatSO Race;
+            public Vector2Int Anchor;
+            public int Size;          // 시드 롤로 고정 — 재무장해도 같은 무리 (지도를 외운다)
+            public uint Roll;         // 산개 자리 롤 (부화마다 같은 배치 = 결정적)
+            public int GroupKey;      // 음수 고유 — _strikeOrdinal(양수)·_groupSpawned와 절대 안 겹친다
+            public ResState State;
+            public float CooldownUntil;
+            public int HatchedCount;  // 부화 시점 마릿수 — 전멸/무손실 판정의 분모
+            public bool Recalling;    // 회수 중 — NotifyDespawn이 쿨다운으로 오해하지 않게
+            public readonly List<ThreatAgent> Live = new List<ThreatAgent>(6);
+        }
+
+        private readonly List<ResidentReservation> _residentReservations = new List<ResidentReservation>(8);
+        private int _residentHatchRadius;    // 주민 시야 × 배수 — 조립 시 확정
+        private int _residentRecallRadius;
+        private float _residentCooldownDays;
 
         /// <summary>
-        /// 들판 상주 배치 (M26-2차 W5) — **판 시작 1회**. 웨이브가 아니므로 예고도 예산도 없다.
+        /// 들판 상주 예약 (M26-2차 W5R) — **판 시작 1회, 개체는 만들지 않는다.**
         ///
         /// 🔴 압력(`ADR-M24-1`)을 건드리지 않는다: `_strikeOrdinal`·`_encounters`·`_groupSpawned`
-        ///    어느 것도 쓰지 않는다. 안 죽고 안 나가는 개체가 예산을 점유하면 웨이브가 영영 안 온다.
-        /// 🔑 자리는 **시드 롤**이다 (`ADR-M10R-2` — 같은 판이면 같은 자리). 랜덤이면 연대기가
-        ///    가리키는 판을 다시 열 수 없다.
+        ///    어느 것도 쓰지 않는다. 🔑 자리·크기는 **시드 롤**이다 (`ADR-M10R-2` — 같은 판이면
+        ///    같은 자리·같은 무리). 앵커가 고정이라 "저 골짜기엔 고블린이 산다"를 배울 수 있다.
         /// </summary>
-        /// <param name="terrainAt">지형 조회 (null이면 서식지 조건 무시).</param>
-        /// <param name="safeRadius">마을 중심 둘레 이 반경(체비쇼프) 안에는 놓지 않는다.</param>
-        public int SpawnResidents(IReadOnlyList<ThreatSO> races, uint runSeed,
-                                  System.Func<int, int, TerrainTypeSO> terrainAt, int safeRadius)
+        /// <param name="hatchRadius">부화 반경 (주민 시야 × 배수 — 주민은 아직 적을 못 봤지만
+        /// 적은 주민이 온 것을 안다).</param>
+        /// <param name="recallRadius">회수 반경 — **부화보다 커야 한다** (히스테리시스).</param>
+        public int ReserveResidents(IReadOnlyList<ThreatSO> races, uint runSeed,
+                                    System.Func<int, int, TerrainTypeSO> terrainAt, int safeRadius,
+                                    int hatchRadius, int recallRadius, float cooldownDays)
         {
             if (races == null || _isWalkable == null) return 0;
+            _residentHatchRadius = Mathf.Max(1, hatchRadius);
+            _residentRecallRadius = Mathf.Max(_residentHatchRadius + 1, recallRadius);
+            _residentCooldownDays = Mathf.Max(0f, cooldownDays);
+
             MapBounds.Get(out int minX, out int maxX, out int minY, out int maxY);
             long tiles = (long)(maxX - minX + 1) * (maxY - minY + 1);
-            int total = 0;
 
             foreach (ThreatSO so in races)
             {
                 if (so == null || !so.IsResident || so.ResidentBandsPer10kTiles <= 0f) continue;
 
                 int bands = BandCount(so.ResidentBandsPer10kTiles, tiles);
-                int placed = 0;
+                var anchors = new System.Text.StringBuilder();
 
                 for (int b = 0; b < bands; b++)
                 {
@@ -1003,38 +1045,143 @@ namespace AIVillage.M0
                     if (!TryPickHabitatTile(so, roll, terrainAt, safeRadius,
                                             minX, maxX, minY, maxY, out Vector2Int anchor))
                     {
-                        Debug.LogWarning($"[Threat] 상주 무리 배치 실패 — {so.DisplayName} {b + 1}/{bands} " +
+                        Debug.LogWarning($"[Threat] 상주 예약 실패 — {so.DisplayName} {b + 1}/{bands} " +
                                          "(서식지 조건을 만족하는 칸을 못 찾았다)");
                         continue;
                     }
 
-                    // 무리 크기 — 시드 롤 (같은 판이면 같은 무리, ADR-M10R-2).
                     int lo = Mathf.Max(1, Mathf.Min(so.ResidentBandMin, so.ResidentBandMax));
                     int hi = Mathf.Max(lo, so.ResidentBandMax);
-                    int size = lo + (int)(StableHash.Fnv1a($"{so.name}_{b}", "bandsize") % (uint)(hi - lo + 1));
-
-                    for (int m = 0; m < size; m++)
+                    _residentReservations.Add(new ResidentReservation
                     {
-                        // 첫 마리는 앵커, 나머지는 반경 안 산개. 못 서면 그 마리만 거른다.
-                        Vector2Int at = anchor;
-                        if (m > 0)
+                        Race = so,
+                        Anchor = anchor,
+                        Size = lo + (int)(StableHash.Fnv1a($"{so.name}_{b}", "bandsize") % (uint)(hi - lo + 1)),
+                        Roll = roll,
+                        GroupKey = -(_residentReservations.Count + 1),
+                        State = ResState.Armed,
+                    });
+                    anchors.Append($" ({anchor.x},{anchor.y})");
+                }
+                // 무리별 앵커 로그 (W5R ⑤) — "한 곳에 다 모였다" 관측을 다음 판에 확정하는 근거.
+                if (anchors.Length > 0)
+                    Debug.Log($"[Threat] 들판 상주 예약 — {so.DisplayName} {bands}무리, 앵커:{anchors} " +
+                              $"(부화 {_residentHatchRadius}칸 · 회수 {_residentRecallRadius}칸 · " +
+                              $"재무장 {_residentCooldownDays:0.##}일)");
+            }
+            return _residentReservations.Count;
+        }
+
+        /// <summary>예약 틱 (Tick 초입) — 부화·회수·재무장. 예약 ~수 개 × 주민 ~수십이라 싸다.</summary>
+        private void TickResidentReservations()
+        {
+            for (int i = 0; i < _residentReservations.Count; i++)
+            {
+                ResidentReservation r = _residentReservations[i];
+                switch (r.State)
+                {
+                    case ResState.Armed:
+                        if (AnyVillagerWithin(r.Anchor, _residentHatchRadius)) HatchBand(r);
+                        break;
+
+                    case ResState.Hatched:
+                        // 회수 = 전원 생존 + 전원 무손상 + 주민이 회수 반경 밖.
+                        // 🔴 손상·손실이 있으면 남는다 — 물러났다 와도 체력이 차 있으면 안 된다.
+                        if (r.Live.Count == r.HatchedCount && AllUnharmed(r)
+                            && !AnyVillagerWithin(r.Anchor, _residentRecallRadius))
+                            RecallBand(r);
+                        break;
+
+                    case ResState.Cooldown:
+                        if (_gameTime >= r.CooldownUntil)
                         {
-                            uint mr = roll + (uint)(m * 40503);
-                            int span = so.ResidentBandRadius * 2 + 1;
-                            int dx = (int)(mr % (uint)span) - so.ResidentBandRadius;
-                            int dy = (int)((mr / (uint)span) % (uint)span) - so.ResidentBandRadius;
-                            at = new Vector2Int(anchor.x + dx, anchor.y + dy);
-                            if (!_isWalkable(at.x, at.y)) continue;
+                            r.State = ResState.Armed;
+                            Debug.Log($"[Threat] 상주 재무장 — {r.Race.DisplayName} @ ({r.Anchor.x},{r.Anchor.y})");
                         }
-                        SpawnOneResident(so, at);
-                        placed++; total++;
+                        break;
+                }
+            }
+        }
+
+        private bool AnyVillagerWithin(Vector2Int anchor, int radius)
+        {
+            if (_agents == null) return false;
+            foreach (VillagerAgent a in _agents)
+            {
+                if (a == null || a.State == AgentState.Dead) continue;   // 시신은 부화를 부르지 않는다
+                if (Mathf.Abs(a.TileX - anchor.x) + Mathf.Abs(a.TileY - anchor.y) <= radius) return true;
+            }
+            return false;
+        }
+
+        private static bool AllUnharmed(ResidentReservation r)
+        {
+            foreach (ThreatAgent t in r.Live)
+                if (t == null || t.Hp < t.So.MaxHp * t.GradeMult) return false;
+            return true;
+        }
+
+        /// <summary>부화 — 예약이 개체가 된다. 산개 롤이 예약에 고정돼 있어 매번 같은 배치다.</summary>
+        private void HatchBand(ResidentReservation r)
+        {
+            ThreatSO so = r.Race;
+            int spawned = 0;
+            for (int m = 0; m < r.Size; m++)
+            {
+                Vector2Int at = r.Anchor;
+                if (m > 0)
+                {
+                    uint mr = r.Roll + (uint)(m * 40503);
+                    int span = so.ResidentBandRadius * 2 + 1;
+                    at = new Vector2Int(r.Anchor.x + (int)(mr % (uint)span) - so.ResidentBandRadius,
+                                        r.Anchor.y + (int)((mr / (uint)span) % (uint)span) - so.ResidentBandRadius);
+                    if (!_isWalkable(at.x, at.y)) continue;   // 못 서는 칸 — 그 마리만 거른다
+                }
+                ThreatAgent agent = CreateAgent($"Resident_{so.name}_{at.x}_{at.y}", so, at, at,
+                                                null, false, r.GroupKey, 1f, resident: true);
+                r.Live.Add(agent);
+                spawned++;
+            }
+            r.HatchedCount = spawned;
+            r.State = ResState.Hatched;
+            Debug.Log($"[Threat] 들판 조우 — {so.DisplayName} {spawned}마리 @ ({r.Anchor.x},{r.Anchor.y}) " +
+                      "(주민 접근으로 부화)");
+        }
+
+        /// <summary>회수 — 주민이 물러났고 아무도 안 다쳤다. 조용히 걷어 즉시 재무장한다.</summary>
+        private void RecallBand(ResidentReservation r)
+        {
+            r.Recalling = true;
+            for (int i = r.Live.Count - 1; i >= 0; i--) r.Live[i]?.DespawnNow();
+            r.Recalling = false;
+            r.Live.Clear();
+            r.HatchedCount = 0;
+            r.State = ResState.Armed;
+            Debug.Log($"[Threat] 상주 회수 — {r.Race.DisplayName} @ ({r.Anchor.x},{r.Anchor.y}) " +
+                      "(주민이 물러나 다시 잠복)");
+        }
+
+        /// <summary>상주 소멸 처리 (`NotifyDespawn` 전용) — 전멸이면 쿨다운을 건다.</summary>
+        private void OnResidentDespawn(ThreatAgent agent)
+        {
+            foreach (ResidentReservation r in _residentReservations)
+            {
+                if (r.GroupKey != agent.GroupKey) continue;
+                r.Live.Remove(agent);
+                if (r.Live.Count == 0)
+                {
+                    _groupAttackers.Remove(r.GroupKey);   // 교전 명단 정리 (키가 고정이라 다음 부화에 새로 쌓인다)
+                    if (!r.Recalling && r.State == ResState.Hatched)
+                    {
+                        r.State = ResState.Cooldown;
+                        r.CooldownUntil = _gameTime + _residentCooldownDays;
+                        r.HatchedCount = 0;
+                        Debug.Log($"[Threat] 상주 무리 소진 — {r.Race.DisplayName} @ ({r.Anchor.x},{r.Anchor.y}) " +
+                                  $"· 재무장까지 {_residentCooldownDays:0.##}일");
                     }
                 }
-                if (placed > 0)
-                    Debug.Log($"[Threat] 들판 상주 — {so.DisplayName} {bands}무리 {placed}마리가 " +
-                              $"판 시작부터 들판에 산다 (맵 {tiles}타일 · 밀도 {so.ResidentBandsPer10kTiles}/10k)");
+                return;
             }
-            return total;
         }
 
         /// <summary>맵 넓이에서 무리 수 (순수 — 게이트 `M26B_T8c`).
@@ -1071,12 +1218,6 @@ namespace AIVillage.M0
             return false;
         }
 
-        /// <summary>상주 1마리 — 제자리가 곧 목표다(`waypoints: null` = AlreadyThere → 즉시 도착·배회).
-        /// 🔑 `targetsVillagers: false` 로 태어난다: 주민형이면 마을까지 걸어가 버려 **상주가 아니게 된다.**
-        /// 곁에 온 주민을 무는 것은 `NotifyStrikeTick` 의 `IsResident` 분기가 맡는다.</summary>
-        private void SpawnOneResident(ThreatSO so, Vector2Int at)
-            => CreateAgent($"Resident_{so.name}_{at.x}_{at.y}", so, at, at,
-                           null, false, RESIDENT_GROUP, 1f, resident: true);
 
         /// <summary>
         /// 위협 개체가 태어나는 **유일한 문** (게이트 `M24_T7`이 전수로 감시한다).
@@ -1542,6 +1683,10 @@ namespace AIVillage.M0
         public void NotifyDespawn(ThreatAgent agent)
         {
             _active.Remove(agent);
+            // 상주 (M26-2차 W5R) — 예약 장부만 갱신하고 끝. 아래 무리 도주선·격퇴 판정은 웨이브
+            // 장부(_groupSpawned, 양수 키)를 보므로 음수 키인 상주는 어차피 안 걸리지만,
+            // 뜻을 분명히 하기 위해 여기서 갈라 나간다 (상주의 소멸은 격퇴가 아니다).
+            if (agent.IsResident) { OnResidentDespawn(agent); return; }
             bool combatExit = agent.IsFleeing || agent.Hp <= 0f; // 도주 전환·사냥 — 둘 다 전투의 결과
             if (combatExit)
             {
@@ -1726,7 +1871,11 @@ namespace AIVillage.M0
         /// 쫓아갈 이유가 없다 — 도망가는 짐승을 잡는 것은 사냥꾼(W8)의 몫이다.
         /// TryGetNearestThreatPos(도피 방향용)와 목록은 같지만 **필터가 다르다**: 도망칠 때는
         /// 물러나는 위협도 무섭다.</summary>
-        public bool TryGetNearestFightable(int x, int y, out ThreatAgent threat)
+        /// <param name="senseMult">개인 감지 배율 (`FleeRadius` — ThreatNear와 같은 자).
+        /// 🔴 **상주에만 건다** (M26-2차 W5R): F 명령이 **미발견** 상주를 맵 끝까지 찾아가
+        /// "주민이 맵을 밝힌다"를 깼다 (2026-08-11 Play 관측). 웨이브는 예고·도착이 HUD로
+        /// 방송되는 공동 지식이라 기존 동작 그대로다 (중립 불변식 — 습격 대응 무회귀).</param>
+        public bool TryGetNearestFightable(int x, int y, float senseMult, out ThreatAgent threat)
         {
             threat = null;
             int best = int.MaxValue;
@@ -1734,6 +1883,8 @@ namespace AIVillage.M0
             {
                 if (t == null || t.IsFleeing || t.IsExiting) continue;
                 int d = Mathf.Abs(x - t.TileX) + Mathf.Abs(y - t.TileY);
+                // 상주는 감지 반경 안이어야 "안다" — 아무도 그 존재를 방송하지 않았다.
+                if (t.IsResident && !WithinDanger(d, t.So.DangerRadiusTiles, senseMult)) continue;
                 if (d >= best) continue;
                 best = d;
                 threat = t;
@@ -1751,6 +1902,10 @@ namespace AIVillage.M0
             foreach (ThreatAgent t in _active)
             {
                 if (t == null || !t.Staying) continue;
+                // 상주 제외 (M26-2차 W5R) — 상주는 태어나자마자 도착해 **영원히 체류**라, 세면
+                // Day 0부터 "마을 습격 중"이 뜬다 (2026-08-11 Play 관측). 들판에 사는 것은
+                // 습격이 아니다 — 이 배너는 마을로 온 웨이브의 것이다.
+                if (t.IsResident) continue;
                 if (so == null) so = t.So;
                 if (t.So == so) stayingCount++;
             }

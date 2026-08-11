@@ -70,7 +70,7 @@ namespace AIVillage.M0
             FightActionSO src = _so.CombatSource;
             int range = M0SimulationLoop.Instance != null ? M0SimulationLoop.Instance.DefenseTowerRange : 0;
             if (src != null && range > 0 && agent.Combat != null
-                && agent.Threats.TryGetNearestFightable(_towerTile.x, _towerTile.y, out ThreatAgent target)
+                && agent.Threats.TryGetNearestFightable(_towerTile.x, _towerTile.y, 1f, out ThreatAgent target)
                 && Mathf.Abs(target.TileX - _towerTile.x) + Mathf.Abs(target.TileY - _towerTile.y) <= range)
             {
                 _idleSec = 0f;

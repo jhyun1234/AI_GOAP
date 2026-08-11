@@ -508,6 +508,37 @@ namespace AIVillage.Tests.EditMode
         }
 
         [Test]
+        public void M26B_T8d_ResidentReservation_HysteresisAndCooldown_AreSane()
+        {
+            // 🔴 W5R (2026-08-11 Play 관측 개정) — 배포 값의 세 계약:
+            //    ①부화 < 회수 (히스테리시스 — 같으면 경계에서 무리가 깜빡인다)
+            //    ②쿨다운 > 0 (0이면 전멸 즉시 재부화 = 한 자리 무한 파밍)
+            //    ③둘 다 시야 배수라 시야가 변해도 관계가 유지된다.
+            var cfg = AssetDatabase.LoadAssetAtPath<AIVillage.M0.WorldConfigSO>(
+                "Assets/M0Config/WorldConfig.asset");
+            Assert.IsNotNull(cfg, "WorldConfig.asset 없음");
+
+            Assert.Greater(cfg.ResidentRecallSightMult, cfg.ResidentHatchSightMult,
+                "회수 배수가 부화 배수보다 크지 않다 — 경계를 걷는 주민 앞에서 무리가 깜빡인다");
+            Assert.Greater(cfg.ResidentRearmCooldownDays, 0f,
+                "재무장 쿨다운이 0이다 — 전멸 즉시 재부화 = 한 자리 무한 파밍");
+
+            // 부화 반경이 감지 반경(DangerRadius 6)보다 커야 "주민은 아직 못 봤는데 적은 안다"가
+            // 성립한다 — 작으면 부화 순간 이미 교전 거리라 예약의 뜻이 없다.
+            var map = AssetDatabase.LoadAssetAtPath<MapConfig>(MapPath);
+            int hatch = Mathf.RoundToInt(map.villagerSightRadius * cfg.ResidentHatchSightMult);
+            foreach (string guid in AssetDatabase.FindAssets("t:ThreatSO"))
+            {
+                var so = AssetDatabase.LoadAssetAtPath<AIVillage.M0.ThreatSO>(
+                    AssetDatabase.GUIDToAssetPath(guid));
+                if (so == null || !so.IsResident) continue;
+                Assert.Greater(hatch, so.DangerRadiusTiles,
+                    $"{so.name}: 부화 반경({hatch})이 감지 반경({so.DangerRadiusTiles}) 이하 — " +
+                    "태어나는 순간 이미 교전 거리다");
+            }
+        }
+
+        [Test]
         public void M26B_T8c_BandDensity_ScalesWithMapArea()
         {
             // 🔴 이 검사가 지키는 것: **맵을 넓혔을 때 들판이 더 안전해지지 않는다.**

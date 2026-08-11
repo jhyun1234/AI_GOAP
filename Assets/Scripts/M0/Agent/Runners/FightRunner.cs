@@ -60,7 +60,7 @@ namespace AIVillage.M0
         public override bool Prepare(VillagerAgent agent)
         {
             if (agent.Threats == null || agent.Combat == null) return true; // 위협 없는 판 — Tick이 즉시 완료
-            if (!agent.Threats.TryGetNearestFightable(agent.TileX, agent.TileY, out _target))
+            if (!agent.Threats.TryGetNearestFightable(agent.TileX, agent.TileY, agent.FleeRadius(), out _target))
                 return true; // 대상 없음 — Tick이 완료 처리 (실패로 두면 명령이 영영 안 비워진다)
 
             _nextHitAt = Time.time; // 도착 즉시 첫 대 — 달려와서 4초 기다리면 그 사이에 먼저 맞는다
@@ -80,7 +80,7 @@ namespace AIVillage.M0
             if (_target == null || _target.IsFleeing || _target.IsExiting)
             {
                 if (agent.Threats == null
-                    || !agent.Threats.TryGetNearestFightable(agent.TileX, agent.TileY, out _target))
+                    || !agent.Threats.TryGetNearestFightable(agent.TileX, agent.TileY, agent.FleeRadius(), out _target))
                     return RunnerResult.Succeeded; // 맞설 것이 없다 = 이 교전은 끝났다 (명령도 함께 비워진다)
                 _nextHitAt = Time.time;
             }

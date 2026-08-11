@@ -37,6 +37,9 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 716d6af9517c043fda663202af02c8f6, type: 2}
   ThreatReliefStackMax: 3
   ThreatReliefDelayDays: 2
+  ResidentHatchSightMult: 1.5
+  ResidentRecallSightMult: 2
+  ResidentRearmCooldownDays: 3
   WandererIntervalDays: 5
   WandererWaitDays: 0.7
   FoodSources:

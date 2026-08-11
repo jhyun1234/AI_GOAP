@@ -287,7 +287,7 @@ namespace AIVillage.M0
         /// 같은 위협을 봐도 겁 많은 주민이 먼저 알아챈다. 성향 가중치가 비면 Threshold가 1을
         /// 그대로 돌려주므로 현행 동작과 완전히 같다 (중립 불변식).
         /// </summary>
-        private float FleeRadius()
+        public float FleeRadius()   // 공개 (M26-2차 W5R) — FightRunner의 상주 인지 판정이 같은 자를 쓴다
             => (Personality != null ? Personality.FleeRadiusMult : 1f)
                * TraitVector.Threshold(MyTraits, _cfg.FleeRadiusBias, 1f); // 개체 편차 포함 (M14-W3)
 

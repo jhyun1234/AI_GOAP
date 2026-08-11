@@ -1454,13 +1454,19 @@ namespace AIVillage.M0
             // 🔑 M26-1차 W2: **판 시드를 넘긴다** (ADR-T-4). 지금까지 노드 시드는 `randomSeed: 0`이라
             //    매 실행 랜덤이고 **익명**이었다 — 판마다 다르되 같은 판을 다시 볼 수 없었다.
             //    지형과 노드가 같은 시드에서 나와야 `ADR-M10R-2`가 맵까지 덮는다.
-            // 들판 상주 위협 (M26-2차 W5) — 판 시작 1회. 웨이브가 아니라 **원래 거기 살던 것들**이다.
-            // 🔴 압력 예산과 무관하다 (ADR-M24-1): 상주는 안 죽고 안 나가므로 예산에 넣으면
-            //    웨이브가 영영 안 온다. 그래서 이 통로는 `BuyWave`를 지나지 않는다.
+            // 들판 상주 예약 (M26-2차 W5R) — 판 시작에 **좌표만** 정한다. 개체는 주민이 부화
+            // 반경에 들 때 태어나고, 물러나면 걷히고, 전멸하면 쿨다운 후 재무장한다 (전리품 재생).
+            // 🔴 압력 예산과 무관하다 (ADR-M24-1): 이 통로는 `BuyWave`를 지나지 않는다.
             if (Threats != null)
-                Threats.SpawnResidents(_worldConfig.Threats, (uint)RunSeed,
-                                       Terrain.IsEmpty ? null : (System.Func<int, int, TerrainTypeSO>)Terrain.At,
-                                       _terrainSafeRadius);
+            {
+                int sight = MapConfig.Active != null ? MapConfig.Active.villagerSightRadius : 10;
+                Threats.ReserveResidents(_worldConfig.Threats, (uint)RunSeed,
+                                         Terrain.IsEmpty ? null : (System.Func<int, int, TerrainTypeSO>)Terrain.At,
+                                         _terrainSafeRadius,
+                                         Mathf.RoundToInt(sight * _worldConfig.ResidentHatchSightMult),
+                                         Mathf.RoundToInt(sight * _worldConfig.ResidentRecallSightMult),
+                                         _worldConfig.ResidentRearmCooldownDays);
+            }
 
             _nodeSpawner.OverrideSeed(RunSeed);
             // 🔑 M26-2차 W1: 리스폰이 쓰는 것과 **같은 판정**을 넘긴다 (ADR-T2-1).

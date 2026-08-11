@@ -111,23 +111,38 @@ const legacy = String(scene.legacyFormat ?? '').trim();
 const WIDE = scene.format === 'wide';
 const wideSkip = 'wide — 쇼츠 규격 비대상 (롱폼 규격은 Docs/롱폼_대본_문법.md)';
 
-const introShot = scene.shots[0];
+/* 🔄 2026-08-12 개정 (ADR-V25-17 · 사용자 승인) — 구조가 둘이고 **`shots[0].kind` 가
+   스스로 밝힌다**. 새 필드를 안 만드는 이유: 기존 44편이 한 글자도 안 바뀌고 돌아야 한다.
+     구 구조(INTRO_FIRST) : [인트로] [훅] 본문… [아웃트로]   ← ep00s~ep16s·d01s
+     신 구조              : [사건]   [정체성] 본문… [아웃트로] ← ep14s-4 부터
+   근거 = 실측. 구 구조는 **사건이 6.8~7.0초에 시작**했다(인트로 4.6 + 훅 보일러플레이트
+   「오늘 개발 일지 내용은,」 ~2.3). 8초 창의 85%를 사건 이전이 쓴 것이다. */
+const INTRO_FIRST = scene.shots[0]?.kind === 'intro';
+const introIdx = INTRO_FIRST ? 0 : 1;
+const hookIdx = INTRO_FIRST ? 1 : 0;
+
+const introShot = scene.shots[introIdx];
 const introSayAll = (introShot?.lines ?? []).map(l => l.say ?? l.text).join(' ');
-add((legacy || WIDE) ? true : (introShot?.kind === 'intro' && /개발\s*일지/.test(introSayAll)), '인트로 있음',
+add((legacy || WIDE) ? true : (introShot?.kind === 'intro' && /개발\s*일지|마을/.test(introSayAll)), '인트로 있음',
   WIDE ? wideSkip
   : legacy ? `구형 예외 — ${legacy}`
     : introShot?.kind === 'intro'
-      ? `${introShot.id} (kind=intro) — 「${introSayAll.slice(0, 28)}…」`
-      : `🔴 shots[0].kind 가 intro 가 아니다(${introShot?.kind}) — 고정 인트로가 없다`);
+      ? `${introShot.id} (kind=intro · shots[${introIdx}]) — 「${introSayAll.slice(0, 28)}…」`
+      : `🔴 shots[${introIdx}].kind 가 intro 가 아니다(${introShot?.kind}) — 고정 인트로가 없다`);
 
-const hookLine = scene.shots[1]?.lines?.[0];
+const hookLine = scene.shots[hookIdx]?.lines?.[0];
 const hookSay = hookLine ? (hookLine.say ?? hookLine.text) : '';
-add((legacy || WIDE) ? true : /^오늘\s*개발\s*일지/.test(hookSay), '훅 시작 문구',
+/* 🔴 신 구조에서는 **금지 검사로 뒤집힌다** — 첫 줄이 보일러플레이트로 시작하면 fail.
+   구 구조에서 요구하던 「오늘 개발 일지 내용은」이 바로 그 2.3초짜리 보일러플레이트다. */
+const hookOk = INTRO_FIRST ? /^오늘\s*개발\s*일지/.test(hookSay) : !/^오늘\s*개발\s*일지/.test(hookSay);
+add((legacy || WIDE) ? true : hookOk, INTRO_FIRST ? '훅 시작 문구' : '첫 줄이 사건 (보일러플레이트 금지)',
   WIDE ? wideSkip
   : legacy ? `구형 예외 — ${legacy}`
-    : /^오늘\s*개발\s*일지/.test(hookSay)
+    : hookOk
       ? `「${hookSay.slice(0, 30)}…」`
-      : `🔴 shots[1] 첫 줄이 「오늘 개발 일지 내용은」으로 시작하지 않는다 — 「${hookSay.slice(0, 30)}」`);
+      : INTRO_FIRST
+        ? `🔴 shots[1] 첫 줄이 「오늘 개발 일지 내용은」으로 시작하지 않는다 — 「${hookSay.slice(0, 30)}」`
+        : `🔴 첫 줄이 「오늘 개발 일지…」로 시작한다 — 신 구조는 0초에 사건이 와야 한다`);
 
 /* 아웃트로 소개 — 마지막 샷에 시리즈 소개로 맺는 줄이 있어야 한다(ADR-V25-10).
    문안은 회차 재량이라 낱말만 본다. 뜻은 검수팀 몫. */
@@ -419,7 +434,13 @@ if (timed) {
     add(totalSec <= 38, '총 길이 38초 이하',
       `${totalSec.toFixed(1)}초 = 자막 ${subSec.toFixed(1)} + 꼬리 ${(SHOT_TAIL * timed.shots.length).toFixed(2)}` +
       ` (목표 33~38초 · 이 값이 실제 mp4 길이다)`);
-    add(totalSec >= 33 && totalSec <= 38, '총 길이 33~38초 권장대역',
+    /* 🔄 ADR-V25-17 — **대역은 구조에 종속이다.** ADR-V25-9 의 산식(고정비 최솟값 + 본문
+       하한 18)을 그대로 쓰되 고정비가 구조마다 다르다:
+         구 구조 = 15.7 + 18 ≈ 33   /   신 구조 = 12.7 + 18 ≈ 31
+       (신 고정비 실측 3편: 인트로 3.5 + 훅 2.4~3.0 + 아웃트로 6.8~7.3 = 12.7~13.8)
+       상한 38 은 구조와 무관하다 — fail 선이고 절대 시청 시간 실측이 떠받친다. */
+    const bandLo = INTRO_FIRST ? 33 : 31;
+    add(totalSec >= bandLo && totalSec <= 38, `총 길이 ${bandLo}~38초 권장대역`,
       `${totalSec.toFixed(1)}초`, 'warn');
   }
 
@@ -430,10 +451,11 @@ if (timed) {
   const durShot = i => timed.shots[i]
     ? timed.shots[i].lines.reduce((a, l) => a + l.dur + (l.pause || 0), 0) / 1000 + SHOT_TAIL
     : 0;
-  const hasIntro = scene.shots[0]?.kind === 'intro';
-  const introSec = hasIntro ? durShot(0) : 0;
+  /* 🔄 ADR-V25-17 — 인트로·훅의 **자리**가 구조마다 다르다. 둘 다 본문에서 빼는 것은 같다. */
+  const hasIntro = scene.shots[introIdx]?.kind === 'intro';
+  const introSec = hasIntro ? durShot(introIdx) : 0;
   const hookSec = hasIntro
-    ? ((timed.shots[1]?.lines?.[0]?.dur ?? 0) + (timed.shots[1]?.lines?.[0]?.pause ?? 0)) / 1000
+    ? ((timed.shots[hookIdx]?.lines?.[0]?.dur ?? 0) + (timed.shots[hookIdx]?.lines?.[0]?.pause ?? 0)) / 1000
     : 0;
   const outroSec = hasIntro ? durShot(timed.shots.length - 1) : teaserDur + 3.0;
   const bodySec = totalSec - introSec - hookSec - outroSec;
@@ -443,7 +465,13 @@ if (timed) {
   if (hasIntro && !WIDE) {
     /* 인트로 고정 문안(33자)의 실측이 4초대다. 5.5 를 넘으면 문안이 불었거나 pause 가
        샌 것 — 사용자 제안치 3초와의 차이는 음성 물리량이다(명세 §2-C). */
-    add(introSec <= 5.5, '인트로 5.5초 이하', `${introSec.toFixed(1)}초`, 'warn');
+    /* 🔄 ADR-V25-17 — 신 구조의 정체성 줄은 사건 뒤에 오므로 짧아야 한다(구 구조 5.5).
+       🔄 상한 3.0 → **3.6** (같은 날 재개정): 3.0 은 실측 없이 적은 제안치였고, 압축 문안
+       (「클로드 코드로만 만든 에이아이 마을이에요.」) 실측이 **3.5초**였다. 문안을 더 깎으면
+       「로만」이나 「AI」를 잃는데 둘 다 정체성 핵심어다. 3편 전부에 상시 경고가 켜지는 쪽이
+       더 나쁘다 — **제안치 전에 그 자리 값부터 본다**를 또 어긴 자리다. */
+    const introCap = INTRO_FIRST ? 5.5 : 3.6;
+    add(introSec <= introCap, `인트로 ${introCap}초 이하`, `${introSec.toFixed(1)}초`, 'warn');
   }
 
   /* ── 어미 연속 (2026-08-11 신설 · 사용자 승인 「fail ≥4 · warn =3」) ─────
@@ -455,7 +483,12 @@ if (timed) {
      상시 경고 아님). 🔴 구간 = 인트로·아웃트로 샷 제외(훅 포함 — 16-3 집행 실측과 같은 구간).
      WIDE 제외: 실측 전수가 쇼츠 발행분뿐이다(M20 — 전수 검사는 고정한 축을 함께 적는다). */
   if (hasIntro && !WIDE) {
-    const midTails = scene.shots.slice(1, -1).flatMap(s => s.lines || [])
+    /* 🔄 ADR-V25-17 — 재는 구간은 「고정 문안 샷과 아웃트로를 뺀 나머지」다. 구 구조에선
+       그게 slice(1,-1) 이었고, 신 구조에선 인트로가 가운데(1)라 그 샷만 빠진다.
+       고정 문안은 매 회차 같으므로 어미 다양성 판정에 넣으면 판정이 오염된다. */
+    const midTails = scene.shots
+      .filter((s, i) => i !== introIdx && i !== scene.shots.length - 1)
+      .flatMap(s => s.lines || [])
       .map(l => String(l.say ?? l.text ?? '').replace(/[\s.…!?,·」』)"'『「]+$/g, '').slice(-2))
       .filter(t => t.length === 2);
     let run = 1, maxRun = midTails.length ? 1 : 0, at = midTails[0] || '';

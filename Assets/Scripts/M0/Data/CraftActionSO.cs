@@ -14,6 +14,6 @@ namespace AIVillage.M0
     [CreateAssetMenu(menuName = "AIVillage/M0/Action/Craft", fileName = "CraftAction")]
     public sealed class CraftActionSO : ActionSO
     {
-        public override IActionRunner CreateRunner(VillagerAgent agent) => new CraftRunner(this);
+        public override ActionRunnerBase CreateRunner(VillagerAgent agent) => new CraftRunner(this);
     }
 }

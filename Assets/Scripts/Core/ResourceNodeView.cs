@@ -16,8 +16,9 @@ namespace AIVillage.Core
     [RequireComponent(typeof(SpriteRenderer))]
     public sealed class ResourceNodeView : MonoBehaviour
     {
-        [Tooltip("색상 및 FoW 가시성 갱신 간격 (초)")]
-        [SerializeField] private float _refreshInterval = 0.5f;
+        // 색상 및 FoW 가시성 갱신 간격 (초) — 항상 AddComponent로만 생성되는 컴포넌트라
+        // 인스펙터 노브가 닿을 수 없어 상수로 (2026-08-11 2차 감사).
+        private const float RefreshInterval = 0.5f;
 
         private ResourceNode   _node;
         private SpriteRenderer _sr;
@@ -106,7 +107,7 @@ namespace AIVillage.Core
 
         private IEnumerator RefreshLoop()
         {
-            var wait = new WaitForSeconds(_refreshInterval);
+            var wait = new WaitForSeconds(RefreshInterval);
             while (_node != null)
             {
                 Refresh();
@@ -118,7 +119,7 @@ namespace AIVillage.Core
         {
             // 개간된 노드는 스스로 사라진다 (M22-4차). Core 는 M0 서비스를 모르므로 이벤트가 아니라
             // 플래그를 본다 — 의존 방향을 지키는 값이다.
-            // ⚠️ 표현 지연(≤ _refreshInterval)이지 **상태 지연이 아니다**: 타일은 RemoveNode 순간
+            // ⚠️ 표현 지연(≤ RefreshInterval)이지 **상태 지연이 아니다**: 타일은 RemoveNode 순간
             //    이미 열려 있다. 그림만 반 박자 늦게 없어진다.
             if (_node != null && _node.IsRemoved) { Destroy(gameObject); return; }
             if (_node == null || _sr == null) return;

@@ -11,6 +11,6 @@ namespace AIVillage.M0
     [CreateAssetMenu(menuName = "AIVillage/M0/Action/Repair", fileName = "RepairAction")]
     public sealed class RepairActionSO : ActionSO
     {
-        public override IActionRunner CreateRunner(VillagerAgent agent) => new RepairRunner(this);
+        public override ActionRunnerBase CreateRunner(VillagerAgent agent) => new RepairRunner(this);
     }
 }

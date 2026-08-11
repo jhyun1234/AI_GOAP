@@ -28,8 +28,6 @@ namespace AIVillage.Core
         [Header("기지 거리 제한")]
         [Tooltip("기지로부터 최소 맨해튼 거리. 이 값보다 가까이는 배치되지 않는다.")]
         [Min(0)] public int minDistanceFromBase = 10;
-        [Tooltip("기지로부터 최대 맨해튼 거리. 0이면 맵 경계까지 허용.")]
-        [Min(0)] public int maxDistanceFromBase = 0;
 
         // ── 지형 조건 (M26-2차 W2) ────────────────────────────────────────────────
         [Header("지형 조건")]

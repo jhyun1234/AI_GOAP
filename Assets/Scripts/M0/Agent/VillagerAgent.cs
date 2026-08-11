@@ -39,7 +39,7 @@ namespace AIVillage.M0
     /// M0 주민 에이전트 — 舊 VillagerFSM(3,476줄)의 대체. 5상태 고정 (성공 기준 S5: ≤600줄).
     ///
     /// 원칙:
-    ///   - 액션 이름 분기 없음: 실행은 IActionRunner 다형 디스패치뿐 (ADR-M0-1)
+    ///   - 액션 이름 분기 없음: 실행은 ActionRunnerBase 다형 디스패치뿐 (ADR-M0-1)
     ///   - 효과 적용은 EffectApplier 단일 해석기 (BuildRunner만 ConstructionService 경유)
     ///   - 이동 실패 first-class: Unreachable/PathBlocked → 좌표 스냅 없이 AbortPlan (舊 ADR-8/9 계승)
     ///   - 타일 두 셀 소유 (현재+다음), 실패·사망 시 ReleaseAllBy (舊 ADR-T3~T6 계승)
@@ -308,7 +308,7 @@ namespace AIVillage.M0
         private GoalSO _planGoalClone;
         private bool _directGoal; // DirectActionPool goal 여부 (완료 로그 억제용)
         private PlannerGateway.PendingPlan _pending;
-        private IActionRunner _runner;
+        private ActionRunnerBase _runner;
         // 실패 goal 재시도 쿨다운 — 공회전(실패→즉시 재선택) 방지, 그동안 하위 goal로
         private readonly Dictionary<GoalSO, float> _goalRetryAt = new Dictionary<GoalSO, float>();
 
@@ -330,8 +330,7 @@ namespace AIVillage.M0
         /// TendRunner 만 읽는다. 세이브 대상 아님 (명령·플랜은 저장하지 않는다, ADR-M0-10).</summary>
         public VillagerAgent OrderTargetVillager { get; private set; }
 
-        /// <summary>보상 약속 (M6-E — 에스크로 차감 완료 상태). 세이브 대상 (ADR-M4-5 목록 추가 예정).</summary>
-        public RewardSO PromisedReward => _promisedReward;
+        // 보상 약속 (M6-E — 에스크로 차감 완료 상태). 세이브 대상 (ADR-M4-5 목록 추가 예정).
         private RewardSO _promisedReward;
 
         /// <summary>
@@ -1248,11 +1247,7 @@ namespace AIVillage.M0
         }
 
         private static string Join(ActionSO[] plan)
-        {
-            var names = new string[plan.Length];
-            for (int i = 0; i < plan.Length; i++) names[i] = plan[i].DisplayName;
-            return string.Join("→", names);
-        }
+            => string.Join("→", System.Array.ConvertAll(plan, a => a.DisplayName));
 
         // ─────────────────────────────────────────────────────────────────────
         // 액션 시작 / 실행
@@ -1721,9 +1716,6 @@ namespace AIVillage.M0
 
         private GoalSO _request;
         private bool _requestIsRuntimeClone;
-
-        /// <summary>수락한 부탁 goal (읽기 전용). null = 부탁 없음.</summary>
-        public GoalSO CurrentRequest => _request;
 
         /// <summary>
         /// 부탁 판정의 유일한 규칙 (순수 — 게이트 M8-T2). 순서 = 바쁨→배고픔→피로→친밀→선불

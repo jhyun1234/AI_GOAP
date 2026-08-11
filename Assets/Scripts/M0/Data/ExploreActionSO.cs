@@ -12,6 +12,6 @@ namespace AIVillage.M0
         [Tooltip("탐험 이동 거리(타일). 舊 FindExplorationTarget의 랜덤 15타일 이관.")]
         public int MoveDistanceTiles = 15;
 
-        public override IActionRunner CreateRunner(VillagerAgent agent) => new ExploreRunner(this);
+        public override ActionRunnerBase CreateRunner(VillagerAgent agent) => new ExploreRunner(this);
     }
 }

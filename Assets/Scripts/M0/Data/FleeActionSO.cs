@@ -23,6 +23,6 @@ namespace AIVillage.M0
                  "달아난다. 기지 폴백은 없다 (노숙 = 위험이 결정 6·7의 전제).")]
         public int FleeDistanceTiles = 6;
 
-        public override IActionRunner CreateRunner(VillagerAgent agent) => new FleeRunner(this);
+        public override ActionRunnerBase CreateRunner(VillagerAgent agent) => new FleeRunner(this);
     }
 }

@@ -18,7 +18,7 @@ namespace AIVillage.Core
     /// 역할:
     ///   1. ResourceNodeSpawnConfig 에셋에서 설정을 읽어 시드 기반 랜덤으로 클러스터 중심점 선정
     ///   2. 클러스터 주변에 노드를 배치하고 SensorSystem에 등록
-    ///   3. 각 노드 위치에 ResourceNodeView GameObject를 생성 (프리팹 선택, 없으면 코드 생성)
+    ///   3. 각 노드 위치에 ResourceNodeView GameObject를 코드로 생성
     ///
     /// 호출 순서:
     ///   GameManager.Awake() → ResourceNodeSpawner.SpawnAll()
@@ -32,10 +32,6 @@ namespace AIVillage.Core
         [Tooltip("자원 노드 스폰 파라미터 전체를 담은 ScriptableObject. 반드시 연결할 것.")]
         [SerializeField] private ResourceNodeSpawnConfig _config;
 
-        [Tooltip("ResourceNodeView 컴포넌트를 가진 커스텀 프리팹. " +
-                 "비워두면 원형 마커를 코드로 자동 생성하므로 프리팹 없이도 동작한다.")]
-        [SerializeField] private GameObject _nodeViewPrefab;
-
         // ── 내부 ─────────────────────────────────────────────────────────────────
         // 모든 자원 타입에 걸쳐 이미 배치된 타일 위치 — 겹침 방지용
         private readonly List<Vector2Int> _allPlacedPositions = new List<Vector2Int>();
@@ -43,7 +39,7 @@ namespace AIVillage.Core
         private System.Random _rng;
         private int _mapMinX, _mapMaxX, _mapMinY, _mapMaxY;
 
-        // 프리팹이 없을 때 코드로 생성하는 공용 스프라이트 (SpawnAll마다 새로 생성, static 금지)
+        // 에셋 그림이 없는 종류가 쓰는 공용 원형 스프라이트 (SpawnAll마다 새로 생성, static 금지)
         private Sprite _fallbackSprite;
 
         // 현재 스폰의 노드 등록처 (SpawnAll 진입 시 설정)
@@ -140,8 +136,8 @@ namespace AIVillage.Core
 
             _allPlacedPositions.Clear();
 
-            // 프리팹 없을 때 사용할 원형 스프라이트를 1회만 생성
-            _fallbackSprite = (_nodeViewPrefab == null) ? CreateCircleSprite() : null;
+            // 에셋 그림이 없는 종류가 쓸 원형 스프라이트를 1회만 생성 (중립 불변식)
+            _fallbackSprite = CreateCircleSprite();
 
             int totalSpawned = 0;
             if (_config.resourceTypes != null)
@@ -163,11 +159,6 @@ namespace AIVillage.Core
             int baseTileX, int baseTileY,
             int discoveryRadius)
         {
-            // maxDistanceFromBase == 0 이면 맵 대각선 최대 맨해튼 거리를 상한으로 사용
-            int effectiveMaxDist = typeData.maxDistanceFromBase > 0
-                ? typeData.maxDistanceFromBase
-                : (_mapMaxX - _mapMinX) + (_mapMaxY - _mapMinY);
-
             // ── Step 1: 클러스터 중심점 선정 ──────────────────────────────────────
             var centers = new List<Vector2Int>(typeData.clusterCount);
             for (int c = 0; c < typeData.clusterCount; c++)
@@ -177,8 +168,7 @@ namespace AIVillage.Core
                 for (int attempt = 0; attempt < _config.maxPlacementAttempts; attempt++)
                 {
                     Vector2Int cand = RandomTileInBounds();
-                    int dist = Manhattan(cand.x, cand.y, baseTileX, baseTileY);
-                    if (dist < typeData.minDistanceFromBase || dist > effectiveMaxDist)
+                    if (Manhattan(cand.x, cand.y, baseTileX, baseTileY) < typeData.minDistanceFromBase)
                         continue;
 
                     // 설 수 없는 땅 (M26-2차 W1) — 중심이 물에 잠기면 클러스터가 통째로 잠긴다.
@@ -300,27 +290,12 @@ namespace AIVillage.Core
 
         private void SpawnView(ResourceNode node, ResourceTypeSpawnData typeData)
         {
-            GameObject go;
-
-            if (_nodeViewPrefab != null)
-            {
-                // 커스텀 프리팹 사용 — ResourceNodeView 컴포넌트가 포함되어 있어야 함
-                go = Instantiate(_nodeViewPrefab);
-            }
-            else
-            {
-                // 프리팹 없음 → 코드로 최소 마커 생성
-                // RequireComponent 덕분에 AddComponent<ResourceNodeView>() 시 SpriteRenderer 자동 추가
-                go = new GameObject($"NodeView_{node.NodeId}");
-            }
-
-            go.name = $"NodeView_{node.ResourceType}_{node.TileX}_{node.TileY}";
+            // RequireComponent 덕분에 AddComponent<ResourceNodeView>() 시 SpriteRenderer 자동 추가
+            var go = new GameObject($"NodeView_{node.ResourceType}_{node.TileX}_{node.TileY}");
             go.transform.position = new Vector3(node.TileX, node.TileY, 0f);
             go.transform.SetParent(transform, worldPositionStays: true);
 
-            // ResourceNodeView 획득 (프리팹에 이미 있거나 없으면 AddComponent)
-            var view = go.GetComponent<ResourceNodeView>();
-            if (view == null) view = go.AddComponent<ResourceNodeView>();
+            var view = go.AddComponent<ResourceNodeView>();
 
             // 종류 변형 (2026-08-10) — 타일 좌표 해시로 고른다. **랜덤이 아니라 해시**인 이유:
             // 같은 자리는 늘 같은 나무여야 한다 (로드·재생성에 숲이 갈아엎어지면 지형 기억이 깨진다).
@@ -330,8 +305,7 @@ namespace AIVillage.Core
             // 그림이 있으면 색 보간을 끈다: 실그림을 잔량 색으로 물들이면 아트가 죽는다.
             Sprite full = variant >= 0 ? typeData.nodeSpriteVariants[variant] : typeData.nodeSprite;
             bool hasArt = full != null;
-            Sprite sprite = hasArt ? full
-                : (_fallbackSprite ?? (go.GetComponent<SpriteRenderer>()?.sprite));
+            Sprite sprite = hasArt ? full : _fallbackSprite;
             view.Init(node, typeData.nodeColor, typeData.depletedColor, typeData.nodeSize, sprite,
                       Variant(typeData.depletedSpriteVariants, variant, typeData.depletedSprite),
                       typeData.depletedBelowRatio, tintByAmount: !hasArt,
@@ -455,8 +429,8 @@ namespace AIVillage.Core
             => Mathf.Abs(x1 - x2) + Mathf.Abs(y1 - y2);
 
         /// <summary>
-        /// 원형 안티앨리어싱 스프라이트를 런타임에 생성한다.
-        /// _nodeViewPrefab이 없을 때만 SpawnAll()에서 1회 호출된다.
+        /// 원형 안티앨리어싱 스프라이트를 런타임에 생성한다. SpawnAll()에서 1회 호출된다.
+        /// 에셋 그림(nodeSprite)이 없는 종류의 폴백 — 중립 불변식.
         /// </summary>
         private static Sprite CreateCircleSprite()
         {

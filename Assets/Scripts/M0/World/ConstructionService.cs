@@ -28,10 +28,6 @@ namespace AIVillage.M0
         /// FarmService.RemovePlot가 구독한다 (완공 OnCompleted와 대칭, ADR-M9-3 소멸 경로 단일성).</summary>
         public event Action<SlotId, int, int> OnRemoved;
 
-        /// <summary>완공된 건물의 타일 위치. 미완공이면 false.</summary>
-        public bool TryGetBuiltTile(SlotId flagSlot, out Vector2Int tile)
-            => _builtTiles.TryGetValue(flagSlot, out tile);
-
         /// <summary>해당 타일에 완공 건물이 있는가 (단일형+수량형) — 건설 위치 회피(BuildRunner) 질의.</summary>
         public bool HasBuildingAt(int tileX, int tileY)
         {

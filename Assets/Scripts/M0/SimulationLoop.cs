@@ -758,15 +758,7 @@ namespace AIVillage.M0
         {
             if (_wandererChatter == null || _agents.Count == 0) return;
 
-            VillagerAgent speaker = null;
-            int best = int.MaxValue;
-            foreach (VillagerAgent a in _agents)
-            {
-                if (a == null || a.State == AgentState.Dead) continue;
-                int dx = a.TileX - arriveTile.x, dy = a.TileY - arriveTile.y;
-                int d = dx * dx + dy * dy;
-                if (d < best) { best = d; speaker = a; }
-            }
+            NearestAgentsTo(arriveTile, out VillagerAgent speaker, out _);
             if (speaker == null) return;
 
             _wandererListeners.Clear();

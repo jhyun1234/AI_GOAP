@@ -20,6 +20,6 @@ namespace AIVillage.M0
         [Tooltip("기준점 반경 (타일). 제안치 — 산책 5, 모닥불 곁 2.")]
         public int WanderRadius = 5;
 
-        public override IActionRunner CreateRunner(VillagerAgent agent) => new WanderRunner(this);
+        public override ActionRunnerBase CreateRunner(VillagerAgent agent) => new WanderRunner(this);
     }
 }

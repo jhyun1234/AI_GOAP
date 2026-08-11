@@ -119,7 +119,6 @@ namespace AIVillage.M0
             if (node == null || !_nodes.Remove(node)) return 0;
             int recovered = Mathf.FloorToInt(Mathf.Max(0f, node.CurrentAmount));
             node.IsRemoved = true;                 // 뷰가 다음 Refresh 에 스스로 사라진다
-            ResourceNode.OccupiedTiles.Remove(new Vector2Int(node.TileX, node.TileY));
             _clearPending.Remove(node);
             _cleared.Add(new Vector2Int(node.TileX, node.TileY));
             Debug.Log($"[Clear] 개간 — ({node.TileX},{node.TileY}) {node.ResourceType} 제거 · 회수 {recovered}");
@@ -157,7 +156,7 @@ namespace AIVillage.M0
         /// 노드가 '선택은 되고 수확은 실패'하는 판정 불일치 방지) + 점유 여유.
         /// </summary>
         public static bool IsHarvestable(ResourceNode n)
-            => n != null && n.CurrentAmount >= 1f && n.CurrentGatherers < n.MaxGatherers;
+            => n != null && n.CurrentAmount >= 1f && n.CurrentGatherers < ResourceNode.MaxGatherers;
 
         /// <summary>
         /// 채집 가능한(잔량 + 점유 여유) 발견 노드 존재 여부 — 스냅샷 NearDiscovered* 슬롯의 원천.
@@ -341,16 +340,11 @@ namespace AIVillage.M0
 
                 if (!TryPickRelocation(n, out Vector2Int spot)) continue;
                 var from = new Vector2Int(n.TileX, n.TileY);
-                ResourceNode.OccupiedTiles.Remove(from);
                 n.TileX = spot.x; n.TileY = spot.y;
                 n.CurrentAmount = n.MaxAmount;     // 새 자리에서는 가득 — "다음 자리가 드러났다"
-                OnNodeRelocated?.Invoke(n, from);
                 Debug.Log($"[Terrain] 자원 이동 — {n.ResourceType} ({from.x},{from.y}) → ({spot.x},{spot.y})");
             }
         }
-
-        /// <summary>노드가 자리를 옮겼다 (노드, 옛 자리) — 뷰가 따라가는 구독 지점.</summary>
-        public event System.Action<ResourceNode, Vector2Int> OnNodeRelocated;
 
         /// <summary>새 자리 고르기 — 시드 롤로 반경 안을 훑는다 (결정적). 못 찾으면 false = 제자리.</summary>
         private bool TryPickRelocation(ResourceNode n, out Vector2Int spot)

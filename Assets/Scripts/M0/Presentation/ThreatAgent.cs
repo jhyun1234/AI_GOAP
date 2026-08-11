@@ -213,10 +213,7 @@ namespace AIVillage.M0
             _flashing = false;
         }
 
-        /// <summary>타격 순간 공격 몸짓을 켠다 (ThreatService의 타격 지점이 부른다).</summary>
-        public void PlayAttack() => _attackUntil = Time.time + _attackHoldSec;
-
-        /// <summary>타격 순간 **대상을 보며** 공격 몸짓을 켠다 (ThreatService 전용).
+        /// <summary>타격 순간 **대상을 보며** 공격 몸짓을 켠다 (ThreatService의 타격 지점이 부른다).
         /// 🔑 방향을 안 돌리면 지나가던 관성대로 등을 보인 채 휘두른다 — 누구를 치는지가
         /// 화면에서 사라진다 (2026-08-10 Play 판정). 판정은 여전히 서비스 몫이고 여기는
         /// 그 판정이 이미 고른 대상을 바라볼 뿐이다 (M10-C ⚠️③).</summary>
@@ -224,7 +221,7 @@ namespace AIVillage.M0
         {
             Vector2 d = towardWorldPos - (Vector2)transform.position;
             if (d.sqrMagnitude > 1e-4f) _facing = d.normalized;
-            PlayAttack();
+            _attackUntil = Time.time + _attackHoldSec;
         }
 
         private void Update()

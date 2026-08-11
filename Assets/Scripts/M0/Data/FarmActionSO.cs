@@ -15,6 +15,6 @@ namespace AIVillage.M0
         [Tooltip("Plant=빈 밭에 심기, Harvest=익은 작물 수확")]
         public FarmActionKind Kind;
 
-        public override IActionRunner CreateRunner(VillagerAgent agent) => new FarmRunner(this);
+        public override ActionRunnerBase CreateRunner(VillagerAgent agent) => new FarmRunner(this);
     }
 }

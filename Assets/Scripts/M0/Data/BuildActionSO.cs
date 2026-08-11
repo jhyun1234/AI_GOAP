@@ -55,7 +55,7 @@ namespace AIVillage.M0
             }
         }
 
-        public override IActionRunner CreateRunner(VillagerAgent agent) => new BuildRunner(this);
+        public override ActionRunnerBase CreateRunner(VillagerAgent agent) => new BuildRunner(this);
 
         protected override void OnValidate()
         {

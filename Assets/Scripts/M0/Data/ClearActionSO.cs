@@ -21,6 +21,6 @@ namespace AIVillage.M0
     [CreateAssetMenu(menuName = "AI Village/M0/Action/Clear", fileName = "ClearNode")]
     public sealed class ClearActionSO : ActionSO
     {
-        public override IActionRunner CreateRunner(VillagerAgent agent) => new ClearRunner(this);
+        public override ActionRunnerBase CreateRunner(VillagerAgent agent) => new ClearRunner(this);
     }
 }

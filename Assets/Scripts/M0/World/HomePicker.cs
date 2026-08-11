@@ -120,14 +120,10 @@ namespace AIVillage.M0
         }
 
         /// <summary>주민 신원 → 안정적 seed (순수 — .NET string.GetHashCode는 프로세스마다 달라
-        /// 재현 불가라 FNV-1a로 직접 계산한다). 같은 주민 = 같은 seed = 같은 흩뿌리기 결과.</summary>
+        /// 재현 불가). 같은 주민 = 같은 seed = 같은 흩뿌리기 결과. StableHash.Fnv1a와 상수·순서가
+        /// 동일해 출력 불변 — 손 구현 중복을 2026-08-11 2차 감사에서 위임으로 교체.</summary>
         public static int StableSeed(string id)
-        {
-            if (string.IsNullOrEmpty(id)) return 0;
-            uint h = 2166136261u;
-            for (int i = 0; i < id.Length; i++) { h ^= id[i]; h *= 16777619u; }
-            return (int)(h & 0x7fffffff);
-        }
+            => string.IsNullOrEmpty(id) ? 0 : (int)(StableHash.Fnv1a(id) & 0x7fffffff);
 
         private static int Chebyshev(int dx, int dy) => Mathf.Max(Mathf.Abs(dx), Mathf.Abs(dy));
     }

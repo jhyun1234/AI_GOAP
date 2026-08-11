@@ -6,8 +6,9 @@ namespace AIVillage.AI
     /// <summary>
     /// 이동 예약 전역 registry. 유닛이 자기 현재 타일 + 다음 웨이포인트 타일을 예약해
     /// 같은 타일에 두 유닛이 동시에 들어서지 못하게 한다.
-    /// 자원 채집 점유(ResourceNode.OccupiedTiles)와는 분리 병존 — 목적·수명이 다름 (ADR-T7).
-    /// 진리 소스는 이 클래스 한 곳 (ADR-T10).
+    /// 자원 채집 점유(ResourceNode.CurrentGatherers)와는 분리 병존 — 목적·수명이 다름 (ADR-T7).
+    /// 진리 소스는 이 클래스 한 곳 (ADR-T10 — 舊 ResourceNode.OccupiedTiles 좌표 레지스트리는
+    /// 유일한 독자가 W8에서 사라져 2026-08-11 2차 감사에서 철거).
     /// </summary>
     public static class TileReservationRegistry
     {

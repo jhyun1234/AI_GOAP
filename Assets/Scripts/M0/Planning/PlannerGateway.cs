@@ -304,29 +304,18 @@ namespace AIVillage.M0
             DisposeAll(p);
         }
 
+        // NativeArray는 내부 포인터를 든 구조체라 값 복사본을 Dispose해도 같은 버퍼가 해제된다.
+        // 재사용은 Alive=false가 막는다 (Cancel/Complete 진입부의 Alive 검사).
+        private static void D<T>(NativeArray<T> a) where T : struct { if (a.IsCreated) a.Dispose(); }
+
         private static void DisposeAll(PendingPlan p)
         {
-            if (p.CurrentState.IsCreated)  p.CurrentState.Dispose();
-            if (p.GoalState.IsCreated)     p.GoalState.Dispose();
-            if (p.GoalMask.IsCreated)      p.GoalMask.Dispose();
-            if (p.GoalOps.IsCreated)       p.GoalOps.Dispose();
-            if (p.Actions.IsCreated)       p.Actions.Dispose();
-            if (p.ResultActions.IsCreated) p.ResultActions.Dispose();
-            if (p.ResultLength.IsCreated)  p.ResultLength.Dispose();
-            if (p.NodesExpanded.IsCreated) p.NodesExpanded.Dispose();
-            if (p.NodeStates.IsCreated)    p.NodeStates.Dispose();
-            if (p.NodeCosts.IsCreated)     p.NodeCosts.Dispose();
-            if (p.NodeGCosts.IsCreated)    p.NodeGCosts.Dispose();
-            if (p.NodeDepths.IsCreated)    p.NodeDepths.Dispose();
-            if (p.NodeParents.IsCreated)   p.NodeParents.Dispose();
-            if (p.NodeActions.IsCreated)   p.NodeActions.Dispose();
-            if (p.OpenQueue.IsCreated)     p.OpenQueue.Dispose();
-            if (p.QueueSize.IsCreated)     p.QueueSize.Dispose();
-            if (p.VisitedHashes.IsCreated)  p.VisitedHashes.Dispose();
-            if (p.VisitedNodeIdx.IsCreated) p.VisitedNodeIdx.Dispose();
-            if (p.VisitedGCosts.IsCreated)  p.VisitedGCosts.Dispose();
-            if (p.MaxGain.IsCreated)        p.MaxGain.Dispose();
-            if (p.MaxDrop.IsCreated)        p.MaxDrop.Dispose();
+            D(p.CurrentState); D(p.GoalState); D(p.GoalMask); D(p.GoalOps); D(p.Actions);
+            D(p.ResultActions); D(p.ResultLength); D(p.NodesExpanded);
+            D(p.NodeStates); D(p.NodeCosts); D(p.NodeGCosts); D(p.NodeDepths);
+            D(p.NodeParents); D(p.NodeActions); D(p.OpenQueue); D(p.QueueSize);
+            D(p.VisitedHashes); D(p.VisitedNodeIdx); D(p.VisitedGCosts);
+            D(p.MaxGain); D(p.MaxDrop);
             p.Alive = false;
         }
     }

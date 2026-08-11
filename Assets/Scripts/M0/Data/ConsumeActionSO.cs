@@ -27,6 +27,6 @@ namespace AIVillage.M0
                  "게이트 M20-T3이 그 밖을 red로 잡는다.")]
         public bool IsCookingWork;
 
-        public override IActionRunner CreateRunner(VillagerAgent agent) => new ConsumeRunner(this);
+        public override ActionRunnerBase CreateRunner(VillagerAgent agent) => new ConsumeRunner(this);
     }
 }

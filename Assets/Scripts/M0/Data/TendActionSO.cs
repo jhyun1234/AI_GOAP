@@ -15,6 +15,6 @@ namespace AIVillage.M0
                  "부상자는 절뚝(감속)이라 이탈이 드물다.")]
         public int TendRangeTiles = 2;
 
-        public override IActionRunner CreateRunner(VillagerAgent agent) => new TendRunner(this);
+        public override ActionRunnerBase CreateRunner(VillagerAgent agent) => new TendRunner(this);
     }
 }

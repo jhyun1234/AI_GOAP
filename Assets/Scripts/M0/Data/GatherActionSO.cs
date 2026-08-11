@@ -14,6 +14,6 @@ namespace AIVillage.M0
         [Tooltip("이동·수확 대상 자원 노드 타입")]
         public ResourceType TargetResource;
 
-        public override IActionRunner CreateRunner(VillagerAgent agent) => new GatherRunner(this);
+        public override ActionRunnerBase CreateRunner(VillagerAgent agent) => new GatherRunner(this);
     }
 }

@@ -23,7 +23,7 @@ namespace AIVillage.M0
     /// 계획 데이터(전제/효과/비용)·실행 파라미터·말풍선 문구가 이 에셋 하나에만 존재한다.
     /// 플래너(W2 ActionCompiler)와 실행(W4 Runner)이 같은 Effects를 읽으므로
     /// Registry-런타임 수치 이원화(舊 결함 A)가 구조적으로 불가능하다.
-    /// 실행 로직과 런타임 상태는 SO에 두지 않는다 — W4 IActionRunner 담당.
+    /// 실행 로직과 런타임 상태는 SO에 두지 않는다 — W4 ActionRunnerBase 담당.
     /// </summary>
     public abstract class ActionSO : ScriptableObject
     {
@@ -70,7 +70,7 @@ namespace AIVillage.M0
         /// 실행자 생성 — 실행 1회마다 새 인스턴스 (W4).
         /// abstract이므로 새 계열 SO는 컴파일러가 구현을 강제한다. 문자열 분기 금지의 핵심.
         /// </summary>
-        public abstract IActionRunner CreateRunner(VillagerAgent agent);
+        public abstract ActionRunnerBase CreateRunner(VillagerAgent agent);
 
         /// <summary>ADR-M18-1: Preconditions는 잡이 (int)Op 그대로 삼킨다 — 슬롯 비교·새
         /// 연산자가 들어가면 잡이 모르는 연산이 된다 (조용한 오동작). virtual인 이유:

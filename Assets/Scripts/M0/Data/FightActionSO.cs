@@ -43,7 +43,7 @@ namespace AIVillage.M0
                  "된다. 제안 30.")]
         public float AmbushGiveUpSec = 30f;
 
-        public override IActionRunner CreateRunner(VillagerAgent agent) => new FightRunner(this);
+        public override ActionRunnerBase CreateRunner(VillagerAgent agent) => new FightRunner(this);
 
         protected override void OnValidate()
         {

@@ -20,7 +20,6 @@
 /// </summary>
 
 using System;
-using System.Collections.Generic;
 using UnityEngine;
 
 namespace AIVillage.Core
@@ -120,16 +119,11 @@ namespace AIVillage.Core
         /// 최전방 유닛만 접근하고 나머지가 튕겨나가는 시각적 문제를 방지한다.
         /// 다른 주민은 FindNearestDiscoveredNode 필터에서 이 노드가 제외되어 다른 노드를 선택한다.
         /// </summary>
-        public int MaxGatherers { get; set; } = 1;
+        public const int MaxGatherers = 1;
 
         #endregion
 
         #region ── 생성자 ──
-
-        /// <summary>
-        /// 기본 생성자. 모든 값을 코드에서 직접 할당할 때 사용한다.
-        /// </summary>
-        public ResourceNode() { }
 
         /// <summary>
         /// 자주 사용하는 파라미터를 받는 편의 생성자.
@@ -164,28 +158,6 @@ namespace AIVillage.Core
 
         #endregion
 
-        #region ── 정적 점유 타일 레지스트리 ──
-
-        /// <summary>
-        /// 현재 채집 중(TryOccupy 성공)인 노드들의 타일 좌표 집합.
-        /// VillagerFSM.StartPathTo가 JPS 호출 직전 여기에 포함된 타일을 임시로 unwalkable로
-        /// 처리해 다른 주민의 경로가 채집 중 노드를 관통하지 않도록 한다 (자기 자신의 목표는 예외).
-        /// TryOccupy 성공 시 add, Release 시 CurrentGatherers==0이 되면 remove.
-        /// </summary>
-        public static readonly HashSet<Vector2Int> OccupiedTiles = new HashSet<Vector2Int>();
-
-        /// <summary>
-        /// 도메인 리로드 비활성화 프로젝트에서도 씬 시작 시 stale 상태를 남기지 않도록 초기화.
-        /// SubsystemRegistration 단계에서 어떤 씬 오브젝트보다 먼저 실행된다.
-        /// </summary>
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        private static void ResetOccupiedTiles()
-        {
-            OccupiedTiles.Clear();
-        }
-
-        #endregion
-
         #region ── 공개 헬퍼 메서드 ──
 
         /// <summary>
@@ -205,7 +177,6 @@ namespace AIVillage.Core
             }
 
             CurrentGatherers++;
-            OccupiedTiles.Add(new Vector2Int(TileX, TileY));
             Debug.Log(
                 $"[ResourceNode] TryOccupy 성공. NodeId={NodeId}, ResourceType={ResourceType}, " +
                 $"Tile=({TileX},{TileY}), CurrentGatherers={CurrentGatherers}/{MaxGatherers}, " +
@@ -220,8 +191,6 @@ namespace AIVillage.Core
         public void Release()
         {
             CurrentGatherers = Mathf.Max(0, CurrentGatherers - 1);
-            if (CurrentGatherers == 0)
-                OccupiedTiles.Remove(new Vector2Int(TileX, TileY));
             Debug.Log(
                 $"[ResourceNode] Release. NodeId={NodeId}, Tile=({TileX},{TileY}), " +
                 $"CurrentGatherers={CurrentGatherers}/{MaxGatherers}"

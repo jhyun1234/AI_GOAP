@@ -19,7 +19,7 @@ namespace AIVillage.M0
                  "이 시간이 지나면 내려온다 (FightRunner.AmbushGiveUpSec 동형 — 상한 없는 감시는 아사)")]
         public float WatchGiveUpSec = 90f;
 
-        public override IActionRunner CreateRunner(VillagerAgent agent) => new ManTowerRunner(this);
+        public override ActionRunnerBase CreateRunner(VillagerAgent agent) => new ManTowerRunner(this);
 
         private void OnValidate()
         {

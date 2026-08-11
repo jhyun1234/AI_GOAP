@@ -41,9 +41,6 @@ namespace AIVillage.M0
             _clock = 0f; // 갈아입을 때 첫 프레임부터 — 솥이 중간 프레임에서 튀어나오지 않게
         }
 
-        /// <summary>지금 대체 상태인가 (뷰가 되묻는 용도).</summary>
-        public bool IsAlt => _altNow;
-
         private Sprite[] Frames
         {
             get

@@ -45,7 +45,7 @@ namespace AIVillage.M0
             GatherActionSO gather = FindGatherFor(agent.Catalog, _node.ResourceType);
             DurationMult = agent.GatherDurationMultOfJob(_node.ResourceType) * WorkMult(gather, _node);
             // 몸짓도 같은 자에서 빌린다 — 짝이 없으면 액션 에셋 값 그대로 (중립).
-            _anim = gather != null ? gather.Anim : AnimKind.None;
+            _anim = AnimForResource(agent.Catalog, _node.ResourceType);
 
             // 노드 **곁**에 선다 — 채집과 같은 규약 (겹쳐 서기 금지, 2026-08-10 사용자 Play).
             MoveTarget = MapBounds.PickWalkableAdjacent(agent.IsWalkable,

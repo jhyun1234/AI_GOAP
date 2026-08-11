@@ -6,6 +6,6 @@ namespace AIVillage.M0
     [CreateAssetMenu(menuName = "AIVillage/M0/Action/Rest", fileName = "RestAction")]
     public sealed class RestActionSO : ActionSO
     {
-        public override IActionRunner CreateRunner(VillagerAgent agent) => new RestRunner(this);
+        public override ActionRunnerBase CreateRunner(VillagerAgent agent) => new RestRunner(this);
     }
 }

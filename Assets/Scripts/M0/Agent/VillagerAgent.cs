@@ -1058,6 +1058,20 @@ namespace AIVillage.M0
                 _idleCooldownSec = 0.5f; // 할 일 없음 — 정상 Idle
                 return;
             }
+
+            // 대상 협조 최소형 (M26-2차 W7 후속 2026-08-11 — ADR 경로탐색 트리거 B-3의 처방):
+            // 간호받는 중인 부상자는 **급하지 않은 일(간식급)**을 미루고 제자리에 머문다 —
+            // 환자가 채널링마다 걸어 나가면 치료사가 영영 못 고친다 (사용자 Play 관측).
+            // 🔴 전부 묶지 않는 이유: 부상 중 허용 goal은 생존 4종뿐이고 완치 채널링은 게임일
+            // 단위라, P0 허기(100)·피로(90)·피신(105)까지 막으면 치료받다 굶어 죽는다 —
+            // 문턱(제안치 50) 위는 통과시키고 치료사가 따라간다 (추격은 쿨다운 면제가 지탱).
+            if (Injury != InjurySeverity.None && IsTended
+                && _cfg.TendHoldMaxPriority > 0 && _goal.Priority <= _cfg.TendHoldMaxPriority)
+            {
+                _goal = null;
+                _idleCooldownSec = 0.5f; // 치료 우선 — 간식은 다 나은 뒤에
+                return;
+            }
             _sim.Goals.Claim(_goal); // 착수 선언 (ADR-M3-4) — 해제는 ToIdle 단일 지점
             // 계측 (M12-J, 읽기 전용) — 분류를 이름이 아니라 **성향 태그**로 한다
             // (ADR-M0-1 이름 분기 금지의 정신 — 새 goal도 태그만 달면 자동 분류된다):

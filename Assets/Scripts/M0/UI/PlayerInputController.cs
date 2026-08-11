@@ -778,7 +778,11 @@ namespace AIVillage.M0
                                                                          targetVillager: patient);
                     if (r == VillagerAgent.OrderResult.Accepted)
                         hud.Notify($"{_selected.ShortName}에게 {patient.ShortName} 치료를 명령했습니다");
-                    // 거부는 주민의 말풍선·로그가 말한다 (F와 같은 규약)
+                    else
+                        // 🔴 거부를 HUD로 (2026-08-11 사용자 Play): 말풍선만으로는 "지목이 조용히
+                        // 씹혔다"로 읽힌다 — 목록에서 고른 명령이 안 섰으면 안 섰다고 말해야
+                        // "왜 딴 사람에게 가지?"가 풀린다 (그 뒤 움직임은 자율 치료다).
+                        hud.Notify($"{_selected.ShortName}: {ComposeRefuseReason(r)} — 명령이 서지 않았습니다");
                     CloseRescue(hud);
                     return;
                 }
@@ -820,6 +824,19 @@ namespace AIVillage.M0
             }
         }
 
+        /// <summary>거부 사유의 플레이어 언어 (T 목록 전용). 판정 자체는 TryGiveOrder/JudgeOrder 소관 —
+        /// 여기는 결과를 번역만 한다 (내부값 노출 금지 규율).</summary>
+        private static string ComposeRefuseReason(VillagerAgent.OrderResult r)
+        {
+            switch (r)
+            {
+                case VillagerAgent.OrderResult.RefusedHungry:  return "배가 고파서 거부";
+                case VillagerAgent.OrderResult.RefusedTired:   return "지쳐서 거부";
+                case VillagerAgent.OrderResult.RefusedInjured: return "본인이 다쳐서 거부";
+                default:                                       return "거부";
+            }
+        }
+
         private string ComposeRescueText()
         {
             var sb = new System.Text.StringBuilder(160);
@@ -829,7 +846,10 @@ namespace AIVillage.M0
                 VillagerAgent a = _rescueList[i];
                 // 🔴 판정은 IsStabilized가 아니라 **시계** (2026-08-11 사용자 Play): 유예가 만료돼
                 // 출혈이 재개된 부상자가 "안정됨"으로 떠서, 누구부터 구할지 목록이 거짓말을 했다.
-                sb.AppendLine($"{i + 1}) {a.ShortName} — {(a.IsInjuryClockRunning ? "위독" : "안정됨")}");
+                // 3단 (같은 날 2차 개정): 간호가 붙은 순간에도 "안정됨"이라 떠서 "응급조치가 또
+                // 됐다"로 읽혔다 — 시계가 멈춘 두 이유(지금 간호 중 / 유예)를 갈라 보여준다.
+                sb.AppendLine($"{i + 1}) {a.ShortName} — " +
+                              (a.IsTended ? "간호 중" : a.IsInjuryClockRunning ? "위독" : "안정됨"));
             }
             return sb.ToString();
         }

@@ -298,6 +298,11 @@ namespace AIVillage.M0
         [Tooltip("부상 중 이동 속도 배율 (<1 = 절뚝임). 도망·식사도 이 속도 — 다음 타격의 최우선 후보가 된다.")]
         public float InjuredMoveSpeedMult = 0.4f;
 
+        [Tooltip("간호받는 중(IsTended)인 부상자가 보류하는 goal 우선순위 상한 (대상 협조 최소형, " +
+                 "M26-2차 W7 후속). 이 값 이하(간식 30)는 치료가 끝날 때까지 미룬다 — P0 허기(100)· " +
+                 "피로(90)·피신(105)은 통과해 치료사가 따라간다. 0 이하 = 보류 없음 (중립 = 舊 동작). 제안치 50.")]
+        public int TendHoldMaxPriority = 50;
+
         [Tooltip("간호 누적이 이 기간(게임일)에 도달하면 완치. 자연 회복 없음 — 간호만 진행시킨다 (결정 11).")]
         public float InjuryRecoverDays = 1f;
 

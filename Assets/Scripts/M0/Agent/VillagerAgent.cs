@@ -403,6 +403,8 @@ namespace AIVillage.M0
                 return;
             }
             _cfg = _sim.AgentConfig;
+            // 위험 기억 (M26-2차 W6) — 스폰 시 빈 채로 태어난다. 아무도 가르쳐 주지 않는다.
+            Danger = new DangerMemory(_cfg.DangerMemoryRadiusTiles, _cfg.DangerMemoryDecayPerDay);
             // 개인 편차: 전원 동일 초기값 → 동시 배고픔 웨이브 방지 (FNV-1a 결정적 —
             // GetHashCode()%1000은 꼬리 1글자 차이 이름에서 붕괴, 2026-07-17 근본 수정)
             float spread = StableHash.Spread(AgentId, "satiety"); // [-1, 1]
@@ -531,6 +533,8 @@ namespace AIVillage.M0
 
             // 겨울은 더 빨리 배고프다 (M6-B) — 계절 없으면 배율 1 (중립). 개체 편차 곱 포함.
             float decayMult = (_sim.Season != null ? _sim.Season.SatietyDecayMult : 1f) * _decayJitter;
+            // 위험 기억 감쇠 (M26-2차 W6) — 시간이 잊게 한다. 성격 배율(겁쟁이는 오래)은 3차 몫.
+            Danger?.Decay(deltaGameDays);
             Satiety = Mathf.Max(0f, Satiety - SatietyDecay(_cfg.SatietyDecayPerGameDay, decayMult, deltaGameDays));
 
             // 아사 (M6-D → ADR-M10-3 → M21-W1 체력 환산) — 계절 분기 없음: 굶주림은 계절 무관 사실 (⚠️③).
@@ -689,6 +693,11 @@ namespace AIVillage.M0
         /// 잃는다 (ADR-M0-3 상태 쓰기 단일 지점).
         /// 원인(cause)이 사망 문을 가른다 — 무덤·연대기 사유·마지막 대사가 원인별로 다르다.
         /// </summary>
+        /// <summary>위험 기억 (M26-2차 W6, ADR-T2-4) — **개인 소유**. 당해 보고 알고, 시간이
+        /// 잊게 하고, 죽으면 함께 사라진다. 채집 선택(`FindBestDiscovered`)만 읽는다.
+        /// **세이브 대상** (ADR-M0-10 — 욕구·위치와 같은 개인 상태. 구현은 세이브 축).</summary>
+        public DangerMemory Danger { get; private set; }
+
         public void TakeDamage(float amount, DamageCause cause)
         {
             if (State == AgentState.Dead || amount <= 0f) return;
@@ -696,6 +705,9 @@ namespace AIVillage.M0
             // 맞았다 (표현 전용, 2026-08-10). 전투 피해에만 — 굶주림은 서서히 닳는 것이라
             // 번쩍이면 "누가 때렸나"로 읽힌다.
             if (cause == DamageCause.Combat) PlayHurt();
+            // 위험 기억 (M26-2차 W6) — **전투 피해만** 자리를 남긴다. 굶주림은 자리 탓이 아니다.
+            // 부상 문턱과 무관하게 한 대만 물려도 배운다 — 배움의 단위는 부상이 아니라 피격이다.
+            if (cause == DamageCause.Combat) Danger?.Remember(TileX, TileY, 1f);
             // 굶주림 원인일 때만 기록 (M12-G 희소성 — 판정은 순수 함수, 게이트 M21-T15).
             // 여기가 MyWasStarved의 유일한 쓰기 지점이다 (舊 SimTick에서 이전).
             if (ShouldMarkStarved(cause, Hp, _cfg)) MyWasStarved = true;

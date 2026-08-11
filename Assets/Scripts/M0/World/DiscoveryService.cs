@@ -202,19 +202,17 @@ namespace AIVillage.M0
         private float _gatherTerrainWeight;
         private float _gatherDangerWeight;
         private System.Func<int, int, float> _enterCostAt;
-        private System.Func<int, int, float> _dangerAt;
 
-        /// <summary>채집 선택을 켠다 (M26-2차 W4) — 조립 1회. 안 부르면 가중치 0 = 舊 동작.</summary>
+        /// <summary>채집 선택을 켠다 (M26-2차 W4) — 조립 1회. 안 부르면 가중치 0 = 舊 동작.
+        /// 🔑 지형 비용은 **세상의 사실**이라 여기(조립)에 살고, 위험 벌점은 **묻는 사람의
+        /// 기억**(ADR-T2-4 — 개인 소유)이라 `FindBestDiscovered` 호출 인자로 온다 (W6 개정).</summary>
         /// <param name="enterCostAt">그 칸에 **들어가는** 비용 배수 (평지 1, 늪 3). null이면 전부 1.</param>
-        /// <param name="dangerAt">그 칸의 위험 기억 벌점. **W6이 채운다** — 지금은 null(=0)이다.</param>
         public void ConfigureGatherChoice(float terrainWeight, float dangerWeight,
-                                          System.Func<int, int, float> enterCostAt,
-                                          System.Func<int, int, float> dangerAt)
+                                          System.Func<int, int, float> enterCostAt)
         {
             _gatherTerrainWeight = Mathf.Max(0f, terrainWeight);
             _gatherDangerWeight = Mathf.Max(0f, dangerWeight);
             _enterCostAt = enterCostAt;
-            _dangerAt = dangerAt;
         }
 
         /// <summary>채집 후보 점수 — **낮을수록 좋다** (거리의 확장이라 부호를 맞춘다).
@@ -230,8 +228,12 @@ namespace AIVillage.M0
             => dist * (1f + terrainWeight * (enterCost - 1f)) + dangerWeight * danger;
 
         /// <summary>점수가 가장 낮은 채집 가능 노드. `FindNearestDiscovered` 의 확장이다.</summary>
+        /// <param name="dangerAt">**이 주민의** 위험 기억 벌점 (M26-2차 W6 — `DangerMemory.PenaltyAt`).
+        /// null = 기억 없음 = 위험 항 0 (중립). 같은 후보를 두고도 주민마다 답이 갈리는 자리다 —
+        /// 당해 본 사람만 돌아간다.</param>
         /// <param name="nearest">같은 후보들 중 **최근접** 노드 — 둘이 다를 때만 화면에 알린다.</param>
         public ResourceNode FindBestDiscovered(ResourceType type, int fromX, int fromY,
+                                               System.Func<int, int, float> dangerAt,
                                                out ResourceNode nearest)
         {
             ResourceNode best = null;
@@ -247,7 +249,7 @@ namespace AIVillage.M0
                 if (d < bestDist) { bestDist = d; nearest = n; }
 
                 float cost = _enterCostAt != null ? _enterCostAt(n.TileX, n.TileY) : 1f;
-                float danger = _dangerAt != null ? _dangerAt(n.TileX, n.TileY) : 0f;
+                float danger = dangerAt != null ? dangerAt(n.TileX, n.TileY) : 0f;
                 float s = ScoreCandidate(d, cost, danger, _gatherTerrainWeight, _gatherDangerWeight);
 
                 // `<` 로 비교해 **먼저 만난 쪽이 동점을 이긴다** — FindNearestDiscovered 와 같은 규약.

@@ -1253,11 +1253,11 @@ namespace AIVillage.M0
 
             // 채집 선택 (M26-2차 W4) — 지형이 없으면 **켜지 않는다**: 비용이 전부 1이라 점수가
             // 거리와 같아지고, 안 켜는 편이 "오늘과 동일"을 코드로도 분명히 한다 (중립 불변식).
-            // 🔑 위험 항(dangerAt)은 **W6이 채운다** — 지금은 null 이라 벌점이 늘 0이다.
+            // 위험 항은 여기 없다 (W6 개정) — 개인 기억이라 러너가 호출 인자로 넘긴다 (ADR-T2-4).
             if (!Terrain.IsEmpty)
                 Discovery.ConfigureGatherChoice(_agentConfig.GatherTerrainWeight,
                                                 _agentConfig.GatherDangerWeight,
-                                                Terrain.EnterCost, null);
+                                                Terrain.EnterCost);
 
             // 바닥 색 (M26-1차 W5) — Core 렌더러에 **밀어 넣는다** (Core 는 M0 를 모른다).
             // 팔레트가 비면 안 꽂는다 = 舊 화면과 픽셀 동일 (중립 불변식).

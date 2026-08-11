@@ -282,6 +282,18 @@ namespace AIVillage.M0
                  "그전까지는 벌점 원천이 없어 값과 무관하게 0이다 (지금 켜도 동작 변화 없음).")]
         [Range(0f, 50f)] public float GatherDangerWeight = 12f;
 
+        [Header("위험 기억 (M26-2차 W6 — 당해 보고 안다. 개인 소유, ADR-T2-4)")]
+        [Tooltip("당한 자리 둘레 이 반경(맨해튼)이 '위험했던 곳'이다. 정확한 좌표만 기억하면 " +
+                 "한 칸 옆으로 비켜서 똑같이 당한다. 제안 8 — 상주 무리의 세력권" +
+                 "(배회 5 + 타격 사거리) 크기.")]
+        [Min(1)] public int DangerMemoryRadiusTiles = 8;
+
+        [Tooltip("기억 강도가 하루에 깎이는 양 (당할 때마다 +1). 0.5 = 한 번 물린 기억이 2일이면 " +
+                 "사라진다. 영원하면 들판이 한 번의 사고로 영구 봉인된다.\n" +
+                 "⚠️ 제안치 — 🔴 **시간 밸런스 세션**에서 일 단위 필드들과 함께 재조정 " +
+                 "(1년=12일 눈금에서 2일 = 두 달이다).")]
+        [Min(0f)] public float DangerMemoryDecayPerDay = 0.5f;
+
         [Header("부상 (M10-A — 최초의 사망 축. 전부 제안치, 명세 §4.4)")]
         [Tooltip("부상 중 이동 속도 배율 (<1 = 절뚝임). 도망·식사도 이 속도 — 다음 타격의 최우선 후보가 된다.")]
         public float InjuredMoveSpeedMult = 0.4f;

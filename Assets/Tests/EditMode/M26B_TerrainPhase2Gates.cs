@@ -395,11 +395,11 @@ namespace AIVillage.Tests.EditMode
             {
                 AIVillage.M0.DiscoveryService d = NodesInLine(8);
                 // 비용을 들쭉날쭉하게 줘도 가중치가 0이면 결과가 흔들리면 안 된다.
-                d.ConfigureGatherChoice(0f, 0f, (x, y) => 1f + ((x + y + trial) % 4), null);
+                d.ConfigureGatherChoice(0f, 0f, (x, y) => 1f + ((x + y + trial) % 4));
 
                 int fromX = (trial % 17) - 8, fromY = (trial % 11) - 5;
                 ResourceNode nearest = d.FindNearestDiscovered(ResourceType.Wood, fromX, fromY);
-                ResourceNode best = d.FindBestDiscovered(ResourceType.Wood, fromX, fromY, out ResourceNode alsoNearest);
+                ResourceNode best = d.FindBestDiscovered(ResourceType.Wood, fromX, fromY, null, out ResourceNode alsoNearest);
 
                 Assert.AreSame(nearest, best,
                     $"trial {trial}: 가중치가 0인데 최근접과 다른 노드를 골랐다 — 중립 불변식이 깨졌다");
@@ -418,12 +418,12 @@ namespace AIVillage.Tests.EditMode
             // 가까운 쪽만 늪(EnterCost 3), 먼 쪽은 평지(1).
             System.Func<int, int, float> cost = (x, y) => x == 8 ? 3f : 1f;
 
-            d.ConfigureGatherChoice(0f, 0f, cost, null);
-            Assert.AreEqual("close_swamp", d.FindBestDiscovered(ResourceType.Wood, 0, 0, out _).NodeId,
+            d.ConfigureGatherChoice(0f, 0f, cost);
+            Assert.AreEqual("close_swamp", d.FindBestDiscovered(ResourceType.Wood, 0, 0, null, out _).NodeId,
                 "가중치 0에서는 가까운 쪽을 골라야 한다 (그래야 아래 전환이 가중치 덕분임이 증명된다)");
 
-            d.ConfigureGatherChoice(1f, 0f, cost, null);
-            Assert.AreEqual("far_plain", d.FindBestDiscovered(ResourceType.Wood, 0, 0, out _).NodeId,
+            d.ConfigureGatherChoice(1f, 0f, cost);
+            Assert.AreEqual("far_plain", d.FindBestDiscovered(ResourceType.Wood, 0, 0, null, out _).NodeId,
                 "지형 가중치를 켰는데도 늪에 선 가까운 노드를 골랐다 — 비용이 선택에 안 걸린다");
 
             // 산수 검산 — 8×3 = 24 vs 14×1 = 14. 손으로 계산한 값과 함수가 일치하는가.
@@ -437,12 +437,12 @@ namespace AIVillage.Tests.EditMode
             // W6 전까지 위험 원천이 없다 — 가중치를 크게 켜도 동작이 변하면 안 된다
             // (배포에 GatherDangerWeight=12 가 이미 들어가므로, 이게 지금 판을 흔들지 않음을 못박는다).
             AIVillage.M0.DiscoveryService a = NodesInLine(6);
-            a.ConfigureGatherChoice(1f, 0f, (x, y) => 1f, null);
+            a.ConfigureGatherChoice(1f, 0f, (x, y) => 1f);
             AIVillage.M0.DiscoveryService b = NodesInLine(6);
-            b.ConfigureGatherChoice(1f, 50f, (x, y) => 1f, null);   // dangerAt 가 null 이라 벌점 0
+            b.ConfigureGatherChoice(1f, 50f, (x, y) => 1f);   // dangerAt 를 안 넘기면 벌점 0
 
-            Assert.AreEqual(a.FindBestDiscovered(ResourceType.Wood, 0, 0, out _).NodeId,
-                            b.FindBestDiscovered(ResourceType.Wood, 0, 0, out _).NodeId,
+            Assert.AreEqual(a.FindBestDiscovered(ResourceType.Wood, 0, 0, null, out _).NodeId,
+                            b.FindBestDiscovered(ResourceType.Wood, 0, 0, null, out _).NodeId,
                             "위험 원천이 없는데 위험 가중치가 선택을 바꿨다");
         }
 
@@ -606,6 +606,73 @@ namespace AIVillage.Tests.EditMode
             // 작은 맵에서도 조용히 0이 되지 않는다 — 0.5무리는 1무리다.
             Assert.AreEqual(1, AIVillage.M0.ThreatService.BandCount(density, 30L * 30),
                 "작은 맵에서 상주가 통째로 사라졌다 (반올림이 0을 만들었다)");
+        }
+
+        // ── W6: 위험 기억 — 당해 보고 안다 ───────────────────────────────────────
+        //
+        // 🔴 고정한 축: 노드는 손으로 세운 두 개(가까운 것·먼 것)다. 검사가 보는 것은
+        //    "기억이 선택을 뒤집는가"이지 배치가 아니다.
+
+        [Test]
+        public void M26B_T6_DangerMemory_FlipsChoice_AndIsPersonal()
+        {
+            var d = new AIVillage.M0.DiscoveryService();
+            d.AddResourceNode(new ResourceNode("near", ResourceType.Wood, 8, 0, 10f, 0f, true));
+            // 거리 차 10 < 위험 기여 12 — 벌점이 거리 손해를 넘어야 뒤집힌다 (동점은 먼저 만난
+            // 쪽 = near 가 이기는 규약이라, 차를 12로 두면 안 뒤집히는 게 맞다 — 첫 판이 그랬다).
+            d.AddResourceNode(new ResourceNode("far",  ResourceType.Wood, 18, 0, 10f, 0f, true));
+            d.ConfigureGatherChoice(0f, 12f, (x, y) => 1f);   // 배포 위험 가중치와 같은 자릿수
+
+            // 기억이 없으면 최근접 — W4 중립 불변식이 W6 뒤에도 산다.
+            var fresh = new AIVillage.M0.DangerMemory(8, 0.5f);
+            Assert.AreEqual("near", d.FindBestDiscovered(ResourceType.Wood, 0, 0, fresh.PenaltyAt, out _).NodeId,
+                "기억이 없는데 최근접을 안 골랐다 — 중립 불변식이 깨졌다");
+
+            // 가까운 노드 곁에서 당했다 → 같은 후보인데 먼 쪽으로 뒤집힌다 (성공 기준 ⑤).
+            var burned = new AIVillage.M0.DangerMemory(8, 0.5f);
+            burned.Remember(7, 0, 1f);
+            Assert.AreEqual("far", d.FindBestDiscovered(ResourceType.Wood, 0, 0, burned.PenaltyAt, out _).NodeId,
+                "당한 자리 곁의 노드를 여전히 고른다 — 기억이 선택에 안 걸린다");
+
+            // 🔑 개인이다 (ADR-T2-4) — 같은 판에서 안 당한 주민의 답은 그대로다.
+            Assert.AreEqual("near", d.FindBestDiscovered(ResourceType.Wood, 0, 0, fresh.PenaltyAt, out _).NodeId,
+                "한 명의 기억이 다른 주민의 선택을 바꿨다 — 마을 공유 기억이 됐다");
+
+            // 반경 — 당한 정확한 좌표만이 아니라 둘레가 전부 위험하다 (한 칸 옆 함정 방지).
+            Assert.Greater(burned.PenaltyAt(7 + 8, 0), 0f, "반경 안인데 벌점 0 — 한 칸 옆에서 똑같이 당한다");
+            Assert.AreEqual(0f, burned.PenaltyAt(7 + 9, 0), 1e-4f, "반경 밖인데 벌점이 있다");
+        }
+
+        [Test]
+        public void M26B_T6b_DangerMemory_DecaysToZero_Monotonically()
+        {
+            var m = new AIVillage.M0.DangerMemory(8, 0.5f);
+            m.Remember(0, 0, 1f);
+
+            // 단조 감소 — 시간이 지날수록 벌점이 늘어나는 일은 없다.
+            float prev = m.PenaltyAt(0, 0);
+            for (int step = 0; step < 7; step++)   // 0.3일 × 7 = 2.1일 > 강도 1 ÷ 0.5/일 = 2일
+            {
+                m.Decay(0.3f);
+                float now = m.PenaltyAt(0, 0);
+                Assert.LessOrEqual(now, prev, "감쇠했는데 벌점이 늘었다");
+                prev = now;
+            }
+            Assert.AreEqual(0f, m.PenaltyAt(0, 0), 1e-4f, "2일이 지났는데 기억이 남아 있다 (강도 1 ÷ 0.5/일 = 2일)");
+
+            // 인스턴스 감쇠와 순수 검산이 같은 산수인가 — 다르면 게이트가 거짓을 지킨다.
+            Assert.AreEqual(0.4f, AIVillage.M0.DangerMemory.RemainingAfter(1f, 0.5f, 1.2f), 1e-4f);
+            var m2 = new AIVillage.M0.DangerMemory(8, 0.5f);
+            m2.Remember(0, 0, 1f);
+            m2.Decay(1.2f);
+            Assert.AreEqual(AIVillage.M0.DangerMemory.RemainingAfter(1f, 0.5f, 1.2f),
+                            m2.PenaltyAt(0, 0), 1e-4f, "인스턴스 감쇠와 순수 검산의 산수가 다르다");
+
+            // 실패 가능성 증명 — 감쇠 0이면 기억이 영원하다 (이 검사가 빈 검사가 아님을 증명).
+            var forever = new AIVillage.M0.DangerMemory(8, 0f);
+            forever.Remember(0, 0, 1f);
+            forever.Decay(100f);
+            Assert.Greater(forever.PenaltyAt(0, 0), 0f, "감쇠 0인데 잊었다 — Decay가 값을 무시한다");
         }
 
         // ── T1-c: 중립 불변식 — 판정을 안 넘기면 舊 배치와 완전히 같다 ────────────

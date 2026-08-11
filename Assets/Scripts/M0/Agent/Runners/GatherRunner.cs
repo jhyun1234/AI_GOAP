@@ -29,7 +29,11 @@ namespace AIVillage.M0
             {
                 // 채집 선택 (M26-2차 W4) — 거리 하나가 아니라 점수 하나로 고른다.
                 // 가중치가 0이면 `FindNearestDiscovered` 와 같은 답이다 (ADR-T2-3 중립 불변식).
+                // 위험 항 (M26-2차 W6) — **이 주민의** 기억이다. 당해 본 사람만 돌아간다.
                 _node = agent.Discovery.FindBestDiscovered(_so.TargetResource, agent.TileX, agent.TileY,
+                                                           agent.Danger != null
+                                                               ? (System.Func<int, int, float>)agent.Danger.PenaltyAt
+                                                               : null,
                                                            out ResourceNode nearest);
                 // 🔑 **다른 답이 나왔을 때만** 알린다 — 같은 답이면 할 말이 없다.
                 //    이 줄이 성공 기준 ③의 탐지기다: 최근접만 보던 시절엔 구조적으로 0건이었다.

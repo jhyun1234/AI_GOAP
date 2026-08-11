@@ -31,7 +31,10 @@ MonoBehaviour:
   InitialSatiety: 70
   InitialFatigue: 20
   InitialSatietyVariance: 15
-  SatietyDecayPerGameDay: 25
+  SatietyDecayPerGameDay: 150
+  BodyCarryCap: 48
+  HomeStorageCap: 90
+  DangerMemoryDecayPerDay: 3
   RefuseHungryLines:
   - "지금은... 배가 너무 고파요."
   - "밥부터 먹고요. 진짜로요."

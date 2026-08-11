@@ -235,8 +235,20 @@ namespace AIVillage.Tests.EditMode
         /// 🔑 피신과 **동률(105)**인 것이 설계의 핵심이다 — 높이면 겁쟁이도 싸우고, 낮추면
         /// 아무도 안 싸운다. 승부는 우선순위가 아니라 겁 성향의 **부호 대칭**(Flee +0.8 / Fight −0.8)이
         /// 가른다 (명세 ⚠️ 오해 위험 ①).
+        ///
+        /// **Goal_TreatInjured 논증 (M26-2차 W7R3, 2026-08-11 사용자 Play)** — 舊 45는 허기(100)에
+        /// 항상 밀려 ①치료사가 채널링 중 열매를 따러 이탈하고 ②다친 치료사가 자가 치료 차례를
+        /// 영영 못 받아 걷다가 출혈사했다. 기본 102 = 허기 위·피신(105) 아래:
+        ///   ⓐ 발동 = `InjuredCount ≥ 1` — 내 욕구가 아니라 "누가 다쳤다"는 세계의 사실이 켠다
+        ///      (W7R 이후 시야·지목으로 **아는** 부상자만).
+        ///   ⓑ 자기 종료 = 부상자가 완치·사망하면 카운트가 0으로 돌아가 재발동하지 않는다.
+        ///   ⓒ 치사 속도 = 출혈 방치 사망 1.5일 — 굶주림(포만 하강 2.4일 + 아사 시계)보다 빠른
+        ///      시계가 도는 사람을 두고 밥부터 먹으면 환자가 죽는다. 완치 채널은 0.33일(배율 3)이라
+        ///      밥 미룸의 아사 위험은 낮다.
+        /// ⚠️ 성향 보정 극단(+8)에서 110 > 피신(105) — **용감한 치료사는 위험 속에서도 치료를
+        /// 계속하고, 겁쟁이 치료사(피신 보정 +24)는 도망친다.** 의도된 성격 발현으로 승인.
         /// </summary>
-        private static readonly string[] MayOutrankHunger = { "Goal_Flee", "Goal_Fight" };
+        private static readonly string[] MayOutrankHunger = { "Goal_Flee", "Goal_Fight", "Goal_TreatInjured" };
 
         [Test]
         public void M12_T3_OnlyApprovedGoalsMayOutrankHunger()

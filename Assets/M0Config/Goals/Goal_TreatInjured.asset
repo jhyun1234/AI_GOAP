@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Goal_TreatInjured
   m_EditorClassIdentifier:
   DisplayName: "부상자 치료"
-  Priority: 45
+  Priority: 102
   TriggerConditions:
   - Slot: 20
     Op: 1

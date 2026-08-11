@@ -758,7 +758,8 @@ namespace AIVillage.M0
             if (cause == DamageCause.Combat) PlayHurt();
             // 위험 기억 (M26-2차 W6) — **전투 피해만** 자리를 남긴다. 굶주림은 자리 탓이 아니다.
             // 부상 문턱과 무관하게 한 대만 물려도 배운다 — 배움의 단위는 부상이 아니라 피격이다.
-            if (cause == DamageCause.Combat) Danger?.Remember(TileX, TileY, 1f);
+            // 강도는 에셋 값 (W8 후속 — 舊 상수 1은 배포 기하를 못 넘어 회피가 발현 불능이었다).
+            if (cause == DamageCause.Combat) Danger?.Remember(TileX, TileY, _cfg.DangerMemoryPerHit);
             // 굶주림 원인일 때만 기록 (M12-G 희소성 — 판정은 순수 함수, 게이트 M21-T15).
             // 여기가 MyWasStarved의 유일한 쓰기 지점이다 (舊 SimTick에서 이전).
             if (ShouldMarkStarved(cause, Hp, _cfg)) MyWasStarved = true;

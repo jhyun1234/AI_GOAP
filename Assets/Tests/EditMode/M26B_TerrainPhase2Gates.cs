@@ -796,6 +796,39 @@ namespace AIVillage.Tests.EditMode
             Assert.Greater(forever.PenaltyAt(0, 0), 0f, "감쇠 0인데 잊었다 — Decay가 값을 무시한다");
         }
 
+        [Test]
+        public void M26B_T6c_OneBite_BeatsDeploymentClusterGeometry()
+        {
+            // 🔴 재발 방지 (2026-08-11 기계 실측): T6 는 손으로 세운 두 노드(거리 차 10)로
+            //    검사해 초록이었는데, 배포 맵은 클러스터(간격 15~30) + 기억 반경이라 기하가
+            //    달랐다 — 다섯 대를 물려도 같은 숲으로 갔고, 회피는 화면에 존재한 적이 없다.
+            //    (T5 교훈 "통계가 잴 수 있는가"의 기하판 — 검사는 배포 기하로 잰다.)
+            // 고정한 축: 배포 에셋 그대로 (AgentConfig 기억 수치 × 스폰 설정 클러스터 간격).
+            //    지키는 부등식 = **피격 1회 벌점 > 최대 클러스터 간격** — 어느 자원이든
+            //    한 번 물리면 옆 클러스터가 이길 수 있다.
+            var agentCfg = AssetDatabase.LoadAssetAtPath<AIVillage.M0.AgentConfigSO>(
+                "Assets/M0Config/AgentConfig.asset");
+            var cfg = AssetDatabase.LoadAssetAtPath<ResourceNodeSpawnConfig>(ConfigPath);
+            Assert.IsNotNull(agentCfg); Assert.IsNotNull(cfg);
+
+            float oneBite = agentCfg.DangerMemoryPerHit * agentCfg.GatherDangerWeight;
+            int maxSpacing = 0;
+            foreach (ResourceTypeSpawnData d in cfg.resourceTypes)
+                if (d.nodeCount > 0) maxSpacing = Mathf.Max(maxSpacing, d.minClusterSpacing);
+            Assert.Greater(maxSpacing, 0, "배포에 자원이 없다 — 이 검사는 빈 검사다");
+
+            Assert.Greater(oneBite, maxSpacing,
+                $"피격 1회 벌점({oneBite:0.#} = 강도 {agentCfg.DangerMemoryPerHit:0.#} × 가중치 " +
+                $"{agentCfg.GatherDangerWeight:0.#})이 최대 클러스터 간격({maxSpacing})을 못 넘는다 — " +
+                "위험 기억이 어떤 선택도 못 바꾸는 장식이 된다 (2026-08-11 실측 재발)");
+
+            // 기억 반경이 벌점의 뜻을 죽이지 않는가 — 반경이 간격보다 크면 옆 클러스터까지
+            // 같은 벌점을 받아 위 부등식이 공허해진다 (빈 검사 방지).
+            Assert.Less(agentCfg.DangerMemoryRadiusTiles, maxSpacing,
+                $"기억 반경({agentCfg.DangerMemoryRadiusTiles})이 클러스터 간격({maxSpacing}) 이상 — " +
+                "도망갈 옆 클러스터까지 위험으로 기억해 회피가 다시 불가능해진다");
+        }
+
         // ── W7-0: 구조가 구조적으로 가능한가 (성공 기준 ⑥ — 이 검산이 W7 UI 의 존재 조건) ──
 
         [Test]

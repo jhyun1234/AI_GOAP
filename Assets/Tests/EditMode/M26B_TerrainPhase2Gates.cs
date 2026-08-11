@@ -571,6 +571,20 @@ namespace AIVillage.Tests.EditMode
         }
 
         [Test]
+        public void M26B_T9b_FowDowngrade_IsActuallyWired()
+        {
+            // 🔴 재발 방지 (2026-08-11 사용자 Play 관측): FowManager.OnTick(시야→기억 강등)은
+            //    舊 GameManager 가 부르던 것인데 M0 재설계가 그 호출만 유실했다. 그 뒤로
+            //    "한 번 본 땅은 영원히 시야"였고 — 기억(1) 상태가 M0 판에 존재한 적이 없다 —
+            //    A2 가 다녀간 땅에서 개체를 못 숨겼다. **컴파일도 다른 게이트도 못 잡는 유실**이라
+            //    (호출이 없어져도 모든 것이 green) 소스 스캔으로 못을 박는다 (M24_T7 방식).
+            string src = System.IO.File.ReadAllText("Assets/Scripts/M0/SimulationLoop.cs");
+            StringAssert.Contains("FowManager.Instance.OnTick()", src,
+                "SimulationLoop 이 FoW 강등을 안 부른다 — 한 번 본 땅이 영원히 '시야'가 되고 " +
+                "A2(개체는 시야에서만)가 다녀간 땅에서 조용히 무력화된다");
+        }
+
+        [Test]
         public void M26B_T8c_BandDensity_ScalesWithMapArea()
         {
             // 🔴 이 검사가 지키는 것: **맵을 넓혔을 때 들판이 더 안전해지지 않는다.**

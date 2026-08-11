@@ -1510,6 +1510,22 @@ namespace AIVillage.M0
                 float deltaGameDays = TICK_INTERVAL_SEC * _worldConfig.GameTimeScale;
                 GameTime += deltaGameDays; // 계절 배율 금지 — 겨울이 시간을 늦추면 안 된다 (ADR-M6-1)
 
+                // FoW 시야 강등 (M26-2차 A2 후속, 2026-08-11) — 🔴 **끊겨 있던 배선의 복원**이다.
+                // 舊 GameManager 가 매 틱 "전체 가시(2) → 기억(1) 강등 + 주민 시야 재계산"을
+                // 했는데, M0 재설계(W8)가 GameManager 를 폐기하며 이 호출만 유실됐다. 그 뒤로
+                // **한 번 본 땅은 영원히 '시야'** 였고, 기억(1) 상태는 M0 판에 존재한 적이 없다 —
+                // A2(개체는 시야에서만 렌더)가 다녀간 땅에서 못 숨긴 원인 (사용자 Play 관측).
+                // 이동 시의 RevealArea(VillagerAgent)는 그대로 둔다 — 같은 승격 함수의 두 호출처일
+                // 뿐이고(쓰기 규칙은 한 벌), 이동 프레임의 시야 지연을 없앤다.
+                if (FowManager.Instance != null && MapConfig.Active != null)
+                {
+                    FowManager.Instance.OnTick();   // 전체 강등 — 아래 재공개가 같은 틱에 잇는다
+                    int sight = MapConfig.Active.villagerSightRadius;
+                    foreach (VillagerAgent a in _agents)
+                        if (a != null && a.State != AgentState.Dead)
+                            FowManager.Instance.RevealArea(a.TileX, a.TileY, sight);
+                }
+
                 Season?.Tick(GameTime);
 
                 // 계절 배율 (M6-B) — 서비스 시그니처 무변경, 시간 입력만 스케일 (겨울 0 = 재생·성장 정지)

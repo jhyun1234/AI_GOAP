@@ -11,6 +11,7 @@
 */
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 import { ROOT, openEngine, langPaths, langOf, bakeScene } from './lib-node.mjs';
 
 const argv = process.argv.slice(2);
@@ -60,7 +61,13 @@ if (sibs.length) {
     const sibEp = m ? `ep${String(m[1]).padStart(2, '0')}s-${m[2]}` : null;
     const sibPath = sibEp && path.join(ROOT, 'episodes', sibEp, 'scene.json');
     if (!sibPath || !fs.existsSync(sibPath)) { bad.push(`${got} → 회차를 못 찾았다`); continue; }
-    const want = sibLabel(JSON.parse(fs.readFileSync(sibPath, 'utf8')));
+    /* 🔴 파싱은 크래시가 아니라 게이트 실패다 (2026-08-11 · ep16s 실증 2회 — 형제 한 편의
+       비이스케이프 따옴표가 다섯 편 판정 실행을 통째로 죽였다). 깨진 형제는 실재하는 문제이므로
+       숨기지 않고 이름을 붙여 떨어뜨린다. 조용한 재시도는 진짜 파손을 가리므로 안 넣는다. */
+    let sibScene;
+    try { sibScene = JSON.parse(fs.readFileSync(sibPath, 'utf8')); }
+    catch (e) { bad.push(`${sibEp}: scene.json 파싱 불가(${e.message.slice(0, 60)}) — 저장 경합이면 재실행, 아니면 그 파일을 고쳐라`); continue; }
+    const want = sibLabel(sibScene);
     if (want === null) { bad.push(`${sibEp} 의 youtube.title 이 규약 형식이 아니다`); continue; }
     if (want !== got) bad.push(`${sibEp}: "${got}" ≠ "${want}"`);
   }
@@ -437,6 +444,28 @@ if (timed) {
     /* 인트로 고정 문안(33자)의 실측이 4초대다. 5.5 를 넘으면 문안이 불었거나 pause 가
        샌 것 — 사용자 제안치 3초와의 차이는 음성 물리량이다(명세 §2-C). */
     add(introSec <= 5.5, '인트로 5.5초 이하', `${introSec.toFixed(1)}초`, 'warn');
+  }
+
+  /* ── 어미 연속 (2026-08-11 신설 · 사용자 승인 「fail ≥4 · warn =3」) ─────
+     voice.json rules.1(「같은 어미 2연속까지, 3연속 금지」)은 있었는데 **측정법이 없어
+     한 번도 집행되지 않았다** — ep16s-3 이 「-죠」 5연속으로 첫 집행(마스터 반려)됐다.
+     🔴 잣대 = **끝 두 글자 축자 동일 연속** (마스터 전수 재측정 2026-08-11: 「어요/예요/해요
+     합산」으로 세면 발행분에 8연속이 있어 집행 불가, 끝 두 글자로 세면 발행분 전부 ≤3).
+     fail ≥4 = 발행분 소급 red 0 · warn =3 = 문언(3 금지)의 정신 보존(발행분 3편만 해당 —
+     상시 경고 아님). 🔴 구간 = 인트로·아웃트로 샷 제외(훅 포함 — 16-3 집행 실측과 같은 구간).
+     WIDE 제외: 실측 전수가 쇼츠 발행분뿐이다(M20 — 전수 검사는 고정한 축을 함께 적는다). */
+  if (hasIntro && !WIDE) {
+    const midTails = scene.shots.slice(1, -1).flatMap(s => s.lines || [])
+      .map(l => String(l.say ?? l.text ?? '').replace(/[\s.…!?,·」』)"'『「]+$/g, '').slice(-2))
+      .filter(t => t.length === 2);
+    let run = 1, maxRun = midTails.length ? 1 : 0, at = midTails[0] || '';
+    for (let i = 1; i < midTails.length; i++) {
+      run = midTails[i] === midTails[i - 1] ? run + 1 : 1;
+      if (run > maxRun) { maxRun = run; at = midTails[i]; }
+    }
+    const detail = `최대 ${maxRun}연속${maxRun > 1 ? ` (「${at}」)` : ''} — 본문·훅 한정, 끝 두 글자 축자`;
+    add(maxRun <= 3, '어미 연속 4 이상 없음', detail);
+    add(maxRun <= 2, '어미 연속 2 이하 권장', detail, 'warn');
   }
 } else {
   add(false, '실측 타임라인 존재', `episodes/${EP}/build/timed.json 이 없다 — tts.mjs 를 먼저 돌려라`);
@@ -830,6 +859,16 @@ if (AS_JSON) {
   console.log(JSON.stringify({ ep: EP, pass: fails.length === 0, results }, null, 2));
 } else {
   console.log(`\n가이드 점검 · ${EP}\n${'─'.repeat(52)}`);
+  /* 🔴 대상 파일 지문 (2026-08-11 신설) — 게이트 출력이 「증거」로 인용되는데, 출력 뒤에
+     파일이 바뀌면 낡은 증거가 된다(ep16s-5 에서 마스터가 수리본을 크기 오독으로 되돌린 실물).
+     지문이 출력에 박혀 있으면 대조가 산수가 된다. 검수·마스터는 이 줄째로 인용할 것. */
+  for (const [name, f] of [['scene.json', bakeScene(EP, LANG)],
+                           ['timed.json', path.join(ROOT, 'episodes', EP, 'build', 'timed.json')]]) {
+    if (!fs.existsSync(f)) continue;
+    const st = fs.statSync(f);
+    const md5 = crypto.createHash('md5').update(fs.readFileSync(f)).digest('hex');
+    console.log(`  지문 ${name.padEnd(10)} ${st.size}B · mtime ${st.mtime.toISOString()} · md5 ${md5}`);
+  }
   for (const r of results) {
     const mark = r.level === 'pass' ? '  OK ' : r.level === 'warn' ? '  ⚠  ' : '  🔴 ';
     console.log(`${mark}${r.name.padEnd(22)} ${r.detail}`);

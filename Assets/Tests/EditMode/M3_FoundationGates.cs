@@ -92,8 +92,8 @@ namespace AIVillage.Tests.EditMode
             farm.RegisterPlot(3, 3, "A");
             Assert.AreEqual(3, world.BuildSnapshot(50, 50).Get(SlotId.EmptyFarmPlot), "빈 밭 개수 반영");
 
-            farm.TryPlant(farm.NearestEmpty(0, 0));
-            farm.TryPlant(farm.NearestEmpty(0, 0));
+            farm.TryPlant(farm.NearestEmptyOf("A", 0, 0));
+            farm.TryPlant(farm.NearestEmptyOf("A", 0, 0));
             farm.TickGrowth(2f);
             WorldSnapshot snap = world.BuildSnapshot(50, 50);
             Assert.AreEqual(1, snap.Get(SlotId.EmptyFarmPlot), "빈 1 (심은 2 제외)");

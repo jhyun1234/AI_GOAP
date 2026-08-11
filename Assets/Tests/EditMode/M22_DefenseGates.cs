@@ -359,9 +359,9 @@ namespace AIVillage.Tests.EditMode
 
             // 계획 취소 — 무료, 즉시
             d.AddFencePlan(DefenseService.LineTiles(new Vector2Int(0, 0), new Vector2Int(3, 0)), null);
-            Assert.IsTrue(d.RemovePlanAt(new Vector2Int(1, 0)));
+            Assert.IsTrue(d.RemovePlanAt(new Vector2Int(1, 0), out _));
             Assert.AreEqual(3, d.PlannedCount, "계획 취소 = 계획에서만 빠진다");
-            Assert.IsFalse(d.RemovePlanAt(new Vector2Int(1, 0)), "이미 없는 칸은 false");
+            Assert.IsFalse(d.RemovePlanAt(new Vector2Int(1, 0), out _), "이미 없는 칸은 false");
 
             // 파괴 경로 (대조군): NotifyRemoved만 → 계획 복귀
             var site = new Vector2Int(2, 0);

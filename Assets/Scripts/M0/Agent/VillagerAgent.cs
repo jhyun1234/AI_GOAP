@@ -73,7 +73,6 @@ namespace AIVillage.M0
         public WorldModel World => _sim.World;
         public DiscoveryService Discovery => _sim.Discovery;
         public ConstructionService Construction => _sim.Construction;
-        public ZoneService Zones => _sim.Zones; // 구역 배치 결정자 (M9-A)
         public DefenseService Defense => _sim.Defense; // 방어 계획 (M22-W4 — BuildRunner 배치 조회)
         // 액션 카탈로그 (M22-4차 W4 — ClearRunner 가 짝이 되는 채집 액션의 수확량·소요를 읽는다).
         // 이미 _sim 이 갖고 있는 것을 그대로 연다 (World·Discovery 와 같은 패턴, 새 배선 0).
@@ -878,14 +877,8 @@ namespace AIVillage.M0
         public VillagerAgent FindNearestInjured(bool healerMode, int maxDistTiles = -1)
             => _sim.FindNearestInjured(this, healerMode, maxDistTiles);
 
-        /// <summary>
-        /// 부상 계단 갱신 (순수 — 게이트 M10-T1): 간호 중 = 회복 진행·방치 정지(홀드 — 리셋 아님,
-        /// 스치는 간호로 사망 시계가 초기화되면 사망 불가능 — 명세 ⚠️②), 방치 = 방치 누적·회복 정지.
-        /// </summary>
-        public static (float recovery, float neglect) NextInjuryState(
-            float recovery, float neglect, bool tended, float tendMult, float deltaGameDays)
-            => tended ? (recovery + deltaGameDays * tendMult, neglect)
-                      : (recovery, neglect + deltaGameDays);
+        // (舊 NextInjuryState v1은 2026-08-11 2차 감사에서 철거 — W7R 간호 대개정으로 설계 자체가
+        //  V2("회복은 치료사만")로 바뀌어, v1은 폐기된 설계의 박물관이었다. 게이트도 V2 판으로 이관.)
 
         /// <summary>
         /// 부상 계단 v2 (순수 — 게이트 M11-T8, 결정 15). 우선순위가 곧 설계다:

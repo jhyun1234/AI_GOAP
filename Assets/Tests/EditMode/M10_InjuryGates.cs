@@ -11,31 +11,10 @@ namespace AIVillage.Tests.EditMode
     /// </summary>
     public class M10_InjuryGates
     {
-        [Test]
-        public void M10_T1_NextInjuryState_TendHoldsNeglectAndRecovers()
-        {
-            // 간호 중 = 회복 진행 + 방치 정지 (홀드)
-            (float rec, float neg) = VillagerAgent.NextInjuryState(0.2f, 0.4f, tended: true, tendMult: 1f, deltaGameDays: 0.1f);
-            Assert.AreEqual(0.3f, rec, 1e-5f, "간호 중 회복 누적");
-            Assert.AreEqual(0.4f, neg, 1e-5f, "간호 중 방치 정지 (홀드 — 리셋 아님)");
-
-            // Medic 배율 — 회복만 가속 (방치와 무관)
-            (rec, neg) = VillagerAgent.NextInjuryState(0f, 0f, tended: true, tendMult: 3f, deltaGameDays: 0.1f);
-            Assert.AreEqual(0.3f, rec, 1e-5f, "치료사 배율 3 = 3배 회복");
-
-            // 방치 = 방치 누적 + 회복 정지 (자연 회복 없음 — 결정 11)
-            (rec, neg) = VillagerAgent.NextInjuryState(0.2f, 0.4f, tended: false, tendMult: 3f, deltaGameDays: 0.1f);
-            Assert.AreEqual(0.2f, rec, 1e-5f, "방치 중 회복 정지 — 자연 회복 없음");
-            Assert.AreEqual(0.5f, neg, 1e-5f, "방치 누적");
-        }
-
-        [Test]
-        public void M10_T1_NextInjuryState_TendedNeglectIsHoldNotReset()
-        {
-            // 스치는 간호가 사망 시계를 초기화하면 사망이 사실상 불가능해진다 (명세 M10-A ⚠️②)
-            (_, float neg) = VillagerAgent.NextInjuryState(0f, 1.4f, tended: true, tendMult: 1f, deltaGameDays: 0.1f);
-            Assert.AreEqual(1.4f, neg, 1e-5f, "간호는 홀드다 — 누적 1.4일이 0으로 돌아가지 않는다");
-        }
+        // 🔴 게이트 개정 (2026-08-11 2차 감사): 舊 M10_T1_NextInjuryState 2판(v1 계단) 삭제 —
+        // 관측: W7R 간호 대개정으로 부상 상태 기계의 정본이 V2("회복은 치료사만·안정화 유예")가
+        // 됐고 v1은 프로덕션 호출 0. v1이 지키던 성질(홀드는 리셋이 아니다·자연 회복 없음)은
+        // V2 게이트(M11_CareGates·M26B_T10)가 현행 설계 위에서 검증한다.
 
         /// <summary>M21-W1 재보정 — 부상 사망 판정이 방치 일수 문턱에서 **체력 0**으로 옮겨졌다.
         /// 여기서 지키는 것은 "부상 방치가 에셋의 사망 문턱 일수 만에 끝나는가"다

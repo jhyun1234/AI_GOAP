@@ -63,23 +63,22 @@ namespace AIVillage.Tests.EditMode
             so.DisplayName = "늑대 무리"; so.VillagerTargetChance = 0.5f;
 
             // 결정성 (ADR-M10R-2): 같은 서수 = 같은 결과
+            // (2026-08-11 2차 감사: 2인자 편의판 철거 — 기저 확률을 명시 인자로)
             for (int ord = 1; ord <= 5; ord++)
-                Assert.AreEqual(ThreatService.RollTargetsVillagers(so, ord),
-                                ThreatService.RollTargetsVillagers(so, ord), $"서수 {ord} 재현");
+                Assert.AreEqual(ThreatService.RollTargetsVillagers(so, ord, so.VillagerTargetChance),
+                                ThreatService.RollTargetsVillagers(so, ord, so.VillagerTargetChance),
+                                $"서수 {ord} 재현");
 
             // 경계: 0 = 항상 밭, 1 = 항상 주민
-            so.VillagerTargetChance = 0f;
             for (int ord = 1; ord <= 20; ord++)
-                Assert.IsFalse(ThreatService.RollTargetsVillagers(so, ord), "확률 0 = 밭만");
-            so.VillagerTargetChance = 1f;
+                Assert.IsFalse(ThreatService.RollTargetsVillagers(so, ord, 0f), "확률 0 = 밭만");
             for (int ord = 1; ord <= 20; ord++)
-                Assert.IsTrue(ThreatService.RollTargetsVillagers(so, ord), "확률 1 = 주민만");
+                Assert.IsTrue(ThreatService.RollTargetsVillagers(so, ord, 1f), "확률 1 = 주민만");
 
             // 분포 sanity: 0.5에서 100 서수 중 극단 치우침 없음
-            so.VillagerTargetChance = 0.5f;
             int villagerHits = 0;
             for (int ord = 1; ord <= 100; ord++)
-                if (ThreatService.RollTargetsVillagers(so, ord)) villagerHits++;
+                if (ThreatService.RollTargetsVillagers(so, ord, 0.5f)) villagerHits++;
             Assert.That(villagerHits, Is.InRange(25, 75), "0.5 확률이 전무·전량으로 치우치지 않음");
 
             Object.DestroyImmediate(so);

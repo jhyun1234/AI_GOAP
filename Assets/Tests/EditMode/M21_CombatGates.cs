@@ -278,11 +278,7 @@ namespace AIVillage.Tests.EditMode
                                 ThreatService.RollTargetsVillagers(so, ord, 0.5f),
                                 $"서수 {ord} 재현 — 같은 판이면 같은 결과");
 
-            // 인자 없는 판 = 에셋 기저 확률판 (기존 호출자·M10 게이트 호환)
-            for (int ord = 1; ord <= 50; ord++)
-                Assert.AreEqual(ThreatService.RollTargetsVillagers(so, ord),
-                                ThreatService.RollTargetsVillagers(so, ord, so.VillagerTargetChance),
-                                $"서수 {ord}: 2인자판 = 기저 확률 3인자판");
+            // (舊 "2인자판 = 3인자판" 동치 단언은 2026-08-11 2차 감사에서 2인자판 철거와 함께 삭제)
 
             // 확률을 올리면 주민 타깃이 늘어난다 (단조) — 겨울 보정이 실제로 기울이는가
             int plain = 0, winter = 0;
@@ -324,7 +320,7 @@ namespace AIVillage.Tests.EditMode
 
             int villagerRolls = 0;
             for (int ord = 1; ord <= 100; ord++)
-                if (ThreatService.RollTargetsVillagers(wolf, ord)) villagerRolls++;
+                if (ThreatService.RollTargetsVillagers(wolf, ord, wolf.VillagerTargetChance)) villagerRolls++;
             Assert.Greater(villagerRolls, 0,
                 "100번의 출몰 서수 중 주민 타깃이 한 번도 없다 (결정적 시드 — 확률이 너무 낮다)");
 
@@ -668,63 +664,18 @@ namespace AIVillage.Tests.EditMode
                 "Set MyHasWeapon 1 픽션이 없으면 플래너가 이 액션으로 무장을 세울 수 없다");
         }
 
-        // ── M21-T11: 대규모 적습 — 마릿수 산식 (W6 DoD ①③) ──────────────────
+        // ── M21-T11: 대규모 적습 (W6) ────────────────────────────────────────
+        // 🔴 게이트 개정 (2026-08-11 2차 감사): 舊 T11 두 판의 마릿수 산식(SpawnCount) 단언은
+        // 산식·에셋 3필드 철거와 함께 삭제 — 관측: M24 압력 예산제(ADR-M24-2)가 마릿수의 유일한
+        // 원천이 된 뒤 산식도 필드도 프로덕션 독자 0이라, 그 단언들은 "어떤 판에서도 안 도는
+        // 수식"을 지키고 있었다. 살아 있는 도주선 검사만 남긴다.
 
         [Test]
-        public void M21_T11_SpawnCount_GrowsClampsAndNeverEmpties()
+        public void M21_T11_ShippedThreats_RoutLinesAreCoherent()
         {
-            // §4 산식: clamp(base + ⌊(day − unlock)/growth⌋ − 완충, 1, max)
-            Assert.AreEqual(2, ThreatService.SpawnCount(2, 12f, 12f, 10f, 5, 0), "밴드 개막일 = 기본값");
-            Assert.AreEqual(2, ThreatService.SpawnCount(2, 12f, 21.9f, 10f, 5, 0), "성장 직전엔 그대로");
-            Assert.AreEqual(3, ThreatService.SpawnCount(2, 12f, 22f, 10f, 5, 0), "DoD ①: Day22 = 2 + ⌊10/10⌋ = 3");
-            Assert.AreEqual(5, ThreatService.SpawnCount(2, 12f, 99f, 10f, 5, 0), "상한 클램프 — 무한 성장 금지");
-
-            Assert.AreEqual(1, ThreatService.SpawnCount(1, 0f, 50f, 0f, 1, 0), "성장 주기 0 = 성장 없음 (늑대 중립)");
-            Assert.AreEqual(1, ThreatService.SpawnCount(1, 0f, 50f, -1f, 1, 0), "음수 주기도 성장 없음 (에셋 사고 방어)");
-            Assert.AreEqual(2, ThreatService.SpawnCount(2, 30f, 10f, 10f, 5, 0), "개막 전 날짜 = 음수 성장 금지");
-
-            // 완충(W7 자리) — 아무리 깎여도 1마리는 온다 (위협 0 금지, ADR-M21-4 클램프)
-            Assert.AreEqual(2, ThreatService.SpawnCount(2, 12f, 22f, 10f, 5, 1), "완충 1 = 한 마리 덜 온다");
-            Assert.AreEqual(1, ThreatService.SpawnCount(2, 12f, 22f, 10f, 5, 99), "완충 과다 = 최소 1 클램프");
-            Assert.AreEqual(1, ThreatService.SpawnCount(1, 0f, 0f, 0f, 0, 0), "상한 0 에셋 사고 = 1로 방어");
-        }
-
-        [Test]
-        public void M21_T11_ShippedThreats_CountBandsAreCoherent()
-        {
-            // DoD ①: 성장 산식 검산. 🔑 M24-1차 개정 — 舊 판은 "Pack 에셋이 Day22에 3마리"라고
-            // **특정 에셋의 특정 날짜**를 박아 뒀다. 콘텐츠가 바뀌자 통째로 red 가 됐는데,
-            // 지키려던 것은 그 숫자가 아니라 **"성장 주기가 지나면 정확히 하나 는다"**는 산식이다.
-            int packs = 0;
-            foreach (string g in AssetDatabase.FindAssets("t:ThreatSO"))
-            {
-                var so = AssetDatabase.LoadAssetAtPath<ThreatSO>(AssetDatabase.GUIDToAssetPath(g));
-                if (so == null || so.CountGrowthEveryDays <= 0f) continue;
-                packs++;
-                Assert.AreEqual(so.SpawnCountBase,
-                    ThreatService.SpawnCount(so.SpawnCountBase, so.UnlockDay, so.UnlockDay,
-                                             so.CountGrowthEveryDays, so.SpawnCountMax, 0),
-                    $"{so.name}: 해금 당일인데 벌써 성장분이 붙었다");
-                Assert.AreEqual(Mathf.Min(so.SpawnCountBase + 1, so.SpawnCountMax),
-                    ThreatService.SpawnCount(so.SpawnCountBase, so.UnlockDay,
-                                             so.UnlockDay + so.CountGrowthEveryDays,
-                                             so.CountGrowthEveryDays, so.SpawnCountMax, 0),
-                    $"{so.name}: 성장 주기 1회가 지났는데 마릿수가 하나 늘지 않았다 (DoD ①의 산식)");
-            }
-            Assert.Greater(packs, 0, "마릿수가 자라는 위협이 하나도 없다 — 후반 압박이 사라진다");
-
-            // DoD ③: 티어1은 혼자 온다 — 기존과 완전 동일 동작 (중립 불변식)
-            ThreatSO wolf = Tier1Threat();
-            Assert.AreEqual(1, wolf.SpawnCountBase, $"{wolf.name}: 티어1은 혼자 온다");
-            Assert.AreEqual(1, wolf.SpawnCountMax,
-                $"{wolf.name}: 티어1이 무리가 되면 상위 티어와 구분이 사라진다");
-
             foreach (string guid in AssetDatabase.FindAssets("t:ThreatSO"))
             {
                 var so = AssetDatabase.LoadAssetAtPath<ThreatSO>(AssetDatabase.GUIDToAssetPath(guid));
-                Assert.GreaterOrEqual(so.SpawnCountBase, 1, $"{so.name}: 기본 마릿수 0 = 빈 출몰");
-                Assert.GreaterOrEqual(so.SpawnCountMax, so.SpawnCountBase,
-                    $"{so.name}: 상한이 기본값보다 작다 — 상한이 기본을 조용히 깎는다");
                 Assert.Greater(so.RoutBelowPct, 0f,
                     $"{so.name}: 무리 도주선 0 = 전멸해야만 끝난다 (격퇴 축 소멸)");
                 Assert.Less(so.RoutBelowPct, 1f,

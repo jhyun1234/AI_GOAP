@@ -211,22 +211,9 @@ namespace AIVillage.Tests.EditMode
             Assert.AreEqual(2, ThreatService.DemonCount(60f, 30f, 30f, 4), "성장 1회 = 2마리");
         }
 
-        [Test]
-        public void M24_T5_SpawnCount_IsNoLongerCalled()
-        {
-            // ADR-M24-2 — 마릿수의 원천은 예산 하나뿐이다. 두 산식이 공존하면 언젠가 갈린다.
-            string src = System.IO.File.ReadAllText("Assets/Scripts/M0/World/ThreatService.cs");
-            int calls = 0, from = 0;
-            while ((from = src.IndexOf("SpawnCount(", from, System.StringComparison.Ordinal)) >= 0)
-            {
-                // 정의부(public static int SpawnCount()는 남겨 둔다 — 게이트가 아직 산식을 검산한다)
-                bool isDefinition = from >= 4 && src.Substring(from - 4, 4) == "int ";
-                if (!isDefinition) calls++;
-                from += 1;
-            }
-            Assert.AreEqual(0, calls,
-                $"ThreatService가 SpawnCount를 아직 {calls}곳에서 부른다 — 마릿수 산식이 둘이 됐다 (ADR-M24-2)");
-        }
+        // 🔴 게이트 개정 (2026-08-11 2차 감사): 舊 M24_T5_SpawnCount_IsNoLongerCalled 는 삭제 —
+        // 지키던 성질("마릿수 산식 이원화 금지", ADR-M24-2)은 SpawnCount 정의 자체의 철거로
+        // 문자열 스캔보다 강하게 보장된다 (존재하지 않는 산식은 부를 수 없다).
 
         // ── T4: 침입 특성 축 + 공정성 (W5) ────────────────────────────────────
 

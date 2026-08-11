@@ -66,9 +66,10 @@ namespace AIVillage.Tests.EditMode
             rel.AddAffinity("A", "B", -25, "잔소리");
             rel.AddAffinity("A", "C", -10, "잔소리");
 
-            Assert.IsTrue(rel.IsGrudge("A", "B", -20), "-25 < -20 — 원한");
-            Assert.IsFalse(rel.IsGrudge("A", "C", -20), "-10 ≥ -20 — 아직 원한 아님");
-            Assert.IsFalse(rel.IsGrudge("B", "A", -20), "방향성 — 역방향 무관");
+            // (2026-08-11 2차 감사: IsGrudge 술어 철거 — 원한 성질은 AffinityOf 원값으로 검증)
+            Assert.Less(rel.AffinityOf("A", "B"), -20, "-25 < -20 — 원한");
+            Assert.GreaterOrEqual(rel.AffinityOf("A", "C"), -20, "-10 ≥ -20 — 아직 원한 아님");
+            Assert.GreaterOrEqual(rel.AffinityOf("B", "A"), -20, "방향성 — 역방향 무관");
 
             Assert.IsTrue(rel.TryGetExtreme("A", buddy: false, threshold: -20, out string worst),
                 "원한 극단 조회");

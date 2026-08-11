@@ -98,10 +98,11 @@ namespace AIVillage.M0
         private int _reliefStacks;   // 다음 출몰 마릿수 감산 (상한 = 에셋). 세이브 대상 (ADR-M0-10)
         private float _delayDays;    // 다음 발동 지연 (게임일, 사망만 쌓는다). 세이브 대상
 
-        /// <summary>현재 완충 스택 (읽기 전용 — 게이트·HUD). 쓰기는 사망·격퇴 성공·스폰 소모 3곳뿐.</summary>
+        /// <summary>현재 완충 스택 (읽기 전용 — 게이트 M21-T12의 관측창. HUD 표기는 아직 없다).
+        /// 쓰기는 사망·격퇴 성공·스폰 소모 3곳뿐.</summary>
         public int ReliefStacks => _reliefStacks;
 
-        /// <summary>현재 발동 지연 (읽기 전용 — 게이트·HUD).</summary>
+        /// <summary>현재 발동 지연 (읽기 전용 — 게이트 M21-T12의 관측창).</summary>
         public float DelayDays => _delayDays;
 
         private int ReliefStackMax => _config != null ? Mathf.Max(0, _config.ThreatReliefStackMax) : 3;
@@ -630,13 +631,9 @@ namespace AIVillage.M0
         /// <summary>이번 출몰이 주민을 노리는가 (순수·결정적, ADR-M10R-2·3): 출몰 서수 시드로 [0,1) 분수를
         /// 만들어 chance와 비교. 진입점 시드와 다른 솔트("|tgt")로 상관 차단 (동쪽=항상 주민 같은 편향 방지).
         /// 0=항상 밭, 1=항상 주민. 매 출몰 1회만 롤한다 (ADR-M10R-4 — 재타겟은 종류를 안 바꾼다).
-        /// 에셋 기저 확률판 — 계절 보정 없는 호출자·게이트용.</summary>
-        public static bool RollTargetsVillagers(ThreatSO so, int ordinal)
-            => RollTargetsVillagers(so, ordinal, so.VillagerTargetChance);
-
-        /// <summary>계절 보정 확률로 롤하는 판 (M21-W2R). **시드는 그대로다** — 계절이 바꾸는 것은
-        /// 확률값뿐이고 난수원이 아니다 (ADR-M10R-2 결정성 불변: 같은 판 같은 서수 = 같은 결과).
-        /// ADR-M21-10 경계의 판정 쪽: "무엇을 노리는가"는 끝까지 결정적이다.</summary>
+        /// chance는 보통 계절 보정 확률 (M21-W2R) — **시드는 그대로다**: 계절이 바꾸는 것은
+        /// 확률값뿐이고 난수원이 아니다 (ADR-M10R-2 결정성 불변. 기저 확률이면 so.VillagerTargetChance를
+        /// 넘긴다 — 舊 2인자 편의판은 2026-08-11 2차 감사에서 게이트 전용이라 철거).</summary>
         public static bool RollTargetsVillagers(ThreatSO so, int ordinal, float chance)
         {
             if (chance <= 0f) return false;
@@ -682,30 +679,20 @@ namespace AIVillage.M0
             return best;
         }
 
-        /// <summary>생존 주민 기준 정찰 연장 — 미배선(테스트 등)이면 0 (중립: 기존 예고 그대로).</summary>
+        /// <summary>생존 주민 기준 정찰 연장 — 미배선(테스트 등)이면 0 (중립: 기존 예고 그대로).
+        /// 산식은 MaxWarnBonus 하나다 (2026-08-11 2차 감사 — 같은 최대 스캔을 인라인 복붙하던 것을 위임으로).</summary>
         private float ScoutWarnBonus()
         {
             if (_agents == null) return 0f;
-            float best = 0f;
+            _warnJobBuf.Clear();
             foreach (VillagerAgent a in _agents)
-            {
-                if (a == null || a.State == AgentState.Dead || a.Job == null) continue;
-                if (a.Job.WarnBonusDays > best) best = a.Job.WarnBonusDays;
-            }
-            return best;
+                if (a != null && a.State != AgentState.Dead) _warnJobBuf.Add(a.Job);
+            return MaxWarnBonus(_warnJobBuf);
         }
+        private readonly List<JobSO> _warnJobBuf = new List<JobSO>(8);
 
-        /// <summary>스폰 마릿수 산식 (순수 — 게이트 M21-T11, §4): 기본 + 밴드가 열린 뒤 흐른
-        /// 시간의 성장 − 완충, [1, Max] 클램프. 성장 주기 0 이하 = 성장 없음 (에셋 사고 방어).
-        /// mitigation 은 W7 래칫 완충의 자리 — W6 은 항상 0 을 넣는다 (자리만 먼저 판다:
-        /// W7 이 인자만 갈아 끼우면 되게. FightRunner 의 배율 인자와 같은 수법).</summary>
-        public static int SpawnCount(int baseCount, float unlockDay, float day,
-                                     float growthEveryDays, int maxCount, int mitigation)
-        {
-            int grown = growthEveryDays > 0f
-                ? Mathf.FloorToInt(Mathf.Max(0f, day - unlockDay) / growthEveryDays) : 0;
-            return Mathf.Clamp(baseCount + grown - mitigation, 1, Mathf.Max(1, maxCount));
-        }
+        // (舊 M21-W6 SpawnCount 산식은 2026-08-11 2차 감사에서 철거 — M24 압력 예산제(ADR-M24-2)
+        //  전환 후 호출 0. "산식 이원화 금지"는 M24_T5의 호출 금지 단언 대신 정의 부재로 보장된다.)
 
         /// <summary>가장자리 진입점 (순수·결정적): 시드로 4변 중 택1, 변 중앙. 같은 시드 = 같은 지점.</summary>
         public static Vector2Int EntryPoint(uint seed, int minX, int maxX, int minY, int maxY)

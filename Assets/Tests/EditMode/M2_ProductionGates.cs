@@ -129,26 +129,27 @@ namespace AIVillage.Tests.EditMode
             int events = 0;
             farm.OnPlotStateChanged += _ => events++;
 
-            Assert.IsTrue(farm.HasEmpty);
-            Assert.IsFalse(farm.HasRipe);
-            FarmPlot p = farm.NearestEmpty(2, 2);
+            // (2026-08-11 2차 감사: 전역 Nearest*/Has* 철거 — *Of 판으로, 단일 소유 세계라 동치)
+            Assert.Greater(farm.CountEmpty(), 0);
+            Assert.AreEqual(0, farm.CountRipe());
+            FarmPlot p = farm.NearestEmptyOf("A", 2, 2);
             Assert.AreEqual(new Vector2Int(3, 3), p.Tile, "최근접 빈 밭");
 
             // 점유 경쟁 — 1인 보장 + 점유 밭은 탐색에서 제외
             Assert.IsTrue(p.TryClaim("A"));
             Assert.IsFalse(p.TryClaim("B"), "타 주민 점유 거부 (1인 점유)");
-            Assert.AreEqual(new Vector2Int(6, 6), farm.NearestEmpty(2, 2).Tile, "점유된 밭은 다음 후보로");
+            Assert.AreEqual(new Vector2Int(6, 6), farm.NearestEmptyOf("A", 2, 2).Tile, "점유된 밭은 다음 후보로");
 
             Assert.IsTrue(farm.TryPlant(p));
             Assert.IsFalse(farm.TryPlant(p), "빈 밭이 아니면 심기 거부");
             p.Release();
 
             farm.TickGrowth(1.0f);
-            Assert.IsFalse(farm.HasRipe, "누적 1.0일 < 1.5일 — 아직 성장 중");
+            Assert.AreEqual(0, farm.CountRipe(), "누적 1.0일 < 1.5일 — 아직 성장 중");
             farm.TickGrowth(0.6f);
-            Assert.IsTrue(farm.HasRipe, "누적 1.6일 ≥ 1.5일 — 결실");
+            Assert.Greater(farm.CountRipe(), 0, "누적 1.6일 ≥ 1.5일 — 결실");
 
-            FarmPlot r = farm.NearestRipe(0, 0);
+            FarmPlot r = farm.NearestRipeOf("A", 0, 0);
             Assert.AreSame(p, r);
             Assert.IsTrue(farm.TryHarvest(r));
             Assert.AreEqual(FarmState.Empty, r.State, "수확 후 빈 밭 복귀 (재심기 가능)");
@@ -168,7 +169,7 @@ namespace AIVillage.Tests.EditMode
             farm.RegisterPlot(1, 1, "A");
             Assert.AreEqual(1, world.BuildSnapshot(50, 50).Get(SlotId.EmptyFarmPlot), "빈 밭 존재 → 1");
 
-            farm.TryPlant(farm.NearestEmpty(0, 0));
+            farm.TryPlant(farm.NearestEmptyOf("A", 0, 0));
             WorldSnapshot growing = world.BuildSnapshot(50, 50);
             Assert.AreEqual(0, growing.Get(SlotId.EmptyFarmPlot), "재배 중 → 빈 밭 없음");
             Assert.AreEqual(0, growing.Get(SlotId.RipeCropAvailable), "아직 미성숙");
@@ -228,7 +229,8 @@ namespace AIVillage.Tests.EditMode
 
         // [삭제 2026-07-18 — M9-A] M2_Fix_BuildSite_ClustersWithSameKind:
         //   군집 휴리스틱(동종 건물 곁 배치)은 ZoneService(구역)로 대체됐다 (ADR-M9-1 — 배치
-        //   결정자 단일화). 구역 기반 배치 검증은 M9_SpaceGates.M9_T1_*로 이관.
+        //   결정자 단일화). 그 ZoneService도 2026-08-11 2차 감사에서 철거 (M11-E 이후 영구
+        //   공집합) — 배치 검증은 택지(M11)·방어 계획(M22)·제자리(M9_T1)가 분담.
 
         [Test]
         public void M2_E_P0Goals_SkipFailureCooldown()

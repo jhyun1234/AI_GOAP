@@ -39,10 +39,7 @@ namespace AIVillage.M0
                  "차단 건물은 건설자가 인접 타일에서 짓는다.")]
         public bool BlocksMovement;
 
-        [Tooltip("구역 반경 (M9-A, ADR-M9-1). 0 = 구역 없음(기존 제자리+링 탐색). " +
-                 ">0이면 첫 완공 타일이 앵커가 되고 이후 완공은 앵커 반경 내에만 배치된다 " +
-                 "(수량형 전용 — 보이는 소프트 상한). 예: FarmPlot 3 = 7×7 농경지.")]
-        public int ZoneRadius;
+        // (舊 ZoneRadius — M9-A 구역 반경 — 는 2026-08-11 2차 감사에서 철거: M11-E 이후 전 에셋 0.)
 
         [Tooltip("같은 슬롯 기존 완공과의 최소 간격 (체비쇼프 타일, M11-F). 0 = 간격 규칙 없음(중립). " +
                  ">0이면 배치가 택지 선정(HomePicker)으로 넘어간다 — 마을 앵커 반경 안에서 " +
@@ -56,7 +53,7 @@ namespace AIVillage.M0
 
         [Tooltip("true면 짓는 사람의 **내 집 곁**에 배치한다 (M11-E, 반경 = WorldConfig.FarmNearHomeRadius). " +
                  "밭이 이것 — 개인 소유물은 제 집 곁에 모인다. 집이 없으면 배치 실패 (goal 트리거가 " +
-                 "MyHasHome==1로 이미 막지만 방어선). ZoneRadius·MinSpacingTiles와 배타.")]
+                 "MyHasHome==1로 이미 막지만 방어선). MinSpacingTiles와 배타.")]
         public bool PlaceNearOwnedHome;
 
         // ── 방어 (M22, Docs/M22_방어건설_실행명세서.md) ──
@@ -135,18 +132,15 @@ namespace AIVillage.M0
             // 수량형 카운트는 수치 슬롯에만 — 논리형에 설정하는 실수 방어 (명세 M2-A ⚠️)
             if (IsCountable && !SlotIds.IsNumeric(CountSlot))
                 Debug.LogError($"[BuildingSO] {name}: CountSlot({CountSlot})은 수치형 슬롯이어야 합니다.", this);
-            // 구역은 수량형 전용 — 단일형에 반경을 주면 배치 결정자가 없다 (M9-A ⚠️)
-            if (!IsCountable && ZoneRadius > 0)
-                Debug.LogWarning($"[BuildingSO] {name}: ZoneRadius({ZoneRadius})는 수량형(IsCountable) 건물에만 적용됩니다 — 무시됨.", this);
-            // 간격도 수량형 전용 — 기존 완공 목록(CountSlot)이 없으면 비교 대상이 없다 (M11-F)
+            // 간격은 수량형 전용 — 기존 완공 목록(CountSlot)이 없으면 비교 대상이 없다 (M11-F)
             if (!IsCountable && MinSpacingTiles > 0)
                 Debug.LogWarning($"[BuildingSO] {name}: MinSpacingTiles({MinSpacingTiles})는 수량형(IsCountable) 건물에만 적용됩니다 — 무시됨.", this);
             // 배치 결정자는 하나뿐이어야 한다 (M11-E/F ⚠️, M22 편입) — 겹치면 규칙이 이원화된다
-            int placers = (MinSpacingTiles > 0 ? 1 : 0) + (ZoneRadius > 0 ? 1 : 0)
+            int placers = (MinSpacingTiles > 0 ? 1 : 0)
                         + (PlaceNearOwnedHome ? 1 : 0) + (PlaceOnDefensePlan ? 1 : 0);
             if (placers > 1)
                 Debug.LogError($"[BuildingSO] {name}: 배치 결정자는 하나만 — MinSpacingTiles(택지)·" +
-                               "ZoneRadius(구역)·PlaceNearOwnedHome(집 곁)·PlaceOnDefensePlan(방어 계획) " +
+                               "PlaceNearOwnedHome(집 곁)·PlaceOnDefensePlan(방어 계획) " +
                                "중 하나만 설정하세요.", this);
             // 통행 플래그 배타 (ADR-M22-5 ⚠️) — 둘 다 켜면 "모두 차단"과 "위협만 차단"이 충돌한다
             if (BlocksMovement && BlocksThreatMovement)

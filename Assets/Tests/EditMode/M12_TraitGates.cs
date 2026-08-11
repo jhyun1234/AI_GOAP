@@ -429,22 +429,23 @@ namespace AIVillage.Tests.EditMode
             var p = ScriptableObject.CreateInstance<PersonalitySO>();
             try
             {
-                Assert.IsFalse(cfg.DemandsUpfront(null), "성격 없음 = 요구 안 함");
+                // (2026-08-11 2차 감사: 1인자 편의판 철거 — 프로덕션과 같은 2인자 호출로)
+                Assert.IsFalse(cfg.DemandsUpfront(null, null), "성격 없음 = 요구 안 함");
 
                 p.Traits = new[] { V(TraitId.Willfulness, 0) };
-                Assert.IsFalse(cfg.DemandsUpfront(p), "중립 자존 = 후불 수용");
+                Assert.IsFalse(cfg.DemandsUpfront(p, p.Traits), "중립 자존 = 후불 수용");
 
                 // 경계: 문턱 × 100이 정확히 임계값 (가중치 1.0 기준)
                 int edge = Mathf.RoundToInt(cfg.UpfrontBiasThreshold * 100f);
                 p.Traits = new[] { V(TraitId.Willfulness, edge) };
-                Assert.IsTrue(cfg.DemandsUpfront(p), $"자존 {edge} = 경계값은 '이상'이므로 요구");
+                Assert.IsTrue(cfg.DemandsUpfront(p, p.Traits), $"자존 {edge} = 경계값은 '이상'이므로 요구");
                 p.Traits = new[] { V(TraitId.Willfulness, edge - 1) };
-                Assert.IsFalse(cfg.DemandsUpfront(p), $"자존 {edge - 1} = 경계 바로 아래는 요구 안 함");
+                Assert.IsFalse(cfg.DemandsUpfront(p, p.Traits), $"자존 {edge - 1} = 경계 바로 아래는 요구 안 함");
 
                 // 舊 개별 필드와의 OR (M12-F까지 병존)
                 p.Traits = null;
                 p.DemandsRewardUpfront = true;
-                Assert.IsTrue(cfg.DemandsUpfront(p), "벡터가 없어도 舊 필드가 켜져 있으면 요구 (병존)");
+                Assert.IsTrue(cfg.DemandsUpfront(p, p.Traits), "벡터가 없어도 舊 필드가 켜져 있으면 요구 (병존)");
             }
             finally { Object.DestroyImmediate(p); }
         }

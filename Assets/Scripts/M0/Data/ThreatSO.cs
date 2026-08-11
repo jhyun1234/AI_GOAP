@@ -78,17 +78,9 @@ namespace AIVillage.M0
                  "일어나지 않아 '사냥 사건'이 반쪽이 된다.")]
         public int MeatDrop = 2;
 
-        [Header("대규모 적습 (M21-W6 — 마릿수 확장형, ADR-M21-6: 마릿수는 에셋이 정의한다)")]
-        [Tooltip("기본 스폰 마릿수. 1 = 단독 출몰 (기존 동작과 동일 — 중립). " +
-                 "산식: clamp(Base + ⌊(day − UnlockDay) / GrowthEveryDays⌋ − 완충, 1, Max).")]
-        public int SpawnCountBase = 1;
-
-        [Tooltip("마릿수가 1 늘어나는 데 걸리는 게임일. 0 = 성장 없음. 기준일은 UnlockDay — " +
-                 "밴드가 열린 뒤 흐른 시간만 센다 (게임일 래칫과 같은 축, ADR-M10R-1).")]
-        public float CountGrowthEveryDays = 0f;
-
-        [Tooltip("마릿수 클램프 상한 — 성장이 무한히 쌓이지 않게. Base 미만이면 Base가 사실상 상한이 된다.")]
-        public int SpawnCountMax = 1;
+        // (舊 M21-W6 마릿수 3필드 SpawnCountBase/CountGrowthEveryDays/SpawnCountMax는 2026-08-11
+        //  2차 감사에서 철거 — M24 압력 예산제(ADR-M24-2)가 마릿수의 유일한 원천이 된 뒤
+        //  프로덕션 독자 0. 값은 git 이력·에셋 YAML 잔류 키가 보존한다.)
 
         [Tooltip("무리 도주선 (이중 도주선의 바깥쪽) — 같은 출몰의 **아직 싸우는 개체 비율**이 이 값 " +
                  "미만이면 무리 전체가 무너져 전원 도주한다. 판정은 CombatService.ShouldRout (경계는 " +
@@ -275,12 +267,6 @@ namespace AIVillage.M0
                                  "(배고픈 계절이 더 순해질 수는 없습니다). 1 = 계절 무관.", this);
             if (HungrySeasonStayMult < 1f)
                 Debug.LogWarning($"[ThreatSO] {name}: HungrySeasonStayMult({HungrySeasonStayMult}) < 1 — 무시됩니다. 1 = 계절 무관.", this);
-            if (SpawnCountBase < 1)
-                Debug.LogWarning($"[ThreatSO] {name}: SpawnCountBase({SpawnCountBase}) < 1 — 출몰이 비게 됩니다 (산식이 1로 클램프).", this);
-            if (SpawnCountMax < SpawnCountBase)
-                Debug.LogWarning($"[ThreatSO] {name}: SpawnCountMax({SpawnCountMax}) < SpawnCountBase({SpawnCountBase}) — 상한이 기본값을 깎습니다.", this);
-            if (CountGrowthEveryDays < 0f)
-                Debug.LogWarning($"[ThreatSO] {name}: CountGrowthEveryDays({CountGrowthEveryDays})는 음수일 수 없습니다 — 0(성장 없음)으로 취급됩니다.", this);
         }
     }
 }

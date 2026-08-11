@@ -98,21 +98,12 @@ namespace AIVillage.M0
             if (_so.Building.IsCountable && _so.Building.MinSpacingTiles > 0)
                 return PrepareHomesite(agent, Occupied, minX, maxX, minY, maxY);
 
-            // 구역 (M9-A, ADR-M9-1) — 수량형 건물 배치의 유일한 결정자. 군집 휴리스틱은 삭제됐다.
-            // 확정 구역이 있으면 그 반경 안에만 짓는다 (만원이면 실패 = 보이는 소프트 상한).
-            // 미확정(첫 완공 전)·ZoneRadius 0이면 hasZone=false → 기존 제자리 경로 그대로.
-            Vector2Int zoneAnchor = default;
-            int zoneRadius = 0;
-            bool hasZone = _so.Building.IsCountable && _so.Building.ZoneRadius > 0
-                && agent.Zones.TryGetZone(_so.Building.CountSlot, out zoneAnchor, out zoneRadius);
-
-            if (!TryPickBuildTile(Occupied, hasZone, zoneAnchor, zoneRadius,
-                    new Vector2Int(agent.TileX, agent.TileY), minX, maxX, minY, maxY,
-                    out _buildTile, out bool needMove))
+            // 제자리 경로 (舊 M9-A 구역 분기는 2026-08-11 2차 감사에서 철거 — 전 건물
+            // ZoneRadius:0이라 영구 미확정이었다. 밀집 통제는 택지 MinSpacingTiles가 담당.)
+            if (!TryPickBuildTile(Occupied, new Vector2Int(agent.TileX, agent.TileY),
+                    minX, maxX, minY, maxY, out _buildTile, out bool needMove))
             {
-                FailReason = hasZone
-                    ? $"{_so.Building.DisplayName}: 농경지 구역(반경 {zoneRadius}) 만원 — 빈 타일 없음"
-                    : $"{_so.Building.DisplayName}: 주변 {SEARCH_RADIUS}칸 내 건설 가능한 빈 타일 없음";
+                FailReason = $"{_so.Building.DisplayName}: 주변 {SEARCH_RADIUS}칸 내 건설 가능한 빈 타일 없음";
                 return false;
             }
 
@@ -190,27 +181,13 @@ namespace AIVillage.M0
         }
 
         /// <summary>
-        /// 건설 타일 결정 (순수 함수 — EditMode 게이트 대상, ADR-M9-1):
-        /// ① 구역 확정: 앵커 중심 반경 zoneRadius 링에서만 빈 타일 (만원이면 실패 — 구역이
-        ///    소프트 상한 역할을 하므로 구역 밖 폴백 금지) →
-        /// ② 구역 미확정(ZoneRadius 0 or 첫 완공 전): 현재 타일 비점유면 제자리 →
-        /// ③ 현재 위치 곁 빈 타일 (그 완공이 앵커가 된다) → ④ 실패 (좌표 스냅 없이 재계획).
+        /// 건설 타일 결정 (순수 함수 — EditMode 게이트 대상):
+        /// ① 현재 타일 비점유면 제자리 → ② 현재 위치 곁 빈 타일 → ③ 실패 (좌표 스냅 없이 재계획).
+        /// (舊 ADR-M9-1 구역 분기는 2026-08-11 2차 감사에서 철거 — 호출자가 hasZone=false만 넘겼다.)
         /// </summary>
-        public static bool TryPickBuildTile(System.Func<int, int, bool> occupied,
-            bool hasZone, Vector2Int zoneAnchor, int zoneRadius, Vector2Int agentTile,
+        public static bool TryPickBuildTile(System.Func<int, int, bool> occupied, Vector2Int agentTile,
             int minX, int maxX, int minY, int maxY, out Vector2Int tile, out bool needMove)
         {
-            if (hasZone)
-            {
-                // 구역 밖 건설 금지 = 소프트 상한 (M9-A ⚠️②: 만원을 곁 확장으로 우회하면 상한이 무너진다)
-                if (TryFindFreeTileNear(occupied, zoneAnchor.x, zoneAnchor.y, minX, maxX, minY, maxY, zoneRadius, out tile))
-                {
-                    needMove = true;
-                    return true;
-                }
-                needMove = false;
-                return false;
-            }
             if (!occupied(agentTile.x, agentTile.y))
             {
                 tile = agentTile;

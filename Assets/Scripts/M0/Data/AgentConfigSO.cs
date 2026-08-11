@@ -114,9 +114,6 @@ namespace AIVillage.M0
         /// 각자 이산화하면 규칙이 이원화된다 (ADR-M0-3 정신).
         /// </summary>
         /// <summary>호환 진입점 (게이트·구형 호출 전용 — 벡터 = 성격 원본, 편차 없음. ⚠️W3-⑤).</summary>
-        public bool DemandsUpfront(PersonalitySO p)
-            => DemandsUpfront(p, p != null ? p.Traits : null);
-
         public bool DemandsUpfront(PersonalitySO p, TraitValue[] traits)
             => p != null
                && (p.DemandsRewardUpfront
@@ -202,13 +199,11 @@ namespace AIVillage.M0
                  "0이면 굶주림 시작 즉시라 전원 참이 되어 희소성이 사라진다.")]
         public float NearStarvationRatio = 0.8f;
 
-        [Tooltip("이탈 직전 마지막 대사 (랜덤 선택). ⚠️ 2026-07-24 현재 휴면 — 굶주림은 이탈이 아니라 " +
-                 "아사로 결말이 바뀌었다(ADR-M10-3 개정, StarveLines 사용). 다른 이탈 사유가 생기면 재사용.")]
-        public string[] DepartLines =
-        {
-            "더는 못 버티겠어… 미안해요.",
-            "이 마을엔 겨울을 날 음식이 없어.",
-        };
+        // (舊 DepartLines — 이탈 직전 대사 — 는 2026-08-11 2차 감사에서 철거: 굶주림 결말이
+        //  이탈→아사로 바뀐 2026-07-24(ADR-M10-3, StarveLines) 이후 독자 0. 새 이탈 사유가 생기면
+        //  그 축의 에셋으로 되살릴 것. 에셋에 실려 있던 대사 4줄 박제:
+        //  "더는 못 버티겠어… 미안해요." / "이 마을엔 겨울을 날 음식이 없어." /
+        //  "여기선 배만 곯다 가네요..." / "살 길을 찾아서 갈게요. 다들 잘 지내요.")
 
         [Tooltip("명령을 끝내 못 해내고 포기할 때의 대사 (랜덤 선택). 달성 불가 명령을 붙들고 " +
                  "무한 재계획하면 로그·CPU만 갉으므로, 주민이 못 하겠다고 말하고 자율로 돌아간다.")]

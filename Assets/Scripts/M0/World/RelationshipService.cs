@@ -45,9 +45,8 @@ namespace AIVillage.M0
             AddAffinity(targetId, speakerId, c.TargetToSpeakerDelta, c.DisplayName);
         }
 
-        /// <summary>원한 판정 — from이 to를 문턱 미만으로 본다 (방향성).</summary>
-        public bool IsGrudge(string from, string to, int grudgeThreshold)
-            => AffinityOf(from, to) < grudgeThreshold;
+        // (舊 IsGrudge 술어는 2026-08-11 2차 감사에서 철거 — 프로덕션 원한 조회는 전부
+        //  TryGetExtreme(buddy:false)를 지난다. 판정식 AffinityOf < threshold 는 그쪽에 산다.)
 
         /// <summary>단짝 판정 — 쌍방 모두 문턱 이상 (상호성. 한쪽 짝사랑은 단짝이 아니다).</summary>
         public bool IsBuddy(string a, string b, int buddyThreshold)

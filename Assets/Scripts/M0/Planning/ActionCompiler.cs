@@ -135,6 +135,8 @@ namespace AIVillage.M0
         }
 
         /// <summary>전제 항목 읽기 (테스트 라운드트립·디버그용).</summary>
+        /// <summary>게이트 M0-T1 라운드트립의 관측창 — 평면 필드에 박힌 전제를 도로 꺼내 에셋과
+        /// 대조한다. 프로덕션 독자는 없지만 컴파일 정합 검증의 유일한 창이라 유지 (2026-08-11 2차 감사).</summary>
         public static (int slot, int value, int op) GetPrec(in GOAPActionDef d, int i)
         {
             switch (i)

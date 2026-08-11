@@ -80,7 +80,6 @@ namespace AIVillage.M0
         public ConstructionService Construction { get; private set; }
 
         /// <summary>구역 배치 결정자 (M9-A) — 수량형 건물의 앵커·반경. 첫 완공이 앵커 (ADR-M9-2).</summary>
-        public ZoneService Zones { get; private set; }
         public FarmService Farm { get; private set; }
 
         /// <summary>계절 시계 (M6-A). WorldConfig.SeasonCycle이 비면 null = 계절 없음 (M5 동작).</summary>
@@ -480,7 +479,6 @@ namespace AIVillage.M0
         public static bool BlocksThreatPassage(BuildingSO b) => b.BlocksMovement || b.BlocksThreatMovement;
 
         private BuildingVisualizer _visualizer;
-        private ZoneBorderView _zoneBorderView;
         private DefensePlanView _defensePlanView; // 방어 계획 마커 (M22-W3R2, 표현 전용)
         private DefenseDurabilityView _defenseDurabilityView; // 시설 손상 오버레이 (M22-W7, 표현 전용)
         private GateLockView _gateLockView; // 문 잠금 자물쇠 마커 (M22-2차 W1, 표현 전용)
@@ -958,14 +956,18 @@ namespace AIVillage.M0
             }
         }
 
-        /// <summary>재해 반응 대사 (M9-C, 표현 전용) — 밭 구역 앵커 최근접 최대 2명이 StrikeLines를
-        /// 내뱉는다. 릴레이 아님(마주보기·응수 없음). 결정성 불요라 Random 허용 (소실은 결정적, 대사는 표현).</summary>
+        /// <summary>재해 반응 대사 (M9-C, 표현 전용) — 밭 최근접 최대 2명이 StrikeLines를
+        /// 내뱉는다. 릴레이 아님(마주보기·응수 없음). 결정성 불요라 Random 허용 (소실은 결정적, 대사는 표현).
+        /// 🔴 앵커 개정 (2026-08-11 2차 감사): 舊 앵커는 밭 **구역**(ZoneService)이었는데 M11-E가
+        /// FarmPlot.ZoneRadius를 0으로 내린 뒤로 구역이 영영 미확정이라 이 대사는 한 번도 화면에
+        /// 나오지 못했다. 재해가 실제로 때리는 것은 밭(FarmService.Plots)이므로 첫 밭 타일을
+        /// 앵커로 쓴다 — 에셋에 잠들어 있던 대사 12줄이 이 개정으로 살아난다.</summary>
         private void ShowStrikeLines(DisasterSO d)
         {
             if (d.StrikeLines == null || d.StrikeLines.Length == 0 || _agents.Count == 0) return;
-            if (!Zones.TryGetZone(SlotId.FarmPlotCount, out Vector2Int anchor, out _)) return;
+            if (Farm == null || Farm.Plots.Count == 0) return;
 
-            NearestAgentsTo(anchor, out VillagerAgent a1, out VillagerAgent a2);
+            NearestAgentsTo(Farm.Plots[0].Tile, out VillagerAgent a1, out VillagerAgent a2);
             a1?.ShowTransient(d.StrikeLines[Random.Range(0, d.StrikeLines.Length)]);
             a2?.ShowTransient(d.StrikeLines[Random.Range(0, d.StrikeLines.Length)]);
         }
@@ -1072,7 +1074,6 @@ namespace AIVillage.M0
                                          // 종족 조우 최대 (M24-1차 W3) — Threats도 아래에서 생성되지만 같은 지연 조회
                                          () => Threats != null ? Threats.MaxEncounters() : 0);
             Construction = new ConstructionService(World);
-            Zones        = new ZoneService(); // M9-A — 배치 결정자 (군집 휴리스틱 대체, ADR-M9-1)
             Defense      = new DefenseService(); // M22-W3 — 방어 계획 (W5에서 내구도까지)
             // 개간 → 승격 (M22-4차 W3): 노드가 치워지면 기다리던 울타리 칸이 계획이 된다.
             // 판정은 두 서비스가 각자 소유하고, 여기는 **잇기만** 한다 (M10-C ⚠️③ 패턴).
@@ -1132,10 +1133,9 @@ namespace AIVillage.M0
             {
                 if (slot == SlotId.HouseCount) HomeStorage.ReleaseTile(new Vector2Int(x, y));
             };
-            // 구역 확정 = 첫 완공 (M9-A, ADR-M9-2) — NotifyBuilt가 첫 완공만 앵커로 잡는다
-            Construction.OnCompleted += (b, x, y, _) => Zones.NotifyBuilt(b, x, y);
-            // (M22-W3R2: 방어 계획 입력은 ZoneService가 아니라 AddDefenseFenceLine/TryAddDefenseGate
-            //  창구로 — 줄 누적 모델이 (앵커,반경) 그릇에 안 맞아 소유가 DefenseService로 이동, ADR-M22-4 재개정)
+            // (M9-A ZoneService는 2026-08-11 2차 감사에서 철거 — M11-E가 전 건물 ZoneRadius를 0으로
+            //  내린 뒤 영구 공집합이었다. 배치 결정자는 택지(HomePicker)·방어 계획(DefenseService)·
+            //  제자리 경로가 분담한다. ADR-M9-1·M9-2는 이 철거로 종결.)
             // 방어 시설 완공 → 계획 차감 + 내구도 등록 (M22-W3·W5) — 완공 자체는 Complete()만 (ADR-M0-3)
             Construction.OnCompleted += (b, x, y, _) => Defense.NotifyBuilt(b, x, y);
             // 시설 소실 → 통행 복구 + 내구도 정리 + 계획 복귀 (M22-W5, ADR-M22-6 — 제거와 복구는 원자).
@@ -1149,9 +1149,6 @@ namespace AIVillage.M0
                 }
                 Defense.NotifyRemoved(slot, x, y);
             };
-            // 구역 테두리 (표현 전용) — 확정 순간 앵커 둘레에 외곽선
-            _zoneBorderView = new ZoneBorderView(transform);
-            Zones.OnZoneEstablished += (slot, anchor, radius) => _zoneBorderView.Draw(slot, anchor, radius);
             // 방어 계획 마커 (M22-W3R2 → M23-W3 고스트) — 계획된 울타리·문 칸을 반투명 실물
             // 그림으로. 지어지기 전의 계획이 화면에 안 보이면 "그었는데 아무 일도 없다"가 된다.
             EnsureDefenseWoodCosts(); // 고스트 그림의 원천(BuildingSO) 캐시
@@ -1171,7 +1168,6 @@ namespace AIVillage.M0
                             $"{(slot == SlotId.GateCount ? "문" : "울타리")}을(를) 고쳤습니다");
             // 舊 농부 회의 배선(OnZoneEstablished → ShowFarmMeeting)은 M11-F에서 제거됐다.
             // 개인 택지 시대의 장면은 집들이다 — 소유 배정 이벤트로 옮겨졌다(아래 Ownership.OnAssigned).
-            // ZoneService는 휴면 보존 (테두리 뷰·재해 대사 앵커가 여전히 읽는다, ⚠️②).
             Ownership.OnAssigned += (tile, slot, ownerId) => ShowHousewarming(tile, slot, ownerId);
             // 연대기 구독 (M13-C2) — 원본 서비스 무수정 (§4 ① — 이벤트 통로 재사용).
             // 집 획득만 기록 (모닥불 등 다른 소유 슬롯은 1차 등록 6종 밖 — EventId append-only).

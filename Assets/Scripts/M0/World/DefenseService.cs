@@ -441,7 +441,6 @@ namespace AIVillage.M0
 
         /// <summary>계획 취소 (M22-W8 철거 — 플레이어 전용). 미건설 계획 칸을 지운다 — 자재를
         /// 안 썼으니 무료. 있었으면 true.</summary>
-        public bool RemovePlanAt(Vector2Int tile) => RemovePlanAt(tile, out _);
 
         /// <summary>〃 + 그 칸이 **개간 대기**였는지 알려준다 (M22-4차 W8) — 호출자가 노드 지정을
         /// 풀 수 있게. 대기 칸과 노드는 타일 기준 1:1이라 이 한 칸이 곧 그 노드다.</summary>

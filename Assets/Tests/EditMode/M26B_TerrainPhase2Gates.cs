@@ -146,6 +146,7 @@ namespace AIVillage.Tests.EditMode
                 AssetDatabase.LoadAssetAtPath<AIVillage.M0.BiomeSO>("Assets/M0Config/Biomes/Biome_Temperate.asset"),
                 AssetDatabase.LoadAssetAtPath<AIVillage.M0.BiomeSO>("Assets/M0Config/Biomes/Biome_Jungle.asset"),
                 AssetDatabase.LoadAssetAtPath<AIVillage.M0.BiomeSO>("Assets/M0Config/Biomes/Biome_Mountain.asset"),
+                AssetDatabase.LoadAssetAtPath<AIVillage.M0.BiomeSO>("Assets/M0Config/Biomes/Biome_DeepMountain.asset"),
             };
             foreach (AIVillage.M0.BiomeSO x in b) Assert.IsNotNull(x, "배포 바이옴 에셋 없음");
             return b;

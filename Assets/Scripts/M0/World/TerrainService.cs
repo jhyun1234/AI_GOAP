@@ -20,10 +20,15 @@ namespace AIVillage.M0
         // 알고리즘 상수이지 게임 수치가 아니다 (지형의 성질은 전부 에셋이 정한다).
         private const int PLAIN_CELL = 18;   // 습도 — 호수·늪의 크기
         private const int RELIEF_CELL = 26;  // 고도 — 절벽 능선의 크기
-        private const int BIOME_CELL = 64;   // 바이옴 — 지역의 크기 (M29 W1). 패치가 아니라 지방(地方)
+        // 바이옴 — 지역의 크기 (M29 W1). 패치가 아니라 지방(地方).
+        // 🔑 64 → 48 (2026-08-12 실측): 200 맵에 64는 축당 3칸뿐이라 **가장 좁은 바이옴이
+        //    판마다 사라졌다** (200시드 중 심층산악 없음 1건 — 그 판엔 은·다이아가 전무).
+        //    48이면 축당 4칸이 넘어 200시드 결손 0. 지역 크기는 여전히 고도 패치(26)의 두 배다.
+        private const int BIOME_CELL = 48;
 
         private readonly uint _seed;
         private readonly BiomeSO[] _biomes;            // 미배선이면 길이 0 (= 舊 단일 팔레트 경로)
+        private readonly int[] _biomeOrder;            // Priority 내림차순 인덱스 (배열 순서는 안 흔든다 — 0번 = 온대)
         private readonly TerrainTypeSO[][] _palettes;  // 바이옴별 Priority 내림차순 정렬본 (길이 ≥ 1)
         private readonly TerrainTypeSO _fallback;      // 안전지대·미배선용 (= 온대 Priority 최저)
         private readonly Dictionary<int, TerrainTypeSO> _cache = new Dictionary<int, TerrainTypeSO>(4096);
@@ -77,6 +82,13 @@ namespace AIVillage.M0
 
             if (_biomes.Length > 0)
             {
+                // 후보 순회 순서만 Priority 로 정한다 — **배열 순서는 안 흔든다**: 0번 = 온대가
+                // 폴백·안전지대·접기 대상이라 인덱스가 밀리면 그 셋이 딴 바이옴으로 바뀐다.
+                _biomeOrder = new int[_biomes.Length];
+                for (int i = 0; i < _biomes.Length; i++) _biomeOrder[i] = i;
+                System.Array.Sort(_biomeOrder,
+                    (a, b) => _biomes[b].Priority.CompareTo(_biomes[a].Priority));
+
                 _palettes = new TerrainTypeSO[_biomes.Length][];
                 for (int i = 0; i < _biomes.Length; i++)
                 {
@@ -86,6 +98,11 @@ namespace AIVillage.M0
                     if (i > 0 && _biomes[i].MinBaseDistFrac <= 0f)
                         Debug.LogWarning($"[TerrainService] 바이옴 {_biomes[i].name}: MinBaseDistFrac 0 — " +
                                          "마을 옆에도 설 수 있습니다 (온대 보장이 0번에만 있습니다).", _biomes[i]);
+                    // 0번(온대)이 밴드를 가지면 폴백이 폴백이 아니게 된다 — 아무도 안 걸리는
+                    // 노이즈 값에서 후보가 0개가 되어 접기의 목적지가 사라진다.
+                    if (i == 0 && _biomes[0].AppearsAbove > 0f)
+                        Debug.LogWarning($"[TerrainService] 바이옴 {_biomes[0].name}(0번)의 AppearsAbove가 " +
+                                         $"{_biomes[0].AppearsAbove} — 0이어야 폴백으로 삽니다.", _biomes[0]);
                 }
             }
             else
@@ -179,8 +196,16 @@ namespace AIVillage.M0
         {
             if (_biomes.Length <= 1) return 0;
 
+            // 🔴 **개정 2026-08-12 (사용자 Play 지적)**: 舊 `floor(v × 바이옴수)`는 노이즈가
+            //    균등하다고 가정했다. 실측은 가운데로 쏠려 있어(0.1 미만 2.3% · 0.9 초과 2.8%)
+            //    **양 끝 칸이 굶었다** — 온대 27%(숲은 5%)로 밀렸고 심층산악은 시드에 따라
+            //    아예 없었다. 지형이 이미 쓰는 밴드 문법(AppearsAbove + Priority)으로 바꾼다:
+            //    넓이가 코드의 나눗셈이 아니라 **에셋의 문턱**이 되어, 바이옴을 늘려도 남의
+            //    넓이가 저절로 줄지 않는다.
             float v = Noise(x, y, BIOME_CELL, 0x27D4EB2Fu);
-            int idx = Mathf.Clamp((int)(v * _biomes.Length), 0, _biomes.Length - 1);
+            int idx = 0;
+            foreach (int i in _biomeOrder)
+                if (v >= _biomes[i].AppearsAbove) { idx = i; break; }
 
             // 🔑 혼합 배치가 이 한 줄이다 (사용자 결정): 가까이는 **비적격 후보가 온대로 접히고**,
             //    바깥은 노이즈가 고른 대로 선다. 적격 목록을 다시 뽑지 않으므로 문턱 반지름에서

@@ -10,14 +10,14 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5e9ae83432ba00f4db9ac2ba73b46b3c, type: 3}
-  m_Name: Terrain_MountainCliff
+  m_Name: Terrain_DeepRock
   m_EditorClassIdentifier: AIVillage::AIVillage.M0.TerrainTypeSO
-  DisplayName: "\uC0B0\uB2A5\uC120"
-  Field: 1
-  AppearsAbove: 0.7
-  Priority: 30
-  Walkable: 0
+  DisplayName: "\uC2EC\uCE35\uC554\uBC18"
+  Field: 0
+  AppearsAbove: 0
+  Priority: 0
+  Walkable: 1
   EnterCost: 1
   MoveSpeedMult: 1
-  GroundColor: {r: 0.26, g: 0.23, b: 0.21, a: 1}
-  NodeDensityMult: 1
+  GroundColor: {r: 0.3, g: 0.28, b: 0.34, a: 1}
+  NodeDensityMult: 0.2

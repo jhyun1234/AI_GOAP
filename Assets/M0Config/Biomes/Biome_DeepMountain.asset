@@ -10,13 +10,12 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: df2e148c8f244442aa6abd1d8b0340cf, type: 3}
-  m_Name: Biome_Jungle
+  m_Name: Biome_DeepMountain
   m_EditorClassIdentifier: AIVillage::AIVillage.M0.BiomeSO
-  DisplayName: "\uC815\uAE00"
+  DisplayName: "\uC2EC\uCE35 \uC0B0\uC545"
   Palette:
-  - {fileID: 11400000, guid: e63a67e9d52c16e478fb33d46c1d60cf, type: 2}
-  - {fileID: 11400000, guid: 14840697d4ee94347a1ce754ccf89a55, type: 2}
-  - {fileID: 11400000, guid: 314d22d22864473fa8eb058bc88234c5, type: 2}
-  MinBaseDistFrac: 0.35
-  AppearsAbove: 0.45
-  Priority: 10
+  - {fileID: 11400000, guid: 0324008ef5ad4eccb19b3ad334fca37d, type: 2}
+  - {fileID: 11400000, guid: bb6633b53c034e1da17f929942b178cb, type: 2}
+  MinBaseDistFrac: 0.65
+  AppearsAbove: 0.65
+  Priority: 30

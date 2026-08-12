@@ -20,3 +20,5 @@ MonoBehaviour:
   - {fileID: 11400000, guid: b3a304790851af54f877e2f443a7f156, type: 2}
   - {fileID: 11400000, guid: 408d87ef06f0af946b70b9109a161da7, type: 2}
   MinBaseDistFrac: 0
+  AppearsAbove: 0
+  Priority: 0

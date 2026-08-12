@@ -654,6 +654,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: ca12d1226b7544b3bbc699509d9bbae5, type: 2}
   - {fileID: 11400000, guid: f9e1e1ce55eb4f74a0607f81593df31f, type: 2}
   - {fileID: 11400000, guid: 2dc5ed9f313f48eeb36e408dbb0bd933, type: 2}
+  - {fileID: 11400000, guid: b4d32f9cc61a43d991f69a2281f1d869, type: 2}
   _terrainSafeRadius: 12
   _runSeed: 0
   _nodeRelocateAfterDays: 0.5

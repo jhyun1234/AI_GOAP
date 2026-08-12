@@ -22,6 +22,7 @@ namespace AIVillage.Tests.EditMode
         private const string TEMPERATE = "Assets/M0Config/Biomes/Biome_Temperate.asset";
         private const string JUNGLE    = "Assets/M0Config/Biomes/Biome_Jungle.asset";
         private const string MOUNTAIN  = "Assets/M0Config/Biomes/Biome_Mountain.asset";
+        private const string DEEP      = "Assets/M0Config/Biomes/Biome_DeepMountain.asset";
 
         private static readonly string[] TERRAIN_PALETTE_PATHS =
         {
@@ -42,7 +43,8 @@ namespace AIVillage.Tests.EditMode
         /// <summary>배포 바이옴 — 씬에 등록된 것과 **같은 순서**여야 의미가 있다 (0번 = 온대).</summary>
         private static BiomeSO[] DeployedBiomes()
         {
-            var biomes = new[] { Load<BiomeSO>(TEMPERATE), Load<BiomeSO>(JUNGLE), Load<BiomeSO>(MOUNTAIN) };
+            var biomes = new[] { Load<BiomeSO>(TEMPERATE), Load<BiomeSO>(JUNGLE),
+                                 Load<BiomeSO>(MOUNTAIN), Load<BiomeSO>(DEEP) };
 
             // 씬 배선 확인 — 에셋만 있고 씬에 안 꽂혔으면 게임에서는 바이옴이 없는 판이다.
             // (M28_T3 문형: 코드가 안 건드리는 수동 짝은 게이트가 유일한 감시자다.)
@@ -193,11 +195,14 @@ namespace AIVillage.Tests.EditMode
             var cfg = Load<ResourceNodeSpawnConfig>(
                 "Assets/ResourceNodeSpawnConfig/ResourceNodeSpawnConfig.asset");
             var mountain = new HashSet<TerrainTypeSO>(Load<BiomeSO>(MOUNTAIN).Palette);
+            foreach (TerrainTypeSO t in Load<BiomeSO>(DEEP).Palette) mountain.Add(t);
 
             // 사다리 순서 = 사용자 확정 (구리 → 철 → 은 → 다이아).
             ResourceType[] ladder = { ResourceType.Copper, ResourceType.Iron,
                                       ResourceType.Silver, ResourceType.Diamond };
             float prev = -1f;
+            var shallowOre = new HashSet<TerrainTypeSO>();   // 구리·철이 서는 땅
+            var deepOre    = new HashSet<TerrainTypeSO>();   // 은·다이아가 서는 땅
 
             foreach (ResourceType ore in ladder)
             {
@@ -215,6 +220,61 @@ namespace AIVillage.Tests.EditMode
                     $"{ore}의 최소 거리 {d.minDistanceFromBase}가 앞 티어({prev}) 이하다 — " +
                     "깊이 갈수록 귀해진다는 사다리가 무너진다");
                 prev = d.minDistanceFromBase;
+
+                var bucket = (ore == ResourceType.Silver || ore == ResourceType.Diamond)
+                             ? deepOre : shallowOre;
+                foreach (TerrainTypeSO t in d.allowedTerrain) bucket.Add(t);
+            }
+
+            // 🔴 **개정 2026-08-12 (사용자 Play 지적)**: 위의 최소 거리 검사만으로는 화면에서
+            //    티어가 갈리지 않는다. 최소 거리는 **바닥**일 뿐 천장이 없어서, 실측(시드
+            //    1318987291)에서 구리 71~156 · 철 76~175 · 은 88~167 · 다이아 93~151로 완전히
+            //    겹쳤다 — 다이아 노드 반경 20 안에 구리 5·철 4·은 1이 같이 서 있었다.
+            //    에셋의 사다리는 참인데 판의 사다리는 거짓이었다 (게이트가 재는 자리가 틀렸다).
+            //    그래서 **깊은 티어는 다른 땅에 선다**를 강제한다 — 색이 다른 지형이 곧 깊이다.
+            Assert.Greater(deepOre.Count, 0, "은·다이아에 허용 지형이 없다");
+            deepOre.IntersectWith(shallowOre);
+            Assert.AreEqual(0, deepOre.Count,
+                "은·다이아가 구리·철과 **같은 지형**에 선다 — 한 광산 안에 네 티어가 섞여 " +
+                "'깊이 들어갈수록 은'이 화면에서 읽히지 않는다 (2026-08-12 Play 지적의 재발 방지)");
+        }
+
+        // ── T6: 온대가 이 판의 바탕인가 (§0.5 — 사용자 Play 지적) ────────────────
+
+        [Test]
+        public void M29_T6_Temperate_StaysTheGround()
+        {
+            BiomeSO[] biomes = DeployedBiomes();
+            int tiles = MapSize() * MapSize();
+
+            foreach (uint seed in new uint[] { 1u, 20260812u, 777u })
+            {
+                TerrainService svc = Service(seed, biomes);
+                var area = new Dictionary<BiomeSO, int>();
+                foreach (BiomeSO b in biomes) area[b] = 0;
+                foreach (Vector2Int t in AllTiles()) area[svc.BiomeAt(t.x, t.y)]++;
+
+                // 🔴 바이옴을 늘릴수록 온대가 밀려나는 구조다 (선택이 `v × 바이옴 수`라
+                //    한 종이 늘면 나머지가 같은 만큼 줄어든다). 3종일 때 실측 온대 25%,
+                //    숲은 5%였다 — "첫 10분의 문법은 바뀌지 않는다"(§0.5)가 이미 깨져 있었다.
+                //    다섯 번째 바이옴을 넣는 사람은 이 검사에서 그 대가를 먼저 본다.
+                float temperate = 100f * area[biomes[0]] / tiles;
+                foreach (BiomeSO b in biomes)
+                    if (b != biomes[0])
+                        Assert.Greater(area[biomes[0]], area[b],
+                            $"시드 {seed}: {b.name}({100f * area[b] / tiles:0.#}%)이 온대" +
+                            $"({temperate:0.#}%)보다 넓다 — 이 판의 바탕이 바뀌었다");
+                Assert.Greater(temperate, 35f,
+                    $"시드 {seed}: 온대가 {temperate:0.#}% — 바탕이 아니라 소수가 됐다 " +
+                    "(바이옴을 늘렸으면 문턱을 함께 올려야 한다)");
+
+                foreach (BiomeSO b in biomes)
+                {
+                    float pct = 100f * area[b] / tiles;
+                    Assert.Greater(pct, 2f,
+                        $"시드 {seed}: {b.name}이 {pct:0.#}% — 있으나 마나 한 넓이다 " +
+                        "(등장은 하니 T3는 green이다 — 넓이는 여기서 본다)");
+                }
             }
         }
 

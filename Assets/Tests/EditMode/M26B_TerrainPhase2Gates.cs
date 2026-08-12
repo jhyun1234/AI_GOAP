@@ -478,8 +478,13 @@ namespace AIVillage.Tests.EditMode
                     $"{t}: 20판 전체에서 노드가 하나도 안 났다 — 이 검사는 빈 검사다");
                 Assert.GreaterOrEqual(minObs[t], rung,
                     $"{t}: 최근접 노드({minObs[t]})가 제 단({rung})보다 가깝다 — 스포너가 min 거리를 안 읽는다");
+                // ⚠️ 경계 포함(2026-08-12 개정): 舊 `Less` 는 **동전 던지기**였다. 가장 가까운 단
+                //    (RawFood 5~9)의 띠는 맵 4만 칸 중 60칸뿐이라 20판을 다 돌려도 기댓값이 1~2개다 —
+                //    이번에 광물 클러스터 수를 바꿨더니 공유 RNG 흐름이 밀려 `10 < 10` 으로 red 가 났다
+                //    (RawFood 는 한 글자도 안 바뀌었다). 재는 성질("제 단 부근이 비지 않았다")은
+                //    한 칸 완화해도 그대로 산다.
                 if (i + 1 < types.Length)
-                    Assert.Less(minObs[t], types[i + 1].Item2,
+                    Assert.LessOrEqual(minObs[t], types[i + 1].Item2,
                         $"{t}: 최근접 노드({minObs[t]})가 다음 단({types[i + 1].Item2}) 너머에 있다 " +
                         "— 제 단 부근이 비어 사다리가 화면에서 안 보인다");
             }

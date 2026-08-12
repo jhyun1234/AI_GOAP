@@ -77,11 +77,11 @@ MonoBehaviour:
     allowedTerrain:
     - {fileID: 11400000, guid: b5d4fb04bc304489a5f4435e617d0c27, type: 2}
     adjacentTerrain: []
-    clusterCountPer10kTiles: 5
+    clusterCountPer10kTiles: 7
     minNodesPerCluster: 2
     maxNodesPerCluster: 3
     clusterSpreadRadius: 2
-    minClusterSpacing: 25
+    minClusterSpacing: 15
     nodeSprite: {fileID: 889073269, guid: 572bb35294ab715449c4c06f31b1fa55, type: 3}
     depletedSprite: {fileID: 633735070, guid: 572bb35294ab715449c4c06f31b1fa55, type: 3}
     depletedBelowRatio: 0.25
@@ -97,11 +97,11 @@ MonoBehaviour:
     allowedTerrain:
     - {fileID: 11400000, guid: b5d4fb04bc304489a5f4435e617d0c27, type: 2}
     adjacentTerrain: []
-    clusterCountPer10kTiles: 6
+    clusterCountPer10kTiles: 8
     minNodesPerCluster: 2
     maxNodesPerCluster: 3
     clusterSpreadRadius: 2
-    minClusterSpacing: 20
+    minClusterSpacing: 15
     nodeSprite: {fileID: 1890451423, guid: 572bb35294ab715449c4c06f31b1fa55, type: 3}
     depletedSprite: {fileID: 2140948208, guid: 572bb35294ab715449c4c06f31b1fa55, type: 3}
     depletedBelowRatio: 0.25
@@ -117,11 +117,11 @@ MonoBehaviour:
     allowedTerrain:
     - {fileID: 11400000, guid: b5d4fb04bc304489a5f4435e617d0c27, type: 2}
     adjacentTerrain: []
-    clusterCountPer10kTiles: 4
+    clusterCountPer10kTiles: 6
     minNodesPerCluster: 1
     maxNodesPerCluster: 1
     clusterSpreadRadius: 0
-    minClusterSpacing: 30
+    minClusterSpacing: 15
     nodeSprite: {fileID: 844263125, guid: 572bb35294ab715449c4c06f31b1fa55, type: 3}
     depletedSprite: {fileID: -562281476, guid: 572bb35294ab715449c4c06f31b1fa55, type: 3}
     depletedBelowRatio: 0.25
@@ -137,11 +137,11 @@ MonoBehaviour:
     allowedTerrain:
     - {fileID: 11400000, guid: b5d4fb04bc304489a5f4435e617d0c27, type: 2}
     adjacentTerrain: []
-    clusterCountPer10kTiles: 2
+    clusterCountPer10kTiles: 3
     minNodesPerCluster: 1
     maxNodesPerCluster: 1
     clusterSpreadRadius: 0
-    minClusterSpacing: 30
+    minClusterSpacing: 20
     nodeSprite: {fileID: -677334545, guid: 572bb35294ab715449c4c06f31b1fa55, type: 3}
     depletedSprite: {fileID: -544722748, guid: 572bb35294ab715449c4c06f31b1fa55, type: 3}
     depletedBelowRatio: 0.25

@@ -35,9 +35,9 @@ for fi in range(round(DUR * FPS) + 1):
 
     # 카메라는 계속 움직인다(설계 §6-3: 컷은 사건에만, 이동은 연속)
     u = ease(t / DUR)
-    stage.aim(cam,
-              (-6.55 + 1.05 * u, -5.15 - 0.30 * u, 1.55 + 0.25 * u),
-              (0.05, -1.45, 0.58))
+    # 시작 자리는 unison.HOOK_CAM — 인트로가 착지하는 바로 그 자리다
+    (sx, sy, sz), at = unison.HOOK_CAM
+    stage.aim(cam, (sx + 1.05 * u, sy - 0.30 * u, sz + 0.25 * u), at)
 
     bpy.context.view_layer.update()
     bpy.context.scene.render.filepath = os.path.join(OUT, '%04d.png' % fi)

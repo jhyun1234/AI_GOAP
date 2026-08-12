@@ -64,10 +64,20 @@ def test_cyclic_motions_return_to_the_start():
 
 
 def test_limbs_swing_forward_with_negative_x():
-    """축 규약(rig.py): 팔다리는 뼈가 아래를 향하므로 **X 음수가 앞**이다.
-    뻗기는 팔을 앞으로 보내고, 밭일은 허리를 앞으로 굽힌다."""
+    """아래를 향한 뼈(팔·다리)는 **X 음수가 앞**이다."""
     r = motions.reach(0.9)
     assert r['upperarm.L'][0] < -0.3, r['upperarm.L']
+    assert motions.farm(0.0)['thigh.L'][0] < 0, motions.farm(0.0)['thigh.L']
+
+
+def test_upward_bones_use_the_opposite_sign():
+    """🔴 위를 향한 뼈(척추·목·머리)는 부호가 뒤집힌다 — **X 양수가 위를 봄**이다.
+    이걸 놓쳐서 look_up 이 고개를 숙이고 있었고, 검사가 아니라 사람 눈이 잡았다."""
+    up = motions.look_up(0.5)
+    assert up['head'][0] > 0.1, ('고개를 숙이고 있다', up['head'])
+    assert up['neck'][0] > 0.1, ('고개를 숙이고 있다', up['neck'])
+    assert up['spine'][0] > 0, up['spine']
+    # 반대쪽도 박아 둔다 — 밭일은 허리를 **앞으로 굽힌다**(위 뼈라 음수)
     assert motions.farm(0.0)['spine'][0] < -0.3, motions.farm(0.0)['spine']
 
 

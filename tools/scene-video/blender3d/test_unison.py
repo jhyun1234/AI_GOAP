@@ -1,5 +1,6 @@
 """군무가 정말 **위상 오차 0** 인가. 이 설계의 핵심 불변식이라 부동소수 수준에서 본다."""
 import inspect
+import os
 import motions
 import unison
 
@@ -45,6 +46,19 @@ def test_six_stands_do_not_overlap():
             bx, by = unison.STANDS[j]
             d = ((ax - bx) ** 2 + (ay - by) ** 2) ** 0.5
             assert d > 0.6, (i, j, round(d, 2))
+
+
+def test_hook_camera_is_defined_once():
+    """🔑 인트로가 착지하는 자리와 훅이 출발하는 자리는 **같은 상수**여야 한다.
+    두 파일에 값을 따로 적으면 언젠가 한쪽만 고쳐지고, 그날 컷이 튄다."""
+    loc, at = unison.HOOK_CAM
+    assert len(loc) == 3 and len(at) == 3, unison.HOOK_CAM
+    src = open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            'render_intro.py'), encoding='utf-8').read()
+    assert 'unison.HOOK_CAM' in src, '인트로가 훅 카메라 상수를 안 쓰고 있다'
+    src = open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            'render_unison_proof.py'), encoding='utf-8').read()
+    assert 'unison.HOOK_CAM' in src, '훅이 자기 카메라 상수를 안 쓰고 있다'
 
 
 if __name__ == '__main__':

@@ -96,7 +96,7 @@
           "text": "Claude Code로만 만든\nAI 마을 개발일지",
           "say": "클로드 코드로만 만든 에이아이 마을이에요.",
           "en": "An AI village built only with Claude Code",
-          "pauseAfter": 200
+          "pauseAfter": 1800
         }
       ]
     },

@@ -11,7 +11,7 @@ import probe
 BLENDER = r"C:\Program Files\Blender Foundation\Blender 5.2\blender.exe"
 FRAMES = os.path.join(
     os.environ.get('SCENE_3D_ROOT', r'D:\AI_GOAP-videos\3d'), '_intro', 'frames')
-LAST = 106                       # 3.543초 × 30fps = 106.29 → 0..106
+LAST = 154                       # 5.143초 × 30fps = 154.29 → 0..154
 
 
 def _rendered():
@@ -26,7 +26,7 @@ def _f(n):
 
 
 def test_frame_count_matches_the_engine_timeline():
-    """인트로 길이가 어긋나면 뒤 회차 전체가 밀린다. 3.543초 · 30fps."""
+    """인트로 길이가 어긋나면 뒤 회차 전체가 밀린다. 5.143초 · 30fps."""
     _rendered()
     n = len([f for f in os.listdir(FRAMES) if f.endswith('.png')])
     assert n == LAST + 1, n
@@ -52,14 +52,14 @@ def test_never_more_than_the_meaning_budget():
 
 def test_the_code_sweep_is_green_and_leaves_early():
     """초록 획은 0.64 초에 사라진다 — 그 뒤로 유채색이 남아 있으면 예산을 계속 태운다."""
-    early = probe.metrics(_f(6), step=3)          # 0.20초
-    late = probe.metrics(_f(90), step=3)          # 3.00초
+    early = probe.metrics(_f(8), step=3)          # 0.27초
+    late = probe.metrics(_f(130), step=3)         # 4.33초
     assert 'green' in early['chroma_hues'], early['chroma_hues']
     assert late['chroma_hues'] == set(), late['chroma_hues']
 
 
 def test_nothing_clips():
-    for n in (0, 30, 60, 90, LAST):
+    for n in (0, 40, 80, 120, LAST):
         m = probe.metrics(_f(n), step=3)
         assert m['peak_lum'] < 250, (n, m['peak_lum'])
 

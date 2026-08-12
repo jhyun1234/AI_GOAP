@@ -1,6 +1,6 @@
 import {
   disp, mono, ease, easeOut, clamp, lerp,
-  fitCanvas, mkCanvas, roundRect, tone, castShadow, DEPTH, camAt
+  fitCanvas, mkCanvas, roundRect, tone, castShadow, DEPTH, camAt, speedLines
 } from '../../../engine/lib.js';
 
 /* onecount — **책상 앞에 앉은 사람이 「누가 죽었지?」하고 묻는데, 화면이 내놓는 답은
@@ -157,6 +157,9 @@ export default {
     for (const x of TOMB_X) { stone(ctx, x, TOMB_Y, TOMB_W, TOMB_H); ctx.fill(); }
 
     const tick = ph === 1 ? clamp((s0 - 1.28) / 0.06) : 0;
+    /* 숫자에 꽂히는 순간 화면 안에서만 집중선이 튄다 — 반전은 안 쓴다.
+       이 편에서 반전은 '무덤·이름'의 것이고, 여기서 일어나는 일은 사건이 아니라 집계다. */
+    if (tick > 0.01 && tick < 1) speedLines(ctx, NUM.x * 2, 260, NUM.x, NUM.y - 8, tick, { n: 14, seed: 97, r0: 16, alpha: 0.5 });
     const numPop = 1 + 0.26 * tick * (1 - tick) * 4;              // 꽂히는 순간 한 번 커진다
     ctx.save();
     ctx.translate(NUM.x, NUM.y);

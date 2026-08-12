@@ -1,6 +1,6 @@
 import {
   disp, ease, easeOut, clamp, lerp,
-  fitCanvas, mkCanvas, tone, setShadow, clearShadow, GLOW, PALETTE, depthGrad, castShadow, DEPTH, camAt
+  fitCanvas, mkCanvas, tone, setShadow, clearShadow, GLOW, PALETTE, depthGrad, castShadow, DEPTH, camAt, invertFlash, speedLines
 } from '../../../engine/lib.js';
 
 /* namefade — 훅. **내가 이름을 아는 주민 하나**가 무덤 무리로 걸어 들어가 가라앉고,
@@ -149,6 +149,11 @@ export default {
       ctx.fillRect(SLOT_X - SLOT.w / 2, yb - MAIN.h + SLOT.dy, SLOT.w, SLOT.h);
       ctx.restore();
     }
+
+    /* 솟는 순간의 임팩트 — 집중선 + 1프레임 반전. 훅의 타격점이다 */
+    const rk = clamp((rise - 0.55) / 0.20) * clamp((1.45 - rise) / 0.35);
+    if (rk > 0.01) speedLines(ctx, w, h, SLOT_X, GROUND - 60, rk, { n: 20, seed: 53, alpha: 0.5 });
+    invertFlash(ctx, w, h, rk > 0.62);
 
     /* ── 이름표 — 이 편에서 강조색이 뜻하는 것. 무덤이 되면 꺼진다 ── */
     const ta = st * (1 - tagOff);

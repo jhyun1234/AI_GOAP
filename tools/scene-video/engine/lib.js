@@ -152,6 +152,58 @@ export function castShadow(ctx, x, y, rx, ry, alpha = 0.34) {
   ctx.restore();
 }
 
+/* ── 임팩트 ────────────────────────────────────────
+   2026-08-12, 레퍼런스 두 편(simDdang 릴 · Coloso proro 트레일러)을 프레임 단위로 뜯어
+   가져온 둘. 손으로 그린 액션에서 타격감을 만드는 것은 큰 움직임이 아니라 **한두 프레임의
+   극단**이었다.
+
+   ① 흑백 반전 — simDdang 검격에서 육안 확인: 주황 배경 + 검정 실루엣이 타격 순간
+      **검정 배경 + 흰 거친 선화로 통째 뒤집힌다.** 2~4프레임만 산다.
+      Coloso 폭발은 여기서 더 나아가 **백/흑을 1프레임씩 교대**로 두 번 친다.
+   ② 집중선 — 폭발 중심에서 화면 끝까지 뻗는 굵기 제각각의 선. 방사(발산)와 수렴 둘 다 쓴다.
+
+   🔑 둘 다 **우리 3색 팔레트를 안 깬다.** 반전은 흰색과 배경뿐이고 집중선도 흰색이다.
+   🔴 반전 프레임은 화면 네 변에 잉크가 닿는다 — `checks.edge` 를 선언해야 게이트를 지난다.
+      잘린 것이 아니라 화면 전체가 뒤집힌 것이므로 선언이 옳은 처리다. */
+
+/** 흑백 반전. 이미 그린 것이 구멍이 되고 빈 자리가 흰 판이 된다(진짜 네거티브).
+ *  on 은 0 또는 1 로 준다 — 손으로 그린 반전 프레임은 페이드하지 않는다. */
+export function invertFlash(ctx, w, h, on) {
+  if (!on) return;
+  ctx.save();
+  /* 카메라 확대·클립을 무시하고 **캔버스 전체**를 덮어야 한다 — 반전은 화면의 사건이지
+     그림 안의 사건이 아니다. resetTransform 은 장치 픽셀 좌표로 돌아가므로 dpr 을 몰라도
+     넉넉히 칠하면 된다(우리 dpr 은 2.755). */
+  ctx.resetTransform();
+  ctx.globalCompositeOperation = 'xor';
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(0, 0, w * 5, h * 5);
+  ctx.restore();
+}
+
+/** 집중선. k 0~1 로 뻗어 나간다. out=false 면 바깥에서 중심으로 수렴한다. */
+export function speedLines(ctx, w, h, cx, cy, k, opts = {}) {
+  if (k <= 0.002) return;
+  const n = opts.n ?? 26, seed = opts.seed ?? 7;
+  const R = Math.hypot(w, h);
+  ctx.save();
+  ctx.globalAlpha = (opts.alpha ?? 0.9) * clamp(k * 1.4);
+  ctx.strokeStyle = opts.color || '#FFFFFF';
+  ctx.lineCap = 'butt';
+  for (let i = 0; i < n; i++) {
+    const a = (i + rnd(seed + i) * 0.75) / n * Math.PI * 2;
+    const r0 = (opts.r0 ?? 34) + rnd(seed + i * 3) * 30;
+    const r1 = R * (0.5 + rnd(seed + i * 5) * 0.55);
+    const grow = opts.out === false ? 1 - k : k;
+    ctx.lineWidth = 1.5 + rnd(seed + i * 7) * 4.5;
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(a) * r0, cy + Math.sin(a) * r0);
+    ctx.lineTo(cx + Math.cos(a) * lerp(r0, r1, grow), cy + Math.sin(a) * lerp(r0, r1, grow));
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
 /* ── 카메라 ────────────────────────────────────────
    샷 안에서 **줌인·줌아웃**을 한다. 그림 파일의 좌표를 손대지 않고 「어디를 얼마나 크게
    보여 줄지」만 시간축에 올린다.

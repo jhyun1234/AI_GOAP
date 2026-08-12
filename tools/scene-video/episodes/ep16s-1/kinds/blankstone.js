@@ -1,6 +1,6 @@
 import {
   ease, easeOut, clamp, lerp, frac,
-  fitCanvas, mkCanvas, tone, setShadow, clearShadow, GLOW, PALETTE, depthGrad, castShadow, DEPTH, camAt
+  fitCanvas, mkCanvas, tone, setShadow, clearShadow, GLOW, PALETTE, depthGrad, castShadow, DEPTH, camAt, invertFlash, speedLines
 } from '../../../engine/lib.js';
 
 /* blankstone — 무덤 일곱이 땅에서 솟는데, 앞의 비석에 파인 **이름 자리가 비어 있다.**
@@ -159,9 +159,11 @@ export default {
         }
       }
 
-      /* 착지 임팩트 — 방사선. 가이드가 「방사형 spike 로 임팩트 강화(loop 금지, 정적)」로
-         명시 허용한 것이다. 2~5프레임만 산다. */
+      /* 착지 임팩트 — 집중선이 화면 끝까지 뻗고, 그 한가운데 2프레임을 **흑백 반전**한다.
+         (레퍼런스 실측: simDdang 검격이 정확히 이 순서다 — 선 → 반전 → 복귀) */
       const hit = clamp((km - 0.86) / 0.14) * clamp((1.16 - km) / 0.14);
+      if (hit > 0.01) speedLines(ctx, w, h, MAIN.x, GROUND - 40, hit, { n: 22, seed: 31, alpha: 0.55 });
+      invertFlash(ctx, w, h, hit > 0.55);
       if (hit > 0.01) {
         ctx.save();
         ctx.globalAlpha = hit * 0.75;

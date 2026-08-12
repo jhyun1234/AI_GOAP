@@ -494,6 +494,26 @@ function seek(t) {
     const p = Math.min(1, (t - s.t) / s.dur);
     const ts = (t - s.t) / 1000;
 
+    /* ── 촬영 박자 (2026-08-12) ────────────────────────
+       `shot.step` = **초당 그림 장수.** 없으면 `tsA === ts` 라 종전 회차는 한 프레임도 안 바뀐다.
+
+       왜 넣었나: 우리 그림은 `seek(t)` 가 연속 함수라 **모든 움직임이 매 프레임 조금씩** 바뀐다.
+       레퍼런스 두 편을 프레임 단위로 재 보니(2026-08-12) 정반대였다 —
+         · simDdang 도입 액션(60fps): 같은 그림을 **2프레임 무는 것이 68.6%**(= on 2s),
+           강조 자리만 4프레임. 실효 **초당 20.9장**.
+         · Coloso 작화 시연(30fps): 1프레임 54% · 2프레임 24% → 실효 초당 14.4장.
+         · 우리(30fps): **84%가 매 프레임 미세 변화**, 실효 교체는 초당 7.2장.
+       즉 우리는 **덜 움직이면서 흐물거린다.** 손으로 그린 애니메이션은 그림 수가 적은 대신
+       한 장이 오래 서 있다가 **탁 넘어간다** — 그 계단이 '애니메이션 질감'의 정체다.
+
+       🔑 **작화만 계단으로 만들고 카메라·합성은 매끄럽게 둔다.** 실사 애니메이션도 셀은
+          2~3콤마로 찍고 촬영(카메라 이동·페이드)은 1콤마로 간다. 그래서 `ek`(진입 모션)와
+          `camAt` 의 시간은 `ts` 그대로 쓰고, kind 에 넘기는 시간만 `tsA` 로 준다.
+       🔑 `cue`·`since` 도 `tsA` 를 쓴다. 그림 안의 모든 사건이 **같은 계단** 위에 서야
+          한 장의 그림으로 읽힌다. 하나만 매끄러우면 그것만 붕 뜬다.
+       🔴 `Math.floor` 는 t 의 순수 함수다 — seek 의 결정성은 그대로다(3패스로 확인). */
+    const tsA = s.step ? Math.floor(ts * s.step + 1e-9) / s.step : ts;
+
     /* 샷 진입 — 컷이 아니라 짧게 밀어 넣는다. 하드 컷만 이어 붙이면 샷이 바뀐 걸
        놓치는 프레임이 생긴다. 가이드 한도(translateY ±30px) 안이고, ts 의 함수라
        seek 의 순수성은 그대로다 — 어느 시각으로 뛰어도 같은 그림.
@@ -514,14 +534,14 @@ function seek(t) {
       const l = s.rel[Math.min(i, s.rel.length - 1)];
       if (!l) return 0;
       const a = l.t - lead, b = l.t + l.dur * span;
-      return Math.max(0, Math.min(1, (ts - a) / (b - a || 1e-6)));
+      return Math.max(0, Math.min(1, (tsA - a) / (b - a || 1e-6)));
     };
     /** i번째 자막이 시작된 뒤 흐른 초. 아직이면 음수. */
-    const since = i => (s.rel[i] ? ts - s.rel[i].t : -1);
+    const since = i => (s.rel[i] ? tsA - s.rel[i].t : -1);
 
     kinds[s.kind]?.draw?.(s.el, {
       spec: s.spec || {}, shot: s, scene, images,
-      p, t: ts, dur: s.dur / 1000, abs: t / 1000,
+      p, t: tsA, dur: s.dur / 1000, abs: t / 1000,
       lines: s.rel, cue, since, nLines: s.rel.length
     });
   }

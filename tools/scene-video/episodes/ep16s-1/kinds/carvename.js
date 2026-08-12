@@ -1,6 +1,6 @@
 import {
   disp, ease, easeOut, clamp, lerp,
-  fitCanvas, mkCanvas, tone, setShadow, clearShadow, GLOW, PALETTE, depthGrad, castShadow, DEPTH, camAt
+  fitCanvas, mkCanvas, tone, setShadow, clearShadow, GLOW, PALETTE, depthGrad, castShadow, DEPTH, camAt, invertFlash, speedLines
 } from '../../../engine/lib.js';
 
 /* carvename — 죽고 나면 물어볼 데가 없다. 그래서 **아직 서 있는 동안** 이름을 건네받아
@@ -204,7 +204,13 @@ export default {
       ctx.restore();
     }
 
-    /* ── 꽂힘 임팩트 ─────────────────────────────── */
-    if (hit > 0.01) burst(ctx, ST.x, sy + SLOT.h / 2, hit);
+    /* ── 꽂힘 임팩트 ───────────────────────────────
+       이 편에서 가장 센 자리다(뒤집힘). 그래서 셋을 겹친다:
+       집중선 → 강조색 방사 → **백/흑 교대 반전 2회**(Coloso 폭발이 쓰는 수법). */
+    if (hit > 0.01) {
+      speedLines(ctx, w, h, ST.x, sy + SLOT.h / 2, hit, { n: 28, seed: 71, alpha: 0.6 });
+      burst(ctx, ST.x, sy + SLOT.h / 2, hit);
+    }
+    invertFlash(ctx, w, h, hit > 0.80 || (hit > 0.44 && hit < 0.60));
   }
 };

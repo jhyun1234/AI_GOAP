@@ -8,6 +8,8 @@
 이 파일의 `pose_at` 이 **주민 번호를 안 받는다.** 그게 군무의 정의다 — 번호를 받는 순간
 누군가 위상을 어긋내고 싶어지고, 그러면 이 회차의 사건 ①이 깨진다.
 """
+import math
+
 import motions
 
 N = 6
@@ -26,6 +28,70 @@ TOGETHER = 'walk'              # 같이 있을 때 여섯이 하는 것
 # 🔑 훅이 시작하는 카메라 자리. **인트로가 여기로 착지하고 훅이 여기서 출발한다** —
 #    그래야 「컷 없이 이어진다」가 말이 아니라 사실이 된다. 두 파일에 따로 적으면 갈라진다.
 HOOK_CAM = ((-6.55, -5.15, 1.55), (0.05, -1.45, 0.58))
+
+
+# ── 훅 비트 시트 — 여덟 ──────────────────────────────
+# 🔴 5비트 판이 반려됐다: 「제자리에서 가만히 걷는 모습은 별로 인상 깊지 않았다」.
+#    원인은 비트 수가 아니라 **여섯이 아무 데도 안 갔다는 것**이다 — 다리만 저었고
+#    발밑 좌표는 첫 프레임 그대로였다. 화면에서 안 변한 것을 몇 번 반복해도 안 변한다.
+# 🔑 그래서 걷는 비트에서 여섯이 **실제로 나아간다**(march). 비트를 여덟로 늘린 것은
+#    그 다음이다 — 나아간 거리가 눈에 들어오려면 걷는 비트가 **둘씩 붙어** 있어야 한다.
+#    하나짜리 걷기 비트는 한 걸음 반이라 다시 제자리걸음으로 읽힌다.
+HOOK_BEATS = ('stand', 'walk', 'walk', 'stop', 'turn', 'walk', 'walk', 'stop')
+
+# ⑤ 에서 여섯이 함께 도는 각.
+# 🔴 **꺾는 쪽이 화면에서 무엇이 되는지 보고 정한다.** 처음 보던 쪽(-Y)은 이 카메라에서
+#    「왼→오른쪽 가로지르기 + 살짝 다가오기」로 읽힌다. 음수로 꺾으면 카메라를 향해 걸어와서
+#    맨 앞 주민의 발이 화면 아래로 잘렸다(실측 — -50° 판). 양수로 꺾으면 깊이를 안 바꾸고
+#    **가로지르기가 더 순수해진다** — 배경이 가장 많이 흐르는 방향이고, 그게 「걸어간다」다.
+HOOK_TURN = math.radians(40)
+TURN_SPAN = 0.60        # 도는 데 쓰는 비트의 비율. 나머지는 돌고 나서 서 있는 시간이다
+BLEND = 0.26            # 걷기↔멈춤 이음새(초). 0 이면 다리가 차렷으로 순간이동한다
+
+
+def _ease(u):
+    u = max(0.0, min(1.0, u))
+    return u * u * (3 - 2 * u)
+
+
+def march(t, beat):
+    """t 초에 여섯이 **어디에 서서 어디를 보는가.** 반환 (x, y, heading, phase).
+
+    x·y 는 처음 자리에서의 변위, heading 은 처음 보던 쪽에서 더 돈 각(라디안),
+    phase 는 **걸은 시간**이다(walk 에 넣을 값).
+
+    🔴 위상도 자리도 **걷는 비트에서만** 흐른다. 멈춘 동안에도 t 를 그대로 주면
+       다시 걸을 때 다리가 순간이동하고, 자리를 계속 밀면 선 채로 미끄러진다.
+    🔴 나아가는 거리는 `motions.WALK_SPEED` 에서 나온다 — 다리가 만드는 보폭이다.
+       여기서 눈대중으로 올리면 발이 미끄러진다(제자리걸음의 반대편 함정)."""
+    x = y = phase = 0.0
+    heading = 0.0
+    for i, kind in enumerate(HOOK_BEATS):
+        u = min(t - i * beat, beat)
+        if u <= 0:
+            break
+        if kind == 'walk':
+            phase += u
+            d = motions.WALK_SPEED * u
+            x += d * math.sin(heading)      # heading 0 = 처음 보던 쪽(-Y)
+            y -= d * math.cos(heading)
+        elif kind == 'turn':
+            heading += HOOK_TURN * _ease(u / (beat * TURN_SPAN))
+    return x, y, heading, phase
+
+
+def hook_pose(t, beat):
+    """지금 여섯이 취할 포즈. 🔴 **주민 번호를 안 받는다** — 그게 군무다(`pose_at` 과 같은 이유).
+
+    걷기와 멈춤 사이는 `motions.blend` 로 잇는다. 걷기를 반 주기에서 끊으면 허벅지가
+    26° 에서 0 으로 튀는데, 그건 「동시에 멈췄다」가 아니라 렉으로 읽힌다."""
+    i = min(int(t / beat), len(HOOK_BEATS) - 1)
+    walking = HOOK_BEATS[i] == 'walk'
+    prev_walking = i > 0 and HOOK_BEATS[i - 1] == 'walk'
+    w = motions.walk(march(t, beat)[3])
+    s = motions.stop(t)
+    k = 1.0 if walking == prev_walking else _ease((t - i * beat) / BLEND)
+    return motions.blend(s, w, k) if walking else motions.blend(w, s, k)
 
 
 def motion_at(t, i, k):
@@ -48,8 +114,17 @@ MARK_Z = 1.22          # 머리 꼭대기(0.95) 위
 MARK_W, MARK_GAP, MARK_H = 0.045, 0.062, 0.17
 
 
-def personality_marks(col=None):
-    """여섯 머리 위의 성격 표식. 반환: [[bar, ...], ...] (주민별 막대 셋)."""
+def personality_marks(arms=None, col=None):
+    """여섯 머리 위의 성격 표식. 반환: [[bar, ...], ...] (주민별 막대 셋).
+
+    🔴 `arms` 를 주면 표식을 **주민에게 묶는다.** 안 묶으면 주민이 걸어가도 표식은 처음
+       자리에 남는다 — 여섯이 실제로 나아가는 판에서 이건 그냥 버그다.
+       `matrix_parent_inverse` 로 묶어야 지금 있는 자리를 그대로 유지한 채 따라간다
+       (그냥 `parent` 만 넣으면 표식이 주민 발밑으로 끌려간다).
+    🔴 그 역행렬은 `matrix_world` 가 아니라 **`matrix_basis`** 에서 뽑는다. 방금 만든
+       오브젝트의 `matrix_world` 는 뎁스그래프가 아직 안 돌아 단위행렬이고, 그 상태로
+       묶으면 표식이 주민 자리만큼 한 번 더 회전·이동해 하늘로 흩어진다(실제로 그랬다).
+       아마추어는 부모가 없어서 `matrix_basis` 가 곧 월드 변환이다."""
     import bpy
     import stage
     col = col or bpy.context.collection
@@ -63,6 +138,9 @@ def personality_marks(col=None):
             b = bpy.context.object
             b.scale = (MARK_W, MARK_W, MARK_H * h)
             b.data.materials.append(mat)
+            if arms:
+                b.parent = arms[i]
+                b.matrix_parent_inverse = arms[i].matrix_basis.inverted()
             bars.append(b)
         out.append(bars)
     return out

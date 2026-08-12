@@ -95,6 +95,30 @@ def test_chop_strikes_faster_than_it_lifts():
     assert strike / 0.38 > lift / 0.62, (lift, strike)
 
 
+def test_walk_speed_matches_the_stride_the_legs_actually_take():
+    """🔴 제자리걸음·발 미끄러짐을 막는 유일한 검사.
+    허벅지 진폭을 고치고 속도를 안 고치면(또는 그 반대면) 여기서 걸린다."""
+    amp = abs(motions.walk(0.25 / motions.WALK_HZ)['thigh.L'][0])      # sin 이 최대인 자리
+    assert abs(amp - motions.WALK_THIGH) < 1e-6, (amp, motions.WALK_THIGH)
+    expect = 2 * (2 * motions.LEG * math.sin(amp)) * motions.WALK_HZ * motions.WALK_SLIP
+    assert abs(motions.WALK_SPEED - expect) < 1e-9, (motions.WALK_SPEED, expect)
+
+
+def test_blend_is_the_endpoints_at_zero_and_one():
+    """이음새가 끝점에서 원본과 다르면 이은 자리가 오히려 튄다."""
+    a, b = motions.walk(0.3), motions.stop(0.3)
+    z, o = motions.blend(a, b, 0.0), motions.blend(a, b, 1.0)
+    assert set(z) == set(o) == set(a) | set(b)
+    for bone in a:
+        assert z[bone] == tuple(a[bone]), bone
+    for bone in b:
+        assert o[bone] == tuple(b[bone]), bone
+    only_a = set(a) - set(b)
+    assert only_a, '검사가 무의미하다 — 한쪽에만 있는 뼈가 없다'
+    for bone in only_a:                     # 안 적힌 뼈는 차렷 — stage.pose 와 같은 규약
+        assert o[bone] == (0.0, 0.0, 0.0), bone
+
+
 def test_walk_period_matches_the_shared_vocabulary():
     """engine/motions.mjs 의 walk.hz 와 같아야 한다 — 표가 갈라지면 대조가 성립을 안 한다."""
     assert abs(motions.WALK_HZ - 1.15) < 1e-9

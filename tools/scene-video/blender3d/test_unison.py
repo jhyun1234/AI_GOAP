@@ -48,6 +48,61 @@ def test_six_stands_do_not_overlap():
             assert d > 0.6, (i, j, round(d, 2))
 
 
+HOOK_BEAT = 6.606 / len(unison.HOOK_BEATS)
+
+
+def test_march_actually_goes_somewhere():
+    """🔴 5비트 판이 반려된 이유가 여기다 — 여섯이 다리만 젓고 발밑 좌표가 그대로였다.
+    주민 간격이 1.15 라, 적어도 한 사람 몫은 나아가야 「걸어갔다」로 읽힌다."""
+    x, y, heading, phase = unison.march(6.606, HOOK_BEAT)
+    assert (x * x + y * y) ** 0.5 > 1.2, (x, y)
+    assert abs(heading - unison.HOOK_TURN) < 1e-9, heading
+    assert phase > 3.0, phase
+
+
+def test_march_only_advances_while_walking():
+    """멈춘 비트에서 자리가 나아가면 선 채로 미끄러지고, 위상이 흐르면 다시 걸을 때 튄다."""
+    for i, kind in enumerate(unison.HOOK_BEATS):
+        ax, ay, _ah, ap = unison.march(i * HOOK_BEAT + 0.02, HOOK_BEAT)
+        bx, by, _bh, bp = unison.march((i + 1) * HOOK_BEAT - 0.02, HOOK_BEAT)
+        moved = ((ax - bx) ** 2 + (ay - by) ** 2) ** 0.5
+        if kind == 'walk':
+            assert moved > 0.1 and bp > ap, (i, kind, moved)
+        else:
+            assert moved < 1e-12 and abs(bp - ap) < 1e-12, (i, kind, moved)
+
+
+def _walk_step(span):
+    """끊기지 않은 걷기가 `span` 초 동안 만드는 **가장 큰** 관절 변화.
+    잣대를 보폭에 매어 둔다 — 진폭을 고쳐도 검사가 같이 따라간다."""
+    out = 0.0
+    for i in range(120):
+        a = motions.walk(i / 120 / motions.WALK_HZ)
+        b = motions.walk(i / 120 / motions.WALK_HZ + span)
+        out = max(out, max(abs(p - q) for bone in a for p, q in zip(a[bone], b[bone])))
+    return out
+
+
+def test_hook_pose_never_teleports_a_limb():
+    """비트 경계에서 다리가 차렷으로 튀면 「동시에 멈췄다」가 아니라 렉으로 읽힌다.
+    반 주기에서 끊긴 허벅지는 진폭만큼(0.59 rad) 튀는데, 그건 **그냥 걷는 것의 네 배**다."""
+    span = 1 / 30
+    limit = 2 * _walk_step(span)
+    for i in range(1, len(unison.HOOK_BEATS)):
+        a = unison.hook_pose(i * HOOK_BEAT - span / 2, HOOK_BEAT)
+        b = unison.hook_pose(i * HOOK_BEAT + span / 2, HOOK_BEAT)
+        for bone in set(a) | set(b):
+            pa, pb = a.get(bone, (0, 0, 0)), b.get(bone, (0, 0, 0))
+            for u, v in zip(pa, pb):
+                assert abs(u - v) < limit, (i, bone, u, v, limit)
+
+
+def test_hook_pose_cannot_take_a_villager_index():
+    """🔴 `pose_at` 과 같은 이유 — 번호를 받을 수 있으면 언젠가 누가 위상을 어긋낸다."""
+    params = list(inspect.signature(unison.hook_pose).parameters)
+    assert params == ['t', 'beat'], params
+
+
 def test_hook_camera_is_defined_once():
     """🔑 인트로가 착지하는 자리와 훅이 출발하는 자리는 **같은 상수**여야 한다.
     두 파일에 값을 따로 적으면 언젠가 한쪽만 고쳐지고, 그날 컷이 튄다."""

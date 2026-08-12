@@ -19,6 +19,19 @@ import math
 R = math.radians
 WALK_HZ = 1.15          # engine/motions.mjs 의 walk 와 같은 주기 — 표를 갈라 두지 않는다
 
+# ── 걷기가 **실제로 나아가는 속도** ──────────────────────
+# 🔴 이 값을 눈대중으로 정하지 마라. 자리를 다리보다 빨리 밀면 발이 미끄러지고,
+#    느리게 밀면 발이 끌린다. 둘 다 「걷는 것 같지 않다」로 보인다.
+#    다리가 실제로 만드는 보폭에서 역산한다: 한 걸음 = 2·다리길이·sin(허벅지 진폭),
+#    한 주기에 두 걸음.
+# 🔑 진폭이 곧 보폭이다. 26° 판은 한 걸음 0.245 라 훅 내내 1.9 m 밖에 못 갔고, 그 거리는
+#    화면에서 「걸어갔다」로 안 읽혔다. 34° 는 성큼 걷는 걸음이고 훅에서 2.4 m 를 간다.
+WALK_THIGH = R(34)      # walk() 의 thigh 진폭과 **같은 값**이어야 한다(검사가 대조한다)
+LEG = 0.28              # 골반(rig.py thigh 머리 z=0.300)에서 발바닥까지. 주민 키는 0.95
+WALK_SLIP = 1.0         # 🔑 손잡이. 렌더에서 발이 미끄러져 보이면 여기를 0.9 쪽으로 내려라
+WALK_STRIDE = 2 * LEG * math.sin(WALK_THIGH)
+WALK_SPEED = WALK_STRIDE * 2 * WALK_HZ * WALK_SLIP      # m/s
+
 
 def _ease(u):
     u = max(0.0, min(1.0, u))
@@ -41,8 +54,8 @@ def walk(t):
     knee_l = max(0.0, math.sin(ph - 0.9))
     knee_r = max(0.0, math.sin(ph + math.pi - 0.9))
     return {
-        'thigh.L': (R(-26) * s, 0, 0), 'shin.L': (R(34) * knee_l, 0, 0),
-        'thigh.R': (R(26) * s, 0, 0), 'shin.R': (R(34) * knee_r, 0, 0),
+        'thigh.L': (-WALK_THIGH * s, 0, 0), 'shin.L': (R(34) * knee_l, 0, 0),
+        'thigh.R': (WALK_THIGH * s, 0, 0), 'shin.R': (R(34) * knee_r, 0, 0),
         'foot.L': (R(12) * s, 0, 0), 'foot.R': (R(-12) * s, 0, 0),
         'upperarm.L': (R(17) * s, 0, 0), 'upperarm.R': (R(-17) * s, 0, 0),
         'forearm.L': (R(-12) * (1 - c) / 2, 0, 0),
@@ -96,6 +109,20 @@ def reach(t):
 def freeze(t):
     """굳음 — 뻗은 자세 그대로 정지. **숨도 안 쉰다.** 그게 이 동작의 뜻이다."""
     return reach(1.0)
+
+
+def blend(a, b, k):
+    """포즈 둘 사이. k 0 이면 a, 1 이면 b.
+
+    🔴 걷다가 멈추는 이음새에 쓴다. 안 쓰면 다리가 **한 프레임에 차렷으로 순간이동한다** —
+       걷기를 반 주기에서 끊으면 허벅지가 26° 에서 0 으로 튄다.
+    🔴 한쪽에만 있는 뼈는 반대쪽을 **0(차렷)** 으로 친다. `stage.pose` 가 안 적힌 뼈를
+       0 으로 되돌리는 것과 같은 규약이다 — 여기서 규약을 갈라 놓으면 이음새가 튄다."""
+    k = max(0.0, min(1.0, k))
+    z = (0.0, 0.0, 0.0)
+    return {bone: tuple(p + (q - p) * k
+                        for p, q in zip(a.get(bone, z), b.get(bone, z)))
+            for bone in set(a) | set(b)}
 
 
 MOTIONS = {'look_up': look_up, 'walk': walk, 'stop': stop, 'farm': farm,

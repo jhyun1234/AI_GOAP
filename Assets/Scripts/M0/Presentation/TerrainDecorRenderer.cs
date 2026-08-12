@@ -105,11 +105,24 @@ namespace AIVillage.M0
                                                            : FowManager.FOW_VISIBLE;
                     if (fow == 0) continue;   // 안 밝힌 땅에 풀이 떠 있으면 안개가 뚫린다
 
+                    // 🔴 **군집** (2026-08-12 재설계): 균일 난수로 뿌리면 장식이 아니라 **색종이**가
+                    //    된다 (사용자 지적). 레퍼런스 맵은 빈 땅이 대부분이고 풀·바위가 **덩어리로**
+                    //    모여 있다 — 그래서 밀도를 지형 값 그대로 쓰지 않고 **패치 밭**으로 깎는다.
+                    //    밭이 옅은 곳은 0이 되어 맨땅이 남는다 (그 맨땅이 덩어리를 덩어리로 보이게 한다).
+                    float field = PatchField(x, y);
+                    float p = t.DecorPerTile * Mathf.Clamp01((field - 0.42f) / 0.58f);
+                    if (p <= 0f) continue;
+
                     uint h = Hash(x, y);
-                    if ((h & 0xFFFFu) / 65535f >= t.DecorPerTile) continue;
+                    if ((h & 0xFFFFu) / 65535f >= p) continue;
                     if (_tileTaken != null && _tileTaken(new Vector2Int(x, y))) continue;
 
-                    Sprite sprite = t.DecorSprites[(int)((h >> 16) % (uint)t.DecorSprites.Length)];
+                    // 한 덩어리는 **같은 것들**로 이뤄진다 (꽃밭·돌무더기) — 매 칸 다른 그림을
+                    // 고르면 종류가 섞여 다시 색종이가 된다. 넷 중 셋은 그 패치의 대표 그림.
+                    uint patchH = Hash(Mathf.FloorToInt(x / (float)PATCH_CELL) * 7919,
+                                       Mathf.FloorToInt(y / (float)PATCH_CELL) * 6271);
+                    uint pick = ((h >> 28) & 3u) == 0u ? (h >> 16) : (patchH >> 16);
+                    Sprite sprite = t.DecorSprites[(int)(pick % (uint)t.DecorSprites.Length)];
                     if (sprite == null) continue;
 
                     SpriteRenderer sr = Take(used++);
@@ -139,6 +152,24 @@ namespace AIVillage.M0
             }
             return _pool[i];
         }
+
+        // 장식 덩어리의 크기 (타일) — 알고리즘 상수. 지형 노이즈(18·26)보다 작아야 한 지형 안에
+        // 여러 덩어리가 들어간다. 7이면 화면에 대여섯 덩어리 = 레퍼런스의 리듬.
+        private const int PATCH_CELL = 7;
+
+        /// <summary>장식 덩어리 밭 (0~1) — 지형 노이즈와 **같은 값 노이즈**를 작은 격자로 뜬 것.
+        /// 이 값이 낮은 곳은 맨땅으로 남는다: 빈 곳이 있어야 모인 곳이 모여 보인다.</summary>
+        private float PatchField(int x, int y)
+        {
+            int gx = Mathf.FloorToInt((float)x / PATCH_CELL), gy = Mathf.FloorToInt((float)y / PATCH_CELL);
+            float fx = (float)(x - gx * PATCH_CELL) / PATCH_CELL, fy = (float)(y - gy * PATCH_CELL) / PATCH_CELL;
+            float sx = fx * fx * (3f - 2f * fx), sy = fy * fy * (3f - 2f * fy);
+            float a = Corner(gx, gy),     b = Corner(gx + 1, gy);
+            float c = Corner(gx, gy + 1), d = Corner(gx + 1, gy + 1);
+            return Mathf.Lerp(Mathf.Lerp(a, b, sx), Mathf.Lerp(c, d, sx), sy);
+        }
+
+        private float Corner(int gx, int gy) => (Hash(gx * 31, gy * 17) & 0xFFFFu) / 65535f;
 
         /// <summary>좌표 해시 — `TerrainService.Hash01`과 같은 기법(`PickVariantIndex` 계보).
         /// 같은 판·같은 칸이면 언제나 같은 장식이다.</summary>

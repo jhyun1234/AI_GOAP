@@ -24,5 +24,5 @@ MonoBehaviour:
   DecorSprites:
   - {fileID: 805583041, guid: d6212d460f9976548b8df1857bb12a2b, type: 3}
   - {fileID: 181230984, guid: d6212d460f9976548b8df1857bb12a2b, type: 3}
-  DecorPerTile: 0.2
-  DecorSize: 0.9
+  DecorPerTile: 0.12
+  DecorSize: 0.95

@@ -30,5 +30,5 @@ MonoBehaviour:
   - {fileID: 1333576141, guid: 91c99c336ceaf0f409f4e0f58a883845, type: 3}
   - {fileID: -1508699092, guid: 91c99c336ceaf0f409f4e0f58a883845, type: 3}
   - {fileID: 1211534522, guid: 91c99c336ceaf0f409f4e0f58a883845, type: 3}
-  DecorPerTile: 0.55
-  DecorSize: 0.95
+  DecorPerTile: 0.38
+  DecorSize: 1.0

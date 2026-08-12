@@ -78,3 +78,26 @@ def sat_of(h):
 LINEAR = {k: tuple(round(_to_linear(c / 255), 4) for c in _bytes(v)) for k, v in HEX.items()}
 HUES = {k: round(hue_of(v), 1) for k, v in HEX.items()}
 SATS = {k: round(sat_of(v), 3) for k, v in HEX.items()}
+
+
+def as_json():
+    """게이트가 읽을 표. 🔴 `check.mjs` 는 JS 라 이 파일을 못 읽는다 — 그렇다고 값을
+    저쪽에 다시 적으면 표가 둘이 된다(이 파일 맨 위가 금지한 바로 그것).
+    그래서 **여기서 구워서 넘긴다.** `test_palette` 가 구운 것과 현재 값을 대조한다."""
+    return {
+        'hex': HEX, 'meaning': list(MEANING), 'hues': HUES, 'sats': SATS,
+        'satMin': SAT_MIN, 'lumMin': LUM_MIN, 'hueTol': HUE_TOL,
+        'maxMeaningPerFrame': MAX_MEANING_PER_FRAME,
+        # 이만큼은 덮어야 「그 색이 떴다」로 친다 — probe.MIN_HUE_FRAC 과 같은 이유
+        'minHueFrac': 0.001,
+    }
+
+
+JSON_PATH = __file__.replace('palette.py', 'palette.json')
+
+if __name__ == '__main__':
+    import json
+    with open(JSON_PATH, 'w', encoding='utf-8') as f:
+        json.dump(as_json(), f, ensure_ascii=False, indent=1, sort_keys=True)
+        f.write('\n')
+    print('[palette] ->', JSON_PATH)

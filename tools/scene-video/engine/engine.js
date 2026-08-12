@@ -30,6 +30,12 @@ const LDIR = LANG === 'ko' ? `${EPD}/build` : `${EPD}/build/${LANG}`;
 let scene = null, shots = [], lines = [], TOTAL = 0, kinds = {};
 let clipLayer = null, clipCanvas = null;   // 게임 클립 레이어 (롱폼 W5) — buildDom 이 만든다
 const failedKinds = [];   // 로드에 실패한 그림 — check.mjs 가 읽는다
+/* seek 한 번 동안 kind 들이 걸어 둔 「아직 못 그렸다」 약속들.
+   🔴 클립(W5)이 쓰던 것과 **같은 장치**다. 그림 재료가 디코딩되기 전에 캡처되면 그 프레임만
+      빈 자리로 나오는데, 그건 게이트가 통과시키는 조용한 사고다(실측 147프레임).
+      약속을 여기 걸면 render/check 가 프레임마다 await 한다.
+   🔴 약속 안에서 **다시 그려야** 한다. 기다리기만 하고 안 그리면 이미 빈 프레임이 찍힌다. */
+const drawWaits = [];
 
 /* ── 로드 ─────────────────────────────────────────── */
 async function boot() {
@@ -467,6 +473,7 @@ function seek(t) {
      렌더는 프레임마다 seek 을 await 하므로(awaitPromise) currentTime 이 실제로
      그 프레임에 도착한 뒤 캡처된다 — play() 로 흘리면 결정성이 깨진다 (명세 ⚠️). */
   let clipWait = null;
+  drawWaits.length = 0;
   if (clipLayer) {
     const clipOn = !!(act.clip && act.clipVideo && act.clipVideo.readyState >= 2);
     clipLayer.hidden = !clipOn;
@@ -525,6 +532,9 @@ function seek(t) {
 
     kinds[s.kind]?.draw?.(s.el, {
       spec: s.spec || {}, shot: s, scene, images,
+      /** 그림 재료가 아직 안 왔을 때 — 약속을 걸고 **그 안에서 다시 그려라**. */
+      wait: p => drawWaits.push(p),
+      fail: why => { if (!failedKinds.includes(why)) failedKinds.push(why); },
       p, t: ts, dur: s.dur / 1000, abs: t / 1000,
       lines: s.rel, cue, since, nLines: s.rel.length
     });
@@ -547,8 +557,9 @@ function seek(t) {
   // 앵커(1550)보다 내려가 쇼츠 가림 영역 쪽으로 밀린다 — 바닥 고정이 깨진다.
   cap.style.transform = `translateY(${(k - 1) * 5}px)`;
 
-  // 클립 샷이면 비디오 seek 완료 약속을 돌려준다 — render/check 가 await 한다 (W5)
-  return clipWait;
+  // 클립·3D 프레임의 「아직 못 그렸다」 약속을 돌려준다 — render/check 가 await 한다
+  if (!drawWaits.length) return clipWait;
+  return Promise.all(clipWait ? [clipWait, ...drawWaits] : drawWaits);
 }
 
 /* ── 나레이션 (미리보기 전용) ─────────────────────

@@ -65,6 +65,16 @@ def test_meaning_hues_are_far_enough_apart_to_tell_apart():
             assert d > palette.HUE_TOL * 2, (a, b, d)
 
 
+def test_the_baked_table_matches_the_python_one():
+    """🔴 `check.mjs`(JS)가 읽는 `palette.json` 은 이 파일에서 구운 것이다.
+    구워 두고 안 다시 구우면 표가 둘이 된다 — palette.py 맨 위가 금지한 바로 그것이다."""
+    import json
+    import palette
+    baked = json.load(open(palette.JSON_PATH, encoding='utf-8'))
+    assert baked == json.loads(json.dumps(palette.as_json())), (
+        'palette.json 이 낡았다 — python blender3d/palette.py 로 다시 구워라')
+
+
 if __name__ == '__main__':
     from _check import run
     run(globals())

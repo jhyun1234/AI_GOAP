@@ -431,9 +431,15 @@ if (timed) {
       `${totalSec.toFixed(1)}초 = 자막 ${subSec.toFixed(1)} + 꼬리 ${(SHOT_TAIL * timed.shots.length).toFixed(2)}` +
       ` (본편 기준 300~600초 · 승격은 W7 뒤)`);
   } else {
-    add(totalSec <= 38, '총 길이 38초 이하',
+    /* 🔄 2026-08-12 사용자 지시 — **쇼츠 길이 상한이 1분대로 열렸다.**
+       ⚠️ 상한이 열린 것이지 길게 만들라는 것이 아니다. 길이는 **비트를 세서** 나오고,
+          늘어난 시간은 사건에 쓴다 — 길이를 늘려 놓고 홀드가 늘어나면 그건 개선이 아니라
+          인계 문서가 이미 잡아 둔 그 문제다. 그 방어는 이 게이트가 아니라
+          「정적 구간 3초 이하」와 샷별 비트 상한(1.5초)이 진다.
+       🔴 그래서 38 을 그냥 지우지 않고 **59 로 올린다.** 상한이 없으면 게이트도 없다. */
+    add(totalSec <= 59, '총 길이 59초 이하',
       `${totalSec.toFixed(1)}초 = 자막 ${subSec.toFixed(1)} + 꼬리 ${(SHOT_TAIL * timed.shots.length).toFixed(2)}` +
-      ` (목표 33~38초 · 이 값이 실제 mp4 길이다)`);
+      ` (상한 59 · 2026-08-12 지시로 33~38 에서 열렸다 · 이 값이 실제 mp4 길이다)`);
     /* 🔄 ADR-V25-17 — **대역은 구조에 종속이다.** ADR-V25-9 의 산식(고정비 최솟값 + 본문
        하한 18)을 그대로 쓰되 고정비가 구조마다 다르다:
          구 구조 = 15.7 + 18 ≈ 33   /   신 구조 = 12.7 + 18 ≈ 31
@@ -576,6 +582,10 @@ if (timed) {
 /* ── B. 실제 프레임 (헤드리스에서 그려 보고 판정) ───── */
 
 const paletteSkip = {}, edgeSkip = {};
+/* 팔레트 3층 표 — blender3d/palette.py 가 구운 것이다(표는 거기 하나뿐이다).
+   🔴 값을 여기 다시 적지 마라. test_palette 가 구운 것과 파이썬 값을 대조한다. */
+const PAL = JSON.parse(fs.readFileSync(
+  path.join(ROOT, 'blender3d/palette.json'), 'utf8'));
 for (const s of scene.shots) {
   if (s.checks?.palette) paletteSkip[s.id] = s.checks.palette;
   if (s.checks?.edge) edgeSkip[s.id] = s.checks.edge;
@@ -747,6 +757,7 @@ try {
   }
 
   frame = await cdp.evaluate(`(async () => {
+    const PAL = ${JSON.stringify(PAL)};
     const FPS = ${FPS}, N = Math.max(2, Math.floor(window.TOTAL/1000*FPS));
     const per = {};
     let prev = null, prevId = null;
@@ -755,7 +766,7 @@ try {
       const el = document.querySelector('.shot.on');
       const id = el?.dataset.id; if (!id) continue;
       const cv = el.querySelector('canvas');
-      if (!per[id]) per[id] = { frames:0, bad:0, total:0, staticRun:0, maxStatic:0, edgeBot:0, edgeSide:0, edgeSideFrames:0 };
+      if (!per[id]) per[id] = { frames:0, bad:0, total:0, staticRun:0, maxStatic:0, edgeBot:0, edgeSide:0, edgeSideFrames:0, maxMeaning:0, worstMeaning:'' };
       const P = per[id]; P.frames++;
       if (!cv || !cv.width) {
         /* 클립 샷 (롱폼 W5) — 캔버스가 없다. 팔레트·가장자리는 게임 화면의 규격이
@@ -794,7 +805,7 @@ try {
 
          밝기는 알파를 곱해서 낸다. 캔버스가 투명 배경이라 색 채널만 보면 흐릿한 칠도
          255 로 읽혀 움직임이 없는 것처럼 보인다. */
-      let bad = 0, tot = 0;
+      let bad = 0, tot = 0; const hueHits = {};
       const L = new Uint8Array((d.length>>2));
       for (let p = 0; p < d.length; p += 4) {
         const r=d[p], gg=d[p+1], b=d[p+2], a=d[p+3];
@@ -803,30 +814,48 @@ try {
            색이 흔들린다 — 실측으로 (0,255,136,a=12) 이 (0,255,212) 로 읽혔다(색상 152→170).
            검정 위 알파 64 미만은 밝기가 25% 미만이라 색이 뜻을 갖지 못한다. 반올림 잡음을
            위반으로 세면 점검이 늑대 소년이 된다. */
-        if (a < 64) continue;
+        if (a < 120) continue;
         tot++;
         const mx=Math.max(r,gg,b), mn=Math.min(r,gg,b);
-        /* 검정. mx===0 만 거르면 안 된다 — rgb(0,1,0) 같은 값이 채도 1.0 · 색상 120도로
-           계산돼 위반으로 잡힌다(실측: ep00s 한 회차에서 8샷 41만 픽셀). 눈에는 검정이다.
-           최대 채널이 9% 미만이면 색이 아니라 검정으로 본다. */
-        if (mx < 24) continue;
+        /* 🔴 문턱은 **palette.py 값을 쓴다**(satMin 0.25 · lumMin 48). 옛 값(0.14 · 24)을
+           그대로 두면 세계층이 뜻층으로 잡힌다 — 실측으로 흙 지붕(hue 32.7 · 채도 0.21)이
+           **앰버**로, 바닥(hue ~215 · 채도 0.21)이 **한기**로 잡혀 모든 샷이 3색 위반이었다.
+           palette.py 가 earth 를 「색상각이 아니라 **채도로**」 뜻층과 가른 이유가 이것이고,
+           그 값을 여기서 다시 정하면 그 설계가 무효가 된다.
+           🔴 어두운 화소의 채도는 색이 아니라 8비트 반올림 잡음이다 — 그림자 진 지붕
+           (25,21,17)이 채도 0.32 로 앰버가 된다. 밝기로 먼저 거른다. */
+        if (((r*299+gg*587+b*114)/1000) < PAL.lumMin) continue;
         const sat = (mx-mn)/mx;
-        if (sat <= 0.14) continue;                    // 회색 계열 = 검정~흰색 사이
+        if (sat < PAL.satMin) continue;               // 세계층(무채색·earth)은 예산 밖
         let hue;                                      // 0~360
         const c = mx-mn;
         if (mx === r) hue = 60*(((gg-b)/c)%6);
         else if (mx === gg) hue = 60*(((b-r)/c)+2);
         else hue = 60*(((r-gg)/c)+4);
         if (hue < 0) hue += 360;
-        /* 🔄 2026-08-12 개정 — 창이 둘이다. 옛 규칙은 강조색이 하나뿐이라
-           「결함」을 그릴 색이 없었다(lib.js PALETTE 주석 참조).
-           🔴 fail 창을 336~6 으로 좁게 잡은 이유: 제품 마크의 주황이 hue 17 이다.
-           창을 주황까지 늘리면 결함의 색과 브랜드 마크가 같은 색이 되고,
-           지금 예외로 선언해 통과시키는 마크가 조용히 규격 안으로 들어와 버린다. */
-        const accent = (hue >= 138 && hue <= 168)     // #00FF88 = 152도 (해결)
-                    || (hue >= 336 || hue <= 6);      // #FF3B5C = 350도 (결함)
-        if (!accent) bad++;
+        /* 🔄 2026-08-13 개정 — **3층 규약**(설계 §2). 옛 규칙은 「강조색 둘 말고는 전부
+           위반」이었는데, 그건 어두운 배경 위 평면 도형판의 것이다. 3D 는 세계층이
+           색을 가지므로 그 규칙이면 모든 프레임이 위반이다(실측 SH 2.8% ~ SO 13.1%).
+           🔴 게이트를 없애지 않고 **재는 것을 바꿨다**(설계 §8):
+              · 세계층(무채색·earth) — 예산 밖. 채도·명도로 갈린다
+              · 뜻층 다섯 — **한 프레임에 둘까지.** 이것이 유일한 방어선이다
+              · 계기층 시안 — 공중 전용이라 예산 밖
+              · 어느 층에도 없는 유채색 = 뜻 없는 색 → 위반
+           🔴 표는 blender3d/palette.py 하나뿐이고, 이 값들은 거기서 구운 palette.json 이다. */
+        let named = '';
+        for (const k in PAL.hues) {
+          const dh = Math.abs(((hue - PAL.hues[k] + 180) % 360) - 180);
+          if (dh <= PAL.hueTol) { named = k; break; }
+        }
+        if (!named) { bad++; continue; }              // 뜻 없는 색
+        if (PAL.meaning.includes(named)) hueHits[named] = (hueHits[named] || 0) + 1;
       }
+      /* 「떴다」는 화면의 minHueFrac 이상을 덮은 것이다. 안티에일리어싱 경계에는 두 색의
+         중간값이 반드시 남는다 — 한 화소도 위반으로 세면 게이트가 늑대 소년이 된다. */
+      let nMean = 0, seen = [];
+      for (const k in hueHits) if (hueHits[k] >= tot * PAL.minHueFrac) { nMean++; seen.push(k); }
+      if (nMean > PAL.maxMeaningPerFrame && nMean > P.maxMeaning) P.worstMeaning = seen.join('+');
+      P.maxMeaning = Math.max(P.maxMeaning, nMean);
       P.bad += bad; P.total += tot;
 
       /* 가장자리에 칠이 닿는가 = 밖으로 나간 것이 잘린 흔적.
@@ -908,14 +937,23 @@ try {
 if (frame) {
   const rows = Object.entries(frame.per);
 
-  const violations = rows
+  /* 팔레트 3층 (설계 §2) — 문이 둘이다.
+     ① 뜻 없는 색: 어느 층에도 없는 유채색. 중구난방은 색이 많아서가 아니라 규칙이 없어서 생긴다
+     ② 뜻층 초과: 한 프레임에 유채색 셋 이상. **이것이 유일한 방어선이다** */
+  const strays = rows
     .filter(([id]) => !paletteSkip[id])
     .map(([id, v]) => ({ id, pct: v.total ? v.bad / v.total * 100 : 0 }))
     .filter(v => v.pct > 0.05);
-  add(violations.length === 0, '팔레트 (해결·결함 2강조)',
-    violations.length
-      ? violations.map(v => `${v.id} ${v.pct.toFixed(2)}%`).join(', ')
+  add(strays.length === 0, '팔레트 3층 · 뜻 없는 색 없음',
+    strays.length
+      ? strays.map(v => `${v.id} ${v.pct.toFixed(2)}%`).join(', ')
       : `위반 없음` + (Object.keys(paletteSkip).length ? ` (선언 예외: ${Object.entries(paletteSkip).map(([k, r]) => `${k}=${r}`).join(', ')})` : ''));
+
+  const over = rows.filter(([id, v]) => !paletteSkip[id] && v.maxMeaning > PAL.maxMeaningPerFrame);
+  add(over.length === 0, `팔레트 3층 · 뜻층 한 프레임 ${PAL.maxMeaningPerFrame}색 이하`,
+    over.length
+      ? over.map(([id, v]) => `${id} ${v.maxMeaning}색 (${v.worstMeaning})`).join(', ')
+      : `최대 ${Math.max(...rows.map(([, v]) => v.maxMeaning))}색 · 계기층 시안은 예산 밖`);
 
   const stat = rows.filter(([, v]) => v.maxStaticSec > 3.0);
   add(stat.length === 0, '정적 구간 3초 이하',

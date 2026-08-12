@@ -16,8 +16,14 @@ MODEL = os.path.join(SV_ROOT, 'blender', 'Shorts.blend')
 MODEL_OBJ = 'geometry_0'
 OUT_ROOT = os.environ.get('SCENE_3D_ROOT', r'D:\AI_GOAP-videos\3d')
 
-# 쇼츠 1920 중 자막·HUD 를 뺀 안전 띠(y 420~1266). 엔진은 이 그림을 y=420 에 그대로 놓는다.
-BAND_W, BAND_H, BAND_Y = 1080, 846, 420
+# 엔진 `.vis` 상자와 **정확히 같은 크기**여야 한다 — 그 안에 그려야 check.mjs 게이트가 산다.
+# 🔴 1080 이 아니다. 계획 문서가 「쇼츠 폭 그대로」로 적어 뒀는데 실측이 다르다:
+#    무대 CSS 폭 392 × deviceScaleFactor 2.7551 = 1080 이고, `.vis` 는 좌우 20px 여백이
+#    있어 352 CSS = **970** device px 다(style.css:75). 세로는 21.875%~65.9375% = 846 ✓.
+#    1080 으로 구우면 `.vis` 에 넣을 때 좌우가 잘리거나 위아래에 빈 띠가 생긴다.
+# 🔑 폭만 줄면 블렌더 sensor fit 이 AUTO 라 **가로 화각은 그대로**고 세로가 넓어진다 —
+#    지금까지 맞춰 둔 가로 구도는 하나도 안 잘린다.
+BAND_W, BAND_H, BAND_Y = 970, 846, 420
 
 # 🔑 조정 손잡이 둘.
 #    EXPOSURE — 인물의 밝은 면이 sRGB 0.85 근처에 앉는 값. 실측 215/255, 클리핑 0px.

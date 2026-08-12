@@ -1,6 +1,7 @@
 # Memory Index
 
 ## 판정 원칙
+- [🧱 그림은 3D 월드에서 그린다 — 「밋밋하다」는 거의 항상 **그림 어휘** 문제다](../scene-writer/project_3d_world_and_ref_pipeline.md) — 판정은 **자막 가린 프레임**부터(거짓 `reads` 를 실제로 재는 법) · 사람은 **8두신 + 두 마디 관절** · 파낸 홈은 `destination-out` · 🔴 되돌린 것 셋(촬영박자 양자화=렉 · 반전플래시/집중선=눈아픔 · 2D확대로 원근 흉내) · 레퍼런스는 `refs.mjs` 로
 - [반려 근거의 등급](feedback_verdict_evidence_grades.md) — 미검증 의견·폐기된 옛 규격으로는 반려하지 않는다. 승인은 조건 넷으로만 가른다
 - [사실 대조의 함정 2종](project_factcheck_gotchas.md) — 인용문 grep 0 은 태그 분절일 수 있다 · 「안 그렸다」는 값은 사유 문장 말고 렌더 경로로 판정
 - [게이트의 사각지대](project_gate_metric_gaps.md) — 「총 길이」 꼬리 누락은 해결됨. 카드에 먹힌 그림·이른 효과음·거짓 `reads`·구도 중복은 여전히 못 본다

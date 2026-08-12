@@ -278,6 +278,47 @@ namespace AIVillage.Tests.EditMode
             }
         }
 
+        // ── T7: 장식이 자원 흉내를 내지 않는가 (M29-3차) ─────────────────────────
+
+        [Test]
+        public void M29_T7_Decor_NeverLooksLikeAResource()
+        {
+            // 🔴 실제로 밟을 뻔한 자리 (2026-08-12): 암반 장식으로 회색 바위를 고르려다 보니
+            //    그 그림들이 **돌 노드가 이미 쓰는 칸**이었다 (둘 다 Outdoor_Decor 시트).
+            //    장식은 판정이 없으므로, 자원과 같은 그림이면 플레이어는 캘 수 없는 돌을 보게 된다.
+            var cfg = Load<ResourceNodeSpawnConfig>(
+                "Assets/ResourceNodeSpawnConfig/ResourceNodeSpawnConfig.asset");
+            var resourceArt = new HashSet<Sprite>();
+            foreach (ResourceTypeSpawnData d in cfg.resourceTypes)
+            {
+                if (d.nodeSprite != null) resourceArt.Add(d.nodeSprite);
+                if (d.depletedSprite != null) resourceArt.Add(d.depletedSprite);
+                if (d.nodeSpriteVariants != null) foreach (Sprite s in d.nodeSpriteVariants) if (s != null) resourceArt.Add(s);
+                if (d.depletedSpriteVariants != null) foreach (Sprite s in d.depletedSpriteVariants) if (s != null) resourceArt.Add(s);
+            }
+            Assert.Greater(resourceArt.Count, 0, "배포 자원에 그림이 없다 — 이 검사는 빈 검사다");
+
+            int decorTotal = 0;
+            foreach (string guid in AssetDatabase.FindAssets("t:TerrainTypeSO", new[] { "Assets/M0Config/Terrain" }))
+            {
+                var t = AssetDatabase.LoadAssetAtPath<TerrainTypeSO>(AssetDatabase.GUIDToAssetPath(guid));
+                if (t == null || t.DecorSprites == null) continue;
+                foreach (Sprite s in t.DecorSprites)
+                {
+                    if (s == null) continue;
+                    decorTotal++;
+                    Assert.IsFalse(resourceArt.Contains(s),
+                        $"{t.name}의 장식 '{s.name}'이 자원 노드 그림과 같다 — " +
+                        "플레이어가 캘 수 없는 가짜 자원을 보게 된다 (장식에는 판정이 없다)");
+                }
+                if (t.DecorSprites.Length > 0)
+                    Assert.Greater(t.DecorPerTile, 0f,
+                        $"{t.name}: 장식 그림은 꽂혀 있는데 밀도가 0 — 아무 데도 안 선다 (배선 실수)");
+            }
+            Assert.Greater(decorTotal, 0,
+                "배포 지형에 장식이 하나도 없다 — 색만 다른 타일로 돌아갔다 (2026-08-12 Play 지적)");
+        }
+
         // ── T5: 결정성 (ADR-T-5 · ADR-M10R-2) ───────────────────────────────────
 
         [Test]

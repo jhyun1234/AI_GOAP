@@ -21,3 +21,12 @@ MonoBehaviour:
   MoveSpeedMult: 1
   GroundColor: {r: 0.3, g: 0.28, b: 0.34, a: 1}
   NodeDensityMult: 0.2
+  DecorSprites:
+  - {fileID: -1638258483, guid: d6212d460f9976548b8df1857bb12a2b, type: 3}
+  - {fileID: 2016072756, guid: d6212d460f9976548b8df1857bb12a2b, type: 3}
+  - {fileID: 805583041, guid: d6212d460f9976548b8df1857bb12a2b, type: 3}
+  - {fileID: 181230984, guid: d6212d460f9976548b8df1857bb12a2b, type: 3}
+  - {fileID: 1549824643, guid: d6212d460f9976548b8df1857bb12a2b, type: 3}
+  - {fileID: -609426133, guid: d6212d460f9976548b8df1857bb12a2b, type: 3}
+  DecorPerTile: 0.4
+  DecorSize: 0.95

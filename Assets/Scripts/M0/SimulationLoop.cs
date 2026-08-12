@@ -1477,6 +1477,16 @@ namespace AIVillage.M0
             Debug.Log($"[M0Sim] 시작 — 노드 {Discovery.Nodes.Count}개, " +
                       $"Wood {World.GetStock(SlotId.WoodStock)}, RawFood {World.GetStock(SlotId.RawFoodStock)}");
 
+            // 지형 장식 (M29-3차) — 노드가 다 선 **뒤에** 만든다: 장식은 노드가 선 칸을 비워야 하고,
+            // 그 목록은 스폰이 끝나야 안다. 지형이 없는 판이면 안 만든다 (중립 불변식).
+            if (!Terrain.IsEmpty)
+            {
+                var takenTiles = new HashSet<Vector2Int>();
+                foreach (ResourceNode n in Discovery.Nodes) takenTiles.Add(new Vector2Int(n.TileX, n.TileY));
+                TerrainDecorRenderer.Create(transform, Terrain, (uint)RunSeed,
+                    tile => takenTiles.Contains(tile) || Construction.HasBuildingAt(tile.x, tile.y));
+            }
+
             // 씬 배선 없음 — BuildingVisualizer 패턴 (M6-C). 관계·소유·부탁 참조는 표기 전용 (M8-B/C/후속)
             Hud = new SeasonHud(transform, _bubbleFont, Relationship, _worldConfig, Ownership, Requests,
                                 HomeStorage, Chronicle, // 집 저장 표기 (M11-A) + 연대기 (M13-C2)

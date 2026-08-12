@@ -140,6 +140,25 @@ def light_camera(col=None, res=(BAND_W, BAND_H)):
     return cam
 
 
+# 키라이트를 **카메라 기준**으로 돌리는 값. 승인된 판(훅 5비트)에서 역산했다 —
+# 그 판은 시선 방위 29.3° 에 태양 Z 가 -38° 였다. 즉 태양은 카메라 축에서 23° 옆, 고도 46°
+# 의 거의 정면광이고, 그래서 인물의 밝은 면이 카메라를 본다.
+KEY_ELEV, KEY_REL = 46, -67.3
+
+
+def key_from_view(loc, at):
+    """키라이트를 이 샷의 카메라에 맞춰 돌린다. **샷마다 한 번** 부른다.
+
+    🔴 예전에는 태양 방위가 월드 좌표에 박혀 있었다. 카메라나 인물을 반대쪽으로 돌리는
+       순간 인물이 통째로 역광이 된다 — 주민을 마을 안쪽으로 돌려세운 판에서 실제로 그랬다.
+       조명이 좋은 각도인지는 **화면** 문제인데 월드 각도로 적으면 언젠가 반드시 어긋난다.
+    🔴 매 프레임 부르지 마라. 카메라가 팬하는 동안 그림자가 같이 돌면 해가 움직여 보인다.
+    🔑 노출은 안 건드린다. 키라이트가 SUN 이라 방향만 바뀌고 광량은 그대로다."""
+    view_az = math.degrees(math.atan2(at[1] - loc[1], at[0] - loc[0]))
+    bpy.data.objects['key'].rotation_euler = (
+        math.radians(KEY_ELEV), 0, math.radians(view_az + KEY_REL))
+
+
 def aim(cam, loc, at):
     cam.location = loc
     cam.rotation_euler = (Vector(at) - Vector(loc)).to_track_quat('-Z', 'Y').to_euler()

@@ -39,6 +39,9 @@ bpy.ops.wm.read_factory_settings(use_empty=True)
 v = village.build()
 arms = unison.place()
 cam = stage.light_camera()
+# 🔴 훅과 **같은 빛**이어야 한다. 착지하는 자리(HOOK_CAM)로 키라이트를 맞춘다 — 두 샷이
+#    다른 태양 방위를 쓰면 컷 없이 이어지는 그 순간 밝기가 튄다.
+stage.key_from_view(*unison.HOOK_CAM)
 
 # 코드 획 — 초록. 땅을 가로지르며 **지나간 자리에서** 마을이 솟는다
 sweep_mat = stage.meaning_mat('green', strength=1.0)

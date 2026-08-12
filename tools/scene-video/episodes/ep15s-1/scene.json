@@ -124,9 +124,9 @@
       },
       "lines": [
         {
-          "text": "밭에 가는 때도,\n여가도 똑같고요.",
-          "say": "밭에 가는 때도 여가도 똑같고요.",
-          "en": "Same timing going to the fields,\nsame amount of leisure.",
+          "text": "밭에 가는 때도,\n불 쬐는 때도 똑같고요.",
+          "say": "밭에 가는 때도 불 쬐는 때도 똑같고요.",
+          "en": "Same time in the field.\nSame time by the fire.",
           "pauseAfter": 120
         },
         {
@@ -167,9 +167,9 @@
           "pauseAfter": 120
         },
         {
-          "text": "여섯이 다 값을 가진 건\n하나였고요.",
-          "say": "여섯이 다 값을 가진 건 하나였고요.",
-          "en": "And only one of those three\nhad a value for all six.",
+          "text": "여섯이 다 걸린 건\n하나뿐이었고요.",
+          "say": "여섯이 다 걸린 건 하나뿐이었고요.",
+          "en": "Only one had all six attached.\nJust one.",
           "pauseAfter": 160
         }
       ],
@@ -205,15 +205,15 @@
       },
       "lines": [
         {
-          "text": "손으로 180칸 채우다,\n36줄로 바꿨어요.",
-          "say": "손으로 백여든 칸 채우다 서른여섯 줄로 바꿨어요.",
-          "en": "I was filling 180 cells by hand.\nNow I write 36 rows.",
+          "text": "제가 채우던 걸\n다섯 분의 일로 줄였어요.",
+          "say": "제가 채우던 걸 다섯 분의 일로 줄였어요.",
+          "en": "I cut what I fill by hand\ndown to a fifth.",
           "pauseAfter": 120
         },
         {
-          "text": "곱하는 건 코드가 하고요.\n열다섯 쌍이 갈렸죠.",
-          "say": "곱하는 건 코드가 하고요. 열다섯 쌍이 갈렸죠.",
-          "en": "The code does the multiplying.\nAll fifteen pairs came out different.",
+          "text": "나머지는 코드가 채우고요.\n여섯이 드디어 갈라졌어요.",
+          "say": "나머지는 코드가 채우고요. 여섯이 드디어 갈라졌어요.",
+          "en": "The code fills the rest.\nAt last the six came apart.",
           "pauseAfter": 150
         }
       ],

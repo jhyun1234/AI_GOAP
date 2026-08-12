@@ -527,6 +527,52 @@ if (timed) {
     ` · 실측 오차 ±2.0초 — notes.길이 는 이 값을 인용할 것`);
 }
 
+/* ── A-2. 동작 레퍼런스 대조 (2026-08-12 신설) ────────
+   🔴 계기: ep16s-1 의 훅이 `reads` 에 「걸어와」라고 적어 놓고 **다리를 세워 둔 채** 게이트
+      33종을 전부 통과했다. 대본이 약속한 동작과 그림이 하는 동작을 나란히 놓고 본 게이트가
+      하나도 없었기 때문이다. 사용자 판정 여섯 번 중 다섯 번 「밋밋하다」의 진짜 원인이
+      카메라·컷·이펙트가 아니라 **그리는 대상 자체**였던 것과 같은 자리다(3D_전환_인계 §1).
+
+   판정은 `refs.mjs plan` 이 낸 `notes/refs.json` 을 읽어서 한다. 네트워크를 안 탄다 —
+   받는 것은 plan 의 몫이고 여기서는 그 결과만 본다.
+   🔴 **3D 어휘를 쓰는 회차(`kinds/_world.js` 가 있는 회차)에만 건다.** 옛 45편은 사람이
+      아예 없거나 옛 어휘라 여기서 걸면 전부 빨간불이 되고, 그러면 아무도 안 본다. */
+{
+  const epDir = path.join(ROOT, 'episodes', EP);
+  const is3D = fs.existsSync(path.join(epDir, 'kinds', '_world.js'));
+  const refsPath = path.join(epDir, 'notes', 'refs.json');
+  if (is3D) {
+    if (!fs.existsSync(refsPath)) {
+      add(false, '동작 레퍼런스 대조', `notes/refs.json 이 없다 — \`node tools/scene-video/refs.mjs plan ${EP}\` 를 먼저 돌려라`);
+    } else {
+      const R = JSON.parse(fs.readFileSync(refsPath, 'utf8'));
+      const scenePath = path.join(epDir, 'scene.json');
+      const fresh = Math.abs((R.sceneMtime ?? 0) - fs.statSync(scenePath).mtimeMs) < 1;
+      add(fresh, '동작 대조가 최신',
+        fresh ? `plan ${new Date(R.at).toISOString().slice(0, 16)}`
+          : `scene.json 이 plan 뒤에 바뀌었다 — refs.mjs plan ${EP} 를 다시 돌려라`);
+      add(R.gaps.length === 0, '선언한 동작을 그림이 한다',
+        R.gaps.length
+          ? R.gaps.map(g => `${g.id}(${g.kind}) → ${g.missing.join(', ')} 없음`).join(', ')
+          : (R.tags.length ? `${R.tags.join(', ')} 일치` : '사람 동작 선언 없음'));
+      add((R.hinted ?? []).length === 0, '선언 누락 의심 없음',
+        (R.hinted ?? []).length
+          ? (R.hinted).map(s => `${s.id} → reads 가 ${s.hints.join(',')}`).join(', ') + ' (사람이 아니면 무시)'
+          : '없음', 'warn');
+      add((R.missingRefs ?? []).length === 0, '동작 레퍼런스 보유',
+        (R.missingRefs ?? []).length ? `${R.missingRefs.join(', ')} 를 아직 안 받았다` : '전부 있음', 'warn');
+      /* 홀드는 **경고로만** 둔다. 우리 4.57초 vs 레퍼런스 1.18초는 사실이지만, 이걸 fail 로
+         걸면 회차가 통째로 멈추고 그때 사람이 손대는 것은 박자 양자화다 — 이미 렉으로
+         읽혀 되돌린 길이다(3D_전환_인계 §3). 좁힐 곳은 사건 밀도다. */
+      if (R.ours && (R.pacing ?? []).length) {
+        const med = [...R.pacing.map(p => p.holdMax)].sort((a, b) => a - b)[R.pacing.length >> 1];
+        add(R.ours.holdMax <= med * 2, '홀드 최장 (리듬 레퍼런스 대비)',
+          `우리 ${R.ours.holdMax}초 / 레퍼런스 중앙 ${med}초`, 'warn');
+      }
+    }
+  }
+}
+
 /* ── B. 실제 프레임 (헤드리스에서 그려 보고 판정) ───── */
 
 const paletteSkip = {}, edgeSkip = {};

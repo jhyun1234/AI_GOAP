@@ -641,6 +641,18 @@ if (stale && !SKIP_RENDER) run(process.execPath, [path.join(ROOT, 'render.mjs'),
 else console.log(stale ? '영상     낡았지만 --skip-render 로 건너뜀' : '영상     최신 — 건너뜀');
 if (!fs.existsSync(mp4)) { console.error('🔴 mp4 가 없다'); process.exit(1); }
 
+/* ── 2.4 동작 레퍼런스 대조 (2026-08-12 신설) ─────
+   `check.mjs` 의 동작 게이트가 읽는 `notes/refs.json` 을 여기서 만든다. 렌더 **뒤**에
+   도는 이유: 우리 회차 실측이 build/video.mp4 를 읽기 때문이다.
+   🔴 여기서 죽이지 않는다 — 판정은 게이트가 한다. 이 단계가 하는 일은 「최신 대조를
+      만들어 두는 것」뿐이고, yt-dlp 가 없는 기계에서도 파이프라인은 계속 가야 한다
+      (레퍼런스를 못 받으면 게이트가 경고로 말한다). */
+{
+  const r = spawnSync(process.execPath, [path.join(ROOT, 'refs.mjs'), 'plan', EP],
+    { cwd: path.dirname(ROOT), encoding: 'utf8' });
+  process.stdout.write((r.stdout || '') + (r.stderr || ''));
+}
+
 /* ── 2.5 가이드 점검 ─────────────────────────────
    실패하면 규칙을 어긴 영상을 올리지 않는다. 다만 루틴에서는 그냥 죽지 않고
    **에이전트에게 되돌려 한 번 고치게 한다** — 무인이면 여기서 멈추는 게 곧 "그 회차 없음"이다.

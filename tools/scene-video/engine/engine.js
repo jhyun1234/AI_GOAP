@@ -202,7 +202,10 @@ function buildTimeline(timed) {
     });
     const dur = (ls.at(-1).t + ls.at(-1).dur) - ls[0].t + SHOT_TAIL * 1000;
     // 샷 시작 기준 상대 시각 — kind 가 "몇 번째 자막이 말해질 때" 를 알 수 있게 한다
-    const rel = ls.map(l => ({ t: (l.t - ls[0].t) / 1000, dur: l.dur / 1000 }));
+    // text 도 함께 준다 — 2026-08-12. 몸짓을 **말의 종류**에서 뽑기 때문이다(figure.js
+    // gestureOf: 물음표면 갸웃, 느낌표면 번쩍). 문장을 안 주면 kind 가 shot.lines 로
+    // 우회해야 하는데 그쪽은 ms 라 단위가 갈린다 — 갈린 단위는 반드시 한쪽에서 틀린다.
+    const rel = ls.map(l => ({ t: (l.t - ls[0].t) / 1000, dur: l.dur / 1000, text: l.text }));
     shots.push({ ...s, i: si, t: ls[0].t, dur, lines: ls, rel });
     t = ls[0].t + dur;
   });

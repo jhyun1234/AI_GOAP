@@ -20,14 +20,20 @@ MonoBehaviour:
   HeightLevel: 1
   EnterCost: 1
   MoveSpeedMult: 1
-  GroundColor: {r: 0.15, g: 0.14, b: 0.18, a: 1}
+  GroundColor: {r: 0.2042, g: 0.2471, b: 0.09882, a: 1}
   NodeDensityMult: 1
   DecorSprites:
   - {fileID: 805583041, guid: d6212d460f9976548b8df1857bb12a2b, type: 3}
   - {fileID: 181230984, guid: d6212d460f9976548b8df1857bb12a2b, type: 3}
   DecorPerTile: 0.12
   DecorSize: 0.95
-  EdgeTint: {r: 1, g: 1, b: 1, a: 1}
+  EdgeTiles:
+  - {fileID: 1216005737, guid: 250603647c5b6904abaabe3da2a41610, type: 3}
+  - {fileID: 549624243, guid: 250603647c5b6904abaabe3da2a41610, type: 3}
+  - {fileID: 1237296706, guid: 250603647c5b6904abaabe3da2a41610, type: 3}
+  - {fileID: -1061284340, guid: 250603647c5b6904abaabe3da2a41610, type: 3}
+  EdgeOnSelf: 1
+  EdgeTint: {r: 0.42, g: 0.42, b: 0.42, a: 1}
   WallSprites:
   - {fileID: 1528744760, guid: 250603647c5b6904abaabe3da2a41610, type: 3}
   - {fileID: 50120347, guid: 250603647c5b6904abaabe3da2a41610, type: 3}

@@ -127,6 +127,17 @@ namespace AIVillage.M0
                                         WorldSort.Order(y, WorldSort.Node), ref edges);
                         }
                     }
+                    // ── 남쪽 rim (M31-W3) — 고지 지면이 **제 벽으로 떨어지는 줄** ──
+                    // 🔴 이 줄만 코드가 필요한 이유: 아래 경계 패스는 `nb == t`면 건너뛰는데,
+                    //    여기 경계는 잔디↔절벽이 아니라 **절벽↔제 벽 줄**이라 지형이 같다.
+                    //    이 한 줄이 없으면 고지 지면이 벽 위에서 뚝 끊겨 **구덩이 안쪽**으로 읽힌다
+                    //    (2026-08-12 사용자 Play 지적: *"동굴인가? 이 생각했는데"*).
+                    else if (t.HeightLevel > 0 && _terrain.IsWallRow(x, y - 1)
+                             && t.EdgeTiles != null && t.EdgeTiles.Length >= 4)
+                    {
+                        DrawSurface(x, y, t.EdgeTiles[2], t.EdgeTint, fow, dim,
+                                    WorldSort.Decal - 1, ref edges);
+                    }
                     // ── 기단 잡석 — 벽 **아래** 첫 저지대 칸. 굴러떨어진 돌이라 판정이 없다 ──
                     else if (_terrain.IsWallRow(x, y + 1))
                     {
@@ -146,6 +157,11 @@ namespace AIVillage.M0
                     {
                         TerrainTypeSO nb = _terrain.At(x + DIRS[d].x, y + DIRS[d].y);
                         if (nb == null || nb == t) continue;
+                        // 🔴 M31 W3: 고지대의 테두리는 **높이 변화**를 그린다. 이 줄이 없으면
+                        //    바이옴 경계에서 만난 두 절벽(온대 절벽 ↔ 산능선)이 서로에게 테두리를
+                        //    둘러, 이어진 고원 한가운데 **가짜 벼랑**이 그어진다 (2026-08-12 실측).
+                        //    높이 0끼리(물·잔디)는 옛 규칙 그대로 — 조건이 고지대에만 걸린다.
+                        if (t.HeightLevel > 0 && nb.HeightLevel >= t.HeightLevel) continue;
 
                         // 둘 중 **누구의 조각을 이 타일에 그리는가**: 물가는 자기 몸에(EdgeOnSelf),
                         // 잔디는 낮은 이웃 몸에. 규약이 하나였을 때 호수가 잔디 위로 번졌다.

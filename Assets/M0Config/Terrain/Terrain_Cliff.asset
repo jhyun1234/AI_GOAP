@@ -20,8 +20,14 @@ MonoBehaviour:
   HeightLevel: 1
   EnterCost: 1
   MoveSpeedMult: 1
-  GroundColor: {r: 0.48, g: 0.45, b: 0.42, a: 1}
+  GroundColor: {r: 0.2431, g: 0.5373, b: 0.2824, a: 1}
   NodeDensityMult: 1
+  EdgeTiles:
+  - {fileID: -865124976, guid: 31e6e89d850ade84dbbfaa6529d7405f, type: 3}
+  - {fileID: -1800371604, guid: 31e6e89d850ade84dbbfaa6529d7405f, type: 3}
+  - {fileID: -236485392, guid: 31e6e89d850ade84dbbfaa6529d7405f, type: 3}
+  - {fileID: 1303868960, guid: 31e6e89d850ade84dbbfaa6529d7405f, type: 3}
+  EdgeOnSelf: 1
   EdgeTint: {r: 1, g: 1, b: 1, a: 1}
   WallSprites:
   - {fileID: -1592014877, guid: 31e6e89d850ade84dbbfaa6529d7405f, type: 3}
@@ -34,3 +40,11 @@ MonoBehaviour:
   - {fileID: 754480701, guid: 31e6e89d850ade84dbbfaa6529d7405f, type: 3}
   - {fileID: 132635073, guid: 31e6e89d850ade84dbbfaa6529d7405f, type: 3}
   - {fileID: -276919869, guid: 31e6e89d850ade84dbbfaa6529d7405f, type: 3}
+  DecorSprites:
+  - {fileID: -135988223, guid: 9dd44cf5282ec764a9f2661c1581cdac, type: 3}
+  - {fileID: -352706363, guid: 9dd44cf5282ec764a9f2661c1581cdac, type: 3}
+  - {fileID: 1823798264, guid: 9dd44cf5282ec764a9f2661c1581cdac, type: 3}
+  - {fileID: 55176741, guid: 91c99c336ceaf0f409f4e0f58a883845, type: 3}
+  - {fileID: -1777685462, guid: 91c99c336ceaf0f409f4e0f58a883845, type: 3}
+  DecorPerTile: 0.12
+  DecorSize: 0.8

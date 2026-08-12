@@ -12,8 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a60a4857c6709e04ab56772e48fb1cc9, type: 3}
   m_Name: MapConfig
   m_EditorClassIdentifier: Assembly-CSharp::AIVillage.Core.MapConfig
-  mapSize: 100
-  mapOffset: 50
+  mapSize: 200
+  mapOffset: 100
   chunkSize: 16
   initialRevealRadius: 15
   villagerSightRadius: 7

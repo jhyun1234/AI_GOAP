@@ -89,7 +89,7 @@ MonoBehaviour:
     nodeCountPer10kTiles: 4
     maxAmount: 15
     regenPerDay: 1.2
-    minDistanceFromBase: 40
+    minDistanceFromBase: 80
     maxDistanceFromBase: 0
     allowedTerrain:
     - {fileID: 11400000, guid: 14840697d4ee94347a1ce754ccf89a55, type: 2}

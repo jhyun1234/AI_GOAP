@@ -240,7 +240,10 @@ namespace AIVillage.Tests.EditMode
                     if (a1.At(x, y) == b.At(x, y)) same++; else diff++;
                 }
 
-            Assert.AreEqual(10000, total, "전수 검사 대상이 10,000칸이 아니다 — 맵 범위 전제가 달라졌다");
+            // (M28-W3 개정: 舊 리터럴 10000은 "맵 전제 변경 감지기"였다 — 맵 크기가 변수가 된
+            //  지금은 정합 감시를 M28_T3(mapOffset·MapQuad 짝)이 맡고, 여기는 산식으로 잰다.)
+            Assert.AreEqual((maxX - minX + 1) * (maxY - minY + 1), total,
+                "전수 검사가 맵 전체를 덮지 않았다 — 루프 범위와 MapBounds가 어긋났다");
             // 실패 가능성 증명 — 시드가 다르면 **실제로 달라진다** (안 달라지면 시드가 안 먹는 것).
             Assert.Greater(diff, total / 20,
                 $"시드를 바꿨는데 다른 칸이 {diff}칸뿐 — 판마다 다른 지형이 아니다");

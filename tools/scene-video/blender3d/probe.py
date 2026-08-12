@@ -23,6 +23,12 @@ HUE_TOL = palette.HUE_TOL
 SAT_MIN = palette.SAT_MIN
 LUM_MIN = palette.LUM_MIN
 ALPHA_MIN = 120
+# 🔴 화면의 이만큼은 덮어야 「그 색이 떴다」로 친다.
+#    채도·명도로 걸러도 안티에일리어싱 경계에는 두 색의 중간값이 반드시 남는다. 계기층
+#    시안(189°)이 어두운 바닥과 섞이면 한기(217°) 대역으로 밀리는데, 본문2 실측이
+#    한기 372px(0.04%) 대 진짜 보라 3,935px(0.43%) 였다 — 한 화소도 위반으로 세면
+#    「이 프레임에 위험색이 떴다」가 매번 거짓으로 뜨고, 그러면 게이트를 아무도 안 믿는다.
+MIN_HUE_FRAC = 0.001
 BRIGHT_MIN = 90        # 지면보다 밝은 것 = 세워진 것
 
 
@@ -95,7 +101,13 @@ def metrics(path, step=1):
                 break
     seen = max(1, (n + step - 1) // step)
     return {'alpha_cover': opaque / seen, 'peak_lum': peak, 'bright_px': bright,
-            'chroma_hues': set(hues), 'chroma_px': hues, 'instrument_px': instrument}
+            'chroma_hues': significant(hues, seen), 'chroma_px': hues,
+            'instrument_px': instrument}
+
+
+def significant(counts, seen):
+    """경계 잡음을 뺀 「진짜 뜬 색」. `chroma_px` 에는 날것이 그대로 남아 있다."""
+    return {name for name, px in counts.items() if px >= seen * MIN_HUE_FRAC}
 
 
 def frame_diff(a, b, step=1):

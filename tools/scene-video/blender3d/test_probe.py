@@ -31,6 +31,17 @@ def test_step_sampling_agrees_with_full_scan():
     assert abs(full['alpha_cover'] - fast['alpha_cover']) < 0.03
 
 
+def test_a_handful_of_edge_pixels_is_not_a_colour():
+    """🔴 안티에일리어싱 경계는 위반이 아니다. 계기층 시안이 어두운 바닥과 섞여 한기
+    대역으로 밀린 372 px 을 「위험색이 떴다」로 세면 게이트를 아무도 안 믿게 된다."""
+    seen = 1080 * 846
+    got = probe.significant({'violet': 3935, 'chill': 372, 'amber': 17}, seen)
+    assert got == {'violet'}, got
+    # 진짜 작은 강조는 살아야 한다 — 30×30 px 이면 색이 뜬 것이 맞다
+    assert probe.significant({'green': 900}, seen) == set()
+    assert probe.significant({'green': 1200}, seen) == {'green'}
+
+
 if __name__ == '__main__':
     from _check import run
     run(globals())

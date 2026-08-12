@@ -13,7 +13,49 @@ metadata:
 
 **How to apply:** 기획팀은 새 사이클 시작 시 이 파일의 `latest_commit`을 확인하고, 그 이전(포함) 커밋들은 이미 소재로 소비된 것으로 간주한다. 단, 아래 상태가 `DRAFT`인 경우 실제 공개 게시는 아니었으므로, 같은 소재를 이어서 다룰지/새 소재로 넘어갈지는 그때 기획팀이 판단한다.
 
-## 최신 사용 커밋 (2026-08-10, M19 화폐 전면 철거 — 🔴 2026-08-12 사전점검이 소급 기입)
+## 최신 사용 커밋 (2026-08-12, M20 직업 전면 재점검)
+
+- `latest_commit`: `40b44176` (전체 해시 `40b441769af9c14081fe6702578e4e32326c4c63`,
+  2026-08-05 14:27:53 +0900, `docs(devlog): M20 종료 블록 — 게이트 3차 green·P13/P14 확인·
+  M21 위협 실사` — 기획팀 브리프(`.staging/01_planner_brief.md`)의 `verify_at`과 동일하며
+  commit_refs 중 타임스탬프 기준 가장 최신 커밋. 브리프 주석에 `dce43faa`(14:25)와
+  `40b44176`(14:27) 두 M20 종료 후보 중 더 늦은 쪽을 채택했다고 명시돼 있다.)
+- `selected_commits_range`: `c4c3431`(M19 종료, exclusive — 직전 발행 커밋) ~ `40b44176`
+  (M20 종료) — M20 "직업 전면 재점검" spec+A~13단계 구현+명세 개정 2건+Play 리뷰+종료
+  선언까지 17커밋: `4fce684d`(spec — 부재 장치 헌장·4종 효율 승격·탐험가 휴면·최소 보장
+  삭제) · `facada95`(W1 노동 효율 배율 3종) · `f613c77f`(W2 노동 러너 배선 + 조리 노동
+  플래그) · `7040580c`(W3 전문가 4종 승격 — 농부·요리사·나무꾼·광부) · `26012ab6`(W4
+  탐험가 휴면, 에셋 보존) · `2cfdea59`(W5 목수 최소 보장 삭제 — "목수 없는 판이 존재할
+  수 있어야 한다") · `4760b792`(W6 직업 헌장 박제) · `fc20aa4e`(명세 §9 개정 — Play
+  리뷰① 집 사슬 재조정) · `2cae7020`(W7·W8 집 사슬 재조정) · `24eaae42`(docs devlog Play
+  리뷰② 세션 서술 — 사정거리 실사가 결정을 뒤집은 기록) · `1e572dd0`(W9 집 부탁 철거 —
+  M19 독점 해제의 완결) · `be9c403c`(W10 솜씨 표기) · `5cd4b337`(W11 경험 우회) ·
+  `48b61cb3`(W12 집 부탁 사슬 삭제 — 휴면에서 폐기로) · `656ce1e`(W12 게이트 잔여 red 2건
+  수습 — 이름 grep이 못 찾는 값 기반 게이트) · `9a45279d`(W13 목수 휴면 — 사유화된
+  일회성 효율은 부재 시나리오를 못 쓴다) · `dce43faa`(M20 종료 판정 — 게이트 3차 green +
+  P10~P14 사용자 확인) · `40b44176`(M20 종료 블록 — 게이트 3차 green·P13/P14 확인·M21
+  위협 실사, **latest_commit**). 기획팀 브리프(`.staging/01_planner_brief.md`) commit_refs
+  전체 반영 — 같은 날 16:09 커밋된 `feat(scene-video)` ep06s 대본 관련 3커밋은
+  `tools/scene-video/` 영상 자동화 트랙이라 게임 개발 소재 범위 밖으로 제외.
+- `cycle_date`: 2026-08-12 (마스터 Step 6 2차 APPROVED, 반려 0회 — 정상 승인 경로 완주.
+  게시팀 Step 7이 `.staging/05_final.md`의 title/meta_description/labels/html_content를
+  수정 없이 그대로 정식 공개 발행.)
+- `publish_status`: PUBLISHED (Blogger published: 2026-08-11T23:18:28-07:00, status: LIVE)
+- `blogger_post_id`: 9139247089049724695
+- `blog_url`: https://gamedevclaude.blogspot.com/2026/08/unity-goap-ai-claude-code-ai.html
+- `title`: Unity GOAP AI 인디게임 개발일지 — 목수를 지운 규칙 (Claude Code 게임 개발 AI
+  페어 프로그래밍 후기)
+- `labels`: Unity GOAP AI, 인디게임 개발일지, Claude Code 게임 개발, AI 페어 프로그래밍
+- `local_archive`: tools/blog-automation/published/2026-08-12-unity-goap-m20-carpenter-rule.html
+  (게시 직후 Blogger POST 응답 JSON의 `content` 필드를 게시 직전 임시 파일
+  `_tmp_content.html`과 Python `==` 문자열 완전 비교 및 md5 대조해 완전 일치함을 직접
+  확인(byte-identical, md5 `e46a5d3e75570d24d4751b63acb7258c` 동일, 14,139자, U+FFFD
+  0건). `title` 완전 일치, `labels`(4개, 집합 일치) 확인.)
+- `content_note`: 이 회차는 blog-editor(Step 5)·blog-master(Step 6)를 정상 경유했다
+  (반려 0회). 게시팀은 마스터 2차 승인분(`05_final.md`)을 수정 없이 그대로 게시했다.
+  게시팀 자체 검증(POST 응답 대조)도 독립적으로 완전 일치를 확인했다.
+
+## 이전 사용 커밋 (2026-08-10, M19 화폐 전면 철거 — 🔴 2026-08-12 사전점검이 소급 기입)
 
 🔴 **이 블록은 파이프라인이 스스로 쓰지 못한 것을 사후 복원한 것이다.** 2026-08-10
 원격 run 이 M19 소재로 **Blogger 정식 공개 발행까지 성공했으나 `chore(blog)` 상태 커밋을

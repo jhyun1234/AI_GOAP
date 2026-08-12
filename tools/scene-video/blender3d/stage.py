@@ -1,18 +1,7 @@
 # 3D 무대 조립 — 회차 샷 스크립트가 공통으로 부른다.
 #
-# 여기 있는 상수는 전부 **실측으로 맞춘 값**이다. 눈대중으로 고치지 마라 —
-# 아래 §함정 넷은 전부 한 번씩 실제로 밟은 것이다.
-#
-# ── 함정 넷 (2026-08-12 · ep15s-1 훅에서 전부 밟았다) ──────────────
-# ① GLB 임포트 객체는 `rotation_mode` 가 QUATERNION 이라 `rotation_euler` 가 **무시된다.**
-#    안 바꾸면 인물이 전부 옆을 본 채 렌더된다.
-# ② Blender 5.2 는 `Material.use_nodes` 를 아직 본다(6.0 제거 예정 경고만 뜬다).
-#    안 켜면 노드 트리를 무시하고 **기본 회색 0.8** 로 렌더된다.
-# ③ 바닥을 거의 눕혀서 보면 **스치는 각도의 프레넬 정반사**가 알베도를 압도한다.
-#    알베도를 0.035 까지 떨어뜨려도 바닥이 밝다. `Specular IOR Level = 0` 로 끈다.
-# ④ `view_transform` 이 Standard(롤오프 없음)라 **광량을 올리면 바로 흰색으로 클리핑된다.**
-#    「어두우니 더 밝게」로 올리다 인물이 뭉개지고, 그 상태에서 어두운 바닥이 중간 회색으로
-#    올라온다. 광량은 눈이 아니라 **픽셀을 재서** 맞춘다.
+# 여기 있는 상수는 전부 **실측으로 맞춘 값**이다. 눈대중으로 고치지 마라.
+# 밟은 함정 목록과 그 이유는 README.md 에 있다 — 고치기 전에 읽어라.
 import bpy, math, os, sys
 from mathutils import Vector
 
@@ -31,7 +20,8 @@ OUT_ROOT = os.environ.get('SCENE_3D_ROOT', r'D:\AI_GOAP-videos\3d')
 BAND_W, BAND_H, BAND_Y = 1080, 846, 420
 
 # 🔑 조정 손잡이 둘.
-#    EXPOSURE — 인물의 밝은 면이 sRGB 0.85 근처에 앉는 값. 1.85 에서 실측 218/255, 클리핑 0px.
+#    EXPOSURE — 인물의 밝은 면이 sRGB 0.85 근처에 앉는 값. 실측 215/255, 클리핑 0px.
+#               키라이트가 SUN 이라 **마을 어디에 서 있든 같은 값**이다(아래 light_camera).
 #    LANE_LEVEL — 길 알베도. EXPOSURE 로 나눠 써서 **노출을 바꿔도 길 밝기는 안 변한다.**
 #                 우리 2D 트랙(흰색 12% ≈ sRGB 0.17)과 같은 밝기가 되게 맞춘 값이다.
 EXPOSURE = 1.85
@@ -115,10 +105,21 @@ def light_camera(col=None, res=(BAND_W, BAND_H)):
     col = col or bpy.context.collection
 
     # ── 빛 — 언제나 화면 왼쪽 위(인계 문서 §3) ────────────
+    # 🔴 키라이트는 **SUN 이다.** AREA 로 두면 밝기가 광원까지의 거리에 따라 변해서,
+    #    같은 주민이 마을 어디에 서 있느냐로 밝기가 달라진다. 실제로 훅(광원에서 10.5)에
+    #    맞춰 놓은 노출이 군무 판(8.4)에서 **클리핑**했다. 26×26 짜리 마을을 주민이
+    #    돌아다니는 파이프라인에서 이건 매 샷 다시 맞춰야 하는 함정이다.
+    #    SUN 은 거리 무관이라 한 번 맞추면 어디서나 같다.
+    key = bpy.data.lights.new('key', 'SUN')
+    key.energy = 5.0 * EXPOSURE
+    key.angle = math.radians(9)                    # 그림자 가장자리를 살짝 풀어 준다
+    ko = bpy.data.objects.new('key', key); col.objects.link(ko)
+    ko.rotation_euler = tuple(math.radians(a) for a in (46, 0, -38))
+
+    # 림·필은 자리를 잡아 주는 역할이라 거리 감쇠가 오히려 쓸모 있다 — AREA 로 둔다.
     for name, energy, size, loc, rot in (
-        ('key',  2000 * EXPOSURE, 7,  (-6.0, -5.0, 7.0), (40, 0, -40)),
-        ('rim',   280 * EXPOSURE, 6,  (5.5, 6.0, 3.4),   (108, 0, 150)),
-        ('fill',   80 * EXPOSURE, 10, (4.5, -6.0, 1.8),  (80, 0, 40)),
+        ('rim',  260 * EXPOSURE, 6,  (5.5, 6.0, 3.4),  (108, 0, 150)),
+        ('fill',  70 * EXPOSURE, 10, (4.5, -6.0, 1.8), (80, 0, 40)),
     ):
         d = bpy.data.lights.new(name, 'AREA'); d.energy = energy; d.size = size
         ob = bpy.data.objects.new(name, d); col.objects.link(ob)

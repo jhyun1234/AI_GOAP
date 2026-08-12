@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: AIVillage::AIVillage.M0.BiomeSO
   DisplayName: "\uC628\uB300"
   Palette:
+  - {fileID: 11400000, guid: f5f7b0270f9b40e19ce53f492a5e37b2, type: 2}
   - {fileID: 11400000, guid: e63a67e9d52c16e478fb33d46c1d60cf, type: 2}
   - {fileID: 11400000, guid: 79344c7fc6117084d8993772bdcd6156, type: 2}
   - {fileID: 11400000, guid: 14840697d4ee94347a1ce754ccf89a55, type: 2}

@@ -41,6 +41,9 @@ namespace AIVillage.M0
         private readonly List<SpriteRenderer> _edgePool = new List<SpriteRenderer>();
         private static readonly Vector2Int[] DIRS =    // EdgeTiles 순서와 같다: 위·오른쪽·아래·왼쪽
             { new Vector2Int(0, 1), new Vector2Int(1, 0), new Vector2Int(0, -1), new Vector2Int(-1, 0) };
+        // 모서리 4개가 어느 두 변 사이인가 — CornerTiles 순서(좌상·우상·우하·좌하)와 짝.
+        private static readonly int[] CORNER_SIDES = { 0, 3,   0, 1,   2, 1,   2, 3 };
+        private readonly TerrainTypeSO[] _owners = new TerrainTypeSO[4];   // 방향별 술의 주인 (매 타일 재사용)
         private Camera _cam;
         private Vector3 _lastCamPos = Vector3.positiveInfinity;
         private float _lastCamSize = -1f;
@@ -115,9 +118,16 @@ namespace AIVillage.M0
                     //    땅이라 "벽인데 지나간다"가 된다 (아래 칸으로 내려가는 것은 기단뿐).
                     if (_terrain.IsWallRow(x, y))
                     {
-                        if (t.WallSprites != null && t.WallSprites.Length >= 6)
+                        if (t.WallSprites != null && t.WallSprites.Length >= TerrainService.WALL_ROWS * 3)
                         {
-                            int row  = _terrain.IsWallRow(x, y - 1) ? 0 : 1;   // 아래도 벽 = 내가 윗줄
+                            // 벽 그림의 몇 번째 줄인가 — **아래에 벽이 몇 장 깔렸는지**로 센다.
+                            // 🔑 위에서 안 세는 이유: 띠가 얇아 벽이 다 안 들어갈 때 잘려야 하는 쪽은
+                            //    **위**다. 아래(땅과 만나는 자리)에는 기단이 붙은 마지막 줄이 와야
+                            //    벽 발치가 땅에 앉는다.
+                            int below = 0;
+                            while (below < TerrainService.WALL_ROWS - 1
+                                   && _terrain.IsWallRow(x, y - 1 - below)) below++;
+                            int row  = TerrainService.WALL_ROWS - 1 - below;
                             int side = _terrain.IsWallRow(x - 1, y)
                                      ? (_terrain.IsWallRow(x + 1, y) ? 1 : 2) : 0;
                             // 🔑 **Y 정렬이다** (Decal 아님): 벽은 바닥 데칼이 아니라 서 있는 물건이라,
@@ -153,28 +163,27 @@ namespace AIVillage.M0
 
                     // ── 경계 그림 (M29-4차) — **낮은 쪽 타일에 이웃의 술을 얹는다** ──
                     // 색면 두 개가 계단으로 만나던 자리에 유기적 가장자리가 생긴다.
+                    for (int d = 0; d < DIRS.Length; d++) _owners[d] = EdgeOwner(t, x, y, d);
+
                     for (int d = 0; d < DIRS.Length && edges < MAX_EDGE; d++)
                     {
-                        TerrainTypeSO nb = _terrain.At(x + DIRS[d].x, y + DIRS[d].y);
-                        if (nb == null || nb == t) continue;
-                        // 🔴 M31 W3: 고지대의 테두리는 **높이 변화**를 그린다. 이 줄이 없으면
-                        //    바이옴 경계에서 만난 두 절벽(온대 절벽 ↔ 산능선)이 서로에게 테두리를
-                        //    둘러, 이어진 고원 한가운데 **가짜 벼랑**이 그어진다 (2026-08-12 실측).
-                        //    높이 0끼리(물·잔디)는 옛 규칙 그대로 — 조건이 고지대에만 걸린다.
-                        if (t.HeightLevel > 0 && nb.HeightLevel >= t.HeightLevel) continue;
-
-                        // 둘 중 **누구의 조각을 이 타일에 그리는가**: 물가는 자기 몸에(EdgeOnSelf),
-                        // 잔디는 낮은 이웃 몸에. 규약이 하나였을 때 호수가 잔디 위로 번졌다.
-                        // 🔴 자기 림(EdgeOnSelf)은 **우선순위를 안 본다**: 심층암반은 팔레트
-                        //    폴백이라 Priority가 제일 낮은데, 그 이유로 제 테두리를 못 그리면
-                        //    가장 깊은 곳만 계단으로 남는다 (2026-08-12 실측 — 두 규칙이 부딪힌 자리).
-                        TerrainTypeSO owner = t.EdgeOnSelf ? t
-                                            : (!nb.EdgeOnSelf && nb.Priority > t.Priority ? nb : null);
-                        if (owner == null) continue;
-                        if (owner.EdgeTiles == null || owner.EdgeTiles.Length < 4) continue;
-
+                        TerrainTypeSO owner = _owners[d];
+                        if (owner == null || owner.EdgeTiles == null || owner.EdgeTiles.Length < 4) continue;
                         DrawSurface(x, y, owner.EdgeTiles[d], owner.EdgeTint, fow, dim,
                                     WorldSort.Decal - 1, ref edges);   // 바닥 바로 위·장식 아래
+                    }
+
+                    // ── 모서리 (M31 W3후속) — 이웃한 두 방향의 술이 **같은 주인**이면 잇는다 ──
+                    // 🔴 없으면 가로 술과 세로 술이 모서리에서 만나지 못해 끊겨 보인다
+                    //    (사용자 Play 지적 2026-08-12). 팩엔 처음부터 모서리 조각이 있었고
+                    //    M29 4차가 네 변만 꽂아 뒀다 — 새 문법이 아니라 **안 쓰던 칸**이다.
+                    for (int k = 0; k < 4 && edges < MAX_EDGE; k++)
+                    {
+                        TerrainTypeSO owner = _owners[CORNER_SIDES[k * 2]];
+                        if (owner == null || owner != _owners[CORNER_SIDES[k * 2 + 1]]) continue;
+                        if (owner.CornerTiles == null || owner.CornerTiles.Length < 4) continue;
+                        DrawSurface(x, y, owner.CornerTiles[k], owner.EdgeTint, fow, dim,
+                                    WorldSort.Decal - 1, ref edges);
                     }
 
                     if (t.DecorSprites == null || t.DecorSprites.Length == 0 || t.DecorPerTile <= 0f) continue;
@@ -215,6 +224,22 @@ namespace AIVillage.M0
 
             for (int i = used;  i < _pool.Count;     i++) _pool[i].enabled = false;
             for (int i = edges; i < _edgePool.Count; i++) _edgePool[i].enabled = false;
+        }
+
+        /// <summary>이 타일의 `d`쪽 술을 **누가** 그리는가 — 아무도 아니면 null.
+        /// 물가는 자기 몸에(`EdgeOnSelf`), 잔디는 낮은 이웃 몸에. 규약이 하나였을 때 호수가
+        /// 잔디 위로 번졌다.
+        /// 🔴 자기 림(`EdgeOnSelf`)은 **우선순위를 안 본다**: 심층암반은 팔레트 폴백이라
+        /// Priority가 제일 낮은데, 그 이유로 제 테두리를 못 그리면 가장 깊은 곳만 계단으로 남는다.</summary>
+        private TerrainTypeSO EdgeOwner(TerrainTypeSO t, int x, int y, int d)
+        {
+            TerrainTypeSO nb = _terrain.At(x + DIRS[d].x, y + DIRS[d].y);
+            if (nb == null || nb == t) return null;
+            // 🔴 M31 W3: 고지대의 테두리는 **높이 변화**를 그린다. 이 줄이 없으면 바이옴 경계에서
+            //    만난 두 절벽이 서로에게 테두리를 둘러 이어진 고원 한가운데 가짜 벼랑이 그어진다.
+            if (t.HeightLevel > 0 && nb.HeightLevel >= t.HeightLevel) return null;
+            return t.EdgeOnSelf ? t
+                 : (!nb.EdgeOnSelf && nb.Priority > t.Priority ? nb : null);
         }
 
         /// <summary>1칸짜리 표면 조각 하나 — 경계·벽면·기단이 같은 풀을 쓴다 (그림 크기가 같고

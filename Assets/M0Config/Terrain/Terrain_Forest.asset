@@ -35,3 +35,8 @@ MonoBehaviour:
   - {fileID: -1011045035, guid: 91c99c336ceaf0f409f4e0f58a883845, type: 3}
   DecorPerTile: 0.16
   DecorSize: 0.8
+  CornerTiles:
+  - {fileID: -2083863640, guid: 88dd58a79949d904dac89ebbf4cfe951, type: 3}
+  - {fileID: -2012122833, guid: 88dd58a79949d904dac89ebbf4cfe951, type: 3}
+  - {fileID: 1150385690, guid: 88dd58a79949d904dac89ebbf4cfe951, type: 3}
+  - {fileID: -643976062, guid: 88dd58a79949d904dac89ebbf4cfe951, type: 3}

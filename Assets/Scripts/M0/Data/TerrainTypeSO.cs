@@ -71,6 +71,13 @@ namespace AIVillage.M0
                  "비우면 이 지형은 경계를 안 그린다 = 舊 계단 (중립).")]
         public Sprite[] EdgeTiles;
 
+        [Tooltip("**모서리** 조각 4장 — 순서: 좌상·우상·우하·좌하 (`EdgeTiles`의 짝).\n" +
+                 "🔑 이웃한 두 방향의 술이 **같은 주인**일 때 그 사이를 잇는다. 이게 없으면 " +
+                 "가로 술과 세로 술이 모서리에서 만나지 못해 **끊겨 보인다** " +
+                 "(2026-08-12 사용자 Play 지적: *\"모서리 연결 부분이 미완성인 것 같아, 끊김이 느껴져\"*).\n" +
+                 "비우면 모서리를 안 그린다 = 舊 화면 (중립).")]
+        public Sprite[] CornerTiles;
+
         [Tooltip("경계를 **자기 타일에** 그리는가. 기본 false = 낮은 이웃 위로 흘러넘친다 (잔디).\n" +
                  "true = 물가: 물은 뭍으로 넘치지 않는다 — 물 타일 자신의 가장자리에 둔치를 그린다. " +
                  "(2026-08-12 실측: 물 조각을 뭍에 얹었더니 호수가 잔디 위로 번졌다.)")]
@@ -81,7 +88,8 @@ namespace AIVillage.M0
         public Color EdgeTint = Color.white;
 
         [Header("벽면 (M31-W2 — 절벽을 벽으로 세운다)")]
-        [Tooltip("고지대 남쪽 벽면 조각 **6장** — 순서: 윗줄 좌·중·우, 아랫줄 좌·중·우.\n" +
+        [Tooltip("고지대 남쪽 벽면 조각 — 위에서 아래로 줄마다 좌·중·우 3장씩, " +
+                 "총 `TerrainService.WALL_ROWS × 3`장.\n" +
                  "🔑 조각은 **자기 칸에** 그려진다: 아래 칸에 그리면 그 칸은 걸을 수 있는 땅이라 " +
                  "벽이 공중에 뜬다 (기단 잡석만 아래 칸이다).\n" +
                  "🔑 좌·중·우를 갈라야 벽 끝이 맺힌다 — 가운데 조각만 반복하면 절벽이 상자가 된다.\n" +
@@ -116,6 +124,12 @@ namespace AIVillage.M0
                 Debug.LogWarning($"[TerrainTypeSO] {name}: 고지대(HeightLevel {HeightLevel})인데 Walkable 0 " +
                                  "— 고지대는 **위를 걷는 땅**이고 막는 것은 남쪽 벽 줄뿐입니다 (ADR-M31-2). " +
                                  "Walkable 을 켜세요.", this);
+
+            if (WallSprites != null && WallSprites.Length > 0
+                && WallSprites.Length != TerrainService.WALL_ROWS * 3)
+                Debug.LogWarning($"[TerrainTypeSO] {name}: WallSprites가 {WallSprites.Length}장 — " +
+                                 $"벽은 {TerrainService.WALL_ROWS}줄이라 {TerrainService.WALL_ROWS * 3}장이어야 " +
+                                 "줄마다 좌·중·우가 맞습니다.", this);
         }
     }
 }

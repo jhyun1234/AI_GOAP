@@ -32,15 +32,26 @@ MonoBehaviour:
   - {fileID: 549624243, guid: 250603647c5b6904abaabe3da2a41610, type: 3}
   - {fileID: 1237296706, guid: 250603647c5b6904abaabe3da2a41610, type: 3}
   - {fileID: -1061284340, guid: 250603647c5b6904abaabe3da2a41610, type: 3}
+  CornerTiles:
+  - {fileID: -322219545, guid: 250603647c5b6904abaabe3da2a41610, type: 3}
+  - {fileID: -796002573, guid: 250603647c5b6904abaabe3da2a41610, type: 3}
+  - {fileID: -696530595, guid: 250603647c5b6904abaabe3da2a41610, type: 3}
+  - {fileID: -1739385844, guid: 250603647c5b6904abaabe3da2a41610, type: 3}
   EdgeOnSelf: 1
   EdgeTint: {r: 0.42, g: 0.42, b: 0.42, a: 1}
   WallSprites:
-  - {fileID: 1528744760, guid: 250603647c5b6904abaabe3da2a41610, type: 3}
-  - {fileID: 50120347, guid: 250603647c5b6904abaabe3da2a41610, type: 3}
-  - {fileID: -604753175, guid: 250603647c5b6904abaabe3da2a41610, type: 3}
-  - {fileID: 454731192, guid: 250603647c5b6904abaabe3da2a41610, type: 3}
-  - {fileID: -1453313326, guid: 250603647c5b6904abaabe3da2a41610, type: 3}
-  - {fileID: 2066050258, guid: 250603647c5b6904abaabe3da2a41610, type: 3}
+  - {fileID: 523647189, guid: 250603647c5b6904abaabe3da2a41610, type: 3}
+  - {fileID: -446284084, guid: 250603647c5b6904abaabe3da2a41610, type: 3}
+  - {fileID: 838893314, guid: 250603647c5b6904abaabe3da2a41610, type: 3}
+  - {fileID: -696272798, guid: 250603647c5b6904abaabe3da2a41610, type: 3}
+  - {fileID: 395315884, guid: 250603647c5b6904abaabe3da2a41610, type: 3}
+  - {fileID: -1981182400, guid: 250603647c5b6904abaabe3da2a41610, type: 3}
+  - {fileID: -854325765, guid: 250603647c5b6904abaabe3da2a41610, type: 3}
+  - {fileID: -85106172, guid: 250603647c5b6904abaabe3da2a41610, type: 3}
+  - {fileID: 614475682, guid: 250603647c5b6904abaabe3da2a41610, type: 3}
+  - {fileID: -2067717820, guid: 250603647c5b6904abaabe3da2a41610, type: 3}
+  - {fileID: 1846667045, guid: 250603647c5b6904abaabe3da2a41610, type: 3}
+  - {fileID: 1949885754, guid: 250603647c5b6904abaabe3da2a41610, type: 3}
   BaseSprites:
   - {fileID: -1792927505, guid: 250603647c5b6904abaabe3da2a41610, type: 3}
   - {fileID: 1358290949, guid: 250603647c5b6904abaabe3da2a41610, type: 3}

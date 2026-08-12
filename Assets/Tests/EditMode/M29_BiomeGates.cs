@@ -26,6 +26,9 @@ namespace AIVillage.Tests.EditMode
 
         private static readonly string[] TERRAIN_PALETTE_PATHS =
         {
+            // 🔴 2026-08-12 (M31 W3후속): 흙길 신설 — 이 게이트가 **먼저 잡았다**.
+            //    "온대 팔레트가 흔들리면 알린다"가 이 목록의 일이므로 값만 갱신한다.
+            "Assets/M0Config/Terrain/Terrain_Dirt.asset",
             "Assets/M0Config/Terrain/Terrain_Water.asset",
             "Assets/M0Config/Terrain/Terrain_Cliff.asset",
             "Assets/M0Config/Terrain/Terrain_Swamp.asset",

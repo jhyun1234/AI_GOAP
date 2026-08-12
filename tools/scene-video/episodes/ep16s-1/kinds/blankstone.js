@@ -1,9 +1,11 @@
 import {
   ease, easeOut, clamp, lerp, frac,
-  fitCanvas, mkCanvas, tone, setShadow, clearShadow, GLOW, PALETTE, depthGrad, castShadow, DEPTH, camAt, invertFlash, speedLines
+  fitCanvas, mkCanvas, tone, setShadow, clearShadow, GLOW, DEPTH,
+  project, cam3, invertFlash, speedLines
 } from '../../../engine/lib.js';
 
-/* blankstone — 무덤 일곱이 땅에서 솟는데, 앞의 비석에 파인 **이름 자리가 비어 있다.**
+/* blankstone — **묘지 안을 카메라가 걸어 들어간다.** 비석 일곱이 앞뒤로 흩어져 서 있고,
+   가장 가까운 비석에 파인 이름 자리가 끝까지 비어 있다.
 
    원문 근거:
    > "죽은 자리에는 회색 원이 하나씩 남습니다. 무덤입니다. 그런데 그 원에는 아무것도 안
@@ -11,80 +13,65 @@ import {
    > "화면을 가득 채운 회색 원 일곱 개를 보면서, 저는 그중 누가 제가 아침에 지켜보던
    >  그 주민인지 알 수 없었습니다."
 
-   ── 2026-08-12 개정 v4 (그림 어휘 교체 · 사용자 판정 「뭘 의미하는지 대사를 봐야 안다」)
-   앞선 v1~v3 은 **카메라와 컷만 고쳤고 그림은 그대로 뒀다.** 자막을 가린 프레임을 뽑아
-   보니 화면에 남는 것이 동그라미와 점선 네모뿐이라 아무것도 해독되지 않았다. 셋을 고친다.
+   ── 2026-08-12 개정 v8 (사용자 판정 「2D 에서 움직이고 있다. 3D 로 보이게」) ──────
+   🔴 **화면 좌표를 버리고 월드 좌표(x, y, z)로 놓는다.** 비석 일곱을 지면 위 서로 다른
+      깊이에 세우고, 카메라가 **앞으로 들어가면서 살짝 돈다**(dolly + orbit).
+      전까지의 `camAt` 확대는 그림 전체를 똑같이 키우는 것이라 「가까워졌다」가 아니라
+      「커졌다」로 읽혔다. 깊이는 배율이 아니라 **시차**에서 온다 —
+      카메라가 전진하면 앞 비석은 화면 밖으로 밀려나고 뒤 비석은 천천히 커진다.
+      물체마다 흐르는 속도가 다른 것, 그 하나가 3D 신호의 전부다.
 
-   ① **형상이 그 물건처럼 생겼다.** 동그라미 → **비석**(둥근 윗변 슬래브). 원이 무덤인 것은
-      약속이라 배워야 알지만, 비석은 보면 안다. `DESIGN_GUIDE.md` 1행이 「그림이 곧 설명
-      이다」인데 지금까지 그림은 자막의 각주였다.
-   ② **크다.** 주인공 비석 폭 150 = 캔버스 352 의 **43%**. 가이드가 원형 차트에 요구하는
-      「화면의 40%+」를 처음으로 지킨다. 옛 동그라미는 지름 56 = **16%** 였다.
-      그리고 **채운다** — 윤곽선 3px 은 검정 화면에서 무게가 없다. 실루엣이라야 눈에 걸린다.
-   ③ **사건을 그린다.** 상태를 늘어놓지 않는다. 비석이 **땅에서 솟아 오르며 오버슛하고,
-      착지에서 먼지가 튀고, 마지막 비석에서 방사선이 터진다.** 그 다음 정지한다.
-      🔴 **무한 루프를 걷어냈다.** 숨쉬기(반지름 sin)와 점선 흐름은 `MINIMAL_DESIGN_
-      LANGUAGE:433`(「루프 금지 — 어지러움」) 위반이면서, 동시에 정적 3초 게이트를 넘기려는
-      타협이었다. 그래서 화면이 늘 떨리는데 아무 일도 안 일어났다. 지금은 **사건**이 게이트를
-      넘기고, 사건이 끝난 뒤 남는 것은 이름 자리의 커서 깜빡임 하나뿐이다(1.1초 주기).
-      커서만 남긴 이유: 정적 방지가 필요하고, 그 깜빡임 자체가 「쓸 자리는 있는데 안 쓴다」다.
+   🔑 원근이 붙자 손으로 정하던 것들이 저절로 맞는다:
+      · 크기 위계 — 뒤 비석이 작은 것은 배열에 알파를 적어서가 아니라 **멀어서**다.
+      · 가림 — 깊이 정렬만 하면 앞 비석이 뒤를 덮는다.
+      · 옆면 두께 — 앞면과 뒷면을 각자의 깊이로 던지면 **중앙 왼쪽 비석은 오른쪽 면이,
+        오른쪽 비석은 왼쪽 면이** 저절로 보인다. 손으로 그리면 절대 안 맞던 부분이다.
+      · 그림자 — 지면(y=0) 위의 타원을 같이 던지면 원근이 맞는다.
 
-   🔴 **일곱 개를 다 그린다**(원문 수치). 다만 주인공 하나만 크게 앞에 두고 나머지 여섯은
-      뒤로 작게 겹쳐 세운다 — 일곱을 나란히 그리면 다시 전부 작아진다. 이게 v3 까지의
-      함정이었다: 개수를 지키느라 크기를 잃었다.
-   🔴 색 규약(namefade 에서 세운 것 그대로): 강조색 = 이름, 또는 이름이 들어갈 자리 /
-      흰색 = 무덤. 그래서 이름 자리는 비석을 **파낸 홈**(배경색)이고 그 안의 커서만 강조색이다.
-      한 획도 안 채워진다.
+   🔴 **촬영 박자(on 2s) 는 걷어냈다.** 레퍼런스를 보고 넣었는데 사용자 실물 판정이
+      「렉 걸린 것처럼 버벅거린다」였고, 맞는 말이다. 손그림의 on 2s 는 **한 스텝마다
+      다른 그림**이라 성립한다. 우리는 연속 파라미터를 양자화한 것이라 같은 도형이
+      뚝뚝 끊기고, 그건 프레임 드랍과 구분이 안 된다. **인과를 잘못 짚었다.**
+
+   🔴 색 규약(namefade 에서 세운 것 그대로): 강조색 = 이름이 들어갈 자리 / 흰색 = 무덤.
+      이름 자리는 비석을 **파낸 홈**(destination-out)이고 그 안의 커서만 강조색이다.
+      한 획도 안 채워진다 — 그것이 이 편의 진단이다.
+   🔴 무덤은 **일곱**이다(원문 수치). 깊이로 흩었을 뿐 수는 그대로다.
 
    phase (샷 분할):
-     phase 0 (S1a) = 비석 일곱이 솟는다. 자막 「죽은 자리엔 동그라미가 하나씩 남아요」
-     phase 1 (S1b) = 카메라가 이름 자리로 들어간다. 자막 「무덤인데 아무것도 안 적혀 있었죠」
-     phase 1 에서 비석은 애니메이션 없이 이미 서 있다 — 컷 뒤에 되감으면 앞 샷을 못 본 셈이다.
+     phase 0 (S1a) = 카메라가 묘지로 들어간다. 자막 「죽은 자리엔 동그라미가 하나씩 남아요」
+     phase 1 (S1b) = 앞 비석의 빈 이름 자리로 더 파고든다.
+                     자막 「무덤인데 아무것도 안 적혀 있었죠」
 
    겹침 감사(축 A 강조↔흰 / 축 B 흰↔흰):
-     축 A · 강조색은 이름 자리 안의 커서(x 176±3 · y 154~180)뿐이고, 그 자리는 비석을
-            **파낸 홈**(배경색 121~231 × 150~184) 한가운데다. 홈의 벽(흰 비석)까지
-            좌우 52 · 위아래 4px 이 뜬다. 글로우 8 을 얹으면 위아래가 −4 로 겹치는데,
-            **겹치는 상대가 자기 홈의 벽이라 의도한 쌍**이다(파인 자리 안에서 빛난다).
-     축 B · 흰 글자가 0개다. 흰 실루엣끼리는 뒤 비석이 주인공에 **일부러 가려진다**(원근).
-   세로 예산(캔버스 307): 최저 = 지평선 272 + 먼지 4 = **276**(31px 남음).
-     최고 = 주인공 비석 꼭대기 **87**. 임팩트 방사선은 착지 0.16초 동안만 지평선 둘레
-     70px 까지 뻗는다(202~342 × 202~307 안).
-   가로: 뒤 비석 왼쪽 끝 26−0.30×75 = **3.5** / 오른쪽 끝 **348.5**.
-     🔴 바깥 2px 띠까지 1.5px 이라 가장자리 검사에 걸린다 — 화면 밖으로 이어지는 무리라는
-     뜻이므로 scene.json 에 `checks.edge` 로 선언한다.
+     축 A · 강조색은 앞 비석 이름 자리 안의 커서뿐이고, 그 자리는 비석을 **파낸 홈** 한가운데다.
+            홈의 벽(흰 비석)까지 좌우로 홈 폭의 30%(원근 배율과 무관하게 비율 고정)가 뜬다.
+            글로우가 홈 벽에 닿는데, **겹치는 상대가 자기 홈의 벽이라 의도한 쌍**이다.
+     축 B · 흰 글자가 0개다. 흰 비석끼리는 **깊이로 갈린다** — 겹치면 앞이 뒤를 덮는 것이
+            원근의 정의이고, 이것이 이 그림의 뜻(구별이 안 되는 무리)이다.
+   화면 예산: 카메라가 움직이므로 좌표가 아니라 **카메라 트랙**으로 관리한다.
+     지평선은 언제나 화면 세로 한가운데(z→∞ 에서 배율 0)이고, 자막 안전영역(아래 34%)에는
+     지면만 온다. 앞 비석은 전진 중 화면 좌우로 나간다 → `checks.edge` 선언 대상이다.
 
-   계속 도는 것: **없다**(사건이 끝나면 정지). 커서만 1.1초 주기로 깜빡인다. */
+   계속 도는 것: 카메라가 내내 움직인다(정적 구간이 원리적으로 안 생긴다).
+   그 위에 커서가 1.1초 주기로 깜빡인다. */
 
-const GROUND = 272;                       // 지평선
-const MAIN = { x: 176, w: 128, h: 208 };  // 주인공 비석 — 캔버스 폭의 36%, 높이 68%
-const SLOT = { w: 88, h: 30, dy: 92 };    // 이름 자리(파낸 홈) — 비석 꼭대기에서 dy 아래
-
-/* 뒤 여섯 — [x, 크기배율, 알파]. 바닥을 살짝 올려(258) 뒤에 선 것으로 읽히게 한다.
-   순서는 먼 것부터다(솟는 순서도 이 순서 = 뒤에서 앞으로). */
-const BACK = [
-  [26, 0.30, 0.18], [326, 0.30, 0.18],
-  [62, 0.42, 0.28], [290, 0.42, 0.28],
-  [108, 0.62, 0.42], [244, 0.62, 0.42],
+/* 월드 — [x, z]. 지면은 y=0, 비석은 위로 자란다(y 음수).
+   z 0 이 가장 가깝고, 일곱 번째가 가장 멀다. 좌우를 번갈아 흩어 카메라가 전진할 때
+   양쪽으로 갈라져 흐르게 했다 — 시차가 가장 잘 보이는 배치다. */
+const STONES = [
+  [0, 0], [-132, 96], [142, 108], [-258, 250], [268, 268], [-104, 430], [120, 452],
 ];
-const BACK_GROUND = 258;
+const SW = 68, SH = 104, SD = 26;      // 비석 폭·높이·두께 (월드 단위)
+const SLOT = { w: 0.62, h: 0.20, dy: 0.42 };   // 비석 대비 비율 — 원근이 알아서 줄인다
 
-/** 비석 — 둥근 윗변 슬래브. (x, 바닥 y, 폭, 높이) */
-function stone(ctx, x, y, w, h) {
+/** 둥근 윗변 슬래브 (화면 좌표) */
+function slab(ctx, x, yBase, w, h) {
   const r = w / 2;
   ctx.beginPath();
-  ctx.moveTo(x - r, y);
-  ctx.lineTo(x - r, y - h + r);
-  ctx.arc(x, y - h + r, r, Math.PI, 0);
-  ctx.lineTo(x + r, y);
-  ctx.closePath();
-}
-
-/** 솟아오름 — 착지에서 한 번 넘겼다가 앉는다. 밋밋한 ease 는 '놓였다'로 읽히고,
- *  넘겼다 앉으면 '떨어졌다'로 읽힌다. k 0~1 → 0~1(중간에 1 을 넘는다). */
-function pop(k) {
-  k = clamp(k);
-  return easeOut(k) + 0.18 * Math.sin(Math.PI * k) * (1 - k) * 2;
+  ctx.moveTo(x - r, yBase); ctx.lineTo(x - r, yBase - h + r);
+  ctx.arc(x, yBase - h + r, r, Math.PI, 0);
+  ctx.lineTo(x + r, yBase); ctx.closePath();
 }
 
 export default {
@@ -92,107 +79,98 @@ export default {
 
   draw(root, { spec, t, cue }) {
     const { ctx, w, h } = fitCanvas(root.querySelector('canvas'));
-    camAt(ctx, w, h, spec, t);
 
     const ph = spec.phase ?? 0;
     const c0 = ph === 0 ? cue(0, 0.15, 0.55) : 1;
     if (c0 <= 0.005) return;
+    const cam = cam3(spec.cam3, t);
 
-    /* ── 지평선 ─────────────────────────────────────
-       비석이 '떠 있는 도형'이 아니라 '땅에 박힌 것'으로 읽히게 하는 유일한 선이다. */
-    ctx.save();
-    ctx.globalAlpha = ease(clamp(c0 / 0.15)) * 0.28;
-    ctx.strokeStyle = tone('ink'); ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.moveTo(8, GROUND); ctx.lineTo(344, GROUND); ctx.stroke();
-    ctx.restore();
+    /* ── 지면 ───────────────────────────────────────
+       지평선은 원근상 언제나 화면 한가운데다. 그 아래를 아주 옅게 깔아 「바닥이 있다」만
+       말한다 — 격자를 깔면 배경이 인포그래픽과 경쟁한다(가이드 금지). */
+    /* 🔴 처음엔 지평선에 선을 긋고 아래를 알파 0.16 으로 깔았다. 실물에서 **바닥이 아니라
+       회색 벽**으로 읽혔다 — 위쪽 경계가 너무 또렷하고 면이 평평해서다. 원근이 이미 깊이를
+       말하고 있으므로 지면은 「있다」만 하면 된다. 지평선 쪽을 0 으로 두고 발밑으로 갈수록
+       아주 옅게 밝히면 면이 눕는다. */
+    const hz = h / 2;
+    const gg = ctx.createLinearGradient(0, hz, 0, h);
+    gg.addColorStop(0, 'rgba(255,255,255,0.00)');
+    gg.addColorStop(0.55, 'rgba(255,255,255,0.05)');
+    gg.addColorStop(1, 'rgba(255,255,255,0.10)');
+    ctx.fillStyle = gg;
+    ctx.fillRect(0, hz, w, h - hz);
 
-    /* ── 뒤 여섯 — 먼 것부터 솟는다 ────────────────── */
-    BACK.forEach(([x, sc, alpha], i) => {
-      const k = pop((c0 - i * 0.055) / 0.20);
-      if (k <= 0.01) return;
-      const bw = MAIN.w * sc, bh = MAIN.h * sc;
+    /* ── 비석 일곱 — 먼 것부터(painter) ─────────────
+       각 비석의 앞면·뒷면을 **각자의 깊이로** 던진다. 그래서 옆면 두께가 위치에 따라
+       저절로 달라진다(중앙 왼쪽은 오른쪽 면, 오른쪽은 왼쪽 면). */
+    const drawn = STONES
+      .map(([x, z], i) => ({ x, z, i, F: project(x, 0, z, cam, w, h) }))
+      .filter(o => o.F.d > 14)
+      .sort((a, b) => b.F.d - a.F.d);
+
+    let heroSlot = null;
+    for (const o of drawn) {
+      /* 등장 — 먼 것부터 순서대로 솟는다. phase 1 은 이미 다 서 있다. */
+      const rise = ph === 0
+        ? clamp((c0 - (STONES.length - 1 - o.i) * 0.055) / 0.22)
+        : 1;
+      if (rise <= 0.01) continue;
+      const grow = easeOut(rise);
+
+      const B = project(o.x, 0, o.z + SD, cam, w, h);      // 뒷면 바닥
+      const sw = SW * o.F.s, sh = SH * o.F.s * grow;
+      const bw = SW * B.s, bh = SH * B.s * grow;
+
       ctx.save();
-      ctx.beginPath(); ctx.rect(0, 0, 352, GROUND);   // 땅 밑은 안 보인다
-      ctx.clip();
-      ctx.globalAlpha = alpha;
-      ctx.fillStyle = tone('ink');
-      stone(ctx, x, BACK_GROUND + bh * (1 - k), bw, bh);
+      /* 바닥 그림자 — 지면 위 타원도 같은 원근으로 */
+      ctx.globalAlpha = 0.42;
+      ctx.fillStyle = '#000';
+      ctx.beginPath();
+      ctx.ellipse(o.F.x + (B.x - o.F.x) * 0.5, o.F.y, sw * 0.62, sw * 0.16, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
-    });
 
-    /* ── 주인공 비석 ───────────────────────────────── */
-    const km = pop((c0 - 0.34) / 0.22);
-    if (km > 0.01) {
-      const yb = GROUND + MAIN.h * (1 - km);
+      /* 뒷면 — 어둡게. 앞면이 덮고 남는 띠가 곧 두께다 */
+      ctx.fillStyle = DEPTH[3];
+      slab(ctx, B.x, B.y, bw, bh); ctx.fill();
+
+      /* 앞면 — 가까울수록 밝다. 깊이를 색으로도 한 번 말한다 */
+      const near = clamp((520 - o.F.d) / 420);
+      const g = ctx.createLinearGradient(o.F.x - sw / 2, o.F.y - sh, o.F.x + sw / 2, o.F.y);
+      g.addColorStop(0, near > 0.5 ? '#FFFFFF' : '#D6D6D6');
+      g.addColorStop(1, near > 0.5 ? '#C4C4C4' : '#9A9A9A');
+      ctx.fillStyle = g;
+      slab(ctx, o.F.x, o.F.y, sw, sh); ctx.fill();
+
+      /* 이름 자리 — 파낸 홈. 비율로 잡아 두면 원근이 알아서 줄인다 */
+      const slotW = sw * SLOT.w, slotH = sh * SLOT.h;
+      const slotY = o.F.y - sh + sh * SLOT.dy;
       ctx.save();
-      ctx.beginPath(); ctx.rect(0, 0, 352, GROUND);
-      ctx.clip();
-
-      castShadow(ctx, MAIN.x + 6, yb - 1, MAIN.w * 0.62, 7, 0.42);
-      ctx.fillStyle = DEPTH[3];                       // 옆면 = 두께. 앞면 그라데이션만으로는 종잇조각이다
-      stone(ctx, MAIN.x + 11, yb, MAIN.w, MAIN.h); ctx.fill();
-      ctx.fillStyle = depthGrad(ctx, MAIN.x - MAIN.w / 2, yb - MAIN.h, MAIN.x + MAIN.w / 2, yb, "ink");
-      stone(ctx, MAIN.x, yb, MAIN.w, MAIN.h);
-      ctx.fill();
-
-      /* 이름 자리 — 비석을 **파낸 홈**. 배경색으로 파야 '새길 자리'로 읽힌다.
-         🔴 여기에 글자를 한 획도 안 그린다. 그것이 이 편의 진단이다. */
-      const sy = yb - MAIN.h + SLOT.dy;
       ctx.globalCompositeOperation = 'destination-out';
       ctx.fillStyle = '#000';
-      ctx.fillRect(MAIN.x - SLOT.w / 2, sy, SLOT.w, SLOT.h);
+      ctx.fillRect(o.F.x - slotW / 2, slotY, slotW, slotH);
       ctx.restore();
 
-      /* 커서 — 쓸 자리는 있는데 아무도 안 쓴다. 사건이 끝난 뒤 남는 유일한 움직임이다. */
-      const cur = ease(clamp((c0 - 0.62) / 0.18));
-      if (cur > 0.01) {
-        const on = frac(t / 1.1) < 0.55 ? 1 : 0;
-        if (on) {
-          ctx.save();
-          ctx.globalAlpha = cur * 0.95;
-          setShadow(ctx, GLOW, 10);
-          ctx.fillStyle = tone('accent');
-          ctx.fillRect(MAIN.x - 3, sy + 4, 6, SLOT.h - 8);
-          clearShadow(ctx);
-          ctx.restore();
-        }
-      }
+      if (o.i === 0) heroSlot = { x: o.F.x, y: slotY, w: slotW, h: slotH, rise };
+    }
 
-      /* 착지 임팩트 — 집중선이 화면 끝까지 뻗고, 그 한가운데 2프레임을 **흑백 반전**한다.
-         (레퍼런스 실측: simDdang 검격이 정확히 이 순서다 — 선 → 반전 → 복귀) */
-      const hit = clamp((km - 0.86) / 0.14) * clamp((1.16 - km) / 0.14);
-      if (hit > 0.01) speedLines(ctx, w, h, MAIN.x, GROUND - 40, hit, { n: 22, seed: 31, alpha: 0.55 });
-      invertFlash(ctx, w, h, hit > 0.55);
-      if (hit > 0.01) {
-        ctx.save();
-        ctx.globalAlpha = hit * 0.75;
-        ctx.strokeStyle = tone('ink'); ctx.lineWidth = 4; ctx.lineCap = 'round';
-        for (let i = 0; i < 10; i++) {
-          const a = Math.PI + (i + 0.5) / 10 * Math.PI;      // 위쪽 반원으로만
-          const r0 = 30 + 26 * (1 - hit), r1 = r0 + 34;
-          ctx.beginPath();
-          ctx.moveTo(MAIN.x + Math.cos(a) * r0, GROUND + Math.sin(a) * r0 * 0.55);
-          ctx.lineTo(MAIN.x + Math.cos(a) * r1, GROUND + Math.sin(a) * r1 * 0.55);
-          ctx.stroke();
-        }
-        ctx.restore();
-      }
+    /* ── 앞 비석의 커서 — 쓸 자리는 있는데 아무도 안 쓴다 ── */
+    if (heroSlot && heroSlot.rise > 0.9 && frac(t / 1.1) < 0.55) {
+      ctx.save();
+      setShadow(ctx, GLOW, 10);
+      ctx.fillStyle = tone('accent');
+      ctx.fillRect(heroSlot.x - heroSlot.w * 0.04, heroSlot.y + heroSlot.h * 0.16,
+        heroSlot.w * 0.08, heroSlot.h * 0.68);
+      clearShadow(ctx);
+      ctx.restore();
+    }
 
-      /* 먼지 — 착지 순간 바닥에서 좌우로 퍼진다 */
-      const dust = clamp((km - 0.78) / 0.22) * clamp((1.30 - km) / 0.30);
-      if (dust > 0.01) {
-        ctx.save();
-        ctx.globalAlpha = dust * 0.5;
-        ctx.strokeStyle = tone('ink'); ctx.lineWidth = 3; ctx.lineCap = 'round';
-        for (const s of [-1, 1]) {
-          const x0 = MAIN.x + s * (MAIN.w / 2 + lerp(6, 30, 1 - dust));
-          ctx.beginPath();
-          ctx.moveTo(x0, GROUND - 3);
-          ctx.lineTo(x0 + s * lerp(14, 40, 1 - dust), GROUND - 8);
-          ctx.stroke();
-        }
-        ctx.restore();
+    /* ── 앞 비석이 자리를 잡는 순간의 임팩트 (phase 0 에서 한 번) ── */
+    if (ph === 0) {
+      const hit = clamp((c0 - 0.72) / 0.08) * clamp((0.96 - c0) / 0.12);
+      if (hit > 0.01 && heroSlot) {
+        speedLines(ctx, w, h, heroSlot.x, heroSlot.y, hit, { n: 22, seed: 31, alpha: 0.5 });
+        invertFlash(ctx, w, h, hit > 0.62);
       }
     }
   }

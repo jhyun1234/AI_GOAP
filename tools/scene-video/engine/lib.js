@@ -152,6 +152,55 @@ export function castShadow(ctx, x, y, rx, ry, alpha = 0.34) {
   ctx.restore();
 }
 
+/* ── 3D ────────────────────────────────────────────
+   2026-08-12. 사용자: 「이펙트만 준다고 역동적으로 바뀐 게 아니야. 우리는 지금 2D 에서
+   움직이고 있잖아. 3D 로 보이게끔 표현해봐」
+
+   맞는 지적이다. 지금까지 한 것은 전부 **화면 평면 안의 운동**이었다 — 확대(camAt)도
+   그림 전체를 똑같이 키우는 것이라 「가까워졌다」가 아니라 「커졌다」로 읽힌다.
+   깊이는 배율이 아니라 **시차(parallax)** 에서 온다: 카메라가 앞으로 가면 가까운 것이
+   먼 것보다 훨씬 빨리 커지고 옆으로 더 많이 흐른다. 그 차이가 3D 다.
+
+   그래서 kind 가 **월드 좌표(x, y, z)** 로 물체를 놓고, 여기서 화면으로 던진다.
+     x+ = 오른쪽 · y+ = 아래(화면과 같은 방향, 지면이 y=0) · z+ = 화면 안쪽(멀어짐)
+   카메라는 z 음수 쪽에 서서 +z 를 본다. `cam.y` 가 음수면 지면 위(높은 곳)다.
+
+   🔑 원근이 붙으면 공짜로 따라오는 것들:
+      · 가까운 것이 크고 먼 것이 작다 — 크기 위계를 손으로 안 정해도 된다
+      · 카메라가 움직이면 **물체마다 다른 속도로 흐른다**(시차) = 진짜 3D 신호
+      · 깊이 정렬(painter)이 가림을 자동으로 만든다
+      · 상자의 옆면 두께가 **위치에 따라 저절로 바뀐다** — 중앙 왼쪽 물체는 오른쪽 면이,
+        오른쪽 물체는 왼쪽 면이 보인다. 손으로 그리면 절대 안 맞는 부분이다.
+   🔴 전부 인자만 보는 순수 함수다 — seek 의 결정성은 그대로다. */
+
+/** 월드 → 화면. 반환 s 는 그 깊이에서의 배율(길이·크기에 곱하면 된다). */
+export function project(wx, wy, wz, cam, w, h) {
+  const f = cam.f ?? 520;
+  let dx = wx - cam.x, dz = wz - cam.z;
+  const yaw = cam.yaw || 0;
+  if (yaw) {
+    const c = Math.cos(yaw), sn = Math.sin(yaw);
+    const nx = dx * c - dz * sn, nz = dx * sn + dz * c;
+    dx = nx; dz = nz;
+  }
+  const d = Math.max(12, dz);                       // 카메라 뒤로 넘어간 것은 눌러 둔다
+  const s = f / d;
+  return { x: w / 2 + dx * s, y: h / 2 + (wy - cam.y) * s, s, d };
+}
+
+/** 3D 카메라 키프레임. at = 샷 시작으로부터 초. 사이는 smoothstep. */
+export function cam3(track, t) {
+  const D = { x: 0, y: -70, z: -320, yaw: 0, f: 520 };
+  if (!track || !track.length) return D;
+  let i = 0;
+  while (i < track.length - 1 && track[i + 1].at <= t) i++;
+  const a = track[i], b = track[i + 1];
+  if (!b) return { ...D, ...a };
+  const k = ease((t - a.at) / (b.at - a.at || 1e-6));
+  const g = key => lerp(a[key] ?? D[key], b[key] ?? D[key], k);
+  return { x: g('x'), y: g('y'), z: g('z'), yaw: g('yaw'), f: g('f') };
+}
+
 /* ── 임팩트 ────────────────────────────────────────
    2026-08-12, 레퍼런스 두 편(simDdang 릴 · Coloso proro 트레일러)을 프레임 단위로 뜯어
    가져온 둘. 손으로 그린 액션에서 타격감을 만드는 것은 큰 움직임이 아니라 **한두 프레임의

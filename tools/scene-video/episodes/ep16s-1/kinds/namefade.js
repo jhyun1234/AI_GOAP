@@ -151,7 +151,7 @@ export default {
     }
 
     /* 솟는 순간의 임팩트 — 집중선 + 1프레임 반전. 훅의 타격점이다 */
-    const rk = clamp((rise - 0.55) / 0.20) * clamp((1.45 - rise) / 0.35);
+    const rk = clamp((t - 2.05) / 0.10) * clamp((2.45 - t) / 0.18);
     if (rk > 0.01) speedLines(ctx, w, h, SLOT_X, GROUND - 60, rk, { n: 20, seed: 53, alpha: 0.5 });
     invertFlash(ctx, w, h, rk > 0.62);
 

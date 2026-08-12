@@ -1,0 +1,72 @@
+"""팔레트 3층 — **표는 여기 하나뿐이다.** (설계 §2)
+
+🔴 `bpy` 를 안 만진다. 그래야 블렌더 밖(테스트·게이트)에서도 같은 표를 읽는다.
+   표를 두 벌 두면 한쪽만 고쳐지는 날이 온다 — motions.mjs 가 .mjs 인 이유와 같다.
+
+🔴 **정본은 sRGB 16진값이다.** 사람이 읽고 디자인 문서와 대조하는 형태가 그것이고,
+   블렌더가 쓰는 선형값과 probe 가 쓰는 색상각은 여기서 **계산해서** 낸다.
+   손으로 적어 두면 반드시 갈라진다(선형 변환은 채널마다 비선형이라 눈으로 못 맞춘다).
+
+  세계층  무채색 + earth  — 지형·건물·나무·주민 몸. 유채색 예산에 안 들어간다
+  뜻층    다섯            — **한 프레임에 최대 둘.** 이것이 유일한 방어선이다
+  계기층  instrument      — 마을 위에 뜨는 수치·표 전용. 세계 물체에 절대 안 쓴다
+"""
+
+# 🔴 earth 는 **채도로** 뜻층과 갈린다, 색상각으로가 아니다.
+#    처음에 #B8845C 로 뒀더니 색상각 26.1° 로 amber(32.0°)와 **6° 밖에 안 떨어져** 있었다.
+#    그 상태면 마을 지붕이 전부 「앰버(뜻층)」로 잡혀 모든 프레임이 규약 위반이 된다.
+#    지금 값은 채도 0.21 로 SAT_MIN(0.25) 아래다 — 「저채도라 배경으로 물러난다」가
+#    말이 아니라 **측정되는 사실**이 되게 했다. test_palette 가 이걸 지킨다.
+HEX = {
+    'earth':      '#847668',   # 세계층 — 자원·목재·수확. 채도 0.21 (뜻층 아님)
+    'green':      '#00FF88',   # 코드/시스템이 한 일. 클로드 코드의 터미널 초록
+    'amber':      '#FFB35C',   # 마을의 삶·온기 — 모닥불, 창문 불빛, 밥, 낮
+    'chill':      '#5B9DFF',   # **오는 중인** 위험 · 추위 · 밤
+    'red':        '#FF5C5C',   # **이미 벌어진** 실패 · 죽음 · 버그
+    'violet':     '#C77DFF',   # 성격 · 개성. 주민이 아니라 성격이 **닿은 자리**에
+    # 🔴 계기색은 초록(152°)과 한기(216°) **정중앙(184°)** 에 놓았다. 처음 #5BE9FF(188°)는
+    #    한기와 27.9° 밖에 안 벌어져 판정 여유를 두 배로 잡을 수 없었다. 가운데로 옮기니
+    #    여섯 색의 최소 간격이 32° 로 고르게 벌어진다.
+    'instrument': '#5CF4FF',   # 계기층 — 공중에만 뜬다
+}
+MEANING = ('green', 'amber', 'chill', 'red', 'violet')
+BG = '#0E1117'                 # 엔진이 깔고 있는 배경. 3D 는 알파로 비우고 엔진이 합성한다
+
+MAX_MEANING_PER_FRAME = 2      # 🔴 규약. 게이트가 이 수를 본다
+SAT_MIN = 0.25                 # 이보다 낮으면 세계층. probe 가 같은 값을 쓴다
+HUE_TOL = 15                   # 색상각 판정 여유 (최소 간격 32° 의 절반 미만) — 안티에일리어싱 중간값을 위반으로 안 센다
+
+
+def _bytes(h):
+    h = h.lstrip('#')
+    return tuple(int(h[i:i + 2], 16) for i in (0, 2, 4))
+
+
+def _to_linear(v):
+    """sRGB 0~1 → 선형. 블렌더 Base Color 는 선형을 받는다."""
+    return v / 12.92 if v <= 0.04045 else ((v + 0.055) / 1.055) ** 2.4
+
+
+def hue_of(h):
+    """sRGB 16진 → 색상각(도). probe 는 **렌더된 PNG**(sRGB)를 재므로 선형 hue 가 아니다."""
+    r, g, b = (c / 255 for c in _bytes(h))
+    mx, mn = max(r, g, b), min(r, g, b)
+    if mx == mn:
+        return 0.0
+    d = mx - mn
+    if mx == r:
+        return 60 * (((g - b) / d) % 6)
+    if mx == g:
+        return 60 * ((b - r) / d + 2)
+    return 60 * ((r - g) / d + 4)
+
+
+def sat_of(h):
+    r, g, b = _bytes(h)
+    mx, mn = max(r, g, b), min(r, g, b)
+    return 0.0 if mx == 0 else (mx - mn) / mx
+
+
+LINEAR = {k: tuple(round(_to_linear(c / 255), 4) for c in _bytes(v)) for k, v in HEX.items()}
+HUES = {k: round(hue_of(v), 1) for k, v in HEX.items()}
+SATS = {k: round(sat_of(v), 3) for k, v in HEX.items()}

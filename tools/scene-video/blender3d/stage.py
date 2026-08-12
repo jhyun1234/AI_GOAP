@@ -13,8 +13,11 @@
 # ④ `view_transform` 이 Standard(롤오프 없음)라 **광량을 올리면 바로 흰색으로 클리핑된다.**
 #    「어두우니 더 밝게」로 올리다 인물이 뭉개지고, 그 상태에서 어두운 바닥이 중간 회색으로
 #    올라온다. 광량은 눈이 아니라 **픽셀을 재서** 맞춘다.
-import bpy, math, os
+import bpy, math, os, sys
 from mathutils import Vector
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import palette
 
 # 🔴 코드와 산출물을 가른다(설계 §7-2). 모델 원본은 **리포**에 있고, 만들어지는 것은
 #    전부 D 드라이브다. 경로를 절대값으로 박지 않는다 — 리포가 옮겨지면 그 자리가 틀린다.
@@ -136,11 +139,21 @@ def aim(cam, loc, at):
     cam.rotation_euler = (Vector(at) - Vector(loc)).to_track_quat('-Z', 'Y').to_euler()
 
 
-# ── 팔레트 ────────────────────────────────────────────
-# 4색 규약(engine/lib.js PALETTE): bg #0E1117 · ink #FFFFFF · accent #00FF88 · sub 흰색 70%.
-# 🔴 3D 에서도 **흰색과 강조색을 같은 픽셀에 안 겹친다.** 겹침을 막는 것은 여기가 아니라
-#    샷 스크립트의 배치·시간이다 — 2D kind 들이 그렇게 하고 있고 근거가 파일마다 적혀 있다.
-ACCENT_LIN = (0.0, 1.0, 0.246)     # #00FF88 을 선형으로
+# ── 팔레트 3층 (설계 §2) ──────────────────────────────
+# 4색 규약(bg/ink/accent/sub)은 **어두운 배경 위 평면 도형**을 위해 만든 것이었다. 그 규약이
+# 하던 일(요소를 서로 떼어놓기)을 3D 에서는 빛과 형태가 이미 한다. 그래서 색을 늘리되
+# **뜻 없는 색은 안 늘린다** — 중구난방은 색이 많아서가 아니라 색에 규칙이 없어서 생긴다.
+#
+#   세계층  무채색 + earth  — 지형·건물·나무·주민 몸. **예산에 안 들어간다**
+#   뜻층    다섯            — **한 프레임에 최대 둘.** 이것이 유일한 방어선이다
+#   계기층  instrument      — 마을 위에 뜨는 수치·표 전용. 세계 물체에 절대 안 쓴다
+#
+# 🔴 색을 이 표 밖에서 만들지 마라. 그리고 **표는 palette.py 하나뿐이다** — 여기서
+#    다시 적으면 갈라진다. palette.py 는 bpy 를 안 만져서 테스트·게이트도 같은 표를 읽는다.
+PALETTE = palette.LINEAR
+MEANING = palette.MEANING
+
+ACCENT_LIN = PALETTE['green']      # 옛 이름 — 기존 샷 스크립트가 아직 쓴다
 INK_LIN = (0.62, 0.62, 0.63)       # 인물 알베도와 같은 대역 — 흰 도형이 인물보다 튀지 않게
 
 
@@ -164,15 +177,33 @@ def ink_mat(k=1.0):
     return _mat('ink', tuple(c * k for c in INK_LIN))
 
 
-def accent_mat(strength=2.2, albedo=(0.0, 0.10, 0.03)):
-    """강조색 도형 — 켜진 것.
+def world_mat(albedo=(0.06, 0.06, 0.065), earth=False):
+    """세계층 — 지형·건물·나무·주민 몸. 유채색 예산에 안 들어간다."""
+    return _mat('world', PALETTE['earth'] if earth else albedo)
 
-    ⚠️ strength 를 올리면 곧장 클리핑이다(함정 ④). 작은 도형은 2.2 가 상단에 안 닿는다.
-    🔴 **넓은 면에는 2.2 를 쓰지 마라.** 2D 에서 강조색은 3px 테두리 + 글로우지 채운 판이
-       아니다. 화면의 3분의 1을 덮는 면을 2.2 로 발광시키면 눈이 아픈 초록 덩어리가 된다
-       (실제로 그렇게 나왔다). 넓은 면은 albedo 를 올리고 strength 를 0.5 근처로 내려
-       **빛을 받게** 해라 — 그래야 형태가 산다."""
-    return _mat('accent', albedo, emit=ACCENT_LIN, strength=strength)
+
+def meaning_mat(name, strength=1.0, albedo_scale=0.10):
+    """뜻층 다섯 중 하나.
+
+    🔴 **strength 는 1.0 을 넘을 수 없다.** 넘기면 클리핑이 밝기가 아니라 **색상 자체를
+       파괴한다** — 팔레트 다섯을 2.2 로 찍어 봤더니 앰버는 노랑, 한기는 시안, 보라는
+       마젠타로 밀려 probe 가 다섯 중 둘만 알아봤다(초록·적색만 살아남는데, 그 둘은
+       한 채널이 0 이라 클리핑돼도 색상각이 안 움직이기 때문이다).
+       view_transform 이 Standard 라 **strength 1.0 이면 화면에 정확히 그 16진값이 나온다** —
+       더 올릴 이유가 없다.
+    🔴 넓은 면에는 1.0 도 쓰지 마라. 화면 3분의 1을 덮는 면을 최대 밝기로 발광시키면 눈이
+       아픈 덩어리가 된다(실측). 넓은 면은 albedo_scale 을 0.35 근처로 올리고
+       strength 를 0.5 근처로 내려 **빛을 받게** 해라 — 그래야 형태가 산다."""
+    assert name in MEANING, '뜻층이 아니다: %s' % name
+    assert 0.0 <= strength <= 1.0, 'strength 1.0 초과는 색상을 파괴한다: %s' % strength
+    c = PALETTE[name]
+    return _mat('meaning_' + name, tuple(v * albedo_scale for v in c), emit=c, strength=strength)
+
+
+def instrument_mat(strength=1.0):
+    """계기층 — 마을 **위에 뜨는** 수치·표 전용. 세계 물체에 붙이지 마라.
+    그래야 초록·한기와 안 헷갈린다(계기는 물체에 안 붙고 공중에만 뜬다)."""
+    return _mat('instrument', (0.0, 0.05, 0.06), emit=PALETTE['instrument'], strength=strength)
 
 
 def gate(objs, on):

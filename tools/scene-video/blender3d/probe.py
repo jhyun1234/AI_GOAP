@@ -23,6 +23,7 @@ HUE_TOL = palette.HUE_TOL
 SAT_MIN = palette.SAT_MIN
 LUM_MIN = palette.LUM_MIN
 ALPHA_MIN = 120
+BRIGHT_MIN = 90        # 지면보다 밝은 것 = 세워진 것
 
 
 def _raw(path):
@@ -66,7 +67,7 @@ def metrics(path, step=1):
     """step 을 올리면 빨라진다. 작은 유채색 조각을 놓칠 수 있으니 게이트는 step=1 로 써라."""
     d = read_png(path)
     rgba, n = d['rgba'], d['w'] * d['h']
-    opaque = peak = instrument = 0
+    opaque = peak = instrument = bright = 0
     hues = {}
     for i in range(0, n * 4, 4 * step):
         if rgba[i + 3] < ALPHA_MIN:
@@ -76,6 +77,10 @@ def metrics(path, step=1):
         lum = (r * 299 + g * 587 + b * 114) // 1000
         if lum > peak:
             peak = lum
+        # 🔴 지면은 처음부터 화면을 덮는다. 「비었다 → 찼다」를 alpha_cover 로 재면
+        #    둘 다 0.73 이라 아무것도 못 본다. **세워진 것**은 지면보다 밝다.
+        if lum >= BRIGHT_MIN:
+            bright += 1
         if lum < LUM_MIN:          # 어두운 화소의 채도는 색이 아니라 반올림 잡음이다
             continue
         hue, sat = _hue_sat(r, g, b)
@@ -89,7 +94,7 @@ def metrics(path, step=1):
                 hues[name] = hues.get(name, 0) + 1
                 break
     seen = max(1, (n + step - 1) // step)
-    return {'alpha_cover': opaque / seen, 'peak_lum': peak,
+    return {'alpha_cover': opaque / seen, 'peak_lum': peak, 'bright_px': bright,
             'chroma_hues': set(hues), 'chroma_px': hues, 'instrument_px': instrument}
 
 

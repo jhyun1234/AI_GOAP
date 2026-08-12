@@ -15,8 +15,9 @@ namespace AIVillage.Core
 
         // ── 수량 ─────────────────────────────────────────────────────────────────
         [Header("수량")]
-        [Tooltip("맵에 배치할 총 노드 수")]
-        [Min(0)] public int nodeCount = 10;
+        [Tooltip("[면적당] 1만 타일당 노드 수 (M28-W2, ADR-M28-1 — 舊 nodeCount 절대 개수에서 승격. " +
+                 "100×100 맵 = 딱 1만 타일이라 舊 값과 같은 수면 동작 불변). 0 = 휴면 항목.")]
+        [Min(0f)] public float nodeCountPer10kTiles = 10f;
         [Tooltip("노드 1개당 최대 자원량")]
         [Min(1f)] public float maxAmount = 50f;
 
@@ -43,8 +44,9 @@ namespace AIVillage.Core
 
         // ── 클러스터 설정 ─────────────────────────────────────────────────────────
         [Header("클러스터 설정")]
-        [Tooltip("클러스터 중심점 개수. 같은 자원끼리 덩어리로 모이게 된다.")]
-        [Min(1)] public int clusterCount = 3;
+        [Tooltip("[면적당] 1만 타일당 클러스터 중심점 수 (M28-W2 — 舊 clusterCount에서 승격). " +
+                 "같은 자원끼리 덩어리로 모이게 된다.")]
+        [Min(0f)] public float clusterCountPer10kTiles = 3f;
         [Tooltip("클러스터 당 최소 노드 수")]
         [Min(1)] public int minNodesPerCluster = 2;
         [Tooltip("클러스터 당 최대 노드 수")]
@@ -96,6 +98,19 @@ namespace AIVillage.Core
         public Color depletedColor = new Color(0.25f, 0.25f, 0.25f, 1f);
         [Tooltip("씬에서 노드 마커의 크기 (월드 단위, 1 = 타일 1칸 크기)")]
         [Min(0.1f)] public float nodeSize = 0.6f;
+
+        // ── 면적당 → 개수 환산 (M28-W2 — 선례 = ThreatSO.ResidentBandsPer10kTiles·게이트 T8c) ──
+
+        /// <summary>이 맵 면적에서의 목표 노드 수. 밀도 0 = 휴면(0개 — M23 게이트의 휴면 필터와 짝).
+        /// 양수 밀도는 최소 1 — 은광 밀도 4를 작은 맵에 놓아도 0개가 되지 않게 (T8c와 같은 함정 방지).</summary>
+        public int NodeCountFor(int mapTiles)
+            => nodeCountPer10kTiles <= 0f ? 0
+             : Mathf.Max(1, Mathf.RoundToInt(nodeCountPer10kTiles * mapTiles / 10000f));
+
+        /// <summary>이 맵 면적에서의 클러스터 중심 수 (환산 규칙은 NodeCountFor와 동일).</summary>
+        public int ClusterCountFor(int mapTiles)
+            => clusterCountPer10kTiles <= 0f ? 0
+             : Mathf.Max(1, Mathf.RoundToInt(clusterCountPer10kTiles * mapTiles / 10000f));
     }
 
     /// <summary>
@@ -115,8 +130,8 @@ namespace AIVillage.Core
         public int randomSeed = 0;
         [Tooltip("어떤 두 노드 사이의 최소 맨해튼 거리. 노드 겹침 및 밀집을 방지한다.")]
         [Min(1)] public int nodeMinSpacing = 2;
-        [Tooltip("유효 위치를 찾지 못할 때 포기하기 전 최대 재시도 횟수. 값이 작으면 배치 실패가 늘어난다.")]
-        [Min(10)] public int maxPlacementAttempts = 50;
+        // (舊 maxPlacementAttempts는 M28-W2에서 삭제 — 고정 50은 맵이 넓어지면 배치 실패가 늘어
+        //  스포너가 목표 수에 비례해 산출한다. ResourceNodeSpawner.AttemptsFor 참조.)
 
         // ── 자원별 스폰 설정 ───────────────────────────────────────────────────────
         [Header("자원별 스폰 설정")]

@@ -14,15 +14,14 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::AIVillage.Core.ResourceNodeSpawnConfig
   randomSeed: 0
   nodeMinSpacing: 2
-  maxPlacementAttempts: 50
   resourceTypes:
   - resourceType: 2
-    nodeCount: 40
+    nodeCountPer10kTiles: 40
     maxAmount: 50
     regenPerDay: 30
     minDistanceFromBase: 10
     maxDistanceFromBase: 0
-    clusterCount: 9
+    clusterCountPer10kTiles: 9
     minNodesPerCluster: 3
     maxNodesPerCluster: 5
     clusterSpreadRadius: 3
@@ -47,12 +46,12 @@ MonoBehaviour:
     depletedColor: {r: 0.33333334, g: 0.33333334, b: 0.33333334, a: 1}
     nodeSize: 0.55
   - resourceType: 3
-    nodeCount: 25
+    nodeCountPer10kTiles: 25
     maxAmount: 40
     regenPerDay: 18
     minDistanceFromBase: 15
     maxDistanceFromBase: 0
-    clusterCount: 7
+    clusterCountPer10kTiles: 7
     minNodesPerCluster: 3
     maxNodesPerCluster: 4
     clusterSpreadRadius: 3
@@ -70,12 +69,12 @@ MonoBehaviour:
     depletedColor: {r: 0.2, g: 0.2, b: 0.2, a: 1}
     nodeSize: 0.9
   - resourceType: 4
-    nodeCount: 15
+    nodeCountPer10kTiles: 15
     maxAmount: 30
     regenPerDay: 9
     minDistanceFromBase: 25
     maxDistanceFromBase: 0
-    clusterCount: 6
+    clusterCountPer10kTiles: 6
     minNodesPerCluster: 2
     maxNodesPerCluster: 3
     clusterSpreadRadius: 2
@@ -87,7 +86,7 @@ MonoBehaviour:
     depletedColor: {r: 0.2, g: 0.2, b: 0.2, a: 1}
     nodeSize: 0.9
   - resourceType: 6
-    nodeCount: 4
+    nodeCountPer10kTiles: 4
     maxAmount: 15
     regenPerDay: 1.2
     minDistanceFromBase: 40
@@ -95,7 +94,7 @@ MonoBehaviour:
     allowedTerrain:
     - {fileID: 11400000, guid: 14840697d4ee94347a1ce754ccf89a55, type: 2}
     adjacentTerrain: []
-    clusterCount: 4
+    clusterCountPer10kTiles: 4
     minNodesPerCluster: 1
     maxNodesPerCluster: 1
     clusterSpreadRadius: 0
@@ -107,12 +106,12 @@ MonoBehaviour:
     depletedColor: {r: 0.2, g: 0.2, b: 0.2, a: 1}
     nodeSize: 0.9
   - resourceType: 0
-    nodeCount: 12
+    nodeCountPer10kTiles: 12
     maxAmount: 25
     regenPerDay: 18
     minDistanceFromBase: 5
     maxDistanceFromBase: 0
-    clusterCount: 12
+    clusterCountPer10kTiles: 12
     minNodesPerCluster: 1
     maxNodesPerCluster: 1
     clusterSpreadRadius: 3
@@ -123,7 +122,7 @@ MonoBehaviour:
     depletedColor: {r: 0.33333334, g: 0.33333334, b: 0.33333334, a: 1}
     nodeSize: 0.9
   - resourceType: 0
-    nodeCount: 8
+    nodeCountPer10kTiles: 8
     maxAmount: 25
     regenPerDay: 18
     minDistanceFromBase: 20
@@ -131,7 +130,7 @@ MonoBehaviour:
     allowedTerrain: []
     adjacentTerrain:
     - {fileID: 11400000, guid: e63a67e9d52c16e478fb33d46c1d60cf, type: 2}
-    clusterCount: 6
+    clusterCountPer10kTiles: 6
     minNodesPerCluster: 1
     maxNodesPerCluster: 2
     clusterSpreadRadius: 2

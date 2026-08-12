@@ -179,7 +179,7 @@ namespace AIVillage.Tests.EditMode
             Assert.IsNotNull(cfg.resourceTypes, "resourceTypes 비어 있음");
             foreach (AIVillage.Core.ResourceTypeSpawnData t in cfg.resourceTypes)
             {
-                if (t.nodeCount <= 0) continue; // 휴면 항목은 검사 대상 아님
+                if (t.nodeCountPer10kTiles <= 0f) continue; // 휴면 항목은 검사 대상 아님
                 Assert.IsNotNull(t.nodeSprite, $"{t.resourceType}: 노드 그림 미배선 — 색 원으로 회귀");
                 Assert.That(t.depletedBelowRatio, Is.InRange(0f, 1f), $"{t.resourceType}: 고갈 비율은 0~1");
                 // 고갈 그림은 선택 — 없으면 흐려질 뿐이라 강제하지 않는다(중립).

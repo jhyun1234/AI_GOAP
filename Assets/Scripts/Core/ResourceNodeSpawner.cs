@@ -154,18 +154,27 @@ namespace AIVillage.Core
         // 자원 타입별 스폰
         // ─────────────────────────────────────────────────────────────────────────
 
+        /// <summary>배치 재시도 상한 — 목표 수 비례 (M28-W2). 舊 고정 50은 맵이 넓어질수록
+        /// RandomTileInBounds 명중률이 떨어져 배치 실패 로그가 늘었다. 4·50은 알고리즘 상수.</summary>
+        private static int AttemptsFor(int nodeCount) => Mathf.Max(50, nodeCount * 4);
+
         private int SpawnResourceType(
             ResourceTypeSpawnData typeData,
             int baseTileX, int baseTileY,
             int discoveryRadius)
         {
+            // 면적당 → 이 판의 목표 개수 (M28-W2, ADR-M28-1). 100×100 = 1만 타일이라 舊 절대값과 동수.
+            int mapTiles     = (_mapMaxX - _mapMinX + 1) * (_mapMaxY - _mapMinY + 1);
+            int nodeCount    = typeData.NodeCountFor(mapTiles);
+            int clusterCount = typeData.ClusterCountFor(mapTiles);
+            int attempts     = AttemptsFor(nodeCount);
             // ── Step 1: 클러스터 중심점 선정 ──────────────────────────────────────
-            var centers = new List<Vector2Int>(typeData.clusterCount);
-            for (int c = 0; c < typeData.clusterCount; c++)
+            var centers = new List<Vector2Int>(clusterCount);
+            for (int c = 0; c < clusterCount; c++)
             {
                 bool found = false;
                 int terrainRejects = 0;   // 진단용 — 물이 많은 판을 로그로 구분한다
-                for (int attempt = 0; attempt < _config.maxPlacementAttempts; attempt++)
+                for (int attempt = 0; attempt < attempts; attempt++)
                 {
                     Vector2Int cand = RandomTileInBounds();
                     if (Manhattan(cand.x, cand.y, baseTileX, baseTileY) < typeData.minDistanceFromBase)
@@ -204,13 +213,13 @@ namespace AIVillage.Core
 
                 if (!found)
                     Debug.LogWarning($"[ResourceNodeSpawner] {typeData.resourceType} " +
-                                     $"클러스터 중심 {c + 1}/{typeData.clusterCount} 배치 실패 " +
+                                     $"클러스터 중심 {c + 1}/{clusterCount} 배치 실패" +
                                      $"(minDist={typeData.minDistanceFromBase}, spacing={typeData.minClusterSpacing}" +
-                                     $", 지형거절={terrainRejects}/{_config.maxPlacementAttempts})");
+                                     $", 지형거절={terrainRejects}/{attempts})");
             }
 
             // ── Step 2: 클러스터마다 노드 배치 ───────────────────────────────────
-            int remaining = typeData.nodeCount;
+            int remaining = nodeCount;
             int spawned   = 0;
 
             foreach (Vector2Int center in centers)
@@ -225,7 +234,7 @@ namespace AIVillage.Core
                 {
                     bool placed = false;
                     int terrainRejects = 0;   // 진단용 — 물 가장자리 클러스터를 로그로 구분한다
-                    for (int attempt = 0; attempt < _config.maxPlacementAttempts; attempt++)
+                    for (int attempt = 0; attempt < attempts; attempt++)
                     {
                         int dx = _rng.Next(-typeData.clusterSpreadRadius, typeData.clusterSpreadRadius + 1);
                         int dy = _rng.Next(-typeData.clusterSpreadRadius, typeData.clusterSpreadRadius + 1);
@@ -276,11 +285,11 @@ namespace AIVillage.Core
                     if (!placed)
                         Debug.LogWarning($"[ResourceNodeSpawner] {typeData.resourceType} " +
                                          $"노드 배치 실패 (남은={remaining}" +
-                                         $", 지형거절={terrainRejects}/{_config.maxPlacementAttempts})");
+                                         $", 지형거절={terrainRejects}/{attempts})");
                 }
             }
 
-            Debug.Log($"[ResourceNodeSpawner] {typeData.resourceType}: {spawned}/{typeData.nodeCount}개 배치");
+            Debug.Log($"[ResourceNodeSpawner] {typeData.resourceType}: {spawned}/{nodeCount}개 배치");
             return spawned;
         }
 
@@ -380,7 +389,7 @@ namespace AIVillage.Core
             bool sawConditioned = false;
             foreach (ResourceTypeSpawnData d in _config.resourceTypes)
             {
-                if (d.resourceType != type || d.nodeCount <= 0) continue;
+                if (d.resourceType != type || d.nodeCountPer10kTiles <= 0f) continue;
 
                 bool hasAllowed  = d.allowedTerrain  != null && d.allowedTerrain.Length  > 0;
                 bool hasAdjacent = d.adjacentTerrain != null && d.adjacentTerrain.Length > 0;

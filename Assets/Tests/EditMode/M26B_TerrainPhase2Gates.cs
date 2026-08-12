@@ -162,7 +162,7 @@ namespace AIVillage.Tests.EditMode
             int restricted = 0;
             foreach (ResourceTypeSpawnData d in cfg.resourceTypes)
             {
-                if (d.nodeCount <= 0) continue;
+                if (d.nodeCountPer10kTiles <= 0f) continue;
                 if ((d.allowedTerrain != null && d.allowedTerrain.Length > 0)
                     || (d.adjacentTerrain != null && d.adjacentTerrain.Length > 0)) restricted++;
             }
@@ -219,13 +219,13 @@ namespace AIVillage.Tests.EditMode
 
             var cfg = ScriptableObject.CreateInstance<ResourceNodeSpawnConfig>();
             cfg.nodeMinSpacing = 2;
-            cfg.maxPlacementAttempts = 50;
             cfg.resourceTypes = new[]
             {
                 new ResourceTypeSpawnData
                 {
-                    resourceType = ResourceType.RawFood, nodeCount = 8, maxAmount = 10,
-                    minDistanceFromBase = 20, clusterCount = 6,
+                    // 검사 맵 = 배포 100² = 1만 타일 — per10k 밀도와 절대 개수가 같은 수다 (M28-W2)
+                    resourceType = ResourceType.RawFood, nodeCountPer10kTiles = 8, maxAmount = 10,
+                    minDistanceFromBase = 20, clusterCountPer10kTiles = 6,
                     minNodesPerCluster = 1, maxNodesPerCluster = 2,
                     clusterSpreadRadius = 2, minClusterSpacing = 10,
                     adjacentTerrain = new[] { water },
@@ -323,13 +323,12 @@ namespace AIVillage.Tests.EditMode
 
             var cfg = ScriptableObject.CreateInstance<ResourceNodeSpawnConfig>();
             cfg.nodeMinSpacing = 2;
-            cfg.maxPlacementAttempts = 50;
             cfg.resourceTypes = new[]
             {
                 new ResourceTypeSpawnData
                 {
-                    resourceType = ResourceType.Wood, nodeCount = 10, maxAmount = 10,
-                    minDistanceFromBase = 10, clusterCount = 3,
+                    resourceType = ResourceType.Wood, nodeCountPer10kTiles = 10, maxAmount = 10,
+                    minDistanceFromBase = 10, clusterCountPer10kTiles = 3,
                     minNodesPerCluster = 1, maxNodesPerCluster = 3,
                     clusterSpreadRadius = 3, minClusterSpacing = 15,
                     allowedTerrain = new[] { water },   // 물 위에만 — 그런데 물은 못 지난다
@@ -353,7 +352,7 @@ namespace AIVillage.Tests.EditMode
             ResourceTypeSpawnData restricted = null;
             foreach (ResourceTypeSpawnData d in cfg.resourceTypes)
             {
-                if (d.resourceType != type || d.nodeCount <= 0) continue;
+                if (d.resourceType != type || d.nodeCountPer10kTiles <= 0f) continue;
                 bool hasCond = (d.allowedTerrain != null && d.allowedTerrain.Length > 0)
                             || (d.adjacentTerrain != null && d.adjacentTerrain.Length > 0);
                 if (!hasCond) return null;
@@ -390,7 +389,7 @@ namespace AIVillage.Tests.EditMode
         {
             foreach (ResourceTypeSpawnData d in cfg.resourceTypes)
             {
-                if (d.resourceType != type || d.nodeCount <= 0) continue;
+                if (d.resourceType != type || d.nodeCountPer10kTiles <= 0f) continue;
                 bool has = (d.allowedTerrain != null && d.allowedTerrain.Length > 0)
                         || (d.adjacentTerrain != null && d.adjacentTerrain.Length > 0);
                 if (has == conditioned) return d.minDistanceFromBase;
@@ -468,13 +467,12 @@ namespace AIVillage.Tests.EditMode
 
             var cfg = ScriptableObject.CreateInstance<ResourceNodeSpawnConfig>();
             cfg.nodeMinSpacing = 2;
-            cfg.maxPlacementAttempts = 50;
             cfg.resourceTypes = new[]
             {
                 new ResourceTypeSpawnData
                 {
-                    resourceType = ResourceType.Silver, nodeCount = 30, maxAmount = 10,
-                    minDistanceFromBase = 1, clusterCount = 15,
+                    resourceType = ResourceType.Silver, nodeCountPer10kTiles = 30, maxAmount = 10,
+                    minDistanceFromBase = 1, clusterCountPer10kTiles = 15,
                     minNodesPerCluster = 1, maxNodesPerCluster = 2,
                     clusterSpreadRadius = 2, minClusterSpacing = 5,
                 }
@@ -814,7 +812,7 @@ namespace AIVillage.Tests.EditMode
             float oneBite = agentCfg.DangerMemoryPerHit * agentCfg.GatherDangerWeight;
             int maxSpacing = 0;
             foreach (ResourceTypeSpawnData d in cfg.resourceTypes)
-                if (d.nodeCount > 0) maxSpacing = Mathf.Max(maxSpacing, d.minClusterSpacing);
+                if (d.nodeCountPer10kTiles > 0f) maxSpacing = Mathf.Max(maxSpacing, d.minClusterSpacing);
             Assert.Greater(maxSpacing, 0, "배포에 자원이 없다 — 이 검사는 빈 검사다");
 
             Assert.Greater(oneBite, maxSpacing,

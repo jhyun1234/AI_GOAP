@@ -35,6 +35,10 @@ namespace AIVillage.M0
                  "비우면 지형 없음 = 오늘과 완전히 같은 판 (중립 불변식).")]
         [SerializeField] private TerrainTypeSO[] _terrainPalette;
 
+        [Tooltip("바이옴 목록 (M29 W1). **0번 = 온대**(폴백·마을 주변 보장). " +
+                 "비우면 위 팔레트 한 벌만 쓰는 舊 경로 = 지형이 개조 전과 동일 (중립 불변식 ADR-M29-3).")]
+        [SerializeField] private BiomeSO[] _biomes;
+
         [Tooltip("마을 중심 둘레 이 반경(체비쇼프)은 반드시 평지 — 태어나자마자 갇히는 판 방지. " +
                  "제안치 12 (BaseDiscoverRadius와 같은 대역).")]
         [SerializeField] private int _terrainSafeRadius = 12;
@@ -1218,7 +1222,8 @@ namespace AIVillage.M0
             RunSeed = _runSeed != 0 ? _runSeed : Random.Range(1, int.MaxValue);
             Terrain = new TerrainService((uint)RunSeed,
                                          new Vector2Int(_worldConfig.BaseTileX, _worldConfig.BaseTileY),
-                                         _terrainSafeRadius, _terrainPalette);
+                                         _terrainSafeRadius, _terrainPalette,
+                                         _biomes, mapSize * 0.5f);   // M29 W1 — 거리비 분모 = 맵 반폭
 
             // 지형이 통행 배열 **두 장에 같이** 먹는다 (M26-1차 W3, ADR-T-3).
             // 🔴 배열이 둘인 이유는 **문**이지 지형이 아니다 — 문은 개체별로 갈리지만
@@ -1270,7 +1275,9 @@ namespace AIVillage.M0
 
             Debug.Log($"[Terrain] 판 시드 {RunSeed}" +
                       (Terrain.IsEmpty ? " — 지형 팔레트가 비어 있어 지형 없이 진행합니다 (오늘과 동일)"
-                                       : $" · 팔레트 {_terrainPalette.Length}종 · 안전반경 {_terrainSafeRadius}"
+                                       : $" · 팔레트 {_terrainPalette.Length}종"
+                                         + (_biomes != null && _biomes.Length > 0 ? $" · 바이옴 {_biomes.Length}종" : "")
+                                         + $" · 안전반경 {_terrainSafeRadius}"
                                          + $" · 통행 불가 {blockedTiles}칸"));
 
             // 경로 탐색 창구 — 통행 배열을 지연 조회한다.
@@ -1453,10 +1460,9 @@ namespace AIVillage.M0
             // 🔑 M26-2차 W2: 지형 **조회**도 밀어 넣는다 (Core 는 TerrainService 를 모른다 — W5 규약).
             //    밀도 분모는 팔레트를 아는 여기서 구한다: 확률로만 쓰면 1 초과가 전부 "항상 채택"이
             //    되어 숲 1.5 가 평지 1.0 과 같아지기 때문이다.
-            float densityMax = 1f;
-            if (!Terrain.IsEmpty && _terrainPalette != null)
-                foreach (TerrainTypeSO t in _terrainPalette)
-                    if (t != null) densityMax = Mathf.Max(densityMax, t.NodeDensityMult);
+            //    🔑 M29 W1: 분모의 출처가 씬 배열 → 지도 자신으로 옮겨 갔다 — 바이옴 팔레트의
+            //    **합집합**을 봐야 정글 밀도가 "항상 채택"으로 뭉개지지 않는다.
+            float densityMax = Terrain.MaxNodeDensityMult;
 
             bool ok = _nodeSpawner.SpawnAll(
                 _worldConfig.BaseTileX, _worldConfig.BaseTileY, _worldConfig.BaseDiscoverRadius,

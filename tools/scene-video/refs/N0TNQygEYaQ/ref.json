@@ -1,0 +1,28 @@
+{
+  "slug": "N0TNQygEYaQ",
+  "url": "https://youtu.be/N0TNQygEYaQ",
+  "title": "Mannequin Walk Cycle Front",
+  "channel": "starcar6",
+  "duration": 9,
+  "width": 492,
+  "height": 360,
+  "fps": 24,
+  "measured": {
+    "fps": 24,
+    "frames": 225,
+    "move": 1.95,
+    "p95": 2.99,
+    "max": 3.09,
+    "stepHist": {
+      "9": 1
+    },
+    "swaps": 1,
+    "perSec": 0.1,
+    "cuts": 0,
+    "cutGapMed": 0,
+    "holds": 0,
+    "holdMax": 0,
+    "flashes": 0
+  },
+  "at": "2026-08-12T07:15:36.272Z"
+}

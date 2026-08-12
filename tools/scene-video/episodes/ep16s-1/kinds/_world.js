@@ -85,49 +85,128 @@ export function stone(ctx, cam, w, h, x, z, o = {}) {
 }
 
 /* ── 사람 ──────────────────────────────────────────
-   머리(구) + 몸통·팔·다리(원기둥). 비율은 6.5등신 언저리로 잡아 실루엣이 사람으로 읽히게.
-   한 z 평면 위의 부위라 밑동의 배율 하나로 전부 잰다 — 인물 안에서까지 원근을 나누면
-   가까운 팔만 커져 만화적으로 일그러진다(실측 후 되돌림). */
-export const PH = 118;                                  // 키 (월드)
+   🔴 2026-08-12 v10 — 사용자: 「그냥 동그라미에 몸을 다 축 내리고 있는 형태야」. 맞다.
+      v9 는 **머리(구) + 몸통(캡슐 하나) + 곧은 팔다리**였다. 덩어리가 둘뿐이고 관절이
+      없으니 어깨도 허리도 무릎도 없었고, 그래서 어떤 자세를 줘도 「축 늘어진 것」이 됐다.
 
-/** sink 0~1 로 땅에 가라앉는다. lean 은 앞으로 기운 정도(라디안). */
+   그래서 **8두신 정준(Andrew Loomis)의 랜드마크를 수치로 박았다.**
+   측정 기준은 바닥(발바닥)=0, 정수리=1 로 정규화한 높이다.
+     정수리 1.000 · 턱 0.875 · 어깨 0.833 · 가슴 0.750 · 허리 0.625
+     사타구니 0.500(키의 정확히 절반) · 무릎 0.250 · 발목 0.055
+   너비는 **머리 높이(=키의 1/8)의 배수**로 잡는다.
+     어깨 2.33 · 가슴 1.75 · 허리 1.20 · 골반 1.45 · 머리폭 0.72
+   출처: Loomis 8-head canon 정리(jeffkamangara.wordpress.com · skyryedesign.com).
+   ⚠️ 정준은 「이상적 비례」이지 실측 인체가 아니다. 우리는 실루엣이 사람으로 읽히는 것이
+      목적이라 이쪽이 맞다 — 평균 체형은 7~7.5두신이고 화면에서 더 뭉툭하게 읽힌다.
+
+   🔑 관절을 넣은 것이 이 개정의 핵심이다. 팔은 어깨–팔꿈치–손목, 다리는 골반–무릎–발목
+      **두 마디**로 그린다. 한 마디짜리 곧은 막대는 각도를 줘도 「기울어진 막대」일 뿐이고,
+      두 마디여야 「굽혔다」가 된다.
+   🔴 얼굴·손가락은 안 그린다(MINIMAL_DESIGN_LANGUAGE:838). 머리는 이목구비 없는 타원체다.
+   🔴 광원은 lib.js 의 하나(화면 왼쪽 위)뿐이다. 몸통에는 오른쪽 코어 섀도를 깎아 원통으로 세운다. */
+export const PH = 118;                   // 키 (월드) — 8두신
+
+/** 바닥 0 · 정수리 1 로 정규화한 세로 랜드마크 */
+const Y = {
+  ankle: 0.055, knee: 0.250, crotch: 0.500, waist: 0.625,
+  chest: 0.750, shoulder: 0.833, chin: 0.875, crown: 1.000,
+};
+/** 머리 높이(키의 1/8) 배수인 가로 치수 */
+const WD = {
+  shoulder: 2.33, chest: 1.75, waist: 1.20, hip: 1.45,
+  head: 0.72, neck: 0.40, upperArm: 0.40, foreArm: 0.31,
+  thigh: 0.52, calf: 0.37, foot: 0.62,
+};
+
+/** sink 0~1 로 땅에 가라앉는다. lean = 앞으로 기운 정도(rad). sit = 앉은 자세. */
 export function person(ctx, cam, w, h, x, z, o = {}) {
   const sink = o.sink ?? 0;
   const F = project(x, 0, z, cam, w, h);
   if (F.d <= 14 || sink >= 1) return null;
   const s = F.s, lv = o.lv ?? lvOf(F.d);
-  const bx = F.x, by = F.y + PH * sink * s;             // 가라앉으면 밑동이 내려간다
-  const u = PH * s;                                     // 화면상 키
+  const bx = F.x, by = F.y + PH * sink * s;
+  const u = PH * s;                        // 화면상 키
+  const hu = u / 8;                        // 머리 한 개
   const lean = o.lean ?? 0;
-  const lx = k => bx + Math.sin(lean) * u * k;          // 높이 k 에서의 앞쪽 치우침
+  const sit = !!o.sit;
 
-  castShadow(ctx, bx, F.y, u * 0.26, u * 0.07, 0.40 * (1 - sink));
+  /* 앉으면 사타구니가 의자 높이로 올라오고 상반신 비율은 그대로다.
+     다리는 책상·비석에 가려지므로 무릎까지만 접어 둔다. */
+  const drop = sit ? 0.22 : 0;
+  const yv = k => by - u * (k - drop);                       // 정규화 높이 → 화면 y
+  const lx = k => bx + Math.sin(lean) * u * (k - drop);      // 앞으로 기운 몫
+
+  castShadow(ctx, bx, F.y, hu * 1.2, hu * 0.34, 0.40 * (1 - sink));
 
   ctx.save();
   /* 땅 밑은 안 보인다 — 가라앉음이 '작아짐'이 아니라 '들어감'으로 읽히는 이유 */
   ctx.beginPath(); ctx.rect(0, 0, w, F.y + 1); ctx.clip();
 
-  /* 앉은 자세 — 엉덩이가 의자 높이에 오고 상반신만 보인다. 다리는 안 그린다:
-     책상이 어차피 덮고, 안 보이는 것을 그리면 덮인 자리에서 실루엣만 지저분해진다. */
-  const sit = !!o.sit;
-  const hipK = sit ? 0.30 : 0.46;
-  const hipY = by - u * hipK, shY = by - u * (hipK + 0.34), headY = by - u * (hipK + 0.47);
-  const legDx = u * 0.058, armDx = u * 0.155;
+  const shY = yv(Y.shoulder), chY = yv(Y.chest), waY = yv(Y.waist), hipY = yv(Y.crotch);
+  const kneeY = yv(Y.knee), ankY = yv(Y.ankle);
+  const shX = lx(Y.shoulder), hipX = lx(Y.crotch);
+  const shW = hu * WD.shoulder, chW = hu * WD.chest, waW = hu * WD.waist, hiW = hu * WD.hip;
 
+  /* ── 다리 — 골반–무릎–발목 두 마디 ─────────────── */
   if (!sit) {
-    capsule(ctx, lx(hipK) - legDx, hipY, bx - legDx, by, u * 0.055, lv * 0.86);   // 다리
-    capsule(ctx, lx(hipK) + legDx, hipY, bx + legDx, by, u * 0.055, lv * 0.86);
+    const sw = o.walk ?? 0;                                   // 걸음 위상 (-1~1)
+    for (const side of [-1, 1]) {
+      const swing = sw * side;
+      const kx = hipX + side * hu * 0.30 + swing * hu * 0.55;
+      const ax = bx + side * hu * 0.30 + swing * hu * 0.95;
+      const shade = side < 0 ? 0.80 : 0.92;                   // 먼 다리를 어둡게
+      capsule(ctx, hipX + side * hu * 0.34, hipY, kx, kneeY, hu * WD.thigh / 2, lv * shade);
+      capsule(ctx, kx, kneeY, ax, ankY, hu * WD.calf / 2, lv * shade);
+      capsule(ctx, ax, ankY, ax + hu * 0.40, by, hu * 0.16, lv * shade);   // 발
+    }
   }
-  capsule(ctx, lx(hipK), hipY, lx(hipK + 0.34), shY, u * 0.112, lv);              // 몸통
-  if (o.arm !== false) {                                                          // 팔
-    const handY = hipY - u * (sit ? 0.02 : -0.06);
-    capsule(ctx, lx(hipK + 0.34) - armDx * 0.6, shY, lx(hipK + 0.16) - armDx, handY, u * 0.045, lv * 0.92);
-    capsule(ctx, lx(hipK + 0.34) + armDx * 0.6, shY, lx(hipK + 0.16) + armDx, handY, u * 0.045, lv * 0.92);
+
+  /* ── 몸통 — 어깨·가슴·허리·골반을 잇는 하나의 부피 ── */
+  ctx.beginPath();
+  ctx.moveTo(shX - shW / 2, shY);
+  ctx.quadraticCurveTo(lx(Y.chest) - chW / 2 - hu * 0.06, chY, lx(Y.waist) - waW / 2, waY);
+  ctx.quadraticCurveTo(hipX - hiW / 2 - hu * 0.04, (waY + hipY) / 2, hipX - hiW / 2, hipY);
+  ctx.lineTo(hipX + hiW / 2, hipY);
+  ctx.quadraticCurveTo(hipX + hiW / 2 + hu * 0.04, (waY + hipY) / 2, lx(Y.waist) + waW / 2, waY);
+  ctx.quadraticCurveTo(lx(Y.chest) + chW / 2 + hu * 0.06, chY, shX + shW / 2, shY);
+  ctx.closePath();
+  ctx.fillStyle = litFill(ctx, shX - shW / 2, shX + shW / 2, lv);
+  ctx.fill();
+  ctx.save();                                                  // 코어 섀도 — 등 쪽을 깎는다
+  ctx.clip();
+  const cg = ctx.createLinearGradient(shX + shW * 0.04, 0, shX + shW * 0.62, 0);
+  cg.addColorStop(0, 'rgba(0,0,0,0)');
+  cg.addColorStop(1, 'rgba(0,0,0,0.42)');
+  ctx.fillStyle = cg;
+  ctx.fillRect(shX - shW, shY - hu, shW * 2, u);
+  ctx.restore();
+
+  /* ── 팔 — 어깨–팔꿈치–손목 두 마디 ─────────────── */
+  if (o.arm !== false) {
+    const reach = o.reach ?? 0;                                // 앞으로 뻗은 정도 0~1
+    for (const side of [-1, 1]) {
+      const sx = shX + side * (shW / 2 - hu * 0.12);
+      const ex = sx + side * hu * 0.30 + reach * hu * 0.55 * side;
+      const ey = shY + hu * 1.45;
+      const wx = ex + side * hu * 0.10 + reach * hu * 1.05 * side;
+      const wy = ey + hu * (1.25 - reach * 0.85);
+      const shade = side < 0 ? 0.82 : 0.98;
+      capsule(ctx, sx, shY + hu * 0.10, ex, ey, hu * WD.upperArm / 2, lv * shade);
+      capsule(ctx, ex, ey, wx, wy, hu * WD.foreArm / 2, lv * shade);
+    }
   }
-  ball(ctx, lx(hipK + 0.47), headY, u * 0.118, lv);                               // 머리
+
+  /* ── 목 + 머리 ─────────────────────────────────── */
+  capsule(ctx, shX, shY, lx(Y.chin), yv(Y.chin), hu * WD.neck / 2, lv * 0.86);
+  const hx = lx((Y.chin + Y.crown) / 2), hy = yv((Y.chin + Y.crown) / 2);
+  ctx.save();
+  ctx.translate(hx, hy);
+  ctx.scale(WD.head, 1);                                       // 머리는 세로로 길다
+  ball(ctx, 0, 0, hu * 0.5, lv);
+  ctx.restore();
 
   ctx.restore();
-  return { F, u, bx, by, headY, shY, lv };
+  return { F, u, hu, bx, by, headY: hy, shY, lv };
 }
 
 /* ── 상자 ──────────────────────────────────────────

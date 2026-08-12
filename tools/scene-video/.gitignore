@@ -41,3 +41,6 @@ state/routine.lock/
 
 # 옛 구조 잔재 (episodes/ 로 옮기기 전)
 build/
+
+# 레퍼런스 원본 — 남의 영상은 리포에 안 담는다. 남기는 것은 refs/<slug>/ref.json 과 sheet.png 뿐이다.
+refs/*/ref.mp4

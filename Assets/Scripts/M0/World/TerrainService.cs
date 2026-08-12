@@ -25,6 +25,10 @@ namespace AIVillage.M0
         //    판마다 사라졌다** (200시드 중 심층산악 없음 1건 — 그 판엔 은·다이아가 전무).
         //    48이면 축당 4칸이 넘어 200시드 결손 0. 지역 크기는 여전히 고도 패치(26)의 두 배다.
         private const int BIOME_CELL = 48;
+        // 벽 줄 수 (M31 W1) — 고지대 남쪽 가장자리에서 이 줄까지가 벽면이다.
+        // 🔑 에셋 값이 아니다: 벽 줄 수는 **팩 아트가 정한 그림 사실**(측면 벽 세트가 두 줄)이지
+        //    플레이어가 밸런스 패치로 돌릴 수가 아니다 (ADR-M0-2의 "알고리즘 상수" 쪽).
+        private const int WALL_ROWS = 2;
 
         private readonly uint _seed;
         private readonly BiomeSO[] _biomes;            // 미배선이면 길이 0 (= 舊 단일 팔레트 경로)
@@ -138,10 +142,30 @@ namespace AIVillage.M0
             return t;
         }
 
+        /// <summary>이 칸이 절벽 '벽면'인가 (M31 W1) — 남쪽(y 감소) `WALL_ROWS` 안에 더 낮은 땅이
+        /// 있으면 그렇다.
+        ///
+        /// 🔑 **통행 불가는 지형이 아니라 가장자리가 만든다** (ADR-M31-2). 물은 어디서나 못 지나고
+        /// (`Walkable false`), 절벽은 위를 걸을 수 있되 **남쪽 두 줄만** 벽이다 — 그래서 북·동·서로
+        /// 올라가는 길이 남아 고지대가 섬이 되지 않는다.
+        /// 🔑 얇은 띠(세로 런이 `WALL_ROWS` 미만)는 통째로 벽이 된다 — 그게 맞다 (ADR-M31-4):
+        /// 예외를 하나 만들면 벽 두께가 좌표마다 달라져 렌더가 두 규칙을 갖는다.</summary>
+        public bool IsWallRow(int tileX, int tileY)
+        {
+            TerrainTypeSO t = At(tileX, tileY);
+            if (t == null || t.HeightLevel <= 0) return false;
+            for (int k = 1; k <= WALL_ROWS; k++)
+            {
+                TerrainTypeSO below = At(tileX, tileY - k);   // 남쪽 = y 감소 (ADR-M0-9)
+                if (below == null || below.HeightLevel < t.HeightLevel) return true;
+            }
+            return false;
+        }
+
         public bool IsWalkable(int tileX, int tileY)
         {
             TerrainTypeSO t = At(tileX, tileY);
-            return t == null || t.Walkable;
+            return (t == null || t.Walkable) && !IsWallRow(tileX, tileY);
         }
 
         /// <summary>진입 비용 배수 (A*가 읽는다). 미배선이면 1 = 균일 = JPS와 같은 답.</summary>

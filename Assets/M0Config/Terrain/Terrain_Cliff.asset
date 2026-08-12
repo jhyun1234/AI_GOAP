@@ -16,7 +16,8 @@ MonoBehaviour:
   Field: 1
   AppearsAbove: 0.8
   Priority: 30
-  Walkable: 0
+  Walkable: 1
+  HeightLevel: 1
   EnterCost: 1
   MoveSpeedMult: 1
   GroundColor: {r: 0.48, g: 0.45, b: 0.42, a: 1}

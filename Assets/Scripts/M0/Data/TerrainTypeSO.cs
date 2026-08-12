@@ -34,9 +34,17 @@ namespace AIVillage.M0
                  "🔑 물이 절벽을 이기는 이유 — 호수 한가운데 절벽이 서면 화면에서 안 읽힌다.")]
         public int Priority;
 
-        [Tooltip("통행 가능한가. false = 물·절벽 — **주민과 위협 둘 다** 못 지난다 (ADR-T-3). " +
-                 "문처럼 개체별로 갈리는 규칙이 아니다.")]
+        [Tooltip("통행 가능한가. false = 물 — **주민과 위협 둘 다** 못 지난다 (ADR-T-3). " +
+                 "문처럼 개체별로 갈리는 규칙이 아니다.\n" +
+                 "🔑 절벽은 여기가 아니라 `HeightLevel`이 막는다 (M31): 물은 어디서나 못 지나고, " +
+                 "절벽은 **남쪽 가장자리만** 못 지난다.")]
         public bool Walkable = true;
+
+        [Tooltip("이 지형의 높이 (0 = 저지대, 1 = 고지대). 고지대는 **위를 걸을 수 있고**, " +
+                 "남쪽 가장자리 두 줄만 벽이 된다 (M31 · TerrainService.IsWallRow).\n" +
+                 "🔑 높이를 따로 안 두고 지형이 갖는 이유 = ADR-M31-1: 높이 지도를 따로 두면 " +
+                 "밴드 문턱을 돌릴 때마다 지형과 어긋나 벽이 허공에 선다. 두 지도는 한 함수에서 나온다.")]
+        [Min(0)] public int HeightLevel;
 
         [Tooltip("이 칸에 **들어가는** 비용 배수 (1 = 평지, 3 = 늪). 경로가 이걸 보고 우회한다. " +
                  "⚠️ 1 미만이면 휴리스틱이 과대평가가 되어 최단 경로가 깨진다 — 그래서 하한이 1이다.")]
@@ -90,6 +98,12 @@ namespace AIVillage.M0
             if (!Walkable && EnterCost > 1f)
                 Debug.LogWarning($"[TerrainTypeSO] {name}: 통행 불가인데 EnterCost({EnterCost})가 설정돼 있습니다 " +
                                  "— 못 지나는 칸의 비용은 아무도 안 읽습니다 (혼동 방지).", this);
+
+            // M31 ⚠️② — 에셋이 "못 지나는 땅"이라 말하는데 서비스는 위를 걷게 하면 두 값이 서로 거짓말이 된다.
+            if (HeightLevel > 0 && !Walkable)
+                Debug.LogWarning($"[TerrainTypeSO] {name}: 고지대(HeightLevel {HeightLevel})인데 Walkable 0 " +
+                                 "— 고지대는 **위를 걷는 땅**이고 막는 것은 남쪽 벽 줄뿐입니다 (ADR-M31-2). " +
+                                 "Walkable 을 켜세요.", this);
         }
     }
 }

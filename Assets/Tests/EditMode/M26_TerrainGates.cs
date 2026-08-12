@@ -258,6 +258,9 @@ namespace AIVillage.Tests.EditMode
         {
             // 전부 물이면 게임이 안 되고, 막힌 칸이 0이면 지형이 없는 것과 같다.
             // 시드 8개를 훑어 **어느 판에서도** 놀 수 있는지 본다 (한 시드만 보면 운이다).
+            // 🔴 기대값 이동 (M31 W1, 2026-08-12): 절벽 전체가 막던 시절 **17%**(절벽 10.7 + 물 6)
+            //    였던 막힘이, 절벽이 "위는 땅 · 남쪽 두 줄만 벽"이 되면서 **7~9%**로 내려간다.
+            //    대역(1~30%) 안이라 여기는 그대로 green — 정확한 대역은 `M31_HeightGates` T3 몫이다.
             MapBounds.Get(out int minX, out int maxX, out int minY, out int maxY);
             for (uint s = 1; s <= 8; s++)
             {
@@ -365,7 +368,11 @@ namespace AIVillage.Tests.EditMode
                     if (t.IsWalkable(x, y)) continue;
                     blocked++;
                     TerrainTypeSO tt = t.At(x, y);
-                    Assert.IsFalse(tt.Walkable, $"({x},{y}): IsWalkable 과 At().Walkable 이 어긋난다");
+                    // 🔴 개정 2026-08-12 (M31 W1): 舊 검사는 `IsWalkable false ⟹ Walkable false`였다.
+                    //    이제 막는 출처가 **둘**이다 — 물(`Walkable false`, 어디서나)과 절벽 벽면
+                    //    (`IsWallRow`, 남쪽 가장자리만). 셋째 출처가 생기면 이 줄이 red 로 알린다.
+                    Assert.IsTrue(!tt.Walkable || t.IsWallRow(x, y),
+                        $"({x},{y}): 못 지나는데 물도 벽면도 아니다 — 통행 판정에 세 번째 출처가 생겼다");
                     Assert.AreEqual(1f, t.EnterCost(x, y), 1e-3f,
                         $"({x},{y}): 못 지나는 칸에 비용이 붙어 있다 — 아무도 안 읽는 수다");
                 }

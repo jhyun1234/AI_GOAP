@@ -173,6 +173,56 @@ export function castShadow(ctx, x, y, rx, ry, alpha = 0.34) {
         오른쪽 물체는 왼쪽 면이 보인다. 손으로 그리면 절대 안 맞는 부분이다.
    🔴 전부 인자만 보는 순수 함수다 — seek 의 결정성은 그대로다. */
 
+/* ── 조명 ──────────────────────────────────────────
+   빛은 **언제나 화면 왼쪽 위**에서 온다. 물체마다 다른 방향으로 칠하면 각각은 입체인데
+   모아 놓으면 한 공간이 아니다 — 3D 로 보이게 하는 것은 개별 음영이 아니라 **일관성**이다.
+
+   lv = 거리 밝기(0~1, 멀수록 낮다) · k = 면 밝기(0~1, 빛을 마주볼수록 높다).
+   🔴 `DESIGN_GUIDE.md:95` 가 #333 이하 어두운 fill 을 금지하므로 하한을 0x50 에 둔다.
+      검정 배경과 구분이 안 되면 입체가 아니라 구멍으로 읽힌다. */
+const GMIN = 0x50;
+export function gray(v) {
+  const c = Math.round(clamp(v) * (255 - GMIN) + GMIN);
+  const s = c.toString(16).padStart(2, '0');
+  return `#${s}${s}${s}`;
+}
+
+/** 평면·기둥용 — 왼쪽이 밝고 오른쪽이 어둡다. x0<x1 은 그 물체의 화면 좌우 끝. */
+export function litFill(ctx, x0, x1, lv = 1) {
+  const g = ctx.createLinearGradient(x0, 0, x1, 0);
+  g.addColorStop(0, gray(lv * 1.00));
+  g.addColorStop(0.55, gray(lv * 0.78));
+  g.addColorStop(1, gray(lv * 0.52));
+  return g;
+}
+
+/** 구용 — 빛 쪽으로 치우친 방사 그라데이션. 원기둥 음영과 섞이면 머리가 공으로 선다. */
+export function ballFill(ctx, cx, cy, r, lv = 1) {
+  const g = ctx.createRadialGradient(cx - r * 0.42, cy - r * 0.46, r * 0.08, cx, cy, r * 1.18);
+  g.addColorStop(0, gray(lv * 1.00));
+  g.addColorStop(0.5, gray(lv * 0.80));
+  g.addColorStop(1, gray(lv * 0.44));
+  return g;
+}
+
+/** 원기둥(팔·다리·몸통). 두 점을 잇는 캡슐을 축과 무관하게 같은 광원으로 칠한다. */
+export function capsule(ctx, ax, ay, bx, by, r, lv = 1) {
+  ctx.save();
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.strokeStyle = litFill(ctx, Math.min(ax, bx) - r, Math.max(ax, bx) + r, lv);
+  ctx.lineWidth = r * 2;
+  ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
+  ctx.restore();
+}
+
+/** 구 */
+export function ball(ctx, cx, cy, r, lv = 1) {
+  ctx.save();
+  ctx.fillStyle = ballFill(ctx, cx, cy, r, lv);
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+
 /** 월드 → 화면. 반환 s 는 그 깊이에서의 배율(길이·크기에 곱하면 된다). */
 export function project(wx, wy, wz, cam, w, h) {
   const f = cam.f ?? 520;
@@ -199,58 +249,6 @@ export function cam3(track, t) {
   const k = ease((t - a.at) / (b.at - a.at || 1e-6));
   const g = key => lerp(a[key] ?? D[key], b[key] ?? D[key], k);
   return { x: g('x'), y: g('y'), z: g('z'), yaw: g('yaw'), f: g('f') };
-}
-
-/* ── 임팩트 ────────────────────────────────────────
-   2026-08-12, 레퍼런스 두 편(simDdang 릴 · Coloso proro 트레일러)을 프레임 단위로 뜯어
-   가져온 둘. 손으로 그린 액션에서 타격감을 만드는 것은 큰 움직임이 아니라 **한두 프레임의
-   극단**이었다.
-
-   ① 흑백 반전 — simDdang 검격에서 육안 확인: 주황 배경 + 검정 실루엣이 타격 순간
-      **검정 배경 + 흰 거친 선화로 통째 뒤집힌다.** 2~4프레임만 산다.
-      Coloso 폭발은 여기서 더 나아가 **백/흑을 1프레임씩 교대**로 두 번 친다.
-   ② 집중선 — 폭발 중심에서 화면 끝까지 뻗는 굵기 제각각의 선. 방사(발산)와 수렴 둘 다 쓴다.
-
-   🔑 둘 다 **우리 3색 팔레트를 안 깬다.** 반전은 흰색과 배경뿐이고 집중선도 흰색이다.
-   🔴 반전 프레임은 화면 네 변에 잉크가 닿는다 — `checks.edge` 를 선언해야 게이트를 지난다.
-      잘린 것이 아니라 화면 전체가 뒤집힌 것이므로 선언이 옳은 처리다. */
-
-/** 흑백 반전. 이미 그린 것이 구멍이 되고 빈 자리가 흰 판이 된다(진짜 네거티브).
- *  on 은 0 또는 1 로 준다 — 손으로 그린 반전 프레임은 페이드하지 않는다. */
-export function invertFlash(ctx, w, h, on) {
-  if (!on) return;
-  ctx.save();
-  /* 카메라 확대·클립을 무시하고 **캔버스 전체**를 덮어야 한다 — 반전은 화면의 사건이지
-     그림 안의 사건이 아니다. resetTransform 은 장치 픽셀 좌표로 돌아가므로 dpr 을 몰라도
-     넉넉히 칠하면 된다(우리 dpr 은 2.755). */
-  ctx.resetTransform();
-  ctx.globalCompositeOperation = 'xor';
-  ctx.fillStyle = '#FFFFFF';
-  ctx.fillRect(0, 0, w * 5, h * 5);
-  ctx.restore();
-}
-
-/** 집중선. k 0~1 로 뻗어 나간다. out=false 면 바깥에서 중심으로 수렴한다. */
-export function speedLines(ctx, w, h, cx, cy, k, opts = {}) {
-  if (k <= 0.002) return;
-  const n = opts.n ?? 26, seed = opts.seed ?? 7;
-  const R = Math.hypot(w, h);
-  ctx.save();
-  ctx.globalAlpha = (opts.alpha ?? 0.9) * clamp(k * 1.4);
-  ctx.strokeStyle = opts.color || '#FFFFFF';
-  ctx.lineCap = 'butt';
-  for (let i = 0; i < n; i++) {
-    const a = (i + rnd(seed + i) * 0.75) / n * Math.PI * 2;
-    const r0 = (opts.r0 ?? 34) + rnd(seed + i * 3) * 30;
-    const r1 = R * (0.5 + rnd(seed + i * 5) * 0.55);
-    const grow = opts.out === false ? 1 - k : k;
-    ctx.lineWidth = 1.5 + rnd(seed + i * 7) * 4.5;
-    ctx.beginPath();
-    ctx.moveTo(cx + Math.cos(a) * r0, cy + Math.sin(a) * r0);
-    ctx.lineTo(cx + Math.cos(a) * lerp(r0, r1, grow), cy + Math.sin(a) * lerp(r0, r1, grow));
-    ctx.stroke();
-  }
-  ctx.restore();
 }
 
 /* ── 카메라 ────────────────────────────────────────

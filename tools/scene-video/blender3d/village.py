@@ -129,6 +129,35 @@ def flicker(parts, t, k=1.0):
         o.hide_render = k <= 0.02          # 🔴 스케일 0 으로 끄면 밑색이 남는다(함정 ⑥)
 
 
+def cold_front(width=0.95, span=30.0):
+    """겨울이 마을을 가로질러 스친다. 반환: 띠 하나. 처음에는 꺼져 있다.
+
+    🔴 한기(`chill`)는 **뜻층**이다 — 부르는 순간 그 프레임의 유채색 둘 중 하나를 쓴다.
+       불과 같은 규약이고, 불이 켜져 있으면 그 프레임은 이미 상한이다.
+    🔑 인트로의 초록 획과 **같은 도형**을 쓴다. 「무언가가 마을을 훑고 지나갔다」는 이
+       파이프라인에서 이미 한 번 세운 어휘라, 다른 도형을 새로 만들면 어휘만 늘어난다."""
+    # 🔴 **넓은 면에 strength 1.0 을 쓰지 마라**(stage.meaning_mat 주석). 첫 판은 화면을
+    #    가로지르는 네온 띠가 돼서 마을보다 띠가 주인공이었다. 넓게·어둡게 깔아야
+    #    「지나가는 한기」이지 「바닥에 그은 선」이 아니다.
+    b = _cube((0, 0, 0.02), (width, span, 0.03),
+              stage.meaning_mat('chill', strength=0.42, albedo_scale=0.32))
+    b.hide_render = True
+    return b
+
+
+def sweep(front, u, a=-13.0, b=13.0, axis='x'):
+    """u 0→1 로 마을을 가로지른다. 범위 밖이면 **렌더에서 뺀다**(함정 ⑥).
+
+    🔑 `axis='y'` 면 띠를 눕혀 **앞뒤로** 밀어 준다. 카메라가 보는 쪽으로 다가와야
+       「다가온다」가 되지, 화면 옆을 스치면 「지나간다」가 된다 — 둘은 다른 말이다."""
+    front.hide_render = not (0.0 < u < 1.0)
+    if axis == 'y':
+        front.rotation_euler = (0, 0, math.pi / 2)
+        front.location.y = a + (b - a) * u
+    else:
+        front.location.x = a + (b - a) * u
+
+
 _MATS = None
 
 

@@ -7,9 +7,11 @@ BONES = {'hips', 'spine', 'neck', 'head'} | {
     for p in ('shoulder', 'upperarm', 'forearm', 'hand', 'thigh', 'shin', 'foot')}
 
 
-def test_all_eight_exist():
+def test_the_vocabulary_is_exactly_what_the_beat_sheet_uses():
+    """🔴 어휘집이 아니라 짐이 되지 않게 — 쓰는 것만 있어야 한다.
+    `warm`(불 쬐기)은 본문1 이 처음 쓰면서 들어왔다."""
     assert set(motions.MOTIONS) == {
-        'look_up', 'walk', 'stop', 'farm', 'chop', 'draw', 'reach', 'freeze'}
+        'look_up', 'walk', 'stop', 'farm', 'chop', 'draw', 'warm', 'reach', 'freeze'}
 
 
 def test_every_motion_only_names_real_bones():
@@ -45,6 +47,13 @@ def test_stop_still_breathes():
     a = motions.stop(0.0)['spine'][0]
     b = motions.stop(0.96)['spine'][0]     # 0.26Hz 의 1/4 주기
     assert abs(a - b) > 0.005, (a, b)
+
+
+def test_freeze_is_not_just_another_reach_pose():
+    """🔴 뻗기(굳음의 준비)와 불 쬐기는 **다른 포즈**여야 한다. 같으면 아웃트로에서
+    「저쪽을 보다가 굳었다」가 「계속 같은 자세」로 뭉개진다."""
+    a, b = motions.warm(0.5), motions.reach(0.5)
+    assert any(abs(x - y) > 0.15 for k in set(a) & set(b) for x, y in zip(a[k], b[k])), (a, b)
 
 
 def test_freeze_does_not_move_at_all():

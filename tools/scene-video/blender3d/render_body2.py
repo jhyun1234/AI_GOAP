@@ -39,21 +39,10 @@ NF = round(DUR * FPS) + 1
 BEAT = DUR / 6                       # 설계 §4-1 본문2 = 비트 여섯
 assert BEAT <= 1.5, '비트가 홀드 상한을 넘었다: %.2f 초' % BEAT
 
-# 개발자 시점 — 설계 §6-3. 70mm 로 눌러 일부러 평면처럼 본다.
-# 🔴 설계표의 높이 9.0 으로는 안 된다. 70mm 는 수평 화각이 28.7° 뿐이라 표(4.75×3.8)와
-#    밭의 여섯을 한 프레임에 넣으려면 **17m 는 떨어져야** 하고, 그 거리에서 40° 로 내려다보면
-#    높이가 13.6 이 된다. 표를 이 편에서 처음 띄우는 자리라 렌즈를 줄이지 않고 거리를 벌렸다.
+# 개발자 시점은 **본문3 과 공유한다** — `instrument.DEV_CAM`(설계 §4-1: C 시점은 한 번만).
 # 🔑 겨냥점은 표와 여섯의 **사이**다. 표에 겨냥하면 여섯이 구석으로 밀려나는데,
 #    개발자 시점에서도 「여섯이 똑같다」가 먼저 읽혀야 한다(이 편의 사건 ①).
-CAM = ((5.60, -11.90, 13.80), (-1.45, 0.05, 1.45))
-LENS = 70
-# 🔴 이 샷은 **가만히 두면 죽는다.** 첫 판이 여섯 비트 내내 인접 프레임 차 0.0004~0.0009 로,
-#    `probe.frame_diff` 가 정적이라 부르는 0.0008 언저리였다 — 8.9 초짜리 홀드다.
-#    사건(칸이 뜨고 꺼지는 것)은 화면의 몇 %라 그것만으로는 그림이 안 변한다.
-# 🔑 그래서 카메라가 표를 **돈다.** 연출을 덧칠하는 것이 아니라, 공중에 뜬 표와 땅의 마을이
-#    시차로 어긋나는 것이 「표가 세계 위에 떠 있다」를 보여 주는 유일한 방법이다.
-#    ❌ 확대는 안 쓴다(설계 §6-3) — 궤도는 이동이지 확대가 아니다.
-ORBIT = math.radians(19)
+CAM = instrument.DEV_CAM
 
 
 def ease(u):
@@ -83,7 +72,7 @@ threads = [instrument.thread((x, y, 0.95), (sole_xy[0], sole_xy[1], instrument.Z
 # 🔥 모닥불은 계속 타고 있다. 여기도 보라와 둘이라 상한이다(시안은 계기층이라 예산 밖).
 fire = village.flame(village.SPOTS['fire'])
 cam = stage.light_camera()
-cam.data.lens = LENS
+cam.data.lens = instrument.DEV_LENS
 stage.key_from_view(*CAM)
 
 for cell in grid:
@@ -129,12 +118,7 @@ for fi in range(NF):
         t_.hide_render = k <= 0.001
         t_.scale.x = t_.scale.y = 0.020 * k
 
-    u = t / DUR
-    (sx, sy, sz), at = CAM
-    dx, dy = sx - at[0], sy - at[1]
-    a = math.atan2(dy, dx) + ORBIT * u
-    r = math.hypot(dx, dy)
-    stage.aim(cam, (at[0] + r * math.cos(a), at[1] + r * math.sin(a), sz - 0.55 * u), at)
+    instrument.dev_view(cam, t / DUR)
 
     village.flicker(fire, t)
 

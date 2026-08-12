@@ -9,7 +9,7 @@
    「주민이 나온 다음에 다같이 고개 숙이고 끝」. 검사가 아니라 사람 눈이 잡은 버그다.
    그래서 아래 test_motions 에 **위 뼈·아래 뼈 부호를 둘 다** 박아 뒀다.
 
-🔴 **안 쓰는 동작은 안 만든다.** 여기 여덟은 전부 ep15s-1 의 비트 시트가 실제로 쓰는 것이다.
+🔴 **안 쓰는 동작은 안 만든다.** 여기 아홉은 전부 ep15s-1 의 비트 시트가 실제로 쓰는 것이다.
    필요한 동작이 생기면 그 회차가 처음 만든다 — 어휘집이 아니라 짐이 되지 않게.
 
 ⚠️ 시간 인자 `t` 는 **초**다. 주기가 있는 동작은 t 로 감고, 한 번뿐인 동작은 t 로 진행한다.
@@ -106,6 +106,17 @@ def reach(t):
             'spine': (R(-9) * k, 0, 0), 'neck': (R(-5) * k, 0, 0)}
 
 
+def warm(t):
+    """불 쬐기 — 두 손을 불 쪽으로 내밀고 아주 조금 흔들린다. 주기 2.2 초.
+
+    🔴 `reach` 로 때우지 마라. 뻗기는 **굳음의 준비**라 뜻이 이미 배정돼 있고(freeze 가
+       그 포즈를 그대로 쓴다), 같은 포즈에 뜻 둘을 얹으면 아웃트로의 「굳었다」가 안 선다."""
+    b = math.sin(2 * math.pi * t / 2.2)
+    return {'upperarm.L': (R(-52) + R(4) * b, 0, R(9)), 'forearm.L': (R(-36), 0, 0),
+            'upperarm.R': (R(-52) - R(4) * b, 0, R(-9)), 'forearm.R': (R(-36), 0, 0),
+            'spine': (R(-7), 0, 0), 'neck': (R(-4), 0, 0)}
+
+
 def freeze(t):
     """굳음 — 뻗은 자세 그대로 정지. **숨도 안 쉰다.** 그게 이 동작의 뜻이다."""
     return reach(1.0)
@@ -125,8 +136,22 @@ def blend(a, b, k):
             for bone in set(a) | set(b)}
 
 
-MOTIONS = {'look_up': look_up, 'walk': walk, 'stop': stop, 'farm': farm,
-           'chop': chop, 'draw': draw, 'reach': reach, 'freeze': freeze}
+def sequence(names, t, beat, span=0.30):
+    """비트마다 동작을 갈아탄다. `names[i]` 가 i 번째 비트의 동작이다.
+
+    🔴 그냥 갈아타면 관절이 순간이동한다 — 밭일은 허리를 32° 굽히고 있어서 우물 긷기로
+       바로 넘기면 상체가 한 프레임에 튄다. `unison.hook_pose` 가 걷기↔멈춤에 쓰는 것과
+       같은 이음새를 여기서도 쓴다."""
+    i = min(int(t / beat), len(names) - 1)
+    cur = MOTIONS[names[i]](t)
+    if i == 0 or names[i] == names[i - 1]:
+        return cur
+    return blend(MOTIONS[names[i - 1]](t), cur, _ease((t - i * beat) / span))
+
+
+MOTIONS = {'look_up' : look_up, 'walk': walk, 'stop': stop, 'farm': farm,
+           'chop': chop, 'draw': draw, 'warm': warm, 'reach': reach, 'freeze': freeze}
 
 # 주기가 있는 동작과 그 주기(초). 이어 붙일 때 튀지 않으려면 이 값으로 감아야 한다.
-CYCLE = {'walk': 1.0 / WALK_HZ, 'stop': 1.0 / 0.26, 'farm': 1.4, 'chop': 1.1, 'draw': 1.6}
+CYCLE = {'walk': 1.0 / WALK_HZ, 'stop': 1.0 / 0.26, 'farm': 1.4, 'chop': 1.1,
+         'draw': 1.6, 'warm': 2.2}

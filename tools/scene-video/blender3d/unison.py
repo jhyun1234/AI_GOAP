@@ -109,6 +109,19 @@ def hook_pose(t, beat):
     return motions.blend(s, w, k) if walking else motions.blend(w, s, k)
 
 
+# 「잠깐 흩어짐」 — 본문1 의 한기 비트. 🔴 **자리만 흩어지고 동작은 그대로다.**
+#    동작까지 갈라 놓으면 본문3 의 「군무가 깨진다」와 구별이 안 된다 — 그쪽이 이 편의
+#    결말이고, 여기서 미리 써 버리면 결말이 반복으로 읽힌다.
+SCATTER = [(0.82, -0.50), (-0.72, 0.62), (0.90, 0.38),
+           (-0.86, -0.44), (0.44, 0.86), (-0.54, -0.80)]
+
+
+def scatter_at(i, k):
+    """i 번째 주민이 k(0~1)만큼 흩어진 자리 오프셋."""
+    dx, dy = SCATTER[i % len(SCATTER)]
+    return dx * k, dy * k
+
+
 def motion_at(t, i, k):
     """i 번째 주민이 지금 무슨 동작을 하는가. k 0 이면 여섯이 같고, 1 이면 갈라진다."""
     return BREAK[i % len(BREAK)] if k >= 0.5 else TOGETHER

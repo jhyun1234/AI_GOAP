@@ -159,6 +159,23 @@ def key_from_view(loc, at):
         math.radians(KEY_ELEV), 0, math.radians(view_az + KEY_REL))
 
 
+def shot_seconds(ep, shot_id):
+    """이 샷이 몇 초인가. 🔑 **대본이 정본이다** — 렌더 스크립트에 길이를 손으로 적지 마라.
+    엔진 타임라인이 이 값으로 돌기 때문에 어긋나면 그림과 소리가 통째로 밀린다."""
+    import json
+    d = json.load(open(os.path.join(SV_ROOT, 'episodes', ep, 'build', 'timed.json'),
+                       encoding='utf-8'))
+    s = next(x for x in d['shots'] if x['id'] == shot_id)
+    return (sum(l['dur'] + l.get('pause', 0) for l in s['lines']) + 350) / 1000.0
+
+
+def shot_spec(ep, shot_id):
+    """샷의 `spec` 블록. 칸 수·불 켜지는 칸 같은 수는 여기서 읽는다 — 두 군데 적으면 갈라진다."""
+    import json
+    d = json.load(open(os.path.join(SV_ROOT, 'episodes', ep, 'scene.json'), encoding='utf-8'))
+    return next(x for x in d['shots'] if x['id'] == shot_id)['spec']
+
+
 def aim(cam, loc, at):
     cam.location = loc
     cam.rotation_euler = (Vector(at) - Vector(loc)).to_track_quat('-Z', 'Y').to_euler()

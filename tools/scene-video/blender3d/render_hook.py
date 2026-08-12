@@ -16,7 +16,8 @@
 🔑 길이는 SH 내레이션에서 나온다. 한 줄(「가는 곳도, 멈추는 자리도 같았고요.」)을 더해
    6.61 → 9.58 초가 됐고, 여덟 비트면 비트당 1.198 초다(홀드 상한 1.5 초 안).
 
-🔴 뜻층은 보라 하나뿐이다(한 프레임에 둘까지 — 설계 §2).
+🔴 뜻층은 **보라(성격 표식)와 앰버(모닥불) 둘**이다 — 설계 §2 의 상한이다.
+   여기에 색을 하나 더 넣으면 그때 규약이 깨진다. 시안은 계기층이라 예산 밖이다.
 """
 import bpy, sys, os, json, math
 
@@ -54,6 +55,10 @@ bpy.ops.wm.read_factory_settings(use_empty=True)
 v = village.build()
 arms = unison.place()
 marks = unison.personality_marks(arms)     # 🔑 주민에게 묶는다 — 걸어가면 같이 간다
+# 🔥 모닥불은 인트로가 지폈다 — 컷 없이 이어지므로 여기서도 타고 있어야 한다.
+# 🔴 앰버가 뜻층 예산 하나를 쓴다. 이 샷은 보라(성격 표식)와 둘이라 규약 상한이다 —
+#    여기에 색을 하나 더 넣으면 그때 설계 §2 가 깨진다.
+fire = village.flame(village.SPOTS['fire'])
 cam = stage.light_camera()
 stage.key_from_view(*unison.HOOK_CAM)      # 🔴 안 부르면 여섯이 통째로 역광이 된다
 
@@ -111,6 +116,8 @@ for fi in range(NF):
     #    집·나무가 사이로 끼어들어 여섯을 셀 수 없게 된다 — 그만큼 뒤로 물러나 자리를 준다.
     stage.aim(cam, (sx + 0.35 * x + 1.10 * u, sy + 0.35 * y - 0.45 * u, sz + 0.28 * u),
               (ax + x, ay + y, az))
+
+    village.flicker(fire, t)
 
     bpy.context.view_layer.update()
     bpy.context.scene.render.filepath = os.path.join(OUT, '%04d.png' % fi)

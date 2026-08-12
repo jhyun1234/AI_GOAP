@@ -11,6 +11,11 @@
   "Cone.006"
  ],
  "house_height": 1.85,
+ "fire": {
+  "stones": 7,
+  "logs": 4,
+  "ash": "Cylinder"
+ },
  "spots": [
   [
    -2.7,
@@ -40,7 +45,8 @@
   "world.007",
   "world.008",
   "world.009",
-  "world.010"
+  "world.010",
+  "world.011"
  ],
  "meaning_materials": [],
  "instrument_materials": []

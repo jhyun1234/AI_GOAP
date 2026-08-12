@@ -78,6 +78,24 @@ def test_spec_budget_constant_is_two():
     assert palette.MAX_MEANING_PER_FRAME == 2
 
 
+def test_the_fire_pit_reads_as_a_fire_pit_without_any_fire():
+    """🔴 「불이 없는 게 제일 이상해」의 진짜 원인은 불이 아니라 그것이 모닥불처럼
+    **생기지 않은 것**이었다(돌 상자 하나). 돌 테두리와 장작은 세계층이라 유채색 예산을
+    한 톨도 안 쓴다 — 즉 이 고침은 모든 샷에 공짜로 적용된다."""
+    r = json.load(open(REPORT, encoding='utf-8'))
+    assert r['fire']['stones'] >= 6, r['fire']
+    assert r['fire']['logs'] >= 3, r['fire']
+
+
+def test_the_village_never_lights_the_fire_itself():
+    """🔴 앰버는 뜻층이다 — 불을 켜면 그 프레임의 유채색 둘 중 하나를 쓴다.
+    마을이 기본으로 켜 버리면 모든 샷이 예산 하나를 잃은 채로 시작한다. **샷이 정한다.**"""
+    src = open(os.path.join(HERE, 'village.py'), encoding='utf-8').read()
+    body = src[src.index('def build('):]
+    assert 'flame(' not in body, 'build() 가 불을 켜고 있다'
+    assert "meaning_mat('amber'" in src, '불이 앰버가 아니다 — 앰버는 삶·온기다(설계 §2)'
+
+
 if __name__ == '__main__':
     from _check import run
     run(globals())

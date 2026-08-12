@@ -73,6 +73,14 @@ for ob in bpy.context.scene.objects:
 BASE_Z = {o: o.location.z for o in RISE}
 BASE_SZ = {o: o.scale.z for o in RISE}
 
+# 🔥 모닥불에 불이 붙는다 — 마을이 **살아나는** 마지막 손질이다.
+# 🔴 RISE 를 다 세운 **뒤에** 만든다. 위 근접 묶기 루프가 불꽃도 땅에서 솟게 만들어 버린다.
+# 🔴 앰버는 뜻층이라 예산 하나를 쓴다. 인트로의 「유채색은 초록 하나뿐」은 **프레임당** 규칙이고,
+#    초록 획은 0.79 초에 사라지고 불은 3.35 초에 붙는다 — 한 프레임에 겹치지 않는다.
+#    🔑 겹치게 만들지 마라. 겹치는 순간 인트로가 본문 예산을 미리 태운다.
+FIRE_AT = 3.35
+fire = village.flame(village.SPOTS['fire'])
+
 for fi in range(NF):
     t = fi / FPS
 
@@ -84,6 +92,8 @@ for fi in range(NF):
         o.scale.z = max(BASE_SZ[o] * k, 1e-4)
         o.location.z = BASE_Z[o] * k
         o.hide_render = k <= 0.001
+
+    village.flicker(fire, t, ease((t - FIRE_AT) / 0.40))
 
     for i, arm in enumerate(arms):
         t0 = 3.20 + i * 0.17

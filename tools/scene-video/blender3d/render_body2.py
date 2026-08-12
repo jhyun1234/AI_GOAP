@@ -11,8 +11,8 @@
 🔴 이 샷은 **컷이다.** 이 편에서 컷은 둘뿐이고(설계 §4-1) 여기가 그 하나다 —
    계기가 주인공인 자리라 개발자 시점으로 올라간다. 70mm 로 눌러 일부러 평면처럼 본다.
 
-🔴 뜻층은 보라 하나뿐이다. 시안은 **계기층이라 뜻층 예산에 안 들어간다**(설계 §2) —
-   그래서 이 샷은 시안이 화면을 덮어도 「한 프레임에 둘까지」를 안 깬다.
+🔴 뜻층은 **보라(닿은 칸)와 앰버(모닥불) 둘**이다 — 설계 §2 의 상한이다.
+   시안은 **계기층이라 뜻층 예산에 안 들어간다** — 그래서 시안이 화면을 덮어도 안 깨진다.
 """
 import bpy, sys, os, json, math
 
@@ -80,6 +80,8 @@ sole_xy = pos[SOLE]
 threads = [instrument.thread((x, y, 0.95), (sole_xy[0], sole_xy[1], instrument.Z), cyan)
            for x, y in instrument.work_block(village.SPOTS['field'])]
 
+# 🔥 모닥불은 계속 타고 있다. 여기도 보라와 둘이라 상한이다(시안은 계기층이라 예산 밖).
+fire = village.flame(village.SPOTS['fire'])
 cam = stage.light_camera()
 cam.data.lens = LENS
 stage.key_from_view(*CAM)
@@ -133,6 +135,8 @@ for fi in range(NF):
     a = math.atan2(dy, dx) + ORBIT * u
     r = math.hypot(dx, dy)
     stage.aim(cam, (at[0] + r * math.cos(a), at[1] + r * math.sin(a), sz - 0.55 * u), at)
+
+    village.flicker(fire, t)
 
     bpy.context.view_layer.update()
     bpy.context.scene.render.filepath = os.path.join(OUT, '%04d.png' % fi)

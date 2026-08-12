@@ -1,68 +1,75 @@
 import {
-  disp, mono, ease, easeOut, clamp, lerp, frac,
-  fitCanvas, mkCanvas, roundRect, tone, setShadow, clearShadow, GLOW, PALETTE, depthGrad, camAt
+  disp, mono, ease, easeOut, clamp, lerp,
+  fitCanvas, mkCanvas, roundRect, tone, camAt
 } from '../../../engine/lib.js';
 
-/* onecount — 무덤 일곱 위로 거대한 「+1」 도장이 떨어져 **전부 납작하게 눌러 버리고**,
-   남는 것은 그 도장 하나뿐이다.
+/* onecount — **화면 앞의 사람이 「누가 죽었지?」하고 묻는데, 화면이 내놓는 답은 숫자
+   하나뿐이다.** 숫자가 1 올라가고, 물음표는 그대로 남는다.
 
    원문 근거:
    > "누가 죽었냐고? 사망 카운터 +1. 내가 가진 건 그게 전부인데."
-   ← 원문이 옛 코드의 속마음을 **사람 말로 옮겨 준** 대목이다(ADR-V25-13 ①풀어쓰기).
-      화면 라벨 「내가 가진 것」과 화면 문자열 「+1」은 둘 다 이 인용에 글자 그대로 있다.
-   🔴 누적값(일곱까지 올라간 수 같은 것)은 원문에 없으므로 **숫자로 안 적는다.**
+   > "Day 45에 주민 일곱 명이 죽었습니다."
 
-   ── 2026-08-12 개정 v4 (그림 어휘 교체) ────────────────────────────
-   🔴 **비유를 바꿨다.** v3 까지는 「동그라미 일곱에서 점선 줄기가 흘러 칸으로 모인다」였다.
-      흐름도다. 흐름도는 읽어야 알고, 읽으려면 자막이 필요했다.
-      지금은 **도장이 쿵 찍혀 사람들이 숫자가 된다** — 한 장면으로 뜻이 선다.
-      🔑 이 편에서 가장 나쁜 자리가 여기다(사람이 수로 접힌다). 그러면 그림도 가장 폭력적인
-         동작이어야 한다. 「흘러 모인다」는 그 자리에 너무 얌전했다.
-   🔴 **무한 루프를 걷어냈다.** 점선 흐름·숨쉬기가 사라지고 도장의 낙하 한 번이 대신한다.
-   🔴 **크다.** 도장 폭 250 = 캔버스 352 의 **71%**. 옛 칸은 120(34%)이었다.
+   ── 2026-08-12 개정 v5 (사용자 판정) ──────────────────────────────
+   사용자: 「+1 만 나오는 애니메이션은 진짜 정말 안 좋아」 ·
+          「'누가 죽었냐고 물으면 답이 하나였어요 / 죽은 사람 수만 1 올라가고 끝이었죠' 가
+           무슨 의미인지 모르겠어」 ·
+          「게임을 플레이하는 사람의 모습을 만들어서 위에 ? 애니메이션도 넣어봐」
 
-   ⏱ 낙하는 `since(0)` 위에 세웠다 — **`cue` 가 아니라 `since` 인 것이 효과음의 전제다.**
-      `since` 는 자막이 시작된 뒤 흐른 초라 `delayMs` 와 원점이 같다.
-   🔴 **`sfx.delayMs 285` 를 한 자도 안 고쳤다.** sweep 은 `lp × sin(π·k)` 라 에너지 정점이
-      dur 의 절반(0.27초) 뒤이므로 정점이 **0.555초**에 온다. 그래서 도장이 바닥에 닿는
-      순간을 **0.555초**에 맞췄다 — 소리의 정점과 그림의 충돌이 같은 프레임이다.
-      v3 까지는 이 시각이 「일곱 줄기가 흘러내리는 구간의 한가운데」였고, 소리는 같은 자리에
-      있었지만 화면에서는 아무것도 부딪히지 않았다.
-
-   phase (샷 분할):
-     phase 0 (S2a) = 비석 일곱 → 도장이 떨어져 납작하게 누른다.
-                     자막 「누가 죽었냐고 물으면 답이 하나였어요」
-     phase 1 (S2b) = 카메라가 도장으로 파고든다. 비석은 이미 없다.
-                     자막 「죽은 사람 수만 1 올라가고, 끝이었죠」
-   🔑 phase 1 에 비석을 안 그리는 것이 요점이다 — 「내가 가진 건 그게 전부」라면
-      화면에 남는 것도 그것 하나여야 한다.
+   🔴 v4 의 「+1 도장이 무덤을 눌러 납작하게 만든다」를 버렸다. 임팩트는 있었지만
+      **묻는 사람이 화면에 없어서** 「답이 하나였다」의 *답*도 *묻는 사람*도 안 보였다.
+      자막의 두 문장은 둘 다 **사람의 곤란**에 대한 것인데 그림에는 사람이 없었다.
+   🔴 그래서 구도를 바꿨다: **왼쪽에 플레이어, 오른쪽에 게임 화면.**
+      플레이어 머리 위의 큰 「?」가 이 샷의 주인공이고, 그 물음표는 **끝까지 안 풀린다.**
+      숫자가 올라가는 것을 보고도 물음표가 남는 것 — 그게 이 편의 진단이다.
+   🔴 **숫자를 실제로 보여 준다.** v4 까지는 「+1」이라는 기호만 있어서 무엇이 1 올라가는지
+      알 수 없었다. 지금은 화면 안에 **죽은 사람 수**가 서 있고, 「+1」이 무덤에서 떠올라
+      그 숫자에 꽂히며 6 → 7 로 바뀐다.
+      ⚠️ 값 6 → 7 의 근거: 원문 「Day 45에 주민 일곱 명이 죽었습니다」 + 「사망 카운터 +1」.
+         일곱 번째가 올라가는 순간이라 원문 안에 있는 수다. **원문에 없는 누적 총계는
+         여전히 안 적는다.**
 
    🔴 색 규약: 이 샷에는 **강조색이 한 점도 없다.** 이 편에서 강조색은 「이름」인데
-      여기서 남는 것은 이름이 아니라 수뿐이다. 도장은 흰 판이고 「+1」은 배경색으로 **파낸다**
-      (blankstone 의 이름 자리와 같은 수법 — 파인 것은 새겨진 것이다).
+      여기서 남는 것은 이름이 아니라 수뿐이다. 물음표도 흰색이다 — 크기로 세운다.
+   🔴 화면 유리는 `destination-out` 으로 **파낸다.** 배경색으로 칠하면 흰 베젤과의 경계에서
+      팔레트 위반 색이 생긴다(v4 에서 실제로 다섯 샷이 걸렸다).
+
+   phase (샷 분할):
+     phase 0 (S2a) = 사람이 화면을 보고 묻는다. 「?」가 튀어 오른다.
+                     자막 「누가 죽었냐고 물으면 답이 하나였어요」
+     phase 1 (S2b) = 「+1」이 무덤에서 떠올라 숫자에 꽂히고 7 로 바뀐다. 물음표는 그대로.
+                     자막 「죽은 사람 수만 1 올라가고, 끝이었죠」
+     카메라는 숫자로 다가갔다가 **마지막에 물음표로 되돌아온다** — 「숫자가 올라가도 나는
+     여전히 모른다」가 카메라의 문장이다.
+
+   ⏱ 「?」의 도약과 「+1」의 비행은 `since(0)` 위에 세웠다 — `since` 는 자막이 시작된 뒤
+      흐른 초라 `delayMs` 와 원점이 같다. 🔴 `sfx.delayMs 285`(sweep · 에너지 정점 0.555초)는
+      **phase 0 에 있다.** 그래서 「?」가 튀어 오르는 정점을 0.555초에 맞췄다 —
+      묻는 동작과 소리의 정점이 같은 프레임이다.
 
    겹침 감사(축 A 강조↔흰 / 축 B 흰↔흰):
      축 A · 강조색 0개 — 잴 것이 없다.
-     축 B · 흰 글자가 0개다(「+1」은 도장을 파낸 홈이라 글자가 아니라 배경이다).
-            라벨 「내가 가진 것」만 흰 계열(sub)이고, 도장 바깥 아래변 236 과 라벨 글립
-            꼭대기 262−11 = 251 사이가 **15px** 뜬다.
-            흰 실루엣끼리는 비석 일곱이 서로 6px 간격인데 「늘어서 있다」를 만드는 의도한 쌍이다.
-   세로 예산(캔버스 307): 최저 = 라벨 내림선 약 **266**(41px 남음). 최고 = 도장 꼭대기 **136**,
-     낙하 시작 시각에는 화면 위(−80)에서 들어온다.
-   가로: 도장 51~301. 비석 줄 46~306(눌리면 폭 42.5 까지 벌어져 24.75~327.25).
-     바깥 2px 띠에서 좌우 22.75 뜬다 — 처음엔 22~330 이었는데 눌린 폭이 캔버스를 넘어
-     가장자리 검사에 75% 구간으로 걸렸다(실측). 벌어지는 폭까지 예산에 넣어야 한다.
-   phase 1(1.5 → 2.8 확대 · focus [0.5, 0.62]): 도장의 좌우가 화면 밖으로 나간다
-     → `checks.edge` 선언 대상.
+     축 B · 흰 글자 간격: 라벨 내림선 84 → 「?」 글립 꼭대기 97 = **13px**.
+            「?」 baseline 134 → 사람 머리 꼭대기 154 = **20px**.
+            화면 안 숫자(x 236 · baseline 210)와 「+1」(x 178 → 214 에서 사라짐)은
+            x 가 갈려 최소 **22px** 뜬다.
+            흰 도형끼리는 사람 오른쪽 끝 85 와 모니터 왼쪽 116 이 **31px** 뜬다.
+   세로 예산(캔버스 307): 최저 = 모니터 발 266(41px 남음). 최고 = 라벨 글립 꼭대기 **71**.
+   가로: 사람 왼쪽 39 / 모니터 오른쪽 340. 바깥 2px 띠에서 좌 37 · 우 12 뜬다.
+   phase 1 카메라(1.7 로 숫자에 붙었다가 1.25 로 물음표 복귀): 모니터 좌우와 사람이 번갈아
+     밖으로 나간다 → `checks.edge` 선언 대상.
 
-   계속 도는 것: 낙하가 끝난 뒤 남는 것은 「+1」의 깜빡임(0.62초 주기) 하나다.
-   정적 3초 검사를 넘기려면 무언가는 살아 있어야 하는데, 이 편에서 깜빡여도 되는 것은
-   「계속 올라가는 수」뿐이다 — 뜻과 맞는 유일한 루프라 이것만 남겼다. */
+   계속 도는 것: 물음표가 아주 느리게 좌우로 기운다(2.4초 주기 · ±3도). 정적 3초 검사를
+   넘기는 최소치이고 「아직도 모르겠다」와 뜻이 맞는, 이 샷에서 유일하게 허용한 루프다. */
 
-const GROUND = 236;
-const STAMP = { x: 176, w: 250, h: 100, y: 136 };   // 도장 — 캔버스 폭의 71%
-const STONE_Y = 232, STONE_W = 34, STONE_H = 52;
-const XS = [46, 89, 132, 176, 219, 262, 306];
+const GROUND = 272;
+const FIG = { x: 62, h: 118, w: 46 };
+const Q = { x: 62, y: 134 };                       // 물음표 baseline
+const MON = { x: 116, y: 88, w: 224, h: 140 };     // 모니터 바깥 상자
+const GLASS = { x: 124, y: 96, w: 208, h: 124 };   // 파낸 화면
+const TOMB_Y = 170, TOMB_W = 21, TOMB_H = 38;
+const TOMB_X = [140, 169.3, 198.7, 228, 257.3, 286.7, 316];
+const NUM = { x: 236, y: 210 };                    // 죽은 사람 수
 
 function stone(ctx, x, y, w, h) {
   const r = w / 2;
@@ -70,6 +77,18 @@ function stone(ctx, x, y, w, h) {
   ctx.moveTo(x - r, y); ctx.lineTo(x - r, y - h + r);
   ctx.arc(x, y - h + r, r, Math.PI, 0);
   ctx.lineTo(x + r, y); ctx.closePath();
+}
+
+/** 사람 실루엣 — 머리 + 어깨. 얼굴·손은 안 그린다(MINIMAL_DESIGN_LANGUAGE:838). */
+function person(ctx, x, y, hgt, wid) {
+  const hr = wid * 0.26;
+  const bodyTop = y - hgt + hr * 2 + 1;
+  ctx.beginPath(); ctx.arc(x, y - hgt + hr, hr, 0, Math.PI * 2); ctx.closePath(); ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(x - wid * 0.50, bodyTop + 10);
+  ctx.quadraticCurveTo(x, bodyTop - 9, x + wid * 0.50, bodyTop + 10);
+  ctx.lineTo(x + wid * 0.40, y); ctx.lineTo(x - wid * 0.40, y);
+  ctx.closePath(); ctx.fill();
 }
 
 export default {
@@ -83,78 +102,90 @@ export default {
     const ph = spec.phase ?? 0;
     const st = ph === 0 ? ease(cue(0, 0.15, 0.20)) : 1;
     if (st <= 0.01) { ctx.textAlign = 'left'; return; }
+    const s0 = since(0);
 
-    /* 낙하 — 0.20 에 화면 위에서 들어와 **0.555초에 닿는다**(sweep 정점과 같은 프레임).
-       0.20~0.32 는 살짝 위로 뺀다(anticipation). */
-    const s0 = ph === 0 ? since(0) : 99;
-    const drop = clamp((s0 - 0.20) / 0.355);
-    const land = clamp((s0 - 0.555) / 0.12) * clamp((0.90 - s0) / 0.25);   // 임팩트
+    /* ── 사람 ─────────────────────────────────────── */
+    ctx.save();
+    ctx.globalAlpha = st;
+    ctx.fillStyle = tone('ink');
+    person(ctx, FIG.x, GROUND, FIG.h, FIG.w);
+    ctx.restore();
 
-    /* ── 비석 일곱 — 눌리면 납작해진다 ────────────── */
-    if (ph === 0) {
-      const crush = ease(clamp((s0 - 0.555) / 0.22));
-      ctx.save();
-      ctx.globalAlpha = st * (1 - crush * 0.85);
-      ctx.fillStyle = tone('ink');
-      for (const x of XS) {
-        const hh = STONE_H * (1 - crush * 0.92);
-        stone(ctx, x, STONE_Y, STONE_W * (1 + crush * 0.25), Math.max(2, hh));
-        ctx.fill();
+    /* ── 모니터 ───────────────────────────────────── */
+    ctx.save();
+    ctx.globalAlpha = st;
+    ctx.fillStyle = tone('ink');
+    roundRect(ctx, MON.x, MON.y, MON.w, MON.h, 10); ctx.fill();
+    ctx.fillRect(222, MON.y + MON.h, 12, 30);                        // 목
+    roundRect(ctx, 198, MON.y + MON.h + 30, 60, 8, 4); ctx.fill();   // 발
+
+    ctx.globalCompositeOperation = 'destination-out';                // 유리는 파낸다
+    ctx.fillStyle = '#000';
+    roundRect(ctx, GLASS.x, GLASS.y, GLASS.w, GLASS.h, 5); ctx.fill();
+    ctx.restore();
+
+    /* ── 화면 안 : 무덤 일곱 + 죽은 사람 수 ────────── */
+    ctx.save();
+    ctx.globalAlpha = st * 0.92;
+    ctx.beginPath(); ctx.rect(GLASS.x, GLASS.y, GLASS.w, GLASS.h); ctx.clip();
+    ctx.fillStyle = tone('ink');
+    for (const x of TOMB_X) { stone(ctx, x, TOMB_Y, TOMB_W, TOMB_H); ctx.fill(); }
+
+    /* 🔴 v4 의 실패를 여기서 고친다 — 「+1」기호만 띄우면 무엇이 1 올라가는지 알 수 없다. */
+    const tick = ph === 1 ? clamp((s0 - 1.28) / 0.06) : 0;
+    const numPop = 1 + 0.22 * tick * (1 - tick) * 4;                 // 꽂히는 순간 한 번 커진다
+    ctx.save();
+    ctx.translate(NUM.x, NUM.y);
+    ctx.scale(numPop, numPop);
+    ctx.font = mono(700, 30);
+    ctx.textAlign = 'center';
+    ctx.fillStyle = tone('ink');
+    ctx.fillText(tick > 0.5 ? '7' : '6', 0, 0);
+    ctx.restore();
+
+    /* 「+1」 — 무덤에서 떠올라 그 숫자에 꽂힌다 */
+    if (ph === 1) {
+      const fly = clamp((s0 - 0.55) / 0.75);
+      if (fly > 0.005 && fly < 1) {
+        const k = fly < 0.16 ? -0.30 * Math.sin(fly / 0.16 * Math.PI) : easeOut((fly - 0.16) / 0.84);
+        const cx = lerp(178, NUM.x - 24, k);
+        const cy = lerp(TOMB_Y - TOMB_H - 6, NUM.y - 9, clamp(k)) - Math.sin(clamp(k) * Math.PI) * 16;
+        ctx.globalAlpha = st * (1 - clamp((fly - 0.86) / 0.14));
+        ctx.font = mono(700, 20);
+        ctx.textAlign = 'center'; ctx.fillStyle = tone('ink');
+        ctx.fillText('+1', cx, cy);
       }
-      ctx.restore();
     }
+    ctx.restore();
 
-    /* ── 「+1」 도장 ───────────────────────────────── */
-    const sy = ph === 0
-      ? lerp(-150, 0, drop < 0.34 ? -0.10 * Math.sin(drop / 0.34 * Math.PI) : easeOut((drop - 0.34) / 0.66))
-      : 0;
-    if (ph === 1 || drop > 0.001) {
+    /* ── 물음표 — 이 샷의 주인공. 끝까지 안 풀린다 ──
+       phase 0 에서 튀어 오르고(정점 0.555초 = sweep 정점), 그 뒤로는 아주 느리게 기운다. */
+    const qk = ph === 0 ? clamp((s0 - 0.30) / 0.42) : 1;
+    if (qk > 0.01) {
+      const popk = ph === 0 ? easeOut(qk) + 0.30 * Math.sin(Math.PI * qk) * (1 - qk) * 2 : 1;
+      /* 숫자가 꽂히는 순간 한 번 흔들린다 — 답이 안 됐다는 뜻이다 */
+      const shake = ph === 1
+        ? Math.sin((s0 - 1.28) * 26) * clamp((s0 - 1.28) / 0.06) * clamp((2.0 - s0) / 0.6)
+        : 0;
+      const tilt = Math.sin(t * 2.6) * 0.052 + shake * 0.09;
       ctx.save();
-      ctx.globalAlpha = st;
-      /* 닿는 순간 도장이 한 번 눌렸다 펴진다 — 눌리지 않으면 '내려놓았다'로 읽힌다 */
-      const squash = land > 0.01 ? 1 - 0.10 * land : 1;
-      ctx.translate(STAMP.x, STAMP.y + STAMP.h / 2 + sy);
-      ctx.scale(1 + (1 - squash) * 0.8, squash);
-      ctx.fillStyle = depthGrad(ctx, -STAMP.w / 2, -STAMP.h / 2, STAMP.w / 2, STAMP.h / 2, 'ink');
-      roundRect(ctx, -STAMP.w / 2, -STAMP.h / 2, STAMP.w, STAMP.h, 12);
-      ctx.fill();
-
-      /* 「+1」 — 도장을 **파낸** 자리다. 글자를 얹지 않고 판을 파낸다. */
-      ctx.globalCompositeOperation = 'destination-out';
-      ctx.font = mono(700, 68);
-      ctx.textAlign = 'center';
-      ctx.fillStyle = '#000';
-      const blink = ph === 1 ? (frac(t / 0.62) < 0.62 ? 1 : 0.28) : 1;
-      ctx.globalAlpha = blink;
-      ctx.fillText(spec.markLabel ?? '+1', 0, 24);
+      ctx.globalAlpha = st * clamp(popk);
+      ctx.translate(Q.x, Q.y);
+      ctx.rotate(tilt);
+      ctx.scale(popk, popk);
+      ctx.font = disp(900, 56);
+      ctx.textAlign = 'center'; ctx.fillStyle = tone('ink');
+      ctx.fillText('?', 0, 0);
       ctx.restore();
-    }
 
-    /* ── 착지 임팩트 ─────────────────────────────── */
-    if (land > 0.01) {
-      ctx.save();
-      ctx.globalAlpha = land * 0.8;
-      ctx.strokeStyle = tone('ink'); ctx.lineWidth = 5; ctx.lineCap = 'round';
-      for (let i = 0; i < 9; i++) {
-        const a = Math.PI + (i + 0.5) / 9 * Math.PI;
-        const r0 = 30 + 30 * (1 - land), r1 = r0 + 40;
-        const cy = STAMP.y + STAMP.h;
-        ctx.beginPath();
-        ctx.moveTo(STAMP.x + Math.cos(a) * r0 * 1.5, cy - Math.sin(a) * r0 * 0.18);
-        ctx.lineTo(STAMP.x + Math.cos(a) * r1 * 1.5, cy - Math.sin(a) * r1 * 0.18);
-        ctx.stroke();
+      if (spec.askLabel) {
+        ctx.save();
+        ctx.globalAlpha = st * clamp((popk - 0.5) / 0.5) * 0.85;
+        ctx.font = disp(800, 13);
+        ctx.textAlign = 'center'; ctx.fillStyle = tone('sub');
+        ctx.fillText(spec.askLabel, Q.x, 84);
+        ctx.restore();
       }
-      ctx.restore();
-    }
-
-    /* ── 라벨 ─────────────────────────────────────── */
-    if (spec.haveLabel && ph === 0 && s0 > 1.05) {
-      ctx.save();
-      ctx.globalAlpha = st * clamp((s0 - 1.05) / 0.25);
-      ctx.textAlign = 'center'; ctx.fillStyle = tone('sub');
-      ctx.font = disp(900, 15);
-      ctx.fillText(spec.haveLabel, STAMP.x, 262);
-      ctx.restore();
     }
 
     ctx.textAlign = 'left';

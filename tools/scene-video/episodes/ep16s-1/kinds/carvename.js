@@ -1,5 +1,5 @@
 import {
-  ease, easeOut, clamp, lerp,
+  disp, ease, easeOut, clamp, lerp,
   fitCanvas, mkCanvas, tone, setShadow, clearShadow, GLOW, PALETTE, depthGrad, camAt
 } from '../../../engine/lib.js';
 
@@ -29,7 +29,7 @@ import {
 
    🔴 색 규약: 이 편에서 처음으로 강조색이 **채워진다.** namefade 에서 꺼졌던 이름이
       여기서 돌아온다 — 그것이 이 편의 뒤집힘이다.
-   🔴 **이름과 날짜의 값을 글자로 안 적었다.** 원문 형식은 `{shortName} · Day {day}` 인데
+   🔴 **v5 정정: 이름 값을 글자로 새긴다**(사용자 지시). 원문 형식은 `{shortName} · Day {day}` 인데
       실제 값은 원문에 없다. 그래서 이름 자리와 날짜 자리를 **강조색 막대**로 두고,
       형식에 실제로 들어 있는 가운뎃점만 그린다. 「Day」는 게임이 찍는 표기의 인용이다.
 
@@ -145,20 +145,34 @@ export default {
     ctx.fillRect(ST.x - SLOT.w / 2, sy, SLOT.w, SLOT.h);
     ctx.globalCompositeOperation = 'source-over';             // 새겨질 이름은 다시 얹는다
 
-    /* 새겨진 이름 — 「막대 · 막대」. 값은 원문에 없으므로 글자로 안 적는다. */
+    /* 새겨진 이름 — **끌이 지나간 자리처럼 왼쪽부터 파인다.**
+       🔴 2026-08-12 v5, 사용자 지시로 **실제 이름 문자열을 새긴다**(전에는 값이 없다는
+          이유로 강조색 막대 둘이었다). 값은 `spec.carvedName` 이 진다 — 그림이 문자열을
+          소유하면 다음 회차에서 이름이 바뀔 때 그림 파일을 고쳐야 한다.
+       🔴 ⚠️ **이 값은 원문 기사에 없다.** 원문은 형식(`{shortName} · Day {day}`)만 주고
+          실제 이름은 주지 않는다. 「원문에 없는 값은 화면에 안 적는다」는 이 트랙의 규칙인데,
+          여기는 **사용자가 지정한 선언된 예외**다. 검수가 이 줄을 보고 판단하도록 남긴다.
+       🔑 왼쪽부터 드러나게 clip 을 쓴다. 통째로 페이드인하면 '나타났다'로 읽히고,
+          왼쪽부터 드러나야 '새겨졌다'로 읽힌다. */
     if (fill > 0.01) {
-      const B1 = 34, B2 = 20, DOT = 5, GAP = 9;
-      const total = B1 + GAP + DOT + GAP + B2;
-      let x = ST.x - total / 2;
-      const cy = sy + SLOT.h / 2;
-      ctx.globalAlpha = g0 * fill;
-      setShadow(ctx, GLOW, 8);
+      const name = spec.carvedName ?? '';
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(ST.x - SLOT.w / 2, sy, SLOT.w * clamp(fill / 0.85), SLOT.h);
+      ctx.clip();
+      ctx.globalAlpha = g0;
+      setShadow(ctx, GLOW, 5);
       ctx.fillStyle = tone('accent');
-      ctx.fillRect(x, cy - 5, B1 * fill, 10); x += B1 + GAP;
-      if (fill > 0.55) { ctx.fillRect(x, cy - 2.5, DOT, DOT); }
-      x += DOT + GAP;
-      if (fill > 0.65) ctx.fillRect(x, cy - 5, B2 * clamp((fill - 0.65) / 0.35), 10);
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      let fsz = 16;
+      ctx.font = disp(900, fsz);
+      while (fsz > 10 && ctx.measureText(name).width > SLOT.w - 14) {
+        fsz -= 0.5; ctx.font = disp(900, fsz);
+      }
+      ctx.fillText(name, ST.x, sy + SLOT.h / 2 + 1);
       clearShadow(ctx);
+      ctx.restore();
+      ctx.textBaseline = 'alphabetic';
     }
     ctx.restore();
 

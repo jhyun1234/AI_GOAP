@@ -1,6 +1,6 @@
 import {
   disp, ease, clamp, spring,
-  fitCanvas, mkCanvas, roundRect, tone, setShadow, clearShadow, GLOW
+  fitCanvas, mkCanvas, roundRect, tone, setShadow, clearShadow, GLOW, FAIL_GLOW
 } from '../../../engine/lib.js';
 
 /* recapempty — 마을이 전멸하면 뜨는 화면. 자리는 큰데 들어 있는 건 값 두 개뿐이고,
@@ -94,8 +94,8 @@ export default {
       if (vk <= 0.02) continue;
       ctx.save();
       ctx.globalAlpha = vk * (0.80 + 0.20 * (0.5 + 0.5 * Math.sin(t * 3.1 - i * 1.6)));
-      setShadow(ctx, GLOW, 6);
-      ctx.fillStyle = tone('accent');
+      setShadow(ctx, FAIL_GLOW, 6);
+      ctx.fillStyle = tone('fail');
       roundRect(ctx, VAL_X, y, VAL_W * vk, VAL_H, 4); ctx.fill();
       clearShadow(ctx);
       ctx.restore();

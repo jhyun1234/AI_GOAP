@@ -1,6 +1,6 @@
 import {
   disp, ease, clamp, frac,
-  fitCanvas, mkCanvas, roundRect, tone, setShadow, clearShadow, GLOW
+  fitCanvas, mkCanvas, roundRect, tone, setShadow, clearShadow, GLOW, FAIL_GLOW
 } from '../../../engine/lib.js';
 
 /* alarmempty — 위에서는 경보가 켜지는데, 그 아래는 계속 비어 있다. (훅)
@@ -64,8 +64,8 @@ export default {
       const bw = BAR.w * ease(clamp(u / 0.30));
       ctx.save();
       ctx.globalAlpha = g0 * (0.55 + 0.45 * (0.5 + 0.5 * Math.sin(t * 7.4))) * lit;
-      setShadow(ctx, GLOW, 8);
-      ctx.fillStyle = tone('accent');
+      setShadow(ctx, FAIL_GLOW, 8);
+      ctx.fillStyle = tone('fail');
       roundRect(ctx, BAR.x, BAR.y, Math.max(6, bw), BAR.h, 7);
       ctx.fill();
       clearShadow(ctx);

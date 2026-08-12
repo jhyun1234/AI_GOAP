@@ -1,6 +1,6 @@
 import {
   disp, ease, clamp, lerp,
-  fitCanvas, mkCanvas, roundRect, tone, setShadow, clearShadow, GLOW
+  fitCanvas, mkCanvas, roundRect, tone, setShadow, clearShadow, GLOW, FAIL_GLOW
 } from '../../../engine/lib.js';
 
 /* sentalone — 하나만 빈 곳으로 곧장 가더니, 거기서 쓰러진다.
@@ -114,8 +114,8 @@ export default {
       const ax = lerp(ARROW.x0, ARROW.x1, ln);
       ctx.save();
       ctx.globalAlpha = g0;
-      setShadow(ctx, GLOW, 8);
-      ctx.strokeStyle = tone('accent'); ctx.lineWidth = 4; ctx.lineCap = 'round';
+      setShadow(ctx, FAIL_GLOW, 8);
+      ctx.strokeStyle = tone('fail'); ctx.lineWidth = 4; ctx.lineCap = 'round';
       ctx.beginPath(); ctx.moveTo(ARROW.x0, ARROW.y); ctx.lineTo(ax, ARROW.y); ctx.stroke();
       if (ln > 0.9) {
         const hk = ease(clamp((ln - 0.9) / 0.1));

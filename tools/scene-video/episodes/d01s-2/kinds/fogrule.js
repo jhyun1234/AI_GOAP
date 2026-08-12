@@ -1,6 +1,6 @@
 import {
   ease, clamp, lerp,
-  fitCanvas, mkCanvas, roundRect, tone, disp, setShadow, clearShadow, GLOW
+  fitCanvas, mkCanvas, roundRect, tone, disp, setShadow, clearShadow, GLOW, FAIL_GLOW
 } from '../../../engine/lib.js';
 
 /* fogrule — 왜 그렇게 보였나. 원인 두 겹을 한 화면에 세운다.
@@ -87,13 +87,13 @@ export default {
 
     /* ── 그 위에 개체까지 ── */
     ctx.save();
-    ctx.strokeStyle = tone('accent');
+    ctx.strokeStyle = tone('fail');
     ctx.lineWidth = 3;
     ENEMY.forEach((cx, i) => {
       const k = ease(clamp((s1 - 0.35 - i * 0.28) / 0.40));
       if (k <= 0.02) return;
       ctx.globalAlpha = k;
-      setShadow(ctx, GLOW, 8);
+      setShadow(ctx, FAIL_GLOW, 8);
       ctx.beginPath();
       ctx.moveTo(cx, BASE_Y - TRI_H);
       ctx.lineTo(cx + TRI_HW, BASE_Y);

@@ -1,6 +1,6 @@
 import {
   disp, ease, clamp, spring,
-  fitCanvas, mkCanvas, roundRect, tone, setShadow, clearShadow, GLOW
+  fitCanvas, mkCanvas, roundRect, tone, setShadow, clearShadow, GLOW, FAIL_GLOW
 } from '../../../engine/lib.js';
 
 /* bandsborn — 멀리서 가만히 있는 것들을, 위쪽 계기가 세고 있었다.
@@ -122,8 +122,8 @@ export default {
       ctx.globalAlpha = g0 * ca;
       ctx.textAlign = 'center';
       ctx.font = disp(900, 36);
-      setShadow(ctx, GLOW, 10);
-      ctx.fillStyle = tone('accent');
+      setShadow(ctx, FAIL_GLOW, 10);
+      ctx.fillStyle = tone('fail');
       const tw = ctx.measureText(txt).width;
       ctx.fillText(txt, clamp(176, 16 + tw / 2, w - 16 - tw / 2), 48);
       clearShadow(ctx);

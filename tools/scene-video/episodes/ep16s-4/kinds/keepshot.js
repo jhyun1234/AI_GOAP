@@ -1,6 +1,6 @@
 import {
   disp, ease, clamp, lerp,
-  fitCanvas, mkCanvas, tone, setShadow, clearShadow, GLOW
+  fitCanvas, mkCanvas, tone, setShadow, clearShadow, GLOW, FAIL_GLOW
 } from '../../../engine/lib.js';
 
 /* keepshot — 고치려던 자리는 손도 안 댔고, 지워지기 전에 한 장이 떨어져 나와 살아남는다.
@@ -113,8 +113,8 @@ export default {
     if (BAR_X1 - a0 > 0.5) {
       ctx.save();
       ctx.globalAlpha = st * (0.82 + 0.18 * (0.5 + 0.5 * Math.sin(t * 3.9)));
-      setShadow(ctx, GLOW, 8);
-      ctx.fillStyle = tone('accent');
+      setShadow(ctx, FAIL_GLOW, 8);
+      ctx.fillStyle = tone('fail');
       ctx.fillRect(a0, BAR_Y, BAR_X1 - a0, BAR_H);
       clearShadow(ctx);
       ctx.restore();

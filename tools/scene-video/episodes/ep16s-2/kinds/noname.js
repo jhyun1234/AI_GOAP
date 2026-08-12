@@ -1,6 +1,6 @@
 import {
   disp, ease, clamp, frac,
-  fitCanvas, mkCanvas, tone, roundRect, setShadow, clearShadow, GLOW
+  fitCanvas, mkCanvas, tone, roundRect, setShadow, clearShadow, GLOW, FAIL_GLOW
 } from '../../../engine/lib.js';
 
 /* noname — 뒤집힘. 안 사라지는 줄 하나가 내려앉아 걸리는데, 그 줄이 아래 셋 중
@@ -75,8 +75,8 @@ export default {
     const by = BAR.y - 16 * (1 - land);
     ctx.save();
     ctx.globalAlpha = land;
-    setShadow(ctx, GLOW, 8 + 4 * (0.5 + 0.5 * Math.sin(t * 2.3)));
-    ctx.strokeStyle = tone('accent'); ctx.lineWidth = 3;
+    setShadow(ctx, FAIL_GLOW, 8 + 4 * (0.5 + 0.5 * Math.sin(t * 2.3)));
+    ctx.strokeStyle = tone('fail'); ctx.lineWidth = 3;
     roundRect(ctx, BAR.x, by, BAR.w, BAR.h, 10); ctx.stroke();
     clearShadow(ctx);
 
@@ -85,7 +85,7 @@ export default {
     roundRect(ctx, BAR.x, by, BAR.w, BAR.h, 10); ctx.clip();
     const hx = BAR.x - 40 + frac(t / 2.6) * (BAR.w + 40);
     ctx.globalAlpha = land * 0.22;
-    ctx.fillStyle = tone('accent');
+    ctx.fillStyle = tone('fail');
     ctx.fillRect(hx, by, 40, BAR.h);
     ctx.restore();
 
@@ -95,7 +95,7 @@ export default {
       while (fs > 10 && ctx.measureText(spec.lineText).width > BAR.w - 34) {
         fs -= 0.5; ctx.font = disp(800, fs);
       }
-      ctx.fillStyle = tone('accent');
+      ctx.fillStyle = tone('fail');
       ctx.fillText(spec.lineText, BAR.x + BAR.w / 2, by + BAR.h / 2 + 6);
     }
     ctx.restore();
@@ -105,8 +105,8 @@ export default {
       const off = 8 * (1 - lock);
       ctx.save();
       ctx.globalAlpha = lock;
-      setShadow(ctx, GLOW, 8);
-      ctx.fillStyle = tone('accent');
+      setShadow(ctx, FAIL_GLOW, 8);
+      ctx.fillStyle = tone('fail');
       ctx.fillRect(19 + off, by + 4, 3, BAR.h - 8);
       ctx.fillRect(330 - off, by + 4, 3, BAR.h - 8);
       clearShadow(ctx);
@@ -147,8 +147,8 @@ export default {
       const cx = 176 + CARET_SWING * Math.sin(Math.max(0, s1) * 2.8);
       ctx.save();
       ctx.globalAlpha = cA;
-      setShadow(ctx, GLOW, 8);
-      ctx.fillStyle = tone('accent');
+      setShadow(ctx, FAIL_GLOW, 8);
+      ctx.fillStyle = tone('fail');
       ctx.beginPath();
       ctx.moveTo(cx - 11, CARET_Y - 18);
       ctx.lineTo(cx + 11, CARET_Y - 18);

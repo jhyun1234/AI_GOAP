@@ -1,6 +1,6 @@
 import {
   disp, ease, clamp, lerp,
-  fitCanvas, mkCanvas, roundRect, tone, setShadow, clearShadow, GLOW
+  fitCanvas, mkCanvas, roundRect, tone, setShadow, clearShadow, GLOW, FAIL_GLOW
 } from '../../../engine/lib.js';
 
 /* refusalpile — 사람마다 기록이 하나씩 남기 시작하는데, 가운데 한 사람에게서만
@@ -103,8 +103,8 @@ export default {
         const w = REC_S * (0.4 + 0.6 * kk);
         ctx.save();
         ctx.globalAlpha = rowA * kk * (0.72 + 0.28 * (0.5 + 0.5 * Math.sin(t * 3.6 - k * 0.55)));
-        setShadow(ctx, GLOW, 6);
-        ctx.fillStyle = tone('accent');
+        setShadow(ctx, FAIL_GLOW, 6);
+        ctx.fillStyle = tone('fail');
         roundRect(ctx, REC_X0 + k * REC_P + (REC_S - w) / 2, cy - h / 2, w, h, 3); ctx.fill();
         clearShadow(ctx);
         ctx.restore();

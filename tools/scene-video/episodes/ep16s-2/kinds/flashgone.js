@@ -1,6 +1,6 @@
 import {
   disp, ease, clamp, frac,
-  fitCanvas, mkCanvas, tone, roundRect, setShadow, clearShadow, GLOW
+  fitCanvas, mkCanvas, tone, roundRect, setShadow, clearShadow, GLOW, FAIL_GLOW
 } from '../../../engine/lib.js';
 
 /* flashgone — 훅. 위 칸에 뭔가 반짝 떴다 사라지고, 아래 사람에게 가는 길은 도중에 끊긴다.
@@ -91,13 +91,13 @@ export default {
     if (al > 0.01) {
       ctx.save();
       ctx.globalAlpha = al;
-      setShadow(ctx, GLOW, 8);
-      ctx.fillStyle = tone('accent');
+      setShadow(ctx, FAIL_GLOW, 8);
+      ctx.fillStyle = tone('fail');
       for (let k = 0; k * DOT_GAP + 5 <= len; k++) {
         ctx.fillRect(FIG.cx - 3, ARROW_TOP + k * DOT_GAP, 6, 5);
       }
       const ty = ARROW_TOP + len + 4;
-      ctx.strokeStyle = tone('accent'); ctx.lineWidth = 3;
+      ctx.strokeStyle = tone('fail'); ctx.lineWidth = 3;
       ctx.lineCap = 'round';
       ctx.beginPath();
       ctx.moveTo(FIG.cx - 6, ty); ctx.lineTo(FIG.cx, ty + 6); ctx.lineTo(FIG.cx + 6, ty);

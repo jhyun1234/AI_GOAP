@@ -1,6 +1,6 @@
 import {
   ease, clamp, lerp,
-  fitCanvas, mkCanvas, tone, setShadow, clearShadow, GLOW, FAIL_GLOW
+  fitCanvas, mkCanvas, tone, setShadow, clearShadow, GLOW, camAt
 } from '../../../engine/lib.js';
 
 /* blankstone — 죽은 자리마다 동그라미가 하나씩 놓이는데, 그 아래 이름이 들어갈 자리는
@@ -17,43 +17,74 @@ import {
    글자가 비석에 적힌 것으로 읽힐 위험**이 있었다. 인용이 오독을 만들면 인용을 버린다.
 
    🔴 색 규약(namefade 에서 세운 것 그대로): 강조색 = 이름이 들어갈 자리 / 흰색 = 무덤.
-   그래서 여기서 강조색은 **점선으로만** 있고 한 칸도 안 채워진다. 그 점선이 계속 흐르는
-   것이 이 샷의 「아직도 비어 있다」이고, 동시에 정적 구간을 막는 움직임이다.
+   그래서 여기서 강조색은 **점선으로만** 있고 한 칸도 안 채워진다.
 
-   ⏱ 동그라미는 `cue(0)`, 빈 자리는 `cue(1)` — 둘 다 왼쪽부터 하나씩 어긋나게 뜬다.
-   효과음 없음(이 편의 소리는 onecount·carvename 두 마디뿐이다).
+   ── 2026-08-12 개정 v3 (역동성 시험 · 사용자 지시) ──────────────────
+   🔴 **한 샷을 두 샷으로 갈랐다(`spec.phase`).** 전에는 이 그림 하나가 자막 두 줄
+   (5.9초)을 통째로 지고 있었다. 갈라 놓으면 줄이 바뀔 때 **컷이 생긴다.**
+     phase 0 (S1a · 3.5초) = 무덤이 놓인다. 카메라 고정 — 이 편의 **기준 구도**다.
+     phase 1 (S1b · 3.1초) = 빈 이름칸이 켜지며 카메라가 아랫줄로 **파고든다**(1.0 → 2.2).
+   phase 1 에서 무덤은 **애니메이션 없이 이미 서 있다**(c0 = 1). 컷 뒤에 앞 것을 다시
+   그리면 시청자가 본 것을 되감는 셈이라, 새로 오는 것만 움직인다.
+   🔑 카메라가 **컷과 같은 방향으로 일한다** — 자막이 「아무것도 안 적혀 있었죠」인 순간에
+      화면이 그 빈 칸으로 다가간다. 무브를 장식으로 쓰면 멀미만 나고, 문장을 가리키면
+      리듬이 된다.
+
+   🔴 **한 줄이던 배치를 두 줄(4 + 3)로 바꾸고 반지름을 17 → 28 로 키웠다.** 실측 이유:
+   옛 배치의 잉크는 세로 131~212, 캔버스 307 중 **81px(26%)**만 썼다. 나머지 226px 는
+   배경이었다. 지금은 31~271.5 = **240.5px(78%)**.
+
+   ⏱ 두 phase 모두 그 샷의 유일한 자막(`cue(0)`)에 물렸다. 효과음 없음.
 
    겹침 감사(축 A 강조↔흰 / 축 B 흰↔흰):
-     축 A · 동그라미 바깥 바닥 150 + (17+1.5 숨) + 1.5(선 반폭) = 170 /
-            빈 자리 바깥 꼭대기 192−1.5 = 190.5, 글로우 8 을 빼면 182.5 → **12.5px** 뜬다.
-            좌우로는 같은 x 를 쓰지만 세로가 갈려 있어 한 픽셀도 안 겹친다.
-     축 B · 흰 글자가 0개다(위 참조). 흰 도형끼리는 동그라미 사이 간격이
-            44 − 2×20 = **4px** 인데, 이건 「일곱 개가 늘어서 있다」를 만드는 의도한 쌍이다.
+     축 A · 무덤 바깥 바닥 = CY+28+1.5(숨)+1.5(선 반폭) = CY+31 → 윗줄 93 / 아랫줄 221.
+            빈 칸 바깥 꼭대기 = SLOT_Y−1.5, 글로우 8 까지 SLOT_Y−9.5 → 100.5 / 228.5.
+            → 윗줄 **7.5px** · 아랫줄 **7.5px** 뜬다.
+            아랫줄 무덤 바깥 꼭대기 159 vs 윗줄 빈 칸 글로우 바닥 143.5 → **15.5px**.
+     축 B · 흰 글자가 0개다. 흰 도형끼리는 같은 줄 동그라미 사이가 86.67−62 = **24.7px**
+            인데, 이건 「일곱 개가 늘어서 있다」를 만드는 의도한 쌍이다.
+     🔑 확대는 이 감사를 안 깬다 — 모든 간격이 같은 배율로 커진다.
 
-   세로 예산(캔버스 307): 최저 = 빈 자리 바깥 바닥 213.5 + 글로우 8 = **221.5**. 85px 남는다.
-   가로: 빈 자리 왼쪽 44−20−1.5−8 = **14.5** / 오른쪽 308+20+1.5+8 = **337.5**.
-   바깥 2px 띠에서 좌 12.5 · 우 12.5 뜬다.
+   세로 예산(캔버스 307): 최저 = 아랫줄 빈 칸 글로우 바닥 **271.5**(35.5px 남음).
+     최고 = 윗줄 무덤 바깥 꼭대기 **31**.
+   가로: 왼쪽 46−31 = **15** / 오른쪽 306+31 = **337**. 바깥 2px 띠에서 좌우 6.5 뜬다.
+   phase 1 최대 배율(2.2 · focus [0.5, 0.655] = 화면 중앙에 y 201.1):
+     보이는 창 = x 96~256 · y 131.3~270.9. 아랫줄 무덤 셋(159~221)과 그 빈 칸(238~262)이
+     화면을 채우고 **윗줄 넷과 양옆은 밖으로 나간다** → `checks.edge` 선언 대상.
 
-   계속 도는 것(30fps 기준): 강조색 점선이 초당 34px 로 흐른다 → **1.1px/프레임**,
-   테두리 길이 (40+20)×2 = 120px × 일곱 칸. 동그라미 반지름 숨 진폭 1.5px · 4.6rad/s. */
+   계속 도는 것(30fps 기준): 강조색 점선이 초당 34px 로 흐른다 → **1.1px/프레임**.
+   동그라미 반지름 숨 진폭 1.5px · 4.6rad/s. 여기에 phase 1 은 카메라 무브가 얹힌다. */
 
-const XS = [44, 88, 132, 176, 220, 264, 308];
-const CY = 150, R = 17;
-const SLOT_Y = 192, SLOT_HW = 20, SLOT_H = 20;
+const R = 28;
+const XS1 = [46, 132.7, 219.3, 306], CY1 = 62;    // 윗줄 넷
+const XS2 = [89.3, 176, 262.7], CY2 = 190;        // 아랫줄 셋
+const SLOT_HW = 28, SLOT_H = 24, SLOT_DY = 48;    // 원 중심 → 이름칸 머리
+
+/** 무덤 일곱 자리 — [x, y, 숨 위상] */
+const SEATS = [
+  ...XS1.map((x, i) => [x, CY1, i]),
+  ...XS2.map((x, i) => [x, CY2, i + XS1.length]),
+];
 
 export default {
   build(root) { root.innerHTML = ''; mkCanvas(root); },
 
   draw(root, { spec, t, cue }) {
-    const { ctx } = fitCanvas(root.querySelector('canvas'));
+    const { ctx, w, h } = fitCanvas(root.querySelector('canvas'));
+    camAt(ctx, w, h, spec, t);
 
-    const c0 = cue(spec.stoneCue ?? 0, 0.15, 0.60);
+    /* 갈라진 두 샷이 이 파일 하나를 공유한다. phase 1 에서 무덤은 다시 안 그려 넣는다 —
+       이미 서 있던 것이고, 컷 뒤에 되감으면 앞 샷을 못 본 것처럼 읽힌다. */
+    const ph = spec.phase ?? 0;
+    const c0 = ph === 0 ? cue(0, 0.15, 0.60) : 1;   // 무덤
+    const c1 = ph === 0 ? 0 : cue(0, 0.15, 0.45);   // 이름이 들어갈 빈 자리
     if (c0 <= 0.005) return;
-    const c1 = cue(spec.slotCue ?? 1, 0.15, 0.55);
 
-    for (let i = 0; i < XS.length; i++) {
-      const x = XS[i];
+    /* phase 1 은 카메라가 아랫줄로 붙으므로 **아랫줄부터** 켠다. 위에서부터 켜면
+       화면에 안 보이는 곳에서 순서가 시작돼 첫 0.5초가 죽는다. */
+    const order = ph === 0 ? i => i : i => (i + 3) % 7;
 
+    for (const [x, cy, i] of SEATS) {
       /* 무덤 — 흰색. 위에서 살짝 내려앉는다 */
       const a = ease(clamp((c0 - i * 0.085) / 0.28));
       if (a > 0.01) {
@@ -62,24 +93,22 @@ export default {
         ctx.globalAlpha = a;
         ctx.strokeStyle = tone('ink'); ctx.lineWidth = 3;
         ctx.beginPath();
-        ctx.arc(x, lerp(CY - 10, CY, a), r, 0, Math.PI * 2);
+        ctx.arc(x, lerp(cy - 10, cy, a), r, 0, Math.PI * 2);
         ctx.stroke();
         ctx.restore();
       }
 
-      /* 이름이 들어갈 자리 — 점선. 끝까지 비어 있다.
-         🔄 2026-08-12: accent(해결) → fail(결함). 이 빈 칸이 이 회차의 결함 그 자체다.
-         옛 팔레트는 강조색이 하나여서 「고쳤다」와 「고장났다」를 같은 색으로 그렸다. */
-      const s = ease(clamp((c1 - i * 0.06) / 0.26));
+      /* 이름이 들어갈 자리 — 강조색 점선. 끝까지 비어 있다 */
+      const s = ease(clamp((c1 - order(i) * 0.05) / 0.24));
       if (s > 0.01) {
         ctx.save();
         ctx.globalAlpha = s * 0.92;
-        setShadow(ctx, FAIL_GLOW, 8);
-        ctx.strokeStyle = tone('fail');
+        setShadow(ctx, GLOW, 8);
+        ctx.strokeStyle = tone('accent');
         ctx.lineWidth = 3;
         ctx.setLineDash([9, 7]);
         ctx.lineDashOffset = -((t * 34) % 16);
-        ctx.strokeRect(x - SLOT_HW, SLOT_Y, SLOT_HW * 2, SLOT_H);
+        ctx.strokeRect(x - SLOT_HW, cy + SLOT_DY, SLOT_HW * 2, SLOT_H);
         ctx.setLineDash([]);
         clearShadow(ctx);
         ctx.restore();

@@ -1,6 +1,6 @@
 import {
   disp, ease, clamp, lerp, frac,
-  fitCanvas, mkCanvas, roundRect, tone, setShadow, clearShadow, GLOW
+  fitCanvas, mkCanvas, roundRect, tone, setShadow, clearShadow, GLOW, camAt
 } from '../../../engine/lib.js';
 
 /* namefade — 훅. 내가 이름을 아는 주민 하나가 무덤 무리로 들어가면, 이름표가 꺼지고
@@ -52,7 +52,8 @@ export default {
   build(root) { root.innerHTML = ''; mkCanvas(root); },
 
   draw(root, { spec, t, cue }) {
-    const { ctx } = fitCanvas(root.querySelector('canvas'));
+    const { ctx, w, h } = fitCanvas(root.querySelector('canvas'));
+    camAt(ctx, w, h, spec, t);   // 카메라 무브 (lib.js) — cam 이 없으면 아무 일도 안 한다
     ctx.textBaseline = 'alphabetic';
 
     const st = ease(cue(spec.fieldCue ?? 0, 0.15, 0.30));

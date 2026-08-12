@@ -397,6 +397,52 @@ function prime(step = 400) {
   }
 }
 
+/* ── 샷 진입 모션 ──────────────────────────────────
+   `shot.enter` 로 고른다. 기본값 'up' 은 종전 동작 그대로라, 이 필드를 안 쓰는 회차는
+   한 프레임도 안 바뀐다(엔진 수정이 과거 회차를 안 건드린다는 증명).
+
+   왜 늘렸나: 진입 모션이 하나뿐이면 샷이 여섯이든 열이든 **여섯 번 똑같이 들어온다.**
+   컷이 바뀐 걸 눈이 알아채도 "또 같은 방식"으로 읽혀서 리듬이 안 생긴다.
+
+   🔴 scale() 은 여전히 금지다(아래 seek 의 주석 — fitCanvas 가 transform 적용 뒤 크기를
+      읽어 백킹스토어가 매 프레임 달라진다). **확대하고 싶으면 lib.js 의 `camAt`** 를
+      써라 — 그쪽은 캔버스 ctx 를 스케일해서 엘리먼트 크기를 안 건드린다.
+   🔑 clip-path 는 안전하다 — 페인트 단계만 건드리고 레이아웃·getBoundingClientRect 에
+      영향이 없다. 쓸기(wipe·wipe-x)와 조리개(iris)가 여기서 나온다.
+   e 는 0~1 진입 진행률(ts 의 순수 함수)이라 seek 의 순수성은 그대로다. */
+function applyEnter(el, kind, e) {
+  el.style.clipPath = '';
+  switch (kind) {
+    case 'side':                                   // 옆에서 밀려 들어온다
+      el.style.opacity = 0.12 + 0.88 * e;
+      el.style.transform = `translateX(${((1 - e) * -18).toFixed(2)}px)`;
+      break;
+    case 'wipe':                                   // 아래에서 위로 쓸어 올린다
+      el.style.opacity = 1;
+      el.style.transform = 'none';
+      el.style.clipPath = `inset(${((1 - e) * 100).toFixed(2)}% 0 0 0)`;
+      break;
+    case 'wipe-x':                                 // 왼쪽에서 오른쪽으로 쓸어 연다
+      el.style.opacity = 1;
+      el.style.transform = 'none';
+      el.style.clipPath = `inset(0 ${((1 - e) * 100).toFixed(2)}% 0 0)`;
+      break;
+    case 'iris':                                   // 가운데서 조리개가 열린다
+      el.style.opacity = 1;
+      el.style.transform = 'none';
+      /* 105% — 100% 는 상자에 내접하는 원이라 네 귀퉁이가 끝까지 안 열린다 */
+      el.style.clipPath = `circle(${(e * 105).toFixed(1)}% at 50% 50%)`;
+      break;
+    case 'cut':                                    // 하드 컷 — 첫 프레임부터 완성
+      el.style.opacity = 1;
+      el.style.transform = 'none';
+      break;
+    default:                                       // 'up' — 종전 기본값
+      el.style.opacity = 0.12 + 0.88 * e;
+      el.style.transform = `translateY(${((1 - e) * 12).toFixed(2)}px)`;
+  }
+}
+
 /* ── seek : 유일한 그리기 경로 ────────────────────── */
 function seek(t) {
   t = Math.max(0, Math.min(TOTAL, t));
@@ -458,8 +504,7 @@ function seek(t) {
        흔들린다(실측: 30fps 2,924프레임 중 74프레임 불일치). translate 는 박스
        크기를 바꾸지 않으므로 안전하다. */
     const ek = Math.min(1, ts / ENTER), e = ek * ek * (3 - 2 * ek);
-    s.el.style.opacity = 0.12 + 0.88 * e;
-    s.el.style.transform = `translateY(${((1 - e) * 12).toFixed(2)}px)`;
+    applyEnter(s.el, s.enter, e);
 
     /* cue(i) — i번째 자막에 맞물린 0~1 진행률.
        가이드(SKILL.md): 모든 reveal 은 그 내용을 말하는 자막 시작 ±20프레임 안에서 터져야 한다.

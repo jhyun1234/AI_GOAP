@@ -844,7 +844,7 @@ try {
       let h=2166136261;
       if(cv&&cv.width){const d=cv.getContext('2d').getImageData(0,0,cv.width,cv.height).data;
         for(let i=0;i<d.length;i+=11){h^=d[i];h=Math.imul(h,16777619);}}
-      const s=(document.getElementById('cap').textContent||'')+'|'+(el?.style.transform||'')+'|'+(el?.innerHTML||'');
+      const s=(document.getElementById('cap').textContent||'')+'|'+(el?.style.transform||'')+'|'+(el?.style.clipPath||'')+'|'+(el?.innerHTML||'');
       for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}
       return (h>>>0).toString(36);};
     const pass=o=>{const r=[];for(const i of o){window.seek(i/FPS*1000);r.push(sig());}return r;};

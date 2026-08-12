@@ -127,6 +127,52 @@ export function clearShadow(ctx) {
   ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
 }
 
+/* ── 카메라 ────────────────────────────────────────
+   샷 안에서 **줌인·줌아웃**을 한다. 그림 파일의 좌표를 손대지 않고 「어디를 얼마나 크게
+   보여 줄지」만 시간축에 올린다.
+
+   왜 필요한가: 모든 샷이 같은 상자에 같은 크기로 그려지면 그림이 아무리 달라도 화면은
+   매번 같은 구도로 읽힌다(ep16s-5 실측 — 여섯 샷의 피사체 크기가 전부 같았다).
+   컷을 늘리는 데는 천장이 있다(엔진은 샷이 자막 줄을 소유하므로 **샷 ≤ 줄**). 그 위의
+   리듬은 컷이 아니라 무브가 진다.
+
+   spec.cam = [{ at, zoom, focus }] — **at 은 샷 시작으로부터 초**(0~1 비율이 아니다.
+   `since()`·`sfx.delayMs` 가 전부 초라 단위를 하나로 맞춘다). 사이는 smoothstep,
+   앞뒤로는 첫/끝 값을 문다. cam 이 없으면 spec.zoom/spec.focus 를 고정값으로 쓴다.
+   focus = **화면 한가운데로 데려올 지점**(0~1 비율). 고정점이 아니라 카메라가 겨누는
+   곳이다 — 고정점으로 두면 배율을 바꿀 때마다 focus 를 다시 풀어야 한다.
+
+   🔑 **이게 왜 결정성을 안 깨는가.** 엔진이 금지한 것은 `.shot` 엘리먼트의 CSS
+      transform 이다(fitCanvas 가 transform 적용 뒤 크기를 읽어 백킹스토어가 매 프레임
+      달라진다 — 실측 74/2924 프레임 불일치). 여기서 스케일하는 것은 **캔버스 ctx** 라
+      `getBoundingClientRect` 에 영향이 없고, t 의 순수 함수라 어느 시각으로 뛰어도 같다.
+   🔑 '탁 치고 들어오는' 진입(punch)은 따로 만들 필요가 없다 — 짧은 키프레임 두 개가
+      곧 punch 다. 그래서 enter 종류를 안 늘리고 여기서 낸다.
+   🔴 확대하면 선 굵기와 글로우도 같이 커진다(가까이 있는 것은 굵다). 상자 밖으로 나간
+      것은 캔버스에서 잘리는데, 가장자리 검사가 '잘린 글자'와 구분을 못 하므로 무브가
+      큰 샷은 scene.json 에 `checks.edge` 로 사유를 선언해라(check.mjs:534). */
+export function camAt(ctx, w, h, spec = {}, t = 0) {
+  const kf = spec.cam;
+  let z, fx, fy;
+  if (!kf || !kf.length) {
+    z = spec.zoom || 1;
+    fx = spec.focus?.[0] ?? 0.5;
+    fy = spec.focus?.[1] ?? 0.5;
+  } else {
+    let i = 0;
+    while (i < kf.length - 1 && kf[i + 1].at <= t) i++;
+    const a = kf[i], b = kf[i + 1];
+    const k = b ? ease((t - a.at) / (b.at - a.at || 1e-6)) : 0;
+    const pick = (p, d) => b ? lerp(p(a) ?? d, p(b) ?? d, k) : (p(a) ?? d);
+    z  = pick(o => o.zoom, 1);
+    fx = pick(o => o.focus?.[0], 0.5);
+    fy = pick(o => o.focus?.[1], 0.5);
+  }
+  if (z === 1 && fx === 0.5 && fy === 0.5) return;
+  ctx.translate(w / 2 - fx * w * z, h / 2 - fy * h * z);
+  ctx.scale(z, z);
+}
+
 /** 둥근 사각형 경로 */
 export function roundRect(ctx, x, y, w, h, r) {
   r = Math.min(r, w / 2, h / 2);

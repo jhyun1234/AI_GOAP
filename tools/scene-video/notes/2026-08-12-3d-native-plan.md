@@ -1,5 +1,67 @@
 # 3D 네이티브 구현 계획 — ep15s-1 (1~4단계)
 
+## 📍 지금 어디까지 왔나 (2026-08-12 세션 끝)
+
+**작업 1~8 전부 끝났다. 검사 43/43 통과.** 브랜치 `exp/palette4`, 작업 트리 깨끗함, push 안 함.
+
+| 작업 | 상태 | 산출물 |
+|---|---|---|
+| 1 스크립트 리포로 + `/3d` 라우트 | ✅ | `blender3d/` · `serve.js` |
+| 2 측정 도구 | ✅ | `probe.py` · `palette.py` · `_check.py` |
+| 3 팔레트 3층 | ✅ | `stage.py` |
+| 4 마을 | ✅ | `village.py` → `3d/models/village.blend` |
+| 5 동작 여덟 | ✅ | `motions.py` (bpy 없이 검사됨) |
+| 6 군무·파열 | ✅ | `unison.py` · `3d/proof/unison/unison.mp4` |
+| 7 대본·제목 재작성 + TTS | ✅ | 13줄 45.46초 · `episodes/ep15s-1/notes/3d-rewrite.md` |
+| 8 인트로 | ✅ | `render_intro.py` → `3d/_intro/intro.mp4` |
+| — 5비트 훅 | ✅ | `render_hook.py` → `3d/ep15s-1/hook5/hook5.mp4` |
+
+(경로의 `3d/` 는 전부 `D:\AI_GOAP-videos\3d\` 아래다.)
+
+### 🔴 다음 세션이 **가장 먼저** 할 일
+
+**사용자 판정을 받는다** — `hook5.mp4` 를 보고, 자막 없이 처음 0.3 초에
+**「표식은 다른데 움직임이 하나다」** 가 읽히는가.
+
+- **읽힌다** → 아래 2차 계획으로 간다.
+- **안 읽힌다** → 연출 모드 A(군무·파열)를 다시 본다. 설계 §1 의 B(하루 따라가기)·
+  C(개발자 시점)를 다시 검토하는 것이지 **카메라·조명을 만지는 것이 아니다.**
+  🔴 이 프로젝트는 「밋밋하다」에 카메라를 만지다 여덟 판을 돌린 전례가 있다(인계 문서 §1).
+
+### 바로 돌릴 수 있는 명령
+
+```bash
+cd "C:/Users/anjyo/AI_GOAP-video/tools/scene-video/blender3d"
+for t in probe palette village motions unison intro; do python test_$t.py; done
+```
+
+```bash
+"C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background --factory-startup --python "C:/Users/anjyo/AI_GOAP-video/tools/scene-video/blender3d/render_hook.py"
+```
+
+### 2차 계획 — 아직 안 쓴 것
+
+설계 §9 의 5~7 단계다. **작업 6 판정을 받은 뒤에 쓴다**(A 안이 무효화되면 샷 설계가 통째로 바뀐다).
+
+1. **본문 샷 셋 + 아웃트로 렌더** — 설계 §4-1 의 비트 시트대로. 본문2~3 은 개발자 시점(C)이고
+   계기층(시안)이 처음 등장한다. 이 편에서 컷은 그 둘뿐이다.
+2. **엔진 캔버스 합성 kind** — `/3d/<ep>/<shot>/frames/*.png` 를 `drawImage` 로 그리고
+   자막·HUD·성격 표식 라벨을 위에 얹는다. 🔴 캔버스 **안**이어야 게이트 33종이 산다(설계 §7-1).
+   기존 `episodes/ep15s-1/kinds/*.js` 다섯은 2D 도형용이라 이때 교체된다.
+3. **게이트 둘 갱신** — 팔레트 4색 강제 → 3층 규약 / 정적 3초 → 비트 선언
+   (🔴 비트 게이트는 **영상을 보고 나서** 확정하기로 했다 — 설계 §8-2).
+
+### 알아 둘 것
+
+- **길이 상한이 1분대로 열렸다.** 상한이 열린 것이지 길게 만들라는 것이 아니다 —
+  길이는 비트를 세서 나온다(설계 §4-1). 홀드 1.5초 상한은 그대로다.
+- **D 드라이브 `episodes/` 는 지웠다.** 리포 build 의 사본이었다(video.mp4 해시 대조 확인).
+  이제 D 에는 `3d/` 와 `clips/` 만 있다. **코드는 C, 산출물은 D.**
+- **TTS 는 리포 쪽 `episodes/<ep>/build/` 에 쓴다**(`lib-node.mjs` 의 `epDir`).
+- `stash@{0}` 에 폐기한 SDF 판이 들어 있다. 되살릴 일은 없지만 지우지도 않았다.
+
+---
+
 > **에이전트 작업자에게:** 이 계획은 작업 단위로 실행한다. 각 단계는 체크박스(`- [ ]`)다.
 
 **목표:** 마을과 주민이 피사체인 3D 네이티브 파이프라인을 세우고, 이 설계의 가장 큰

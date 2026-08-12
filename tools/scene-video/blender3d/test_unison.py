@@ -61,6 +61,20 @@ def test_hook_camera_is_defined_once():
     assert 'unison.HOOK_CAM' in src, '훅이 자기 카메라 상수를 안 쓰고 있다'
 
 
+def test_personality_marks_differ_by_shape_not_colour():
+    """🔴 설계 §2 — 주민을 색으로 안 나눈다. 여섯이 **한 색 안에서 형태로만** 다르다."""
+    assert len(unison.PERSONALITY) >= unison.N, len(unison.PERSONALITY)
+    seen = set()
+    for pat in unison.PERSONALITY[:unison.N]:
+        assert len(pat) == 3, pat
+        assert pat not in seen, ('같은 표식이 둘', pat)
+        seen.add(pat)
+    src = open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            'unison.py'), encoding='utf-8').read()
+    assert src.count("meaning_mat('") == 1, '표식이 색을 둘 이상 쓴다'
+    assert "meaning_mat('violet'" in src, '성격 표식은 보라여야 한다'
+
+
 if __name__ == '__main__':
     from _check import run
     run(globals())

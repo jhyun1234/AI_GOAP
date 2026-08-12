@@ -38,6 +38,36 @@ def pose_at(motion_name, t):
     return motions.MOTIONS[motion_name](t)
 
 
+# 성격 표식 — 주민 머리 위에 뜨는 보라 막대 셋. 여섯이 **서로 다른 높이 조합**을 가진다.
+# 🔴 색으로 안 나눈다(설계 §2). 여섯을 여섯 색으로 칠하면 중구난방이고, 무엇보다
+#    「여섯이 똑같다」가 이 편의 사건 ①이다. **한 색 안에서 형태로만** 다르다 —
+#    그래서 「성격은 서로 다른데 움직임은 하나다」가 한 화면에 같이 선다.
+PERSONALITY = [(0.95, 0.40, 0.62), (0.32, 0.95, 0.50), (0.60, 0.58, 0.95),
+               (0.92, 0.80, 0.28), (0.38, 0.52, 0.95), (0.70, 0.30, 0.85)]
+MARK_Z = 1.22          # 머리 꼭대기(0.95) 위
+MARK_W, MARK_GAP, MARK_H = 0.045, 0.062, 0.17
+
+
+def personality_marks(col=None):
+    """여섯 머리 위의 성격 표식. 반환: [[bar, ...], ...] (주민별 막대 셋)."""
+    import bpy
+    import stage
+    col = col or bpy.context.collection
+    mat = stage.meaning_mat('violet', strength=1.0)
+    out = []
+    for i, (x, y) in enumerate(STANDS[:N]):
+        bars = []
+        for j, h in enumerate(PERSONALITY[i % len(PERSONALITY)]):
+            bpy.ops.mesh.primitive_cube_add(
+                size=1, location=(x, y + (j - 1) * MARK_GAP, MARK_Z + MARK_H * h / 2))
+            b = bpy.context.object
+            b.scale = (MARK_W, MARK_W, MARK_H * h)
+            b.data.materials.append(mat)
+            bars.append(b)
+        out.append(bars)
+    return out
+
+
 def place(n=N, rot_z=90):
     """광장에 n 명을 세운다. bpy 가 필요하므로 블렌더 안에서만 부른다."""
     import stage

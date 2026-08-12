@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: df2e148c8f244442aa6abd1d8b0340cf, type: 3}
+  m_Name: Biome_Temperate
+  m_EditorClassIdentifier: AIVillage::AIVillage.M0.BiomeSO
+  DisplayName: "\uC628\uB300"
+  Palette:
+  - {fileID: 11400000, guid: e63a67e9d52c16e478fb33d46c1d60cf, type: 2}
+  - {fileID: 11400000, guid: 79344c7fc6117084d8993772bdcd6156, type: 2}
+  - {fileID: 11400000, guid: 14840697d4ee94347a1ce754ccf89a55, type: 2}
+  - {fileID: 11400000, guid: b3a304790851af54f877e2f443a7f156, type: 2}
+  - {fileID: 11400000, guid: 408d87ef06f0af946b70b9109a161da7, type: 2}
+  MinBaseDistFrac: 0

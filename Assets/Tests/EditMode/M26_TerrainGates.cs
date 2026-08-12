@@ -206,15 +206,19 @@ namespace AIVillage.Tests.EditMode
         // ── W2·W3·W5·W6 ──────────────────────────────────────────────────────
 
         /// <summary>배포 지형 팔레트 — 코드가 지형 이름을 모르는 것이 요점이라 **폴더를 통째로 읽는다.**</summary>
+        /// <summary>배포 온대 팔레트 (= 마을 주변의 판).
+        /// 🔴 **개정 2026-08-12 (M29 W2)**: 舊 구현은 프로젝트의 `t:TerrainTypeSO` 를 **전부** 긁어
+        /// 한 팔레트로 묶었다. 지형 에셋 = 배포 팔레트였던 동안은 같은 말이었지만, 바이옴이
+        /// 팔레트를 여러 벌로 가른 뒤로는 **아무도 안 쓰는 세계**(정글수풀+산능선+절벽이 한 판에)
+        /// 를 만들어 냈다 — 실제로 막힘 33%로 T8 이 red 가 됐다. 배포 온대를 읽는다.
+        /// 바이옴 층 자체는 `M29_BiomeGates`가 본다.</summary>
         private static TerrainTypeSO[] ShippedPalette()
         {
-            string[] guids = AssetDatabase.FindAssets("t:TerrainTypeSO");
+            var temperate = AssetDatabase.LoadAssetAtPath<BiomeSO>(
+                "Assets/M0Config/Biomes/Biome_Temperate.asset");
+            Assert.IsNotNull(temperate, "배포 온대 바이옴 에셋 없음 — 배포 팔레트의 출처가 사라졌다");
             var list = new List<TerrainTypeSO>();
-            foreach (string g in guids)
-            {
-                var t = AssetDatabase.LoadAssetAtPath<TerrainTypeSO>(AssetDatabase.GUIDToAssetPath(g));
-                if (t != null) list.Add(t);
-            }
+            foreach (TerrainTypeSO t in temperate.Palette) if (t != null) list.Add(t);
             return list.ToArray();
         }
 

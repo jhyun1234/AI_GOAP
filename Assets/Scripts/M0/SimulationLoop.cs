@@ -1483,7 +1483,7 @@ namespace AIVillage.M0
             {
                 var takenTiles = new HashSet<Vector2Int>();
                 foreach (ResourceNode n in Discovery.Nodes) takenTiles.Add(new Vector2Int(n.TileX, n.TileY));
-                TerrainDecorRenderer.Create(transform, Terrain, (uint)RunSeed,
+                TerrainSurfaceRenderer.Create(transform, Terrain, (uint)RunSeed,
                     tile => takenTiles.Contains(tile) || Construction.HasBuildingAt(tile.x, tile.y));
             }
 

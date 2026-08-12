@@ -15,7 +15,7 @@ MonoBehaviour:
   DisplayName: "\uC554\uBC18"
   Field: 0
   AppearsAbove: 0
-  Priority: 0
+  Priority: -10
   Walkable: 1
   EnterCost: 1
   MoveSpeedMult: 1

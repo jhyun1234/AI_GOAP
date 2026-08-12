@@ -15,12 +15,18 @@ MonoBehaviour:
   DisplayName: "\uC815\uAE00\uC218\uD480"
   Field: 0
   AppearsAbove: 0
-  Priority: 0
+  Priority: 5
   Walkable: 1
   EnterCost: 1.2
   MoveSpeedMult: 0.85
-  GroundColor: {r: 0.19, g: 0.33, b: 0.09, a: 1}
+  GroundColor: {r: 0.267, g: 0.324, b: 0.129, a: 1}
   NodeDensityMult: 2
+  EdgeTiles:
+  - {fileID: 1958796882, guid: 90e7bf168c97cc04da95be6a7fb9dd4a, type: 3}
+  - {fileID: -2003197686, guid: 90e7bf168c97cc04da95be6a7fb9dd4a, type: 3}
+  - {fileID: 1213616609, guid: 90e7bf168c97cc04da95be6a7fb9dd4a, type: 3}
+  - {fileID: -1571578376, guid: 90e7bf168c97cc04da95be6a7fb9dd4a, type: 3}
+  EdgeTint: {r: 0.55, g: 0.55, b: 0.55, a: 1}
   DecorSprites:
   - {fileID: 2019216152, guid: 91c99c336ceaf0f409f4e0f58a883845, type: 3}
   - {fileID: 1537057305, guid: 91c99c336ceaf0f409f4e0f58a883845, type: 3}

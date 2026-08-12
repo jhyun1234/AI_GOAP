@@ -19,8 +19,14 @@ MonoBehaviour:
   Walkable: 1
   EnterCost: 3
   MoveSpeedMult: 0.5
-  GroundColor: {r: 0.247, g: 0.365, b: 0.29, a: 1}
+  GroundColor: {r: 0.185, g: 0.4, b: 0.318, a: 1}
   NodeDensityMult: 0.6
+  EdgeTiles:
+  - {fileID: 1196055596, guid: eb8332c70e6af774b88a4374325fac01, type: 3}
+  - {fileID: 1828477515, guid: eb8332c70e6af774b88a4374325fac01, type: 3}
+  - {fileID: 163084420, guid: eb8332c70e6af774b88a4374325fac01, type: 3}
+  - {fileID: 703183929, guid: eb8332c70e6af774b88a4374325fac01, type: 3}
+  EdgeTint: {r: 0.75, g: 0.75, b: 0.75, a: 1}
   DecorSprites:
   - {fileID: -1146010696, guid: 91c99c336ceaf0f409f4e0f58a883845, type: 3}
   - {fileID: 1060024160, guid: 91c99c336ceaf0f409f4e0f58a883845, type: 3}

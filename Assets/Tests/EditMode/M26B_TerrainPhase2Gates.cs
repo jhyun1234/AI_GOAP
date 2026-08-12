@@ -126,28 +126,40 @@ namespace AIVillage.Tests.EditMode
 
         private const string TerrainDir = "Assets/M0Config/Terrain";
 
+        /// <summary>배포 온대 팔레트. 🔴 **개정 2026-08-12 (M29 W2)**: 舊 구현은 지형 폴더를 통째로
+        /// 긁었다 — 바이옴이 팔레트를 여러 벌로 가른 뒤로는 그 합집합이 **아무도 안 쓰는 세계**다.
+        /// 물 찾기·임시 설정용 기준 팔레트로만 쓰고, 지형 자체는 아래 `MakeTerrain`이 세운다.</summary>
         private static AIVillage.M0.TerrainTypeSO[] Palette()
         {
             var list = new List<AIVillage.M0.TerrainTypeSO>();
-            foreach (string guid in AssetDatabase.FindAssets("t:TerrainTypeSO", new[] { TerrainDir }))
-            {
-                var t = AssetDatabase.LoadAssetAtPath<AIVillage.M0.TerrainTypeSO>(
-                    AssetDatabase.GUIDToAssetPath(guid));
-                if (t != null) list.Add(t);
-            }
+            foreach (AIVillage.M0.TerrainTypeSO t in Biomes()[0].Palette) if (t != null) list.Add(t);
+            Assert.Greater(list.Count, 0, "배포 온대 팔레트가 비었다");
             return list.ToArray();
         }
 
-        private static float DensityMax(AIVillage.M0.TerrainTypeSO[] palette)
+        /// <summary>배포 바이옴 (순서 = 씬과 같음, 0번 온대). 이게 없으면 산악 전용 광석이
+        /// 검사 세계에 설 자리가 없어 조건 검사가 통째로 공허해진다 (M29 W3).</summary>
+        private static AIVillage.M0.BiomeSO[] Biomes()
         {
-            float m = 1f;
-            foreach (AIVillage.M0.TerrainTypeSO t in palette) m = Mathf.Max(m, t.NodeDensityMult);
-            return m;
+            var b = new[]
+            {
+                AssetDatabase.LoadAssetAtPath<AIVillage.M0.BiomeSO>("Assets/M0Config/Biomes/Biome_Temperate.asset"),
+                AssetDatabase.LoadAssetAtPath<AIVillage.M0.BiomeSO>("Assets/M0Config/Biomes/Biome_Jungle.asset"),
+                AssetDatabase.LoadAssetAtPath<AIVillage.M0.BiomeSO>("Assets/M0Config/Biomes/Biome_Mountain.asset"),
+            };
+            foreach (AIVillage.M0.BiomeSO x in b) Assert.IsNotNull(x, "배포 바이옴 에셋 없음");
+            return b;
         }
 
-        /// <summary>배포 팔레트로 세운 진짜 지형. 마을 안전반경은 씬 값(12)과 같은 자를 쓴다.</summary>
+        /// <summary>배포 지도 그대로 세운 진짜 지형 — 바이옴 포함 (씬 배선과 같은 자).
+        /// 마을 안전반경은 씬 값(12), 거리비 분모는 배포 맵 반폭.</summary>
         private static AIVillage.M0.TerrainService MakeTerrain(int seed, AIVillage.M0.TerrainTypeSO[] palette)
-            => new AIVillage.M0.TerrainService((uint)seed, Vector2Int.zero, 12, palette);
+        {
+            var map = AssetDatabase.LoadAssetAtPath<MapConfig>(MapPath);
+            Assert.IsNotNull(map, $"MapConfig 에셋 없음: {MapPath}");
+            return new AIVillage.M0.TerrainService((uint)seed, Vector2Int.zero, 12,
+                                                   palette, Biomes(), map.mapSize * 0.5f);
+        }
 
         [Test]
         public void M26B_T2_TerrainRestrictedResources_OnlySpawnOnTheirTerrain()
@@ -169,14 +181,13 @@ namespace AIVillage.Tests.EditMode
             Assert.Greater(restricted, 0,
                 "배포 설정에 지형 조건이 걸린 자원이 하나도 없다 — W2가 배선되지 않았거나 이 검사가 빈 검사다");
 
-            float dMax = DensityMax(palette);
             int checkedNodes = 0;
 
             for (int seed = 1; seed <= 20; seed++)
             {
                 AIVillage.M0.TerrainService terrain = MakeTerrain(seed, palette);
                 System.Func<int, int, bool> canHost = (x, y) => terrain.IsWalkable(x, y);
-                List<ResourceNode> nodes = RunSpawn(seed, canHost, terrain.At, dMax);
+                List<ResourceNode> nodes = RunSpawn(seed, canHost, terrain.At, terrain.MaxNodeDensityMult);
 
                 foreach (ResourceNode n in nodes)
                 {
@@ -237,7 +248,7 @@ namespace AIVillage.Tests.EditMode
             {
                 AIVillage.M0.TerrainService terrain = MakeTerrain(seed, palette);
                 foreach (ResourceNode n in RunSpawnWithConfig(cfg, seed, (x, y) => terrain.IsWalkable(x, y),
-                                                              terrain.At, DensityMax(palette)))
+                                                              terrain.At, terrain.MaxNodeDensityMult))
                 {
                     Assert.IsTrue(HasNeighbor(terrain, new[] { water }, n.TileX, n.TileY),
                         $"시드 {seed}: 물가 노드 ({n.TileX}, {n.TileY})가 물에 붙어 있지 않다");
@@ -254,11 +265,17 @@ namespace AIVillage.Tests.EditMode
             // 🔴 스폰만 지형을 지키고 리스폰은 안 지키면, 은이 고갈 후 평지로 걸어 나온다
             //    (ADR-T2-1 이 막으려던 이원화). 스포너의 판정을 리스폰이 **같이** 읽는지 본다.
             AIVillage.M0.TerrainTypeSO[] palette = Palette();
-            AIVillage.M0.TerrainTypeSO swamp =
-                System.Array.Find(palette, t => t.Walkable && t.EnterCost > 1f);
-            Assert.IsNotNull(swamp, "느린 통행 지형(늪)이 팔레트에 없다");
-
             var cfg = AssetDatabase.LoadAssetAtPath<ResourceNodeSpawnConfig>(ConfigPath);
+
+            // 🔴 **개정 2026-08-12 (M29 W3)**: 舊 검사는 기대 지형을 팔레트에서 어림(통행 가능 +
+            //    EnterCost > 1 = 늪)으로 집어 "은은 늪에 산다"를 검사에 박아 뒀다. 광물이 산악으로
+            //    옮겨 가자 red 가 났는데 **틀린 것은 배치가 아니라 검사**였다. 기대 지형은 배포
+            //    설정에서 읽는다 — 자원이 어느 지형으로 이사해도 이 검사는 따라간다.
+            ResourceTypeSpawnData silverData = FindSpawnData(cfg, ResourceType.Silver);
+            Assert.IsNotNull(silverData, "배포 설정에 지형 조건이 걸린 Silver 원소가 없다 — 검사의 전제가 깨졌다");
+            var allowed = new HashSet<AIVillage.M0.TerrainTypeSO>(silverData.allowedTerrain);
+            Assert.Greater(allowed.Count, 0, "Silver 에 허용 지형이 없다 — 이 검사는 빈 검사다");
+
             var map = AssetDatabase.LoadAssetAtPath<MapConfig>(MapPath);
             MapConfig.SetActive(map);
 
@@ -275,13 +292,13 @@ namespace AIVillage.Tests.EditMode
 
                 LogAssert.ignoreFailingMessages = true;
                 try { spawner.SpawnAll(0, 0, 10, disc, (x, y) => terrain.IsWalkable(x, y),
-                                       terrain.At, DensityMax(palette)); }
+                                       terrain.At, terrain.MaxNodeDensityMult); }
                 finally { LogAssert.ignoreFailingMessages = false; }
 
                 disc.ConfigureRespawn(3u, 1f, 6,
                     (type, x, y) => terrain.IsWalkable(x, y) && spawner.TypeAcceptsTile(type, x, y));
 
-                // 늪 전용 자원을 전부 말려서 이동시킨다. 옛 자리를 적어 둔다 — **움직였는지**를
+                // 지정 지형 전용 자원을 전부 말려서 이동시킨다. 옛 자리를 적어 둔다 — **움직였는지**를
                 // 봐야 한다: 하나도 안 옮겨지면 "늪에 그대로 있다"가 공허하게 참이 된다.
                 var tracked = new List<ResourceNode>();
                 var origin = new List<Vector2Int>();
@@ -292,7 +309,7 @@ namespace AIVillage.Tests.EditMode
                         tracked.Add(n);
                         origin.Add(new Vector2Int(n.TileX, n.TileY));
                     }
-                Assert.Greater(tracked.Count, 0, "늪 전용 노드가 안 났다 — 이 검사는 빈 검사다");
+                Assert.Greater(tracked.Count, 0, "지형 전용 노드가 안 났다 — 이 검사는 빈 검사다");
 
                 LogAssert.ignoreFailingMessages = true;
                 try { for (int t = 0; t < 5; t++) disc.TickRespawn(2f); }
@@ -303,12 +320,14 @@ namespace AIVillage.Tests.EditMode
                 {
                     ResourceNode n = tracked[i];
                     if (n.TileX != origin[i].x || n.TileY != origin[i].y) moved++;
-                    Assert.AreSame(swamp, terrain.At(n.TileX, n.TileY),
-                        $"늪 전용 자원이 ({n.TileX}, {n.TileY})로 옮겨졌는데 그곳은 늪이 아니다 " +
-                        "— 리스폰이 지형 조건을 안 읽는다 (ADR-T2-1 이원화)");
+                    AIVillage.M0.TerrainTypeSO here = terrain.At(n.TileX, n.TileY);
+                    Assert.IsTrue(allowed.Contains(here),
+                        $"지형 전용 자원이 ({n.TileX}, {n.TileY})로 옮겨졌는데 그곳은 " +
+                        $"'{(here != null ? here.DisplayName : "없음")}' — 허용 지형이 아니다 " +
+                        "(리스폰이 지형 조건을 안 읽는다 · ADR-T2-1 이원화)");
                 }
                 Assert.Greater(moved, 0,
-                    "한 노드도 안 옮겨졌다 — '늪에 그대로 있다'가 공허하게 참이다 (빈 검사)");
+                    "한 노드도 안 옮겨졌다 — '제 지형에 그대로 있다'가 공허하게 참이다 (빈 검사)");
             }
             finally { Object.DestroyImmediate(go); }
         }
@@ -337,7 +356,7 @@ namespace AIVillage.Tests.EditMode
 
             AIVillage.M0.TerrainService terrain = MakeTerrain(7, palette);
             List<ResourceNode> nodes = RunSpawnWithConfig(cfg, 7, (x, y) => terrain.IsWalkable(x, y),
-                                                          terrain.At, DensityMax(palette));
+                                                          terrain.At, terrain.MaxNodeDensityMult);
 
             Assert.AreEqual(0, nodes.Count,
                 "통행 가능하면서 물인 칸은 없다 — 그런데 노드가 섰다 (조건 둘 중 하나가 안 걸렸다)");
@@ -406,14 +425,20 @@ namespace AIVillage.Tests.EditMode
             Assert.IsNotNull(cfg, $"ResourceNodeSpawnConfig 에셋 없음: {ConfigPath}");
 
             // ① 에셋 사다리 — 명세 §5의 희귀도 순서대로 min 거리가 **순증가**해야 한다.
+            // 🔴 **개정 2026-08-12 (M29 W3)**: 舊 사다리는 Iron 을 **조건 없는** 발판으로 봤다.
+            //    광물이 전부 산악(암반)으로 들어가면서 Iron 도 조건부가 됐고, 사용자 확정 사다리
+            //    (구리 → 철 → 은 → 다이아)가 위에 얹혔다. 순서 자체는 여전히 명세가 정하고
+            //    검사는 그 순증가만 본다 — 값이 바뀌어도 이 파일은 안 바뀐다.
             var ladder = new (string label, int rung)[]
             {
                 ("RawFood(기본)", RungOf(cfg, ResourceType.RawFood, false)),
                 ("Wood",          RungOf(cfg, ResourceType.Wood,    false)),
                 ("Stone",         RungOf(cfg, ResourceType.Stone,   false)),
                 ("RawFood(물가)", RungOf(cfg, ResourceType.RawFood, true)),
-                ("Iron",          RungOf(cfg, ResourceType.Iron,    false)),
+                ("Copper",        RungOf(cfg, ResourceType.Copper,  true)),
+                ("Iron",          RungOf(cfg, ResourceType.Iron,    true)),
                 ("Silver",        RungOf(cfg, ResourceType.Silver,  true)),
+                ("Diamond",       RungOf(cfg, ResourceType.Diamond, true)),
             };
             for (int i = 1; i < ladder.Length; i++)
                 Assert.Greater(ladder[i].rung, ladder[i - 1].rung,
@@ -434,13 +459,17 @@ namespace AIVillage.Tests.EditMode
 
             // 타입 단(원소가 여럿이면 가장 낮은 발판): 최근접이 제 단 아래로 내려오지 않고,
             // 다음 단이 시작되기 전에 실제로 선다 (가까운 단이 비면 사다리가 화면에 없다).
+            // ⚠️ 다이아(마지막 단)는 여기 없다: 그 단은 배포 맵 바깥 고리에 붙어 있어 검사 맵에서
+            //    표본이 몇 개뿐이라 "다음 단 전에 선다"가 표본 노이즈가 된다. 다이아까지의 **관계식**은
+            //    M29_T4 가 배포 에셋 전수로 본다 (여기는 스포너가 min 거리를 읽는지를 보는 자리다).
             var types = new[]
             {
                 (ResourceType.RawFood, ladder[0].rung),   // 기본(5)이 물가(20)보다 낮은 발판
                 (ResourceType.Wood,    ladder[1].rung),
                 (ResourceType.Stone,   ladder[2].rung),
-                (ResourceType.Iron,    ladder[4].rung),
-                (ResourceType.Silver,  ladder[5].rung),
+                (ResourceType.Copper,  ladder[4].rung),
+                (ResourceType.Iron,    ladder[5].rung),
+                (ResourceType.Silver,  ladder[6].rung),
             };
             for (int i = 0; i < types.Length; i++)
             {

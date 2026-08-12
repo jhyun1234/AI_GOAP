@@ -25,7 +25,10 @@ namespace AIVillage.Core
         Stone      = 3,  // 돌: 건설, 원시 무기 재료
         Iron       = 4,  // 철광석: 고급 건설 및 무기
         Copper     = 5,  // 구리: 중급 자원, 침략 트리거 조건 포함
-        Silver     = 6   // 은: 희귀 자원, 침략 트리거 조건 포함
+        Silver     = 6,  // 은: 희귀 자원, 침략 트리거 조건 포함
+        Diamond    = 7   // 다이아: 광물 사다리 3티어 (M29 W3) — 산악 가장 깊은 곳.
+                         // 🔴 배치만 있고 스톡 슬롯은 없다 (철·은과 같은 상태) — 채굴 루프는 공방 축
+                         //    (M30 §2 예약 구획 52~56). `SlotId.StockOf`가 null 을 답하는 것이 정상.
     }
 
     // ItemType(폐기된 PickUpDroppedItem용)·Season enum(SeasonSO 에셋 체계 M6가 정본)은

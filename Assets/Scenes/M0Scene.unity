@@ -650,6 +650,10 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 14840697d4ee94347a1ce754ccf89a55, type: 2}
   - {fileID: 11400000, guid: b3a304790851af54f877e2f443a7f156, type: 2}
   - {fileID: 11400000, guid: 408d87ef06f0af946b70b9109a161da7, type: 2}
+  _biomes:
+  - {fileID: 11400000, guid: ca12d1226b7544b3bbc699509d9bbae5, type: 2}
+  - {fileID: 11400000, guid: f9e1e1ce55eb4f74a0607f81593df31f, type: 2}
+  - {fileID: 11400000, guid: 2dc5ed9f313f48eeb36e408dbb0bd933, type: 2}
   _terrainSafeRadius: 12
   _runSeed: 0
   _nodeRelocateAfterDays: 0.5

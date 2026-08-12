@@ -1,6 +1,6 @@
 import {
   ease, easeOut, clamp, lerp, frac,
-  fitCanvas, mkCanvas, tone, setShadow, clearShadow, GLOW, PALETTE, depthGrad, camAt
+  fitCanvas, mkCanvas, tone, setShadow, clearShadow, GLOW, PALETTE, depthGrad, castShadow, DEPTH, camAt
 } from '../../../engine/lib.js';
 
 /* blankstone — 무덤 일곱이 땅에서 솟는데, 앞의 비석에 파인 **이름 자리가 비어 있다.**
@@ -129,6 +129,9 @@ export default {
       ctx.beginPath(); ctx.rect(0, 0, 352, GROUND);
       ctx.clip();
 
+      castShadow(ctx, MAIN.x + 6, yb - 1, MAIN.w * 0.62, 7, 0.42);
+      ctx.fillStyle = DEPTH[3];                       // 옆면 = 두께. 앞면 그라데이션만으로는 종잇조각이다
+      stone(ctx, MAIN.x + 11, yb, MAIN.w, MAIN.h); ctx.fill();
       ctx.fillStyle = depthGrad(ctx, MAIN.x - MAIN.w / 2, yb - MAIN.h, MAIN.x + MAIN.w / 2, yb, "ink");
       stone(ctx, MAIN.x, yb, MAIN.w, MAIN.h);
       ctx.fill();

@@ -1,6 +1,6 @@
 import {
   disp, ease, easeOut, clamp, lerp,
-  fitCanvas, mkCanvas, tone, setShadow, clearShadow, GLOW, PALETTE, depthGrad, camAt
+  fitCanvas, mkCanvas, tone, setShadow, clearShadow, GLOW, PALETTE, depthGrad, castShadow, DEPTH, camAt
 } from '../../../engine/lib.js';
 
 /* namefade — 훅. **내가 이름을 아는 주민 하나**가 무덤 무리로 걸어 들어가 가라앉고,
@@ -138,6 +138,9 @@ export default {
       ctx.globalAlpha = st;
       ctx.beginPath(); ctx.rect(0, 0, 352, GROUND); ctx.clip();
       const yb = GROUND + MAIN.h * (1 - k);
+      castShadow(ctx, SLOT_X + 5, yb - 1, MAIN.w * 0.60, 6, 0.42);
+      ctx.fillStyle = DEPTH[3];                       // 옆면 = 두께
+      stone(ctx, SLOT_X + 9, yb, MAIN.w, MAIN.h); ctx.fill();
       ctx.fillStyle = depthGrad(ctx, SLOT_X - MAIN.w / 2, yb - MAIN.h, SLOT_X + MAIN.w / 2, yb, 'ink');
       stone(ctx, SLOT_X, yb, MAIN.w, MAIN.h);
       ctx.fill();

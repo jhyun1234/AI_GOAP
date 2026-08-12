@@ -127,6 +127,31 @@ export function clearShadow(ctx) {
   ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
 }
 
+/* ── 입체 ──────────────────────────────────────────
+   납작한 실루엣을 세우는 붓 둘. 그림이 아니라 도구라 여기 둔다.
+
+   왜: 검정 배경에 흰 실루엣만 놓으면 도형이 **떠 있다**. 깊이를 만드는 것은 원근이 아니라
+   ① 가림(무엇이 무엇을 덮는가) ② 명도 위계(가까울수록 밝다) ③ 바닥 그림자다.
+   이 셋 중 셋째가 가장 싸고 즉효라 함수로 뽑았다.
+
+   🔴 무채색만 쓴다(채도 0). 팔레트 검사는 색상만 보므로 회색 계열은 3색 규약을 안 깬다 —
+      `check.mjs` 가 `sat <= 0.14` 를 회색으로 넘긴다. 다만 `DESIGN_GUIDE.md:95` 가
+      **#333 이하의 어두운 fill 을 금지**하므로(검정과 구분이 안 된다) 0x50 아래로 내리지 마라. */
+
+/** 가까울수록 밝은 무채색 계단. 0 = 가장 가까움(흰색) … 3 = 가장 뒤. */
+export const DEPTH = ['#FFFFFF', '#D2D2D2', '#9E9E9E', '#6E6E6E'];
+
+/** 바닥 그림자 — 물체가 놓인 자리를 만든다. 없으면 도형이 공중에 뜬다. */
+export function castShadow(ctx, x, y, rx, ry, alpha = 0.34) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = '#000000';
+  ctx.beginPath();
+  ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
 /* ── 카메라 ────────────────────────────────────────
    샷 안에서 **줌인·줌아웃**을 한다. 그림 파일의 좌표를 손대지 않고 「어디를 얼마나 크게
    보여 줄지」만 시간축에 올린다.

@@ -1,6 +1,6 @@
 import {
   disp, ease, easeOut, clamp, lerp,
-  fitCanvas, mkCanvas, tone, setShadow, clearShadow, GLOW, PALETTE, depthGrad, camAt
+  fitCanvas, mkCanvas, tone, setShadow, clearShadow, GLOW, PALETTE, depthGrad, castShadow, DEPTH, camAt
 } from '../../../engine/lib.js';
 
 /* carvename — 죽고 나면 물어볼 데가 없다. 그래서 **아직 서 있는 동안** 이름을 건네받아
@@ -135,6 +135,9 @@ export default {
     /* 꽂히는 순간 한 번 흔들린다 — 맞은 것은 흔들려야 맞은 것으로 읽힌다 */
     const shake = hit > 0.01 ? Math.sin(s1 * 90) * 4 * hit : 0;
     ctx.translate(shake, 0);
+    castShadow(ctx, ST.x + 5, GROUND - 1, ST.w * 0.62, 7, 0.42);
+    ctx.fillStyle = DEPTH[3];                         // 옆면 = 두께
+    stone(ctx, ST.x + 10, GROUND, ST.w, ST.h); ctx.fill();
     ctx.fillStyle = depthGrad(ctx, ST.x - ST.w / 2, GROUND - ST.h, ST.x + ST.w / 2, GROUND, 'ink');
     stone(ctx, ST.x, GROUND, ST.w, ST.h);
     ctx.fill();

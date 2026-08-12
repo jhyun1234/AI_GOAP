@@ -1,0 +1,47 @@
+{
+ "houses": [
+  "Cube",
+  "Cube.001",
+  "Cube.002"
+ ],
+ "trees": [
+  "Cone.003",
+  "Cone.004",
+  "Cone.005",
+  "Cone.006"
+ ],
+ "house_height": 1.85,
+ "spots": [
+  [
+   -2.7,
+   -1.5
+  ],
+  [
+   2.0,
+   -1.2
+  ],
+  [
+   4.6,
+   1.1
+  ],
+  [
+   -0.2,
+   1.0
+  ]
+ ],
+ "materials": [
+  "world",
+  "world.001",
+  "world.002",
+  "world.003",
+  "world.004",
+  "world.005",
+  "world.006",
+  "world.007",
+  "world.008",
+  "world.009",
+  "world.010"
+ ],
+ "meaning_materials": [],
+ "instrument_materials": []
+}

@@ -37,6 +37,11 @@ BAND_W, BAND_H, BAND_Y = 1080, 846, 420
 EXPOSURE = 1.85
 LANE_LEVEL = 0.015
 DEPTH_STEP = 0.085         # 뒤로 한 칸 갈 때마다 어두워지는 비율(lib.js DEPTH 명도 계단)
+# 🔴 세계층은 **주인공보다 어두워야 한다.** earth 를 팔레트 값 그대로(선형 0.23) 쓰면
+#    지붕이 sRGB 0.8 로 올라와 주민(0.85)과 맞먹는다 — 마을을 보러 온 게 아닌데 지붕이
+#    제일 밝다. 이 값은 지붕이 sRGB 0.45 근처에 앉게 역산한 것이다. 색상·채도는 안 변한다
+#    (모든 채널에 같은 배율이라 뜻층/세계층 판정에도 영향이 없다).
+EARTH_LEVEL = 0.28
 
 
 def _dimmed(mat, k):
@@ -177,9 +182,20 @@ def ink_mat(k=1.0):
     return _mat('ink', tuple(c * k for c in INK_LIN))
 
 
+WORLD_SAT_MAX = 0.34       # 선형 채도 상한. 이걸 넘으면 렌더에서 뜻층으로 잡힌다
+
+
 def world_mat(albedo=(0.06, 0.06, 0.065), earth=False):
-    """세계층 — 지형·건물·나무·주민 몸. 유채색 예산에 안 들어간다."""
-    return _mat('world', PALETTE['earth'] if earth else albedo)
+    """세계층 — 지형·건물·나무·주민 몸. 유채색 예산에 안 들어간다.
+
+    🔴 알베도 채도를 **여기서 막는다.** 손으로 적은 값 하나가 규약을 깬 적이 있다 —
+       밭 이랑을 (0.050, 0.038, 0.028) 로 뒀더니 선형 채도 0.44 라 렌더에서 앰버로 잡혔다.
+       기억해서 지킬 규칙은 언젠가 안 지켜진다."""
+    base = tuple(c * EARTH_LEVEL for c in PALETTE['earth']) if earth else albedo
+    mx, mn = max(base), min(base)
+    sat = 0.0 if mx <= 0 else (mx - mn) / mx
+    assert sat <= WORLD_SAT_MAX, '세계층 알베도 채도가 너무 높다: %s (%.2f)' % (base, sat)
+    return _mat('world', base)
 
 
 def meaning_mat(name, strength=1.0, albedo_scale=0.10):

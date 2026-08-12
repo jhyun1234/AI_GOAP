@@ -21,6 +21,7 @@ HUE_TOL = palette.HUE_TOL
 # 🔴 채도가 낮으면 세계층이다. 정확한 값 비교로 짜면 안티에일리어싱 경계의 중간값이
 #    전부 위반으로 잡힌다 — check.mjs 가 같은 이유로 색상각 판정을 쓴다.
 SAT_MIN = palette.SAT_MIN
+LUM_MIN = palette.LUM_MIN
 ALPHA_MIN = 120
 
 
@@ -75,6 +76,8 @@ def metrics(path, step=1):
         lum = (r * 299 + g * 587 + b * 114) // 1000
         if lum > peak:
             peak = lum
+        if lum < LUM_MIN:          # 어두운 화소의 채도는 색이 아니라 반올림 잡음이다
+            continue
         hue, sat = _hue_sat(r, g, b)
         if sat < SAT_MIN:
             continue

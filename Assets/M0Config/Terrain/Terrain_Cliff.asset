@@ -22,3 +22,15 @@ MonoBehaviour:
   MoveSpeedMult: 1
   GroundColor: {r: 0.48, g: 0.45, b: 0.42, a: 1}
   NodeDensityMult: 1
+  EdgeTint: {r: 1, g: 1, b: 1, a: 1}
+  WallSprites:
+  - {fileID: -1592014877, guid: 31e6e89d850ade84dbbfaa6529d7405f, type: 3}
+  - {fileID: -368243780, guid: 31e6e89d850ade84dbbfaa6529d7405f, type: 3}
+  - {fileID: 258150943, guid: 31e6e89d850ade84dbbfaa6529d7405f, type: 3}
+  - {fileID: 367374302, guid: 31e6e89d850ade84dbbfaa6529d7405f, type: 3}
+  - {fileID: -1654461321, guid: 31e6e89d850ade84dbbfaa6529d7405f, type: 3}
+  - {fileID: -645823424, guid: 31e6e89d850ade84dbbfaa6529d7405f, type: 3}
+  BaseSprites:
+  - {fileID: 754480701, guid: 31e6e89d850ade84dbbfaa6529d7405f, type: 3}
+  - {fileID: 132635073, guid: 31e6e89d850ade84dbbfaa6529d7405f, type: 3}
+  - {fileID: -276919869, guid: 31e6e89d850ade84dbbfaa6529d7405f, type: 3}

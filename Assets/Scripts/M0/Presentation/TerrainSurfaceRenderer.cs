@@ -27,7 +27,7 @@ namespace AIVillage.M0
         // 이 이상 넓게 보면 장식을 끈다 — 한 칸이 몇 픽셀이라 장식이 그림이 아니라 노이즈가 되고,
         // 그 화면에서 지역을 가르는 것은 어차피 **바닥색**이다 (전체 지도 보기).
         private const int MAX_VISIBLE_TILES = 10000;
-        // 경계 조각 상한 — 경계는 장식보다 흔하다 (한 타일이 최대 넷).
+        // 표면 조각 상한 — 경계·벽면·기단이 함께 쓴다. 경계는 장식보다 흔하다 (한 타일이 최대 넷).
         private const int MAX_EDGE = 6000;
         // 카메라가 이만큼(타일) 움직이면 다시 깐다. MapChunkRenderer의 청크 갱신과 같은 규약.
         private const float REBUILD_MOVE_TILES = 3f;
@@ -110,6 +110,36 @@ namespace AIVillage.M0
                                                            : FowManager.FOW_VISIBLE;
                     if (fow == 0) continue;   // 안 밝힌 땅에 풀이 떠 있으면 안개가 뚫린다
 
+                    // ── 벽면 (M31-W2) — 고지대 남쪽 두 줄은 **서 있는 바위 벽**이다 ──
+                    // 🔑 제 그림을 **자기 칸에** 그린다: 아래 칸에 그리면 그 칸은 걸을 수 있는
+                    //    땅이라 "벽인데 지나간다"가 된다 (아래 칸으로 내려가는 것은 기단뿐).
+                    if (_terrain.IsWallRow(x, y))
+                    {
+                        if (t.WallSprites != null && t.WallSprites.Length >= 6)
+                        {
+                            int row  = _terrain.IsWallRow(x, y - 1) ? 0 : 1;   // 아래도 벽 = 내가 윗줄
+                            int side = _terrain.IsWallRow(x - 1, y)
+                                     ? (_terrain.IsWallRow(x + 1, y) ? 1 : 2) : 0;
+                            // 🔑 **Y 정렬이다** (Decal 아님): 벽은 바닥 데칼이 아니라 서 있는 물건이라,
+                            //    남쪽에 선 주민은 벽 앞에·고지대 위에 선 주민은 벽 뒤에 그려져야 한다.
+                            //    bias는 Node(0) — 벽 칸엔 노드가 못 서므로 같은 칸에서 다툴 상대가 없다.
+                            DrawSurface(x, y, t.WallSprites[row * 3 + side], t.EdgeTint, fow, dim,
+                                        WorldSort.Order(y, WorldSort.Node), ref edges);
+                        }
+                    }
+                    // ── 기단 잡석 — 벽 **아래** 첫 저지대 칸. 굴러떨어진 돌이라 판정이 없다 ──
+                    else if (_terrain.IsWallRow(x, y + 1))
+                    {
+                        TerrainTypeSO wall = _terrain.At(x, y + 1);
+                        if (wall != null && wall.BaseSprites != null && wall.BaseSprites.Length >= 3)
+                        {
+                            int side = _terrain.IsWallRow(x - 1, y + 1)
+                                     ? (_terrain.IsWallRow(x + 1, y + 1) ? 1 : 2) : 0;
+                            DrawSurface(x, y, wall.BaseSprites[side], wall.EdgeTint, fow, dim,
+                                        WorldSort.Decal, ref edges);
+                        }
+                    }
+
                     // ── 경계 그림 (M29-4차) — **낮은 쪽 타일에 이웃의 술을 얹는다** ──
                     // 색면 두 개가 계단으로 만나던 자리에 유기적 가장자리가 생긴다.
                     for (int d = 0; d < DIRS.Length && edges < MAX_EDGE; d++)
@@ -125,17 +155,10 @@ namespace AIVillage.M0
                         TerrainTypeSO owner = t.EdgeOnSelf ? t
                                             : (!nb.EdgeOnSelf && nb.Priority > t.Priority ? nb : null);
                         if (owner == null) continue;
-                        if (owner.EdgeTiles == null || owner.EdgeTiles.Length < 4 || owner.EdgeTiles[d] == null) continue;
+                        if (owner.EdgeTiles == null || owner.EdgeTiles.Length < 4) continue;
 
-                        SpriteRenderer esr = Take(_edgePool, edges++);
-                        esr.transform.position = new Vector3(x, y, 0f);
-                        esr.transform.localScale = Vector3.one;
-                        esr.sprite = owner.EdgeTiles[d];
-                        Color tint = owner.EdgeTint;
-                        esr.color = fow == FowManager.FOW_VISIBLE
-                                  ? tint : new Color(tint.r * dim, tint.g * dim, tint.b * dim, tint.a);
-                        esr.sortingOrder = WorldSort.Decal - 1;   // 바닥 바로 위·장식 아래
-                        esr.enabled = true;
+                        DrawSurface(x, y, owner.EdgeTiles[d], owner.EdgeTint, fow, dim,
+                                    WorldSort.Decal - 1, ref edges);   // 바닥 바로 위·장식 아래
                     }
 
                     if (t.DecorSprites == null || t.DecorSprites.Length == 0 || t.DecorPerTile <= 0f) continue;
@@ -176,6 +199,22 @@ namespace AIVillage.M0
 
             for (int i = used;  i < _pool.Count;     i++) _pool[i].enabled = false;
             for (int i = edges; i < _edgePool.Count; i++) _edgePool[i].enabled = false;
+        }
+
+        /// <summary>1칸짜리 표면 조각 하나 — 경계·벽면·기단이 같은 풀을 쓴다 (그림 크기가 같고
+        /// `sortingOrder`만 다르다). 안개 속(fow 1)에서는 바닥과 **같은 배율**로 어두워진다.</summary>
+        private void DrawSurface(int x, int y, Sprite sprite, Color tint, byte fow, float dim,
+                                 int sortingOrder, ref int count)
+        {
+            if (sprite == null) return;
+            SpriteRenderer sr = Take(_edgePool, count++);
+            sr.transform.position = new Vector3(x, y, 0f);
+            sr.transform.localScale = Vector3.one;
+            sr.sprite = sprite;
+            sr.color = fow == FowManager.FOW_VISIBLE
+                     ? tint : new Color(tint.r * dim, tint.g * dim, tint.b * dim, tint.a);
+            sr.sortingOrder = sortingOrder;
+            sr.enabled = true;
         }
 
         private SpriteRenderer Take(List<SpriteRenderer> pool, int i)

@@ -27,3 +27,15 @@ MonoBehaviour:
   - {fileID: 181230984, guid: d6212d460f9976548b8df1857bb12a2b, type: 3}
   DecorPerTile: 0.12
   DecorSize: 0.95
+  EdgeTint: {r: 1, g: 1, b: 1, a: 1}
+  WallSprites:
+  - {fileID: 1528744760, guid: 250603647c5b6904abaabe3da2a41610, type: 3}
+  - {fileID: 50120347, guid: 250603647c5b6904abaabe3da2a41610, type: 3}
+  - {fileID: -604753175, guid: 250603647c5b6904abaabe3da2a41610, type: 3}
+  - {fileID: 454731192, guid: 250603647c5b6904abaabe3da2a41610, type: 3}
+  - {fileID: -1453313326, guid: 250603647c5b6904abaabe3da2a41610, type: 3}
+  - {fileID: 2066050258, guid: 250603647c5b6904abaabe3da2a41610, type: 3}
+  BaseSprites:
+  - {fileID: -1792927505, guid: 250603647c5b6904abaabe3da2a41610, type: 3}
+  - {fileID: 1358290949, guid: 250603647c5b6904abaabe3da2a41610, type: 3}
+  - {fileID: 1547705291, guid: 250603647c5b6904abaabe3da2a41610, type: 3}

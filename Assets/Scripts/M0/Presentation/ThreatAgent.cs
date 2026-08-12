@@ -338,6 +338,8 @@ namespace AIVillage.M0
                 return;
             }
             if (chase == _lastChaseTile) return; // 대상 위치 그대로 — 기존 경로 유지
+            // 예산 소진 = 연기 (M28-W1): 기존 경로로 한 프레임 더 걷고 다음 프레임 재시도.
+            if (!_svc.PathBudget.TryConsume(Time.frameCount)) return;
 
             PathResult p = _pathfinder.FindPath(TileX, TileY, chase.x, chase.y);
             if (p.Kind == PathResultKind.PathFound)
@@ -382,6 +384,7 @@ namespace AIVillage.M0
 
             Vector2Int dest = _svc.PickWanderTile(this);
             if (dest.x == TileX && dest.y == TileY) return; // 제자리 — 다음 쿨다운에 다시 뽑는다
+            if (!_svc.PathBudget.TryConsume(Time.frameCount)) return; // 연기 — 다음 쿨다운에 재시도 (M28-W1)
 
             PathResult p = _pathfinder.FindPath(TileX, TileY, dest.x, dest.y);
             if (p.Kind != PathResultKind.PathFound) return; // 못 가면 그대로 — 다음 쿨다운에 재시도

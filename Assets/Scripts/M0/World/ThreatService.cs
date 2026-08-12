@@ -147,6 +147,10 @@ namespace AIVillage.M0
         private float WavePeriod => _config != null && _config.WavePeriodDays > 0f
                                   ? _config.WavePeriodDays : 5f;
 
+        /// <summary>위협 연속 소스(추격·배회)의 프레임당 리패스 예산 (M28-W1). 개체들이 공유한다 —
+        /// 소유가 서비스인 이유: 소비자가 ThreatAgent뿐이고 전부 _svc를 이미 쥐고 있다 (배선 0).</summary>
+        public PathQueryBudget PathBudget { get; } = new PathQueryBudget();
+
         public ThreatService(ThreatSO[] threats, SeasonService season,
                              ConstructionService construction, IReadOnlyList<VillagerAgent> agents,
                              WorldConfigSO config, Func<IPathfinder> pathfinder,

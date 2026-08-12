@@ -65,6 +65,8 @@ RISE[v['campfire']] = (3.00, 0.32)
 for ob in bpy.context.scene.objects:
     if ob.type != 'MESH' or ob in RISE or ob is v['ground'] or ob is line:
         continue
+    if ob.parent:            # 🔴 부모를 따라 솟는다. 여기 또 넣으면 두 번 움직인다
+        continue
     near = min(RISE, key=lambda k: (k.location.x - ob.location.x) ** 2
                + (k.location.y - ob.location.y) ** 2)
     d2 = (near.location.x - ob.location.x) ** 2 + (near.location.y - ob.location.y) ** 2

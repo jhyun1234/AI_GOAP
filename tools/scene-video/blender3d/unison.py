@@ -58,7 +58,7 @@ HOOK_BEATS = ('stand', 'walk', 'walk', 'turn', 'walk', 'walk', 'walk', 'stop')
 
 # ⑤ 에서 여섯이 함께 도는 각. 🔴 **꺾은 뒤 궤적이 소품을 뚫지 않는지 보고 정한다** —
 #    `render_hook.py` 가 매 렌더마다 궤적을 재서 막는다. +30° 는 집 둘 사이로 들어간다.
-HOOK_TURN = math.radians(30)
+HOOK_TURN = math.radians(24)   # 30° 는 집 0 의 처마 모서리를 0.02m 스쳤다(궤적 검사)
 TURN_SPAN = 0.60        # 도는 데 쓰는 비트의 비율. 나머지는 돌고 나서 서 있는 시간이다
 BLEND = 0.26            # 걷기↔멈춤 이음새(초). 0 이면 다리가 차렷으로 순간이동한다
 

@@ -68,18 +68,12 @@ BASE_SZ = [[b.scale.z for b in row] for row in marks]
 
 # 🔴 궤적이 소품을 뚫으면 그 프레임 하나로 3D 가 거짓말이 된다. **미리 잰다.**
 #    이 검사가 가로 대열을 접고 한 줄로 돌아서게 만들었다 — 손으로 지킬 규칙이 아니다.
-# 🔑 장애물은 **주민 키(0.95)를 기준으로** 고른다.
-#    · 너무 낮은 것은 밟고 지나간다 — 밭 0.05, 이랑 0.09
-#    · 밑동이 머리 위에 있는 것은 **밑으로 지나간다** — 지붕 처마가 1.05 에서 시작한다.
-#      높이만 보고 걸렀더니 처마 밑을 스치는 길을 「집을 뚫는다」로 잡았다
-BODY_R, HEAD = 0.22, 0.90
-OBSTACLES = [(o.location.x, o.location.y, max(o.dimensions.x, o.dimensions.y) / 2, o.name)
-             for o in bpy.context.scene.objects
-             if o.type == 'MESH' and o is not v['ground'] and not o.parent
-             and o.dimensions.z >= 0.15 and o.location.z - o.dimensions.z / 2 < HEAD]
+#    무엇을 장애물로 치는지는 `village.obstacles` 가 정한다(밟고 넘는 턱·처마 밑).
+bpy.context.view_layer.update()
+OBSTACLES = village.obstacles(exclude=(v['ground'],))
 _worst = min(
     (((hx + unison.march(DUR * k / 400, BEAT)[0] - ox) ** 2
-      + (hy + unison.march(DUR * k / 400, BEAT)[1] - oy) ** 2) ** 0.5 - r - BODY_R, nm)
+      + (hy + unison.march(DUR * k / 400, BEAT)[1] - oy) ** 2) ** 0.5 - r - village.BODY_R, nm)
     for k in range(401) for hx, hy, _hz in HOME for ox, oy, r, nm in OBSTACLES)
 assert _worst[0] > 0, '주민 궤적이 %s 를 %.2f m 뚫는다' % (_worst[1], -_worst[0])
 print('[hook] %d비트 · %.2f초 · 이동 %.2fm · 소품 최소 여유 %.2fm (%s)'

@@ -96,6 +96,21 @@ def test_the_village_never_lights_the_fire_itself():
     assert "meaning_mat('amber'" in src, '불이 앰버가 아니다 — 앰버는 삶·온기다(설계 §2)'
 
 
+def test_the_house_has_openings_cut_into_it():
+    """민 상자는 꼭짓점이 여덟이다. 문·창을 파면 늘어난다 — 「팠다」를 주장이 아니라 값으로 남긴다.
+    🔴 집을 상자로 되돌리는 것은 한 줄이면 되고, 그 한 줄은 검사가 없으면 안 잡힌다."""
+    r = json.load(open(REPORT, encoding='utf-8'))
+    assert r['house_verts'] > 8, ('문도 창도 없는 상자다', r['house_verts'])
+
+
+def test_no_prop_is_a_single_box():
+    """🔴 소품 판정은 매번 같은 결론이었다 — **상자 하나는 아무것으로도 안 읽힌다.**
+    우물은 줄과 두레박이, 밭은 두둑이, 모닥불은 돌 테두리가 그것을 무엇으로 만든다."""
+    r = json.load(open(REPORT, encoding='utf-8'))
+    for name, least in (('well', 5), ('field', 7), ('fire', 10)):
+        assert r['parts'][name] >= least, (name, r['parts'][name])
+
+
 if __name__ == '__main__':
     from _check import run
     run(globals())

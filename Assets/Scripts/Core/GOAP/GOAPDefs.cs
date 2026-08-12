@@ -38,10 +38,15 @@ namespace AIVillage.Core.GOAP
 
     /// <summary>
     /// 잡의 슬롯 배열 크기 상수 브릿지. M0는 앞쪽 SlotIds.Count개만 사용하고
-    /// 나머지는 0 유지 (GoalMask 0 → 판정 무시). 값 무변경 (舊 52).
+    /// 나머지는 0 유지 (GoalMask 0 → 판정 무시).
+    ///
+    /// M30 증설 (2026-08-12, 52→72): 이 수는 동결 코어(ADR-M0-5)가 아니라 배열 크기다 —
+    /// 마스크가 아니라 NativeArray&lt;int&gt;라 64 천장도 없다. 비용은 노드 상태 복사·해시의
+    /// 선형 증가뿐. 증설분 20칸의 장부(광물 4·공방 6 등 예약 구획)는
+    /// Docs/M30_슬롯예산_실행명세서.md §2가 정본 — 새 슬롯은 그 구획을 청구하며 승인 먼저.
     /// </summary>
     public static class GOAPPlanningSlots
     {
-        public const int TOTAL_SLOTS = 52;
+        public const int TOTAL_SLOTS = 72;
     }
 }

@@ -2,6 +2,7 @@
 
 정본 설계: [`../notes/2026-08-12-3d-native-design.md`](../notes/2026-08-12-3d-native-design.md)
 구현 계획: [`../notes/2026-08-12-3d-native-plan.md`](../notes/2026-08-12-3d-native-plan.md)
+**새 회차를 만든다면: [`../notes/2026-08-13-새-회차-runbook.md`](../notes/2026-08-13-새-회차-runbook.md)**
 **소품 어휘집: [`PROPS.md`](./PROPS.md)** — 집·나무·우물·밭·모닥불을 다시 만들지 마라.
 좌표만 주면 어디서나 다시 선다. 「무엇이 그것처럼 보이게 하는가」를 네 판 고쳐서 적어 뒀다.
 

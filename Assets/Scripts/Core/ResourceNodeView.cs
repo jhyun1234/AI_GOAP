@@ -129,8 +129,11 @@ namespace AIVillage.Core
             var tile = new Vector3(_node.TileX, _node.TileY, transform.position.z);
             if ((transform.position - tile).sqrMagnitude > 1e-6f) transform.position = tile;
 
-            // FoW: 미발견 노드는 렌더러를 끄고 나머지 처리 생략
-            if (!_node.IsDiscovered)
+            // FoW: 미발견 노드는 렌더러를 끄고 나머지 처리 생략.
+            // 🔧 디버그 전체 공개(2026-08-12)는 **그림만** 켠다 — `IsDiscovered`를 건드리면
+            //    주민이 맵 끝 광석을 알게 되어 채집 동선이 바뀐다 (관측하려던 것이 관측으로 망가진다).
+            if (!_node.IsDiscovered
+                && !(FowManager.Instance != null && FowManager.Instance.RevealAll))
             {
                 _sr.enabled = false;
                 return;

@@ -102,6 +102,20 @@ namespace AIVillage.Core
         /// </summary>
         public bool HasAnyDirty { get; private set; }
 
+        /// <summary>디버그 전체 공개 (2026-08-12 · 테스트용). true면 `GetFowState`가 전 타일을
+        /// 가시로 답한다 — **표시 전용**이다: 배열(`_fowState`)은 손대지 않으므로 끄면 주민이
+        /// 실제로 밝힌 만큼으로 정확히 돌아오고, 시뮬레이션(발견·탐험 페이스)은 영향이 없다.
+        /// 🔴 재사용 라이브러리 최소 절제 (CLAUDE.md): 읽기 창구 하나에 분기 한 줄만 얹었다.</summary>
+        public bool RevealAll { get; private set; }
+
+        /// <summary>전체 공개를 켜고 끈다. 화면 전체를 다시 그려야 하므로 전 타일을 더티로 표시한다.</summary>
+        public void SetRevealAll(bool on)
+        {
+            if (RevealAll == on || _fowState == null) return;
+            RevealAll = on;
+            MarkAllDirty();
+        }
+
         #endregion
 
         #region ── Unity 생명주기 ──
@@ -246,7 +260,7 @@ namespace AIVillage.Core
             int ax = tileX + _offset;
             int ay = tileY + _offset;
             if (ax < 0 || ax >= _size || ay < 0 || ay >= _size) return FOW_UNEXPLORED;
-            return _fowState[ax, ay];
+            return RevealAll ? FOW_VISIBLE : _fowState[ax, ay];   // 디버그 전체 공개 (표시 전용)
         }
 
         /// <summary>

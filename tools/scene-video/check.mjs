@@ -772,7 +772,13 @@ try {
         else if (mx === gg) hue = 60*(((b-r)/c)+2);
         else hue = 60*(((r-gg)/c)+4);
         if (hue < 0) hue += 360;
-        const accent = hue >= 138 && hue <= 168;      // #00FF88 = 152도
+        /* 🔄 2026-08-12 개정 — 창이 둘이다. 옛 규칙은 강조색이 하나뿐이라
+           「결함」을 그릴 색이 없었다(lib.js PALETTE 주석 참조).
+           🔴 fail 창을 336~6 으로 좁게 잡은 이유: 제품 마크의 주황이 hue 17 이다.
+           창을 주황까지 늘리면 결함의 색과 브랜드 마크가 같은 색이 되고,
+           지금 예외로 선언해 통과시키는 마크가 조용히 규격 안으로 들어와 버린다. */
+        const accent = (hue >= 138 && hue <= 168)     // #00FF88 = 152도 (해결)
+                    || (hue >= 336 || hue <= 6);      // #FF3B5C = 350도 (결함)
         if (!accent) bad++;
       }
       P.bad += bad; P.total += tot;
@@ -860,7 +866,7 @@ if (frame) {
     .filter(([id]) => !paletteSkip[id])
     .map(([id, v]) => ({ id, pct: v.total ? v.bad / v.total * 100 : 0 }))
     .filter(v => v.pct > 0.05);
-  add(violations.length === 0, '3색 팔레트',
+  add(violations.length === 0, '팔레트 (해결·결함 2강조)',
     violations.length
       ? violations.map(v => `${v.id} ${v.pct.toFixed(2)}%`).join(', ')
       : `위반 없음` + (Object.keys(paletteSkip).length ? ` (선언 예외: ${Object.entries(paletteSkip).map(([k, r]) => `${k}=${r}`).join(', ')})` : ''));

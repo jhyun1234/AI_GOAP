@@ -26,7 +26,7 @@
 }
 
 :root{
-  --bg:#000000; --ink:#FFFFFF; --accent:#00FF88;
+  --bg:#0E1117; --ink:#FFFFFF; --accent:#00FF88; --fail:#FF3B5C;
   --sub:rgba(255,255,255,.7);      /* 보조 라벨 — 허용 최소치 */
   --track:rgba(255,255,255,.12);   /* 빈 트랙·가이드선 */
   --line:rgba(255,255,255,.22);    /* 보더 */

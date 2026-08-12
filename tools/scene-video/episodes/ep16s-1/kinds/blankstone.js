@@ -1,6 +1,6 @@
 import {
   ease, clamp, lerp,
-  fitCanvas, mkCanvas, tone, setShadow, clearShadow, GLOW
+  fitCanvas, mkCanvas, tone, setShadow, clearShadow, GLOW, FAIL_GLOW
 } from '../../../engine/lib.js';
 
 /* blankstone — 죽은 자리마다 동그라미가 하나씩 놓이는데, 그 아래 이름이 들어갈 자리는
@@ -67,13 +67,15 @@ export default {
         ctx.restore();
       }
 
-      /* 이름이 들어갈 자리 — 강조색 점선. 끝까지 비어 있다 */
+      /* 이름이 들어갈 자리 — 점선. 끝까지 비어 있다.
+         🔄 2026-08-12: accent(해결) → fail(결함). 이 빈 칸이 이 회차의 결함 그 자체다.
+         옛 팔레트는 강조색이 하나여서 「고쳤다」와 「고장났다」를 같은 색으로 그렸다. */
       const s = ease(clamp((c1 - i * 0.06) / 0.26));
       if (s > 0.01) {
         ctx.save();
         ctx.globalAlpha = s * 0.92;
-        setShadow(ctx, GLOW, 8);
-        ctx.strokeStyle = tone('accent');
+        setShadow(ctx, FAIL_GLOW, 8);
+        ctx.strokeStyle = tone('fail');
         ctx.lineWidth = 3;
         ctx.setLineDash([9, 7]);
         ctx.lineDashOffset = -((t * 34) % 16);

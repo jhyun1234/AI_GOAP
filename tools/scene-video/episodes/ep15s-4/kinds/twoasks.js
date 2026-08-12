@@ -1,7 +1,7 @@
 /* 📐 이 파일의 좌표는 **획 바깥**(`lineWidth/2` 포함) 기준이다.
    경로 좌표를 적을 땐 `(경로)` 라고 표시한다. */
 import {
-  disp, ease, clamp, lerp, fitCanvas, mkCanvas, roundRect, tone, setShadow, clearShadow, GLOW
+  disp, ease, clamp, lerp, fitCanvas, mkCanvas, roundRect, tone, setShadow, clearShadow, GLOW, FAIL_GLOW
 } from '../../../engine/lib.js';
 
 /* twoasks — 주인을 정할 때 보던 것이 하나뿐이었고, 나머지 하나를 켜자 다 풀린다.
@@ -131,8 +131,8 @@ export default {
       const x = cx(s.c), y = cy(s.r) + 9;
       ctx.save();
       ctx.globalAlpha = st;
-      setShadow(ctx, GLOW, blur);
-      ctx.strokeStyle = tone('accent'); ctx.lineWidth = 3; ctx.lineJoin = 'round';
+      setShadow(ctx, FAIL_GLOW, blur);
+      ctx.strokeStyle = tone('fail'); ctx.lineWidth = 3; ctx.lineJoin = 'round';
       ctx.beginPath();
       ctx.moveTo(x, y - h); ctx.lineTo(x + half, y); ctx.lineTo(x - half, y);
       ctx.closePath(); ctx.stroke();

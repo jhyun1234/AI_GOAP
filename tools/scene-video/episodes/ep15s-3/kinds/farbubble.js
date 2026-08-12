@@ -3,7 +3,7 @@
    이미 다 먹여 놓았다. */
 import {
   disp, ease, clamp, lerp, frac,
-  fitCanvas, mkCanvas, tone, setShadow, clearShadow, GLOW
+  fitCanvas, mkCanvas, tone, setShadow, clearShadow, GLOW, FAIL_GLOW
 } from '../../../engine/lib.js';
 
 /* farbubble — 기각한 안. 멀리서도 되게 하면 허공에 대고 떠들게 된다.
@@ -133,8 +133,8 @@ export default {
 
     ctx.save();
     ctx.globalAlpha = st;
-    setShadow(ctx, GLOW, 8);
-    ctx.strokeStyle = tone('accent'); ctx.lineWidth = 3;
+    setShadow(ctx, FAIL_GLOW, 8);
+    ctx.strokeStyle = tone('fail'); ctx.lineWidth = 3;
     ctx.beginPath(); ctx.arc(CX + bx(1), AY + by(1), 9, 0, Math.PI * 2); ctx.stroke();
     clearShadow(ctx);
     ctx.restore();

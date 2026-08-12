@@ -1,7 +1,7 @@
 /* 📐 이 파일의 좌표는 **획 바깥**(`lineWidth/2` 포함) 기준이다.
    경로 좌표를 적을 땐 `(경로)` 라고 표시한다. */
 import {
-  disp, ease, clamp, lerp, fitCanvas, mkCanvas, tone, setShadow, clearShadow, GLOW
+  disp, ease, clamp, lerp, fitCanvas, mkCanvas, tone, setShadow, clearShadow, GLOW, FAIL_GLOW
 } from '../../../engine/lib.js';
 
 /* sidejob — 목수가 집 부탁을 받고, 그 자리에 집 대신 자기 모닥불을 놓는다.
@@ -133,8 +133,8 @@ export default {
       const fx = cx(MINE.c), fy = cy(MINE.r) + 9;
       ctx.save();
       ctx.globalAlpha = st;
-      setShadow(ctx, GLOW, blur);
-      ctx.strokeStyle = tone('accent'); ctx.lineWidth = 3; ctx.lineJoin = 'round';
+      setShadow(ctx, FAIL_GLOW, blur);
+      ctx.strokeStyle = tone('fail'); ctx.lineWidth = 3; ctx.lineJoin = 'round';
       ctx.beginPath();
       ctx.moveTo(fx, fy - h); ctx.lineTo(fx + half, fy); ctx.lineTo(fx - half, fy);
       ctx.closePath(); ctx.stroke();

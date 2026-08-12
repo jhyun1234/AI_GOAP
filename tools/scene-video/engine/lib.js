@@ -53,24 +53,38 @@ export const CJK = 'Pretendard, "Malgun Gothic", serif';
 export const disp = (weight, px) => `${weight} ${px}px ${DISP}`;
 export const mono = (weight, px) => `${weight} ${px}px ${MONO}`;
 
-/* 3색 팔레트 — youtube-editor/COLOR_PALETTE.md
-   검정 배경 · 흰색 텍스트 · 네온 그린 강조. 이 셋 밖의 색은 쓰지 않는다.
-   왜: 색이 늘면 시청자가 "이 색은 무슨 뜻이지"를 매번 풀어야 하고,
-       검정 바다에 그린 하나만 빛나야 눈이 자동으로 간다.
+/* 4색 팔레트 — youtube-editor/COLOR_PALETTE.md
+   🔄 2026-08-12 개정 (테스트 · exp/palette4). 옛 3색은 아래 「왜 늘렸나」 참조.
 
-   의미 매핑(옛 5색 → 3색):
-     warm(주민) · hot(문제/실패) → #FFFFFF  대조 대상은 전부 중립 흰색
-     cool(해결/정답)            → #00FF88  강조는 이 색 하나뿐
-   대비는 색이 아니라 위계(크기·굵기)와 맥락(라벨·아이콘)으로 만든다. */
+   배경(깊은 밤) · 흰색 텍스트 · 두 개의 뜻 있는 강조색.
+     accent(해결·성공·추가·지금 상태) → #00FF88  hue 152
+     fail  (결함·손실·제거·과거의 잘못) → #FF3B5C  hue 350
+
+   🔴 왜 늘렸나 — 옛 주석이 스스로 답을 적어 두고 있었다:
+        "warm(주민) · hot(문제/실패) → #FFFFFF   대조 대상은 전부 중립 흰색"
+      즉 **「문제/실패」라는 역할은 처음부터 있었고 색이 없어서 흰색으로 접혀 있었다.**
+      그 결과 화면만 봐서는 무엇이 고장이고 무엇이 해결인지 구분되지 않았다.
+      우리 회차 구조는 전부 「이랬는데(결함) → 이렇게 됐다(해결)」인데 그 축을
+      색이 못 지고 있었다. 채널 소개문이 "실패를 숨기지 않습니다"라고 말하는데
+      팔레트에 실패의 색이 없던 셈이다.
+
+   🔴 여전히 금지 — fail 을 「그냥 강조」로 쓰지 않는다. 뜻 없는 강조는 accent 가
+      맡는다. 색이 늘어난 명분이 뜻이므로, 뜻 없이 쓰면 규약이 무너진다.
+   🔴 셋째 강조색을 늘리지 않는다. 필요해지면 그때 창을 하나 더 여는 것이
+      지금 안 쓸 색을 미리 두는 것보다 싸다. */
 export const PALETTE = {
-  bg: '#000000',
+  // 순수 검정을 뗐다 — OLED 에서 화면이 "꺼진 자리"로 읽혀 여백이 더 비어 보였다.
+  // 캔버스가 아니라 CSS 무대 색이라 팔레트 게이트는 이 값을 보지 않는다.
+  bg: '#0E1117',
   ink: '#FFFFFF',
   accent: '#00FF88',
+  fail: '#FF3B5C',
   sub: 'rgba(255,255,255,0.7)',    // 보조 라벨 — 0.7 이 허용 최소치
   track: 'rgba(255,255,255,0.12)', // 빈 트랙·가이드선 (0.1 미만은 검정에서 안 보임)
 
-  // 옛 이름 호환 — 씬 JSON 이 아직 warm/hot/cool 로 쓰고 있어 매핑만 해 둔다
-  warm: '#FFFFFF', hot: '#FFFFFF', cool: '#00FF88',
+  // 옛 이름 호환 — 씬 JSON 이 아직 warm/hot/cool 로 쓰고 있어 매핑만 해 둔다.
+  // hot 은 이제 접혀 있지 않다. 이것이 이번 개정의 전부다.
+  warm: '#FFFFFF', hot: '#FF3B5C', cool: '#00FF88',
   dim: 'rgba(255,255,255,0.7)', grid: 'rgba(255,255,255,0.12)'
 };
 export const tone = t => PALETTE[t] || t || PALETTE.ink;
@@ -103,6 +117,7 @@ export function depthGrad(ctx, x0, y0, x1, y1, kind = 'accent') {
   return g;
 }
 export const GLOW = 'rgba(0,255,136,0.35)';
+export const FAIL_GLOW = 'rgba(255,59,92,0.35)';   // fail 색의 짝 — 같은 세기로 맞춘다
 export const GLOW_INK = 'rgba(255,255,255,0.18)';
 /** 그림자는 전역 상태다 — 쓰고 나면 반드시 clearShadow 로 되돌린다 */
 export function setShadow(ctx, color, blur, dy = 0) {

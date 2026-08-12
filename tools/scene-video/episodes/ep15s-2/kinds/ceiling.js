@@ -2,7 +2,7 @@
    경로 좌표를 적을 땐 `(경로)` 라고 표시한다. */
 import {
   disp, ease, clamp, lerp,
-  fitCanvas, mkCanvas, roundRect, tone, setShadow, clearShadow, GLOW
+  fitCanvas, mkCanvas, roundRect, tone, setShadow, clearShadow, GLOW, FAIL_GLOW
 } from '../../../engine/lib.js';
 
 /* ceiling — 내가 걸어 둔 안전장치. 「어떤 성격도 배고픔보다 앞설 수 없다」.
@@ -96,8 +96,8 @@ export default {
     const accY = lerp(ACC_LO, ACC_HI, bounce);
     ctx.save();
     ctx.globalAlpha = st;
-    setShadow(ctx, GLOW, 5);
-    ctx.strokeStyle = tone('accent'); ctx.lineWidth = 3; ctx.lineJoin = 'round';
+    setShadow(ctx, FAIL_GLOW, 5);
+    ctx.strokeStyle = tone('fail'); ctx.lineWidth = 3; ctx.lineJoin = 'round';
     roundRect(ctx, CX - ACC_HW, accY - BAR_H / 2, ACC_HW * 2, BAR_H, 4); ctx.stroke();
     clearShadow(ctx);
     ctx.restore();
@@ -107,7 +107,7 @@ export default {
        자막 전이면 음수를 돌려주므로 hard guard 없이도 clamp 로 0 에서 시작한다. */
     const s1 = since(spec.nameCue ?? 1);
     const nameA = st * ease(clamp((s1 + 0.12) / 0.32));
-    if (spec.accLabel) ctext(spec.accLabel, CX, accY + 6, 900, 15, tone('accent'), ACC_HW * 2 - 24, nameA);
+    if (spec.accLabel) ctext(spec.accLabel, CX, accY + 6, 900, 15, tone('fail'), ACC_HW * 2 - 24, nameA);
 
     /* ── 뚜껑(흰) : 가운데에서 양옆으로 자란다 ──────────
        🔑 뚜껑은 **벽이 아니라 표시**다. 강조색 칸이 실제로 막히는 곳은 바로 위 「배고픔」

@@ -1,7 +1,7 @@
 /* 📐 이 파일의 좌표는 **획 바깥**(`lineWidth/2` 포함) 기준이다. */
 import {
   disp, ease, clamp,
-  fitCanvas, mkCanvas, roundRect, tone, setShadow, clearShadow, GLOW
+  fitCanvas, mkCanvas, roundRect, tone, setShadow, clearShadow, GLOW, FAIL_GLOW
 } from '../../../engine/lib.js';
 
 /* countgoals — 진단(S2). 세어 봤더니 성격이 닿는 자리가 셋뿐이었다.
@@ -157,13 +157,13 @@ export default {
              그 산수가 획 반폭(1.5 × 2)과 숨(0.8 × 2)을 빼먹은 값이었다 — 실제 여유는 4.4px
              이었다. 아래 「간격」 주석에 정직한 산수를 다시 적었고, 그 여유를 6.4px 로 넓히려고
              글로우를 한 칸 줄였다. 맥동은 그대로라 정적 기여는 안 줄어든다. */
-          setShadow(ctx, GLOW, 3 + 2 * puff);
-          ctx.strokeStyle = tone('accent'); ctx.lineWidth = 3; ctx.lineJoin = 'round';
+          setShadow(ctx, FAIL_GLOW, 3 + 2 * puff);
+          ctx.strokeStyle = tone('fail'); ctx.lineWidth = 3; ctx.lineJoin = 'round';
           roundRect(ctx, x, y, wd, ht, 4); ctx.stroke();
           clearShadow(ctx);
           /* 테두리 훑기 — 마디 셋이 둘레를 돈다(정적 구간 대책 ②) */
           const P = 2 * (wd + ht);
-          ctx.fillStyle = tone('accent');
+          ctx.fillStyle = tone('fail');
           for (let s = 0; s < 3; s++) {
             for (let d = 0; d < 16; d += 2) {
               const [px, py] = perim(x, y, wd, ht, march + s * P / 3 + d);
@@ -191,12 +191,12 @@ export default {
     if (spec.litLabel) {
       const outB = ease(clamp((s1 - 0.05) / 0.23));
       ctext(spec.litLabel, X0 + (cols * (CW + GX) - GX) / 2, LAB_B_Y,
-        900, 15, tone('accent'), 300,
+        900, 15, tone('fail'), 300,
         st * ease(clamp((c0 - 0.38) / 0.16)) * (1 - outB));
     }
     if (spec.soleLabel) {
       ctext(spec.soleLabel, X0 + (cols * (CW + GX) - GX) / 2, LAB_B_Y,
-        900, 15, tone('accent'), 300, st * ease(clamp((s1 - 0.34) / 0.34)));
+        900, 15, tone('fail'), 300, st * ease(clamp((s1 - 0.34) / 0.34)));
     }
 
     ctx.textAlign = 'left';

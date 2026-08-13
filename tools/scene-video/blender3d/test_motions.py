@@ -19,12 +19,17 @@ def test_the_vocabulary_is_exactly_what_the_beat_sheet_uses():
     🔴 다섯(`run`·`rest`·`gather`·`attack`·`look_around`)은 **상상해서 넣은 게 아니다** —
     게임이 이미 선언한 것에서 왔다: `Assets/Scripts/M0/Data/ActionSO.cs` 의 `AnimKind`
     (Chop·Mine·Hammer·Water·Attack)와 액션 SO 14종(Rest·Gather·Explore·Flee·Wander…).
-    이름을 게임과 같이 두는 것이 규칙이다 — 갈라지면 같은 동작을 두 이름으로 부르게 된다."""
+    이름을 게임과 같이 두는 것이 규칙이다 — 갈라지면 같은 동작을 두 이름으로 부르게 된다.
+
+    🔴 반응 동작 셋(`talk`·`nod`·`collapse`)은 2026-08-13 판정(「애니메이션이 그 상황에
+    맞게 안 바뀐다」)에서 왔다. 앞선 어휘가 전부 일이거나 이동이라 사건에 **반응하는**
+    몸짓이 하나도 없었다 — 부탁도 받아들임도 죽음도 몸으로 못 말했다."""
     assert set(motions.MOTIONS) == {
         'look_up', 'walk', 'stop', 'farm', 'chop', 'draw', 'warm', 'eat',
         'huddle', 'reach', 'freeze',
         'run', 'rest', 'gather', 'attack', 'look_around',
-        'mine', 'hammer', 'water'}
+        'mine', 'hammer', 'water',
+        'talk', 'nod', 'collapse'}
 
 
 def test_every_game_anim_kind_has_a_motion():
@@ -389,6 +394,46 @@ def test_blend_is_the_endpoints_at_zero_and_one():
     assert only_a, '검사가 무의미하다 — 한쪽에만 있는 뼈가 없다'
     for bone in only_a:                     # 안 적힌 뼈는 차렷 — stage.pose 와 같은 규약
         assert o[bone] == (0.0, 0.0, 0.0), bone
+
+
+# ── 반응 동작 셋 ─────────────────────────────────────────────────
+def test_talking_hands_go_together_not_against_each_other():
+    """🔴 두 손이 **서로 반대로** 오가면 그건 말이 아니라 `warm`(손 비비기)이다.
+    이 세계엔 입이 없어서 말은 손이 진다 — 손 규약이 갈리면 뜻이 갈린다."""
+    span = lambda b, i: [motions.talk(motions.TALK_CYCLE * k / 40)[b][i] for k in range(41)]
+    l, r = span('upperarm.L', 0), span('upperarm.R', 0)
+    assert max(l) - min(l) > 0.1, ('손이 안 움직인다', max(l) - min(l))
+    for a, b in zip(l, r):                      # 앞뒤(X)는 두 손이 **같이** 간다
+        assert abs(a - b) < 1e-9, (a, b)
+    z = span('upperarm.L', 2)
+    assert max(z) - min(z) > 0.05, ('벌렸다 모으지 않는다', max(z) - min(z))
+
+
+def test_nodding_is_pitch_not_yaw():
+    """🔴 좌우로 흔들면 「아니다」가 된다. 끄덕임은 **숙임**(위 뼈라 X 음수)이다."""
+    xs = [motions.nod(motions.NOD_CYCLE * k / 40)['head'][0] for k in range(41)]
+    ys = [motions.nod(motions.NOD_CYCLE * k / 40)['head'][1] for k in range(41)]
+    assert min(xs) < -0.15, ('안 숙인다', min(xs))
+    assert max(ys) - min(ys) < 1e-9, ('좌우로 흔든다 — 그건 「아니다」다', max(ys) - min(ys))
+    # 주기 안에 **두 번** 끄덕인다 — 한 번이면 알아보기 전에 끝난다
+    dips = sum(1 for i in range(1, 40) if xs[i] < xs[i - 1] and xs[i] < xs[i + 1])
+    assert dips == 2, (dips, xs)
+
+
+def test_collapsing_ends_on_the_ground_and_stops():
+    """🔴 골반을 안 내리면 서 있는 채 팔다리만 접힌다. 그리고 **끝나면 안 움직여야** 한다 —
+    숨이 남아 있으면 「쓰러졌다」가 아니라 「앉아 쉰다」로 읽힌다."""
+    drop = -motions.collapse(motions.COLLAPSE_DUR)[motions.ROOT][1]
+    assert drop > 0.25, ('안 내려앉는다', drop)
+    assert motions.collapse(0.0)[motions.ROOT][1] == 0.0, '시작부터 주저앉아 있다'
+    a = motions.collapse(motions.COLLAPSE_DUR)
+    b = motions.collapse(motions.COLLAPSE_DUR * 3)
+    for bone in a:
+        assert a[bone] == b[bone], ('끝나고도 움직인다', bone)
+    # ① 배를 움켜쥐는 마디가 무너짐보다 **먼저** 온다 — 없으면 그냥 앉는 것이다
+    early = motions.collapse(motions.COLLAPSE_DUR * 0.30)
+    assert early['forearm.R'][0] < -1.0, ('배를 안 움켜쥔다', early['forearm.R'])
+    assert -early[motions.ROOT][1] < 0.02, ('벌써 무너졌다', early[motions.ROOT])
 
 
 def test_walk_period_matches_the_shared_vocabulary():

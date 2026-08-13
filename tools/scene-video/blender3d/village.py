@@ -249,8 +249,42 @@ def house(x, y, rot_z=0.0):
         back.matrix_parent_inverse = body.matrix_basis.inverted()
     body.location = (x, y, 0.55)
     body.rotation_euler = (0, 0, math.radians(rot_z))
-    _cone((x, y, 1.45), 1.25, 0.8, m['earth'], rot_z, verts=4)       # 꼭대기 1.45+0.4 = 1.85
+    roof = _cone((x, y, 1.45), 1.25, 0.8, m['earth'], rot_z, verts=4)  # 꼭대기 1.45+0.4 = 1.85
+    # 🔴 **지붕은 반환값에 안 들어 있었다.** 그래서 회차 스크립트가 `body` 만 켜고 끄고
+    #    키우면, 아직 안 지은 집의 **지붕만 허공에 먼저 떠 있었다**(2026-08-13 사용자 판정:
+    #    「주민 옆에 집 지붕 오브젝트가 먼저 보임」). 켜고 끄는 일을 부르는 쪽에 맡기지 말고
+    #    여기서 조각을 기억한다 — 조각을 늘려도 부르는 쪽이 안 고쳐진다.
+    _HOUSE_PARTS[body.name] = [(body, 0.55, body.scale.z), (roof, 1.45, roof.scale.z)]
     return body
+
+
+# 집 하나가 몇 조각인가 — `house_show`·`house_grow` 가 읽는다. 벽에 낸 구멍의 뒷판은
+# 몸통의 **자식**이라 몸통을 따라가므로 여기 안 적는다(자식은 `children_recursive` 로 찾는다).
+_HOUSE_PARTS = {}
+
+
+def house_parts(body):
+    return [o for o, _z, _s in _HOUSE_PARTS[body.name]] + list(body.children_recursive)
+
+
+def house_show(body, on):
+    """집을 통째로 렌더에 넣고 뺀다. 🔴 `body.hide_render` 만 만지지 마라 — 지붕이 남는다."""
+    for o in house_parts(body):
+        o.hide_render = not on
+
+
+def house_grow(body, k):
+    """집이 땅에서 **자라 오른다**(k 0~1). 0 이면 렌더에서 빠진다.
+
+    🔴 몸통만 키우면 지붕이 제 높이에 그대로 떠 있다 — 그게 「지붕이 먼저 보인다」의 정체다.
+    🔑 조각마다 제 밑높이에 비례해 올라온다. 그래서 다 자란 순간이 원래 집과 정확히 같다."""
+    k = max(0.0, min(1.0, k))
+    house_show(body, k > 0.001)
+    if k <= 0.001:
+        return
+    for o, z0, sz0 in _HOUSE_PARTS[body.name]:
+        o.scale.z = max(sz0 * k, 1e-4)
+        o.location.z = z0 * k
 
 
 def tree(x, y, s=1.0):
@@ -263,6 +297,32 @@ def tree(x, y, s=1.0):
     lower = _cone((x, y, 0.95 * s), 0.66 * s, 0.85 * s, m['leaf'], verts=6)
     _cone((x, y, 1.45 * s), 0.44 * s, 0.70 * s, m['leaf'], verts=6)
     return lower
+
+
+# ── 마을 바깥 ─────────────────────────────────────────
+# 🔴 **카메라를 넓게 잡으면 마을이 작아지는 게 아니라 빈 땅이 커진다.** ep15s-3 은 「멀리
+#    떨어져 나갔다」가 사건이라 카메라가 넓어야 하는데, 마을이 10m 대라 넓히는 순간
+#    화면 절반이 아무것도 없는 바닥이 됐다(2026-08-13 사용자 판정: 「맵을 넓게 만들어라」).
+# 🔴 **소품을 새로 만들지 않는다**(PROPS.md). 있는 나무·덤불을 바깥에 더 심을 뿐이다.
+# 🔴 `build()` 에 넣지 마라 — `fixtures/village_report.json` 의 조각 수가 바뀐다.
+#    바깥을 원하는 회차가 부른다.
+# 🔴 자리는 **비워 둘 곳을 피해서** 골랐다: 목수가 마을 밖으로 나가는 길(약 60°)과
+#    그가 혼자 집을 짓는 자리 둘레는 반경 3m 안에 아무것도 없다.
+# 🔴 **카메라 앞을 비워 둔다.** 이 편의 카메라는 전부 남쪽(−Y)에서 마을을 본다 —
+#    y < −4 이면서 x 가 −5~7 이면 그건 배경이 아니라 **렌즈를 막는 물건**이다
+#    (첫 판에서 (3.4,−7.2) 나무가 화면 아래를 통째로 덮었다).
+OUTSKIRT_TREES = [(-9.6, 3.2, 1.05), (-8.4, -3.4, 0.92), (-10.8, -7.4, 1.10),
+                  (10.2, -6.6, 0.88), (9.4, -1.2, 1.02), (10.6, 5.2, 0.95),
+                  (0.9, 11.4, 1.08), (-6.2, 9.4, 0.90), (5.4, 10.6, 0.86),
+                  (-13.0, 1.0, 1.00), (13.2, 2.6, 0.94)]
+OUTSKIRT_BUSHES = [(-7.0, 0.4, 0.90), (7.6, 1.4, 0.85), (-9.2, 5.6, 0.95),
+                   (-6.6, -6.0, 0.82), (8.2, 7.0, 0.88)]
+
+
+def outskirts():
+    """마을 바깥의 나무·덤불. 넓게 잡은 카메라가 빈 바닥을 안 비추게 한다."""
+    return ([tree(x, y, s) for x, y, s in OUTSKIRT_TREES]
+            + [bush(x, y, s) for x, y, s in OUTSKIRT_BUSHES])
 
 
 # ── 도구 ──────────────────────────────────────────────
@@ -465,7 +525,12 @@ def build():
 
     bpy.ops.mesh.primitive_plane_add(size=1, location=(0, 0, 0))
     ground = bpy.context.object
-    ground.scale = (26, 26, 1)
+    # 🔴 26 은 **넓은 카메라에서 땅이 끝난다.** ep15s-3 은 「멀리 나갔다」가 사건이라
+    #    카메라가 뒤로 물러나는데, 그 순간 지평선 대신 **바닥의 모서리**가 보였다.
+    #    바닥은 무채색 한 장이라 넓혀도 유채색 예산도 렌더 시간도 안 먹는다(면 둘이다).
+    # 🔴 60 도 모자랐다 — 30m 앞에서 땅이 끝나 화면 위 3분의 1 이 통째로 빈 하늘이었다.
+    #    200 이면 바닥 모서리가 사실상 지평선이라 그 띠가 5분의 1 로 줄어든다.
+    ground.scale = (200, 200, 1)
     ground.data.materials.append(m['ground'])
 
     houses = [house(x, y, rz) for x, y, rz in HOUSES]

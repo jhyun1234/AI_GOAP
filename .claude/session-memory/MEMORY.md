@@ -1,0 +1,13 @@
+- [3D 네이티브 전환 — 여기서 시작](video-3d-figure-is-blender-model.md) — 시작점 문서 셋, 코드/산출물 위치, 밟은 함정. **새 세션은 이것부터.**
+- [판정을 들으면 어느 층인지부터](video-3d-pipeline-state.md) — 카메라 → 그림 어휘 → 동작 곡선 → 그 순간 뭘 하는가. 위에서부터 의심하라.
+- [「역동적이지 않다」는 골반과 곡선 문제였다](video-motion-vocabulary.md) — 숫자로 잡은 원인, 날씨는 소품이 아니라 반응.
+- [뼈 각도는 추론하면 틀린다 — 재라](video-motion-axis-measure-first.md) — 실측 대응표, 그리고 검사가 지켜 주고 있던 chop 위상 뒤집힘.
+- [블렌더를 보면서 고치고, 병렬로 굽는다](video-blender-live-and-bake.md) — live.py · bake.py · GUI 에서만 터지는 함정 넷.
+- [표준 작업 방식 — 줄마다 몸짓·크기를 계약한다](video-line-by-line-contract.md) — **새 회차는 이 절차로.**
+- [동작은 자막 줄마다 사건을 따라간다](video-animation-must-react.md) — talk·nod·collapse·startle. 2·3 완료, 1 은 업로드 끝.
+- [넓게 잡으려면 셋을 같이 넓힌다](video-wide-shots-need-room.md) — 바닥·마을 바깥·카메라 높이. 나가는 사람은 축 위에서 찍어라.
+- [발이 땅에 붙었다 (2본 IK)](video-foot-lock-two-bone-ik.md) — 각을 적지 말고 발 자리를 정해라. 골반 상하는 계산 결과다.
+- [수치는 막대로 띄운다](video-gauges-show-numbers.md) — 글자가 없다. 색표는 범주 넷이고 새 색은 셋이 한계다.
+- [2D 화면은 참고하지 마라](video-no-2d-shot-reuse.md) — 3D 그림은 대본의 사건에서만 나온다. 도형 번역은 삽화가 된다.
+- [작업은 worktree 에서](video-work-happens-in-worktree.md)
+- [대본의 숫자 표기](video-script-numbers.md) — 자막은 30·180, TTS 는 백팔십. say 를 고치면 비트가 바뀐다.

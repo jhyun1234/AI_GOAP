@@ -739,6 +739,97 @@ def look_around(t):
             'hips': (0, R(5) * yaw, 0)}
 
 
+# ── 반응 동작 셋 (2026-08-13 판정: 「애니메이션이 그 상황에 맞게 안 바뀐다」) ─────────
+# 🔴 앞선 어휘 열아홉은 전부 **일**이거나 **이동**이었다. 사건이 벌어져도 아무도 말을 안 하고,
+#    끄덕이지 않고, 쓰러지지 않았다 — 그래서 화면이 연기가 아니라 「루프 + 자리 이동」이었다.
+# 🔑 셋 다 **누가 무엇에 반응하는가**를 몸으로 말한다. 부탁(`talk`) · 받아들임(`nod`) ·
+#    무너짐(`collapse`). 그림에 사건이 있는데 몸이 가만히 있으면 그건 배경이다.
+
+TALK_CYCLE = 1.9        # 한 주기 = 한 문장. 그 안에서 몸짓 둘이 나간다
+
+
+def talk(t):
+    """말한다 — 부탁·대화·설명. 주기 1.9 초.
+
+    🔴 이 세계에는 입이 없다(얼굴이 없는 저폴리 인물이다). 말은 **손과 상체**가 진다 —
+       손을 몸 앞에서 벌렸다 모으고, 문장 끝마다 고개가 한 번 내려앉는다.
+    🔴 `reach`(뻗기)로 때우지 마라. 뻗기는 한 번 뻗고 **안 움직이는** 동작이라 뜻이
+       「가리킨다·굳는다」에 이미 배정돼 있다. 말은 **계속 오간다**는 것이 뜻이다.
+    🔑 두 손이 **같이** 나가야 말이다. 서로 반대로 오가면 그건 `warm`(손 비비기)이다."""
+    u = t / TALK_CYCLE
+    g, gm, gt = _wave(u * 2), _wave(u * 2, LAG_C_MID), _wave(u * 2, LAG_C_TIP)
+    b = _beat(u, rise=0.30)                               # 문장 — 몸짓 둘이 한 문장이다
+    return {ROOT: (0.0, 0.006 * g, 0.0),
+            'upperarm.L': (R(-46) - R(11) * g, 0, R(13) + R(10) * gm),
+            'forearm.L': (R(-64) - R(17) * gm, 0, R(6) * gt),
+            'hand.L': (R(-10) - R(13) * gt, 0, 0),
+            'upperarm.R': (R(-46) - R(11) * g, 0, R(-13) - R(10) * gm),
+            'forearm.R': (R(-64) - R(17) * gm, 0, R(-6) * gt),
+            'hand.R': (R(-10) - R(13) * gt, 0, 0),
+            'spine': (R(3) + R(2.5) * b, R(3) * g, 0),    # 위 뼈라 X 양수가 젖힘
+            'neck': (R(2) - R(5) * gm, R(-2) * gm, 0),
+            'head': (R(1) - R(7) * gt, R(-3) * gt, R(1.5) * b)}
+
+
+NOD_CYCLE = 1.4         # 한 주기에 **두 번** 끄덕인다. 한 번이면 알아보기 전에 끝난다
+
+
+def nod(t):
+    """고개를 끄덕인다 — 「알았다 · 그러겠다」. 주기 1.4 초.
+
+    🔴 좌우로 흔들면(Y) 그건 **「아니다」**다. 끄덕임은 **X 음수**(위를 향한 뼈라 숙임)다.
+    🔑 목만 접히면 인형이다 — 척추가 먼저 가고 목·머리가 늦게 따라온다(겹침)."""
+    u = t / NOD_CYCLE
+    d = _beat(u * 2, rise=0.34)
+    dm, dt = _beat(u * 2 - LAG_C_MID, rise=0.34), _beat(u * 2 - LAG_C_TIP, rise=0.34)
+    return {ROOT: (0.0, -0.006 * d, 0.0),
+            'spine': (R(-3.5) * d, 0, 0),
+            'neck': (R(-10) * dm, 0, 0),
+            'head': (R(-16) * dt, 0, 0),
+            'upperarm.L': (R(-14), 0, R(8)), 'upperarm.R': (R(-14), 0, R(-8)),
+            'forearm.L': (R(-24) - R(5) * dm, 0, 0), 'forearm.R': (R(-24) - R(5) * dm, 0, 0),
+            'hand.L': (R(-6) * dt, 0, 0), 'hand.R': (R(-6) * dt, 0, 0)}
+
+
+COLLAPSE_DUR = 2.6      # 움켜쥠(~35%) → 휘청(35~55%) → 무너짐(55~100%). **한 번뿐인 동작**
+
+
+def collapse(t):
+    """굶어 쓰러진다 — 배를 움켜쥐고 휘청이다 무너진다. 끝나면 **안 움직인다.**
+
+    🔴 `rest`(앉아 쉰다)로 때우지 마라. 앉은 끝 자세는 비슷하지만 **가는 길**이 다르다 —
+       쉬는 사람은 앉고, 쓰러지는 사람은 버티다 접힌다. 그 차이가 「아프다」의 전부다.
+    🔑 세 마디로 적혀 있다: ① 배를 움켜쥔다 ② 무릎이 꺾이며 휘청인다 ③ 접혀 내려앉는다.
+       ①이 없으면 그냥 앉는 것이고, ③ 뒤에 숨이 남으면 「쉰다」로 읽힌다.
+    🔴 골반을 안 내리면 서 있는 채 팔다리만 접힌다 — `rest` 에서 배운 것과 같다."""
+    u = max(0.0, min(1.0, t / COLLAPSE_DUR))
+    hold = _ease(u / 0.35)                                  # ① 배를 움켜쥔다
+    sway = math.sin(2 * math.pi * min(u / 0.55, 1.0)) * (1.0 - _ease(u))   # ② 휘청
+    fall = _snap(max(0.0, (u - 0.55) / 0.45), 2.0)          # ③ 무너진다
+    land = _arc(max(0.0, (u - 0.80) / 0.20))                # 바닥에 닿는 순간의 무게
+    return {ROOT: (0.030 * hold, -0.285 * fall, 0.035 * sway),
+            SQUASH: (0.11 * land, 0.0, 0.0),
+            'hips': (0, R(7) * sway, R(-9) * fall),
+            # 다리가 접힌다 — 아래 뼈라 X 음수가 앞, 정강이 양수가 무릎 굽힘(rest 와 같은 규약)
+            'thigh.L': (R(-16) * hold - R(62) * fall, 0, R(5) * fall),
+            'thigh.R': (R(-16) * hold - R(52) * fall, 0, R(-5) * fall),
+            'shin.L': (R(8) * hold + R(74) * fall, 0, 0),
+            'shin.R': (R(8) * hold + R(66) * fall, 0, 0),
+            'foot.L': (R(-6) * hold + R(16) * fall, 0, 0),
+            'foot.R': (R(-6) * hold + R(12) * fall, 0, 0),
+            # 배를 움켜쥔 팔. 무너질 때 한쪽만 바닥을 짚는다 — 둘 다 짚으면 엎드린 것이다
+            'upperarm.L': (R(-34) * hold + R(26) * fall, 0, R(-10) * hold + R(18) * fall),
+            'forearm.L': (R(-96) * hold + R(58) * fall, 0, 0),
+            'hand.L': (R(-14) * hold + R(10) * fall, 0, 0),
+            'upperarm.R': (R(-38) * hold - R(6) * fall, 0, R(10) * hold - R(6) * fall),
+            'forearm.R': (R(-104) * hold - R(8) * fall, 0, 0),
+            'hand.R': (R(-16) * hold, 0, 0),
+            # 위 뼈라 X 음수가 숙임. 배를 감싸며 굽고, 무너지며 더 굽는다
+            'spine': (R(-20) * hold - R(30) * fall, R(6) * sway, R(-5) * fall),
+            'neck': (R(-9) * hold - R(14) * fall, 0, 0),
+            'head': (R(-6) * hold - R(18) * fall, R(-8) * sway, 0)}
+
+
 HUDDLE_HZ = 6.0         # 떨림. 주기 0.5 초의 정수배(3회)라야 이어진다
 
 
@@ -810,7 +901,9 @@ MOTIONS = {'look_up' : look_up, 'walk': walk, 'stop': stop, 'farm': farm,
            # 게임의 액션·`AnimKind` 에서 온 것들(Assets/Scripts/M0/Data/ActionSO.cs)
            'run': run, 'rest': rest, 'gather': gather, 'attack': attack,
            'look_around': look_around,
-           'mine': mine, 'hammer': hammer, 'water': water}
+           'mine': mine, 'hammer': hammer, 'water': water,
+           # 반응 동작 — 사건에 몸이 반응하는 자리(2026-08-13 판정)
+           'talk': talk, 'nod': nod, 'collapse': collapse}
 
 # 게임 `AnimKind` 다섯과 짝이 되는 동작. 🔴 이름을 갈라 놓지 마라 — 갈리면 같은 몸짓을
 # 게임과 영상이 두 이름으로 부르게 된다(검사가 대조한다).
@@ -821,4 +914,6 @@ ANIM_KIND = {'Chop': 'chop', 'Mine': 'mine', 'Hammer': 'hammer',
 CYCLE = {'walk': 1.0 / WALK_HZ, 'stop': 1.0 / 0.26, 'farm': 1.4, 'chop': 1.1,
          'draw': 1.6, 'warm': 2.2, 'eat': 1.5, 'huddle': 0.5,
          'run': 1.0 / RUN_HZ, 'rest': 3.4, 'gather': 1.8, 'attack': 0.9,
-         'look_around': 3.2, 'mine': 1.25, 'hammer': 0.75, 'water': 2.6}
+         'look_around': 3.2, 'mine': 1.25, 'hammer': 0.75, 'water': 2.6,
+         # 🔴 `collapse` 는 여기 없다 — **한 번뿐인 동작**이라 주기가 없다(reach·look_up 과 같다)
+         'talk': TALK_CYCLE, 'nod': NOD_CYCLE}

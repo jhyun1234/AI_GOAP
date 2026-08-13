@@ -18,8 +18,10 @@ BEATS = 4
 BEAT = DUR / BEATS
 assert BEAT <= 1.5, '비트가 홀드 상한을 넘었다: %.2f 초' % BEAT
 
-v, arms, fire, _f = C.build()
+v, arms, fire, _out = C.build()
 HOME = [tuple(a.location) for a in arms]
+# 🔴 목수는 `hammer` 를 도는데 손이 비어 있었다 — 도구가 없으면 chop·mine 과 구별이 안 된다
+HAMMER = stage.hold(arms[C.CARPENTER], village.hammer(), 'hand.R', (0.0, 0.02, 0.0))
 house = village.house(C.HOUSE_AT[0], C.HOUSE_AT[1], -18)
 # 🔑 다음 편의 씨앗 — 집 둘레에 모닥불이 **하나씩** 는다
 EXTRA = [(-2.35, -2.35), (-0.45, -3.65), (-2.55, -3.75)]

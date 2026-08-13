@@ -131,6 +131,21 @@ def gauge_k(v, lo=GAUGE_LO, hi=GAUGE_HI):
     return max(0.0, min(1.0, (float(v) - lo) / (hi - lo)))
 
 
+def _bar_mat(color, strength):
+    """막대 재질 하나. 🔴 계기색이면 계기층, **뜻층 다섯 중 하나면 뜻층**이다.
+
+    🔑 왜 뜻색을 허용하나 — 「굶주림이 바닥나 죽는다」 같은 수치는 **수치가 곧 사건**이라
+       계기 시안으로 그리면 「무언가를 재고 있다」로만 읽힌다. 그때는 사건의 색(`red` =
+       이미 벌어진 실패·죽음)이라야 자막을 가려도 무슨 일인지 보인다.
+    🔴 대신 그 막대는 **뜻층 예산(한 프레임 두 색)을 먹는다.** 붉은 막대를 켜는 샷에서는
+       다른 뜻색을 하나까지만 같이 켤 수 있다 — 모닥불을 프레임에서 빼는 이유가 그것이다."""
+    import palette
+    import stage
+    if color in palette.MEANING:
+        return stage.meaning_mat(color, strength=strength)
+    return stage.need_mat(color, strength=strength)
+
+
 def gauge(loc, w=GAUGE_W, h=GAUGE_H, color='instrument', col=None):
     """막대 하나(슬라이더). 반환 dict: 홈(어두운 통)과 **채움**(밝은 막대).
 
@@ -141,8 +156,8 @@ def gauge(loc, w=GAUGE_W, h=GAUGE_H, color='instrument', col=None):
     col = col or bpy.context.collection
     # 🔴 홈은 **그 색을 어둡게** 쓴다. 홈까지 시안으로 두면 막대 넷이 뜰 때 홈들이
     #    한 덩어리 시안 띠로 뭉쳐서 정작 색 구분이 안 된다.
-    dim = stage.need_mat(color, strength=0.06)   # 홈은 더 어둡게 — 채움과 대비가 커진다
-    lit = stage.need_mat(color, strength=1.0)
+    dim = _bar_mat(color, 0.06)                 # 홈은 더 어둡게 — 채움과 대비가 커진다
+    lit = _bar_mat(color, 1.0)
     x, y, z = loc
     bpy.ops.mesh.primitive_cube_add(size=1, location=(x, y, z + h / 2))
     track = bpy.context.object
@@ -163,15 +178,18 @@ def gauge_emph(g, m):
     g['m'] = max(1.0, m)
 
 
-def gauge_mark(g, k, col=None):
+def gauge_mark(g, k, col=None, color=None):
     """막대에 **문턱 표시**를 단다(비율 k). 🔑 「얼마나 찼나」만으로는 못 말하는 것이 있다 —
     ep15s-3 의 6타일처럼 **넘으면 안 되는 선**이 있는 수치가 그렇다. 채움이 이 선을 넘는
-    순간이 곧 사건이다."""
+    순간이 곧 사건이다.
+
+    🔴 `color` 를 따로 줘라. 막대와 **같은 색**으로 두면 채움이 그 선을 지나는 순간
+       선이 채움에 먹혀 사라진다 — 정작 봐야 할 그 순간에 안 보인다(ep15s-2 에서 잡았다).
+       선은 값이 아니라 **규칙**이므로 계기 시안이 맞다."""
     import bpy
-    import stage
     bpy.ops.mesh.primitive_cube_add(size=1, location=(0, 0, 0))
     m = bpy.context.object
-    m.data.materials.append(stage.need_mat(g['color'], strength=1.0))
+    m.data.materials.append(_bar_mat(color or g['color'], 1.0))
     g['mark'], g['mark_k'] = m, max(0.0, min(1.0, k))
     return m
 
@@ -186,7 +204,8 @@ def gauge_at(g, x, y, z):
     g['fill'].scale = (w * 1.15, w * 0.75, max(h * g['k'], 1e-4))
     g['fill'].location = (x, y, z + h * g['k'] / 2)
     if g.get('mark') is not None:
-        g['mark'].scale = (w * 1.9, w * 0.9, w * 0.28)
+        # 🔴 얇게 두면 **선으로 안 읽힌다.** 막대보다 확실히 넓고, 두께도 좀 있어야 한다
+        g['mark'].scale = (w * 2.4, w * 1.1, w * 0.40)
         g['mark'].location = (x, y, z + h * g['mark_k'])
 
 
@@ -199,6 +218,47 @@ def gauge_set(g, k):
 #    있는 것 같으니 막대기만 사용하자 — 네모로 원을 표현하니 둘의 차이가 안 보인다」).
 #    조각 열넷으로 원을 흉내 내면 「얼마나 찼나」가 각도로만 남는데, 그 각도가 작은 화면에서
 #    길이만큼 안 읽힌다. 값을 견주는 일은 **길이**가 이긴다.
+
+
+# ── 판정 반경 — 땅에 그린 원 ────────────────────────────────────────
+# 🔴 「6타일 안에서 마주쳐야 걸린다」는 **거리 조건**이다. 막대는 「지금 얼마나 먼가」를
+#    말하지만 **어디까지가 안인가**는 못 말한다 — 그건 자리이고, 자리는 땅에 그려야 보인다.
+# 🔑 조각으로 원을 그리는 것이 다이얼 때와 다른 이유: 다이얼은 「얼마나 찼나」를 **각도**로
+#    말하려다 실패해서 걷어냈다. 이건 각도를 안 읽는다 — 안이냐 밖이냐만 읽는다.
+# 🔴 계기층 규약은 그대로다. 바닥 물체에 **칠하지 않고** 2.2cm 위에 띄운다.
+RING_SEG, RING_W, RING_Z = 44, 0.055, 0.022
+
+
+def ring(r, color='instrument', seg=RING_SEG, w=RING_W):
+    """반지름 r(m)짜리 판정 반경. 반환 dict: 조각들과 그 지역 좌표."""
+    import bpy
+    import stage
+    mat = _bar_mat(color, 1.0)
+    segs, local = [], []
+    for i in range(seg):
+        a = 2 * math.pi * i / seg
+        dx, dy = r * math.cos(a), r * math.sin(a)
+        bpy.ops.mesh.primitive_cube_add(size=1, location=(dx, dy, RING_Z))
+        o = bpy.context.object
+        o.rotation_mode = 'XYZ'
+        o.rotation_euler = (0, 0, a)
+        # 🔑 조각을 **접선 방향으로 길게** 둔다. 정사각형이면 원이 아니라 점선 구슬 목걸이다
+        o.scale = (w, 2 * math.pi * r / seg * 0.62, w * 0.5)
+        o.data.materials.append(mat)
+        segs.append(o)
+        local.append((dx, dy))
+    return {'segs': segs, 'local': local, 'r': r}
+
+
+def ring_at(g, x, y):
+    """매 프레임 여기에 놓는다 — 목수가 걸어가면 반경도 같이 간다(반경은 사람에게 붙는다)."""
+    for o, (dx, dy) in zip(g['segs'], g['local']):
+        o.location = (x + dx, y + dy, RING_Z)
+
+
+def ring_show(g, on):
+    for o in g['segs']:
+        o.hide_render = not on
 
 
 def attach(objs, arm, dz=0.0):

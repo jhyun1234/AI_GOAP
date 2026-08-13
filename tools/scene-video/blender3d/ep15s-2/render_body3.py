@@ -1,15 +1,22 @@
-"""ep15s-2 본문3 — 8 비트 · 11.14 초. **도망을 올렸더니 다섯이 먼저 뛴다. 하나만 남는다.**
+"""ep15s-2 본문3 — 8 비트 · 11.14 초. **도망을 위로 올렸다. 다섯은 산다, 하나는 안 산다.**
 
-  0.00~1.39  ① 조망으로 컷. 여섯이 다시 제 일을 하고 있다
-  1.39~2.79  ② 덩이가 **아직 멀리** 있는데
-  2.79~5.57  ③④ 다섯이 **차례로 먼저** 뛴다(겁이 많을수록 빠르다)
-  5.57~8.36  ⑤⑥ 한 명만 남아 먹는다. 덩이는 그에게로 온다
-  8.36~11.14 ⑦⑧ 닿는다(스쿼시) · 다섯은 이미 멀리 가 있다
+자막 세 줄과 몸짓의 대응(🔴 이게 이 샷의 계약이다):
 
-🔑 훅과 **같은 사건을 다시 그린다.** 다른 것은 하나뿐이다 — 이번엔 다섯이 **덩이가 닿기
-   한참 전에** 뛴다. 그 시차가 「도망을 배고픔 위에 놨다」의 3D 판이다.
-🔑 뛰는 순서를 벌린 것이 「겁 많은 주민은 누구보다 먼저」다. 수는 자막이 말한다.
-🔴 값을 그리지 않는다 — 화면에 있는 것은 **누가 언제 뛰기 시작하는가**뿐이다.
+  0.00~3.40 「그래서 도망을 105로 올려 배고픔 위에 놨어요」
+     가깝게. 밭 앞 주민 한 사람의 막대 둘. 도망(자홍)이 차올라 **문턱 선을 넘어**
+     배고픔(연노랑)보다 **위**로 간다. 이 편에서 유일하게 선을 넘는 순간이다
+  3.53~6.65 「겁 많은 주민은 누구보다 먼저 도망가고요」
+     카메라가 뒤로 물러나 마을 전체를 잡는다. 덩이는 **아직 멀리** 있는데 다섯이
+     차례로 **손을 멈추고 돌아본 뒤 뛴다** — 0.20초씩 어긋난 그 시차가 「겁 많을수록 먼저」다
+  6.79~10.66 「겁 없는 고집쟁이만 95라, 밥부터 찾다 물려요」
+     남은 한 사람 쪽으로 밀고 들어간다. 그의 도망 막대만 **선 아래 그대로**다.
+     덩이가 등 뒤로 와서 닿고, 그는 배를 움켜쥐고 **무너진다**
+
+🔑 크기 판단: 한 샷 안에서 필요한 크기가 세 번 바뀐다(수 → 흩어짐 → 한 사람). 컷으로
+   자르지 않고 **카메라가 물러났다 다시 들어간다** — 컷으로 자르면 같은 마을이 장소 셋이
+   되고, 이 샷의 뜻(같은 자리에서 누구는 살고 누구는 안 산다)이 깨진다.
+🔴 훅과 **같은 사건을 다시 그린다.** 다른 것은 하나뿐이다 — 이번엔 다섯이 덩이가 닿기
+   한참 전에 뛴다. 그 시차가 「도망을 배고픔 위에 놨다」의 3D 판이다.
 """
 import math
 import os
@@ -31,82 +38,98 @@ NF = round(DUR * C.FPS) + 1
 BEATS = 8
 BEAT = DUR / BEATS
 assert BEAT <= 1.5, '비트가 홀드 상한을 넘었다: %.2f 초' % BEAT
+LENS = 36                              # 🔴 샷 안에서 안 바꾼다 — 크기는 카메라가 움직여서 만든다
 
-# 🔑 **겁 축이 순서를 만든다.** 값은 안 그리고 시차로만 보인다(0.34초 간격).
-RUN_AT = [2.05 * BEAT, 2.39 * BEAT, 2.73 * BEAT, 3.07 * BEAT, 3.41 * BEAT]
-HIT_AT = 6.6 * BEAT
-HOME_H = C.CAST[C.HUNGRY][1]
-NEAR = C.behind(HOME_H, C.EYE[0], 0.95)
-
-v, arms, fire, flakes = C.build()
+CROSS = 0                              # 첫 줄에서 막대가 선을 넘는 사람 — 밭 앞 주민
+v, arms, fire, flakes, OBST = C.build()
 HOME = [tuple(a.location) for a in arms]
-# 🔴 **수치를 띄운다.** 뛰는 다섯과 남는 하나 위에 막대 둘(배고픔·도망)을 얹는다 —
-#    다섯은 도망이 배고픔을 **넘고**, 남는 하나만 도로 아래로 내려앉는다(고집쟁이 95).
-G = [C.gauges() for _ in arms]
-RIGHT = C.cam_right(C.EYE[0], C.EYE[1])
+hero = arms[C.HUNGRY]
+G_CROSS = C.gauges(ceiling=True)
+G_HERO = C.gauges(ceiling=True)
 LINES = stage.shot_lines(C.EP, SID)
-FOCUS = {0: 1, 1: 1, 2: 1}      # 세 줄 다 **도망**을 부른다(105 · 먼저 · 95)
+FOCUS = {0: 1, 1: 1, 2: 1}             # 세 줄 다 **도망**을 부른다(105 · 먼저 · 95)
 d = C.danger()
 cam = stage.light_camera()
-stage.key_from_view(*C.EYE)
+C.lens(cam, LENS)
+stage.key_from_view(*C.WIDE)
 
-import bpy
-bpy.context.view_layer.update()
-OBST = village.obstacles(exclude=(v['ground'],))
-# 🔴 각을 손으로 정하지 않는다 — 소품과 서로를 피하는 각을 재서 고른다
+# ── 카메라 셋(컷 아님 · 이어진 이동) ──
+CAM_A = ((-0.30, -5.55, 1.85), (-2.65, -2.20, 0.88))    # 밭 앞 주민 — 막대가 읽히는 크기
+CAM_B = C.WIDE                                           # 흩어지는 다섯
+CAM_C = ((1.15, -5.45, 2.00), (-0.45, -2.35, 0.80))      # 남은 한 사람
+T_AB = C.line_at(SID, 1) - 0.30
+T_BC = C.line_at(SID, 2) - 0.20
+
+# 🔑 **시차가 「겁 많다」다.** 값은 안 그리고 순서로만 보인다.
+FLEE0 = C.line_at(SID, 1) + 0.32
+RUN_AT = [FLEE0 + 0.20 * i for i in range(5)]
+COLLAPSE_RATE = 1.20
+HIT_AT = DUR - motions.COLLAPSE_DUR / COLLAPSE_RATE - 0.10
+assert HIT_AT > C.line_at(SID, 2), '물리는 순간이 그 줄보다 먼저다: %.2f' % HIT_AT
+RISE_AT = 0.55                          # 막대가 선을 넘기 시작하는 시각
+RISE_SPAN = 1.70
 ANG = list(C.flee_angles([HOME[i][:2] for i in range(5)], OBST))
-print('[body3-2] %d비트 · %.2f초 · 뛰는 각 %s'
-      % (BEATS, DUR, ' '.join('%.0f°' % math.degrees(x) for x in ANG)))
+print('[body3-2] %d비트 · %.2f초 · 넘김 %.2f · 첫 뛰기 %.2f · 물림 %.2f'
+      % (BEATS, DUR, RISE_AT, RUN_AT[0], HIT_AT))
+
+
+def view(t):
+    """이 시각의 카메라. A → B → C 로 **이어서** 간다."""
+    if t < T_AB:
+        a, b, u = CAM_A, CAM_B, C.ease((t - (T_AB - 0.85)) / 0.85)
+    else:
+        a, b, u = CAM_B, CAM_C, C.ease((t - T_BC) / max(DUR - T_BC, 0.01))
+    loc = tuple(p + (q - p) * u for p, q in zip(a[0], b[0]))
+    at = tuple(p + (q - p) * u for p, q in zip(a[1], b[1]))
+    return loc, at
 
 
 def draw(fi):
     t = fi / C.FPS
+    dxy = C.danger_at(d, (t - 0.9) / max(HIT_AT - 0.9, 0.01),
+                      C.behind(C.HOME_H, CAM_C[0], 0.85), t)
+    d.hide_render = t < 0.9
 
-    for i, arm in enumerate(arms):
-        job = C.CAST[i][0]
-        if i == C.HUNGRY:
-            continue
-        if t < RUN_AT[i]:
-            C.work(arm, job, t)
-            arm.location = HOME[i]
-        else:
-            C.flee(arm, HOME[i], ANG[i], t, RUN_AT[i])
-            C.flee_pose(arm, t, RUN_AT[i], job)
+    # ── 다섯 — 일하다 **멈칫하고 돌아본 뒤** 뛴다 ──
+    for i in range(5):
+        C.startle(arms[i], i, HOME[i], C.CAST[i][0], t, RUN_AT[i], ANG[i], dxy)
 
-    # ── ⑤ 한 명만 남아 먹는다 → ⑦ 닿는다 ──
-    hero = arms[C.HUNGRY]
+    # ── 남은 한 사람 — 계속 먹다가 물려 무너진다 ──
+    hero.location = HOME[C.HUNGRY]
+    hero.rotation_euler = (0, 0, C.home_face(C.HUNGRY))
     spec = motions.eat(t)
     if t >= HIT_AT:
-        w = C.ease((t - HIT_AT) / 0.30)
-        spec = motions.blend(spec, motions.huddle(t), w)
+        w = C.ease((t - HIT_AT) / 0.26)
+        spec = motions.blend(spec, motions.collapse((t - HIT_AT) * COLLAPSE_RATE), w)
         spec = dict(spec)
-        spec[motions.SQUASH] = (0.20 * math.exp(-((t - HIT_AT) / 0.22) ** 2), 0.0, 0.0)
+        sq = 0.20 * math.exp(-((t - HIT_AT) / 0.20) ** 2)
+        base = spec.get(motions.SQUASH, (0.0, 0.0, 0.0))[0]
+        spec[motions.SQUASH] = (min(0.30, base + sq), 0.0, 0.0)
     stage.pose(hero, spec)
-    hero.location = HOME[C.HUNGRY]
 
-    # ── 계기: 도망이 배고픔 위로 올라간다. 🔑 **고집쟁이만 도로 내려앉는다** ──
-    rise = C.ease((t - 1.2 * BEAT) / (1.4 * BEAT))
-    for i, g in enumerate(G):
-        C.gauge_place(g, arms[i], RIGHT, z=0.95, emph=C.emphasis(LINES, t, FOCUS))
-        # 🔑 계기는 **고르는 순간**에만 보인다. 뛰기 시작한 뒤에도 달고 있으면 화면이
-        #    막대 숲이 되고, 정작 봐야 할 「누가 아직 안 뛰는가」가 안 보인다.
-        gone = t > (RUN_AT[i] + 0.5) if i != C.HUNGRY else False
-        C.gauge_show(g, 0.6 * BEAT < t and not gone)
-        instrument.gauge_set(g[0], instrument.gauge_k(C.HUNGER))
-        v_flee = (C.FLEE_STUBBORN if i == C.HUNGRY else C.FLEE_AFTER)
-        k = instrument.gauge_k(C.FLEE_BEFORE) +             (instrument.gauge_k(v_flee) - instrument.gauge_k(C.FLEE_BEFORE)) * rise
-        instrument.gauge_set(g[1], k)
+    # ── 막대 둘 — 하나는 선을 넘고, 하나는 못 넘는다 ──
+    loc, at = view(t)
+    right = C.cam_right(loc, at)
+    em = C.emphasis(LINES, t, FOCUS)
+    rise = C.ease((t - RISE_AT) / RISE_SPAN)
 
-    C.danger_at(d, (t - 1.0 * BEAT) / (HIT_AT - 1.0 * BEAT), NEAR, t)
-    d.hide_render = t < 0.8 * BEAT
+    # ① 밭 앞 주민 — 도망이 **선을 넘는다.** 뛰기 시작하면 막대를 끈다(막대 숲 방지)
+    C.gauge_show(G_CROSS, t < RUN_AT[CROSS] + 0.35)
+    C.gauge_place(G_CROSS, arms[CROSS], right, z=0.62, side=0.58, emph=em)
+    instrument.gauge_set(G_CROSS[0], instrument.gauge_k(C.HUNGER))
+    instrument.gauge_set(G_CROSS[1], instrument.gauge_k(C.FLEE_BEFORE)
+                         + (instrument.gauge_k(C.FLEE_AFTER)
+                            - instrument.gauge_k(C.FLEE_BEFORE)) * rise)
 
-    # 카메라 — 조망에서 남는 한 명 쪽으로 천천히 밀고 들어간다
-    u = C.ease((t - 4 * BEAT) / (3 * BEAT))
-    (sx, sy, sz), (ax, ay, az) = C.EYE
-    (cx, cy, cz), (bx, by, bz) = C.CLOSE
-    stage.aim(cam, (sx + (cx - sx) * u * 0.72, sy + (cy - sy) * u * 0.72, sz + (cz - sz) * u * 0.72),
-              (ax + (bx - ax) * u, ay + (by - ay) * u, az + (bz - az) * u))
+    # ③ 고집쟁이 — 도망이 **선 아래 그대로**다. 셋째 줄에서만 켠다
+    C.gauge_show(G_HERO, t > T_BC - 0.6)
+    C.gauge_place(G_HERO, hero, right, z=0.62, side=0.58, emph=em)
+    instrument.gauge_set(G_HERO[0], instrument.gauge_k(C.HUNGER))
+    instrument.gauge_set(G_HERO[1], instrument.gauge_k(C.FLEE_BEFORE)
+                         + (instrument.gauge_k(C.FLEE_STUBBORN)
+                            - instrument.gauge_k(C.FLEE_BEFORE)) * rise)
 
+    stage.aim(cam, loc, at)
     village.flicker(fire, t)
     village.snowfall(flakes, t, wind=0.2)
 

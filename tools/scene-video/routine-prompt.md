@@ -91,27 +91,39 @@ ep05s S11 12.7초). 2026-08-03 사용자 확정값으로 되돌아온 것이다.
 먼저 찾고, 못 찾으면 반려하지 않는다. (2026-08-03~04 에 이 규칙이 두 번 값을 했다 —
 근거 없이 들어온 "꼬리 예고 금지"와 "편당 75/90초"를 각각 검수팀과 이 명세서가 잡아냈다.)
 
-## 🔴 그림은 회차가 소유한다
+## 🔴 그림은 블렌더가 굽는다 (2026-08-12 전환 · 2D 폐기)
 
-`episodes/<ep>/kinds/` 는 그 회차의 소유물이고, 작성팀이 **그 글만을 위해 새로 설계**한다.
-공용 그림 라이브러리(`engine/kinds/`)는 **일부러 없앴다** — 있을 때 두 회차가 같은
-그림으로 채워졌고, 사용자 판정이 "돌려막기는 내가 원하는 방향이 아니다" 였다.
-공유하는 것은 `engine/lib.js`(팔레트·이징·캔버스 헬퍼)뿐 — 그림이 아니라 붓이다.
+**쇼츠 그림은 3D 다.** `episodes/<ep>/kinds/*.js` 는 전부 `engine/scene3d.js` 재수출
+**한 줄**이고, 화면은 `blender3d/<ep>/render_*.py` 가 만들어 PNG 로 굽는다
+(`python blender3d/bake.py --ep <회차>`). 엔진은 그 프레임을 캔버스에 `drawImage` 로
+깔고 자막·HUD·아웃트로 카드를 위에 얹는다.
 
-## 🕺 사람의 동작은 **선언하고 어휘집에서 가져온다** (2026-08-12 신설)
+❌ **2D 캔버스 도형 트랙은 더 이상 안 만든다**(2026-08-13 사용자 지시).
+`engine/lib.js`·`engine/kinds/`·`engine/figure3d.js`(SDF 레이마칭 사람)는 옛 회차를
+재생하기 위해 남아 있을 뿐이고, **새 회차의 참고 대상이 아니다.**
+(`figure3d.js` 의 사람은 사용자가 실물을 보고 반려한 판이다 — 지금 사람은
+`blender3d/rig.py` 가 심은 뼈대에 `motions.py` 가 포즈를 먹인 **블렌더 모델**이다.)
 
-사람은 엔진이 소유한다 — **그리기는 `engine/figure3d.js` 의 `person3d()`**(SDF 레이마칭,
-관절이 하나의 매끈한 표면으로 녹는다), 뼈대·모션·비율표(`BUILDS`, 기본 `mini`)는
-`engine/figure.js`. **회차마다 다시 만들지 마라** — 그림은 회차가 소유하지만
-관절과 걸음 타이밍은 붓이다. 2D `person()` 은 WebGL 없는 기계용 폴백일 뿐이다.
+## 🕺 사람의 동작은 어휘집에서 가져온다
 
-작성팀이 할 일은 둘뿐이다:
+동작은 `blender3d/motions.py` 하나가 소유한다 — **순수 함수 22종**이고 여섯 샷이 전부
+거기를 지난다. 회차마다 다시 만들지 마라. 어휘에 없는 몸짓이 꼭 필요하면 그 회차가
+**처음 만들고**, `MOTIONS`·`CYCLE`·`test_motions` 어휘 검사를 같이 고친다.
 
-1. 사람이 무엇을 하는 샷이면 **`shot.motions` 에 태그를 적는다** — `"motions": ["walk"]`.
-   지금 있는 태그: `walk` · `idle` · `sit` · `reach` (`engine/motions.mjs`).
-2. `kinds/*.js` 에서 그 동작을 **실제로 넘긴다** — `person3d(ctx, cam, w, h, x, z, { motion: 'walk', … })`.
+- 일: `farm` `chop` `mine` `hammer` `water` `draw` `gather`
+- 삶: `eat` `warm` `rest` `stop` `look_around` `huddle`
+- 이동: `walk` `run`   · 주고받음: `talk` `nod` `reach` `look_up`
+- 끝: `collapse` `freeze` `attack`
 
-`check.mjs` 가 이 둘을 대조해서 **어긋나면 멈춘다.**
+작성팀이 할 일은 **태그를 적는 것이 아니라** 자막 한 줄마다 「무슨 몸짓 · 어느 크기」를
+정하는 것이다(정본 `Docs/3D_대본_문법.md`). 그 표가 그대로 `render_*.py` 맨 위
+독스트링이 되고, 검수팀이 그 표와 화면을 대조한다.
+
+🔴 왜 이 규약이 생겼나: `ep16s-1` 의 훅이 `reads` 에 「걸어와」라고 적어 놓고 **다리를
+세워 둔 채** 게이트 33종을 전부 통과했다. 그리고 2026-08-13 판정 — **「애니메이션이
+하나도 그 상황에 맞게 바뀌지가 않는다」.** 대본이 약속한 몸짓과 화면이 하는 몸짓을
+나란히 적어 두지 않으면 게이트로는 못 잡는다.
+
 🔴 왜 생겼나: `ep16s-1` 의 훅이 `reads` 에 「걸어와」라고 적어 놓고 **다리를 세워 둔 채**
 게이트 33종을 전부 통과했다. 대본이 약속한 동작과 그림이 하는 동작을 나란히 본 게이트가
 하나도 없었기 때문이다. 사용자 판정 「밋밋하다」의 진짜 원인은 카메라·컷·이펙트가 아니라
@@ -181,7 +193,7 @@ person(ctx, cam, w, h, x, z, { build: 'mini', ...(G && { motion: G.tag, phase: G
 | | 에이전트 | 모델 | 산출 |
 |---|---|---|---|
 | 1 | `scene-planner` | `claude-opus-5` | `episodes/<ep>/notes/planner.md` |
-| 2 | `scene-writer` | `claude-opus-5` | `episodes/<ep>/scene.json`(**한국어 + `lines[].en`·`youtube.en`**) + `kinds/*.js` + `notes/writer.md` |
+| 2 | `scene-writer` | `claude-opus-5` | `episodes/<ep>/scene.json`(**한국어 + `lines[].en`·`youtube.en`**) + `kinds/*.js`(scene3d 재수출 한 줄) + **자막 줄 ↔ 몸짓·크기 표** + `notes/writer.md` |
 | 3 | `scene-reviewer` | `claude-opus-5` | `episodes/<ep>/notes/review.md` (또는 작성팀에 반려) |
 | 4 | `scene-master` | `claude-opus-5` | `episodes/<ep>/notes/verdict.md` |
 

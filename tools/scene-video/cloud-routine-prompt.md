@@ -273,7 +273,7 @@ C# 소스에 한국어 문자열 리터럴로 실재하기 때문이다.
 
   브라우저를 못 찾은 경우 검수팀은 **글 수준 검수만** 한다 —
   원문 대조 · 화면 문자열 사실 확인 · 다음 편 예고 정본 대조 ·
-  돌려막기(앞 회차 `kinds/*.js` 와 장치 비교) · 효과음 배치와 절제.
+  돌려막기(앞 회차 `blender3d/<ep>/render_*.py` 와 **몸짓 순서** 비교 — 3D 에서 돌려막기는 도형이 아니라 몸짓이 겹치는 것이다) · 효과음 배치와 절제.
   - 🔴 **말·그림 도착 시각은 인덱스 대조로 끝내지 마라.** `cue` 를 **안** 쓰는 조건
     (`frac(t/N)` 같은 `t` 기반 · `rk > 0.7` 처럼 다른 자막의 진행도로 만든 문턱)이
     언제 참이 되는지 초로 환산해서 대조해라. 이 계열로 **이미 두 번 샜다**
@@ -297,7 +297,8 @@ C# 소스에 한국어 문자열 리터럴로 실재하기 때문이다.
 성공했으면 **대본 산출물만** 커밋한다.
 ```
 tools/scene-video/episodes/<id>/scene.json
-tools/scene-video/episodes/<id>/kinds/*.js
+tools/scene-video/episodes/<id>/kinds/*.js   # scene3d 재수출 한 줄
+tools/scene-video/blender3d/<id>/render_*.py  # 실제 그림 (구현팀)
 tools/scene-video/episodes/<id>/notes/*
 tools/scene-video/state/schedule.json      ← 0절이 회차를 편입했을 때만
 ```

@@ -1,0 +1,258 @@
+{
+  "id": "ep16s-5",
+  "order": 16,
+  "act": "M13 사건과 흔적",
+  "stage": "shorts-cut",
+  "voice": "../voice.json",
+  "source": {
+    "post": "2026-08-04-unity-goap-m13-events-and-traces.html",
+    "url": "https://gamedevclaude.blogspot.com/2026/08/claude-code-ai-unity-goap.html",
+    "title": "M13 사건과 흔적",
+    "published": "2026-08-04 KST",
+    "note": "5편 분할의 5편(착지). 이 편이 맡은 사건 — 원문 도입부의 회상('게으름뱅이 둘 다 그냥 죽었어, 별 이야기가 없었다')과 밀스톤 결론('그 끝에서 제 회상이 실제로 다른 문장이 됐습니다')의 대조다. ①이번 밀스톤은 '새 시스템을 크게 짓는 이야기가 아닙니다. 이미 콘솔에만 있던 것을 화면으로 옮긴 이야기'다 ②'가장 싼 길은 새로 짓는 게 아니라, 콘솔에 있는 것을 화면으로 옮기는 것이다' — 근거로 든 것 셋: 관계 변화 함수가 '이유 문자열을 이미 인자로 받고 있는데' 콘솔로만 흘렸고, 목표마다 성향 보정 정수를 계산해 놓고 화면에 안 띄웠으며, 개인별 식량 일수도 이미 계산돼 있었다 ③달라진 것 = 누가 죽었는지 구별 · 예상된 죽음과 이상한 죽음의 분리 · 그래서 회상이 다른 문장이 됨. 🔴 형제 몫은 안 썼다 — 비석 이름 16-1 · 알림 칸 16-2 · 명부 16-3 · 관계 보존 16-4. 🔴 예고는 **다음 회차 원문**(`2026-08-06-unity-goap-m14-autumn-winter.html`)에서 직접 뽑았다(런북 함정 8) — 파종 방아쇠가 「내 식량이 3일치 이하 + 빈 밭」에 묶여 있어 '가난해진 다음에야 대비를 시작하는 규칙만 있었습니다'. ep17s 는 아직 분할 전이라 **밀스톤 층위**로만 예고한다."
+  },
+  "hud": {
+    "title": "16-5편 · 같은 판인데 회상이 달라졌다",
+    "aiHook": "Claude Code로 만든 유니티 GOAP AI",
+    "outro": "Claude Code로만 만드는 GOAP AI 마을 게임 개발일지"
+  },
+  "hook": "같은 판을 다시 켰더니\n이야기가 남았다",
+  "outro": {
+    "source": "M13 사건과 흔적",
+    "part": "5편 중 5편",
+    "next": "17편 · 곳간에 남으면 아무도 씨를 안 뿌리던 이야기",
+    "siblings": [
+      "16-1편 · 하루에 일곱이 죽었는데 누가 죽었는지 모른다면요? 비석에 아무것도 안 적혀 있었거든요.",
+      "16-2편 · 굶는 사람이 있다고 뜨는데 누군지 모른다면요? 알림 칸이 한 개뿐이라 일곱 건이 서로를 지우고 있었거든요.",
+      "16-3편 · 죽은 사람들 기록을 모아 놨는데 한 명이 다 덮으면요? 게으름뱅이 하나가 명령을 아홉 번 거부한 게 전부였거든요.",
+      "16-4편 · 단짝이 죽었는데 남은 사람 기억에서도 사라진다면요? 뒷정리가 그 줄을 양쪽에서 끊고 있었거든요.",
+      {
+        "label": "16-5편 · 똑같은 판을 다시 켰는데 이번엔 이야기가 남는다면요? 새로 만든 건 거의 없고 콘솔에 있던 걸 화면으로 옮겼을 뿐이거든요.",
+        "me": true
+      }
+    ]
+  },
+  "youtube": {
+    "title": "똑같은 판을 다시 켰는데 이번엔 이야기가 남는다면요? 새로 만든 건 거의 없고 콘솔에 있던 걸 화면으로 옮겼을 뿐이거든요. · 유니티 GOAP 개발일지 16-5편 #shorts",
+    "blurb": "혼자 만드는 유니티 마을 시뮬레이션에서, 기록과 표시를 붙인 뒤 같은 판을 다시 켜 본 이야기입니다.\n\n밀스톤을 시작한 이유가 제 회상 한 줄이었습니다. 한 판을 오래 지켜본 뒤 「지난 판에 무슨 일이 있었지?」라고 물었더니 제가 내놓은 대답이 「게으름뱅이 둘 다 그냥 죽었어, 별 이야기가 없었다」였거든요.\n\n무덤에 이름을 새기고, 알림을 사람 단위로 갈라 세우고, 생애 기록을 마을이 들게 하고, 죽는 순간의 관계를 남겼습니다. 그리고 같은 판을 다시 켜 두고 또 물어봤습니다.\n\n이번 대답은 달랐습니다. 누가 죽었는지가 구별됐고, 예상했던 죽음과 이상한 죽음이 갈라졌고, 「재미없다」가 「신기하네」로 바뀌었습니다.\n\n그런데 이번 회차에서 새로 만든 건 거의 없습니다. 관계가 바뀐 이유는 이미 인자로 넘어오고 있었고, 성격이 목표에 주는 보정도 이미 계산돼 있었고, 사람마다 식량이 며칠치 남았는지도 이미 있었습니다. 전부 콘솔로만 흘리고 화면에는 한 번도 안 띄웠던 것들입니다.\n\n재료는 다 있었고 전달이 없었던 겁니다. 그래서 이번 판은 짓기가 아니라 옮기기였습니다.\n\n(같은 글에서 나온 5편 중 5편 — 무덤 일곱이 다 똑같았던 이야기는 16-1편, 알림 한 칸이 일곱 건을 지운 이야기는 16-2편, 한 사람이 명부를 다 덮은 이야기는 16-3편, 죽음이 관계까지 지운 이야기는 16-4편)",
+    "tags": [
+      "유니티",
+      "Unity",
+      "GOAP",
+      "게임개발",
+      "인디게임",
+      "게임AI",
+      "개발일지",
+      "ClaudeCode",
+      "게임기획",
+      "시뮬레이션"
+    ],
+    "categoryId": "28",
+    "privacy": "private",
+    "en": {
+      "_": "스튜디오 → 자막/언어 → 번역 추가 → 영어(미국). 태그는 언어별로 안 나뉘므로 여기 없다.",
+      "title": "Same run, replayed — and this time a story stayed · Unity GOAP Devlog #16-5 #shorts",
+      "blurb": "This milestone started from one sentence of my own recall. After watching a run for a long time I asked myself what had happened, and the answer was \"both idlers just died, nothing much of a story.\"\n\nSo I carved names into graves, split alerts per person, moved life records to the village side, and kept relationships at the moment of death. Then I replayed the same run and asked again.\n\nThis time the answer was different: I could tell who died, expected deaths separated from strange ones, and \"boring\" turned into \"huh, interesting.\"\n\nAlmost nothing here was newly built. The reason a relationship changed was already being passed in as an argument. The personality bias on each goal was already computed. Days of food left per villager already existed. All of it went to the console and never to the screen.\n\nThe ingredients were there; delivery was missing. This round was not building. It was moving.\n\n(Part 5 of 5 from the same devlog — seven identical graves is #16-1, one alert slot erasing seven events is #16-2, one villager covering the roster is #16-3, death erasing relationships is #16-4)"
+    }
+  },
+  "shots": [
+    {
+      "id": "SH",
+      "chapter": "훅",
+      "kind": "nostory",
+      "source": "원문 도입부 — '한 판을 켜 놓고 오래 지켜본 뒤 \"지난 판에 무슨 일이 있었지?\"라는 질문에 제가 스스로 내놓은 대답은 이랬습니다. \"게으름뱅이 둘 다 그냥 죽었어, 별 이야기가 없었다.\"' 🔴 제목 핵심어(같은 판 · 이야기)가 이 두 줄에 있다.",
+      "reads": "구석에서 둘이 무너지는데 아무도 돌아보지 않고, 그 자리에 빈 비석 둘이 선다 — 곁에 아무것도 없다",
+      "spec": {
+        "frames": "/3d/ep16s-5/hook/frames"
+      },
+      "lines": [
+        {
+          "text": "전에 이 판을 보고\n제가 한 말은 이거였어요.",
+          "say": "전에 이 판을 보고 제가 한 말은 이거였어요.",
+          "en": "Here's what I said\nafter watching this run.",
+          "pauseAfter": 130
+        },
+        {
+          "text": "게으름뱅이 둘 다 그냥 죽었어,\n별 이야기가 없었다.",
+          "say": "게으름뱅이 둘 다 그냥 죽었어, 별 이야기가 없었다.",
+          "en": "Both idlers just died.\nNothing much of a story.",
+          "pauseAfter": 150
+        }
+      ],
+      "checks": {
+        "edge": "3D 전면 그림 — 상자를 끝까지 채우는 것이 설계다 (notes/3d-rewrite.md)"
+      }
+    },
+    {
+      "id": "S0",
+      "chapter": "인트로",
+      "kind": "intro",
+      "source": "시리즈 공용 브랜딩 — 문안은 `Docs/영상_25초_전환_실행명세서.md` §2-C(ADR-V25-8), 그림은 `engine/intro-brand.js`(ADR-V25-11 예외).",
+      "reads": "위쪽 터미널 창이 명령을 한 자씩 치고, 명령이 끝날 때마다 아래 미니 맵으로 강조색 커서가 날아가 나무 · 집 · 주민 둘을 차례로 내려놓는다",
+      "spec": {
+        "frames": "/3d/_intro/frames"
+      },
+      "lines": [
+        {
+          "text": "Claude Code로만 만드는, 스스로\n생각하고 행동하는 AI 마을 개발일지",
+          "say": "클로드 코드로만 만드는, 에이아이 마을 개발일지입니다.",
+          "en": "An AI village that thinks and acts\non its own — built only with Claude Code",
+          "pauseAfter": 744
+        }
+      ],
+      "checks": {
+        "edge": "3D 전면 그림 — 상자를 끝까지 채우는 것이 설계다 (notes/3d-rewrite.md)"
+      }
+    },
+    {
+      "id": "S1",
+      "chapter": "같은 판을 다시 켰다",
+      "kind": "replay",
+      "source": "원문 마지막 절 — '그 끝에서 제 회상이 실제로 다른 문장이 됐습니다.' 🔴 이 편의 두 대답은 원문의 두 문장(도입부의 '그냥 죽었어'와 결론의 '다른 문장')을 그대로 짝지은 것이다.",
+      "reads": "마을이 다시 돌아간다 — 밭 갈고, 물 주고, 망치질한다. 두 사람이 무너지고, 쓰러진 자리 바로 옆에 집과 밭이 있다",
+      "spec": {
+        "frames": "/3d/ep16s-5/body1/frames"
+      },
+      "lines": [
+        {
+          "text": "똑같은 판을 다시 켜 두고\n또 물어봤어요.",
+          "say": "똑같은 판을 다시 켜 두고 또 물어봤어요.",
+          "en": "I replayed the same run\nand asked again.",
+          "pauseAfter": 130
+        },
+        {
+          "text": "이번에 나온 대답은\n이랬어요.",
+          "say": "이번에 나온 대답은 이랬어요.",
+          "en": "This time the answer\nwas this.",
+          "pauseAfter": 130
+        },
+        {
+          "text": "순둥이와 고집쟁이가 굶어 죽었네,\n집과 밭이 있었는데.",
+          "say": "순둥이와 고집쟁이가 굶어 죽었네, 집과 밭이 있었는데.",
+          "en": "The meek one and the stubborn one\nstarved — with a house and a field.",
+          "pauseAfter": 180
+        }
+      ],
+      "checks": {
+        "edge": "3D 전면 그림 — 상자를 끝까지 채우는 것이 설계다 (notes/3d-rewrite.md)"
+      }
+    },
+    {
+      "id": "S2",
+      "chapter": "달라진 게 셋",
+      "kind": "threechanges",
+      "source": "원문 — '누가 죽었냐고? 사망 카운터 +1' 에서 무덤 이름표로(1단계), 회고가 통계에서 명부로(6단계), 그리고 결론의 회상 대조. 🔴 「예상했던 죽음과 이상한 죽음」은 원문 6단계의 퇴장 사유(굶어 죽음 · 부상으로 죽음 · 행방불명)가 갈라 놓은 것을 사람 말로 옮긴 것이다.",
+      "reads": "비석 둘 옆에 도구가 하나씩 서고 그 둘이 서로 다르다. 카메라가 두 무덤을 지나는데 한쪽은 밭과 집 옆이고 다른 쪽은 빈 땅이며, 산 사람이 무덤 앞에서 올려다본다",
+      "spec": {
+        "frames": "/3d/ep16s-5/body2/frames"
+      },
+      "lines": [
+        {
+          "text": "달라진 게\n셋이나 있어요.",
+          "say": "달라진 게 셋이나 있어요.",
+          "en": "Three things changed\nthis time.",
+          "pauseAfter": 130
+        },
+        {
+          "text": "누가 죽었는지를\n구별했고,",
+          "say": "누가 죽었는지를 구별했고,",
+          "en": "I could tell\nwho had died.",
+          "pauseAfter": 130
+        },
+        {
+          "text": "예상했던 죽음과\n이상한 죽음을 갈라서 봤고,",
+          "say": "예상했던 죽음과 이상한 죽음을 갈라서 봤고,",
+          "en": "Expected deaths split apart\nfrom strange ones.",
+          "pauseAfter": 130
+        },
+        {
+          "text": "재미없다가\n신기하네로 바뀌었어요.",
+          "say": "재미없다가 신기하네로 바뀌었어요.",
+          "en": "\"Boring\" turned into\n\"huh, interesting.\"",
+          "pauseAfter": 180
+        }
+      ],
+      "checks": {
+        "edge": "3D 전면 그림 — 상자를 끝까지 채우는 것이 설계다 (notes/3d-rewrite.md)"
+      }
+    },
+    {
+      "id": "S3",
+      "chapter": "짓기가 아니라 옮기기",
+      "kind": "alreadythere",
+      "source": "원문 — '가장 싼 길은 새로 짓는 게 아니라, 콘솔에 있는 것을 화면으로 옮기는 것이다.' / '관계 변화 함수는 이유 문자열을 이미 인자로 받고 있는데 그걸 콘솔 로그로만 흘리고 있었고, 목표마다 성향 보정 정수를 계산해 놓고 화면에는 한 번도 안 띄웠으며, 개인별 식량 일수도 이미 계산돼 있었습니다.'",
+      "reads": "실 · 막대 · 격자가 이미 다 켜져 있고 카메라가 셋을 차례로 지난 뒤 한 화면에 함께 세운다. 마을 위로 계기들이 떠오르고, 사람이 무덤 앞에서 끄덕인다",
+      "spec": {
+        "frames": "/3d/ep16s-5/body3/frames"
+      },
+      "lines": [
+        {
+          "text": "그런데 이번에 새로 만든 건\n거의 없어요.",
+          "say": "그런데 이번에 새로 만든 건 거의 없어요.",
+          "en": "Almost nothing here\nwas newly built.",
+          "pauseAfter": 130
+        },
+        {
+          "text": "사이가 바뀐 이유도, 성격 보정도,\n며칠치 남았는지도,",
+          "say": "사이가 바뀐 이유도, 성격 보정도, 며칠치 남았는지도,",
+          "en": "Why a bond changed, the personality\nbias, the days of food left —",
+          "pauseAfter": 130
+        },
+        {
+          "text": "전부 이미\n계산돼 있었거든요.",
+          "say": "전부 이미 계산돼 있었거든요.",
+          "en": "all of it was\nalready computed.",
+          "pauseAfter": 130
+        },
+        {
+          "text": "재료는 다 있었고\n전달만 없었어요.",
+          "say": "재료는 다 있었고 전달만 없었어요.",
+          "en": "The ingredients were there.\nDelivery was missing.",
+          "pauseAfter": 130
+        },
+        {
+          "text": "그래서 이번 판은\n짓기가 아니라 옮기기였어요.",
+          "say": "그래서 이번 판은 짓기가 아니라 옮기기였어요.",
+          "en": "So this round wasn't building.\nIt was moving.",
+          "pauseAfter": 180
+        }
+      ],
+      "checks": {
+        "edge": "3D 전면 그림 — 상자를 끝까지 채우는 것이 설계다 (notes/3d-rewrite.md)"
+      }
+    },
+    {
+      "id": "SO",
+      "chapter": "아웃트로",
+      "kind": "nextpeek",
+      "source": "🔴 다음 회차 원문(`2026-08-06-unity-goap-m14-autumn-winter.html`)에서 직접 뽑았다 — '파종 목표(Goal_Plant)가 발동하는 조건이 «내 식량이 3일치 이하로 떨어졌을 때 + 빈 밭이 있을 때»였습니다' · '가난해진 다음에야 대비를 시작하는 규칙만 있었습니다'. 🔴 이 글(M13)의 마지막 문단은 근거로 쓰지 않았다(런북 함정 8 · ep02s·ep11s·ep12s 가 세 번 밟았다). ep17s 는 분할 전이라 밀스톤 층위 문구다.",
+      "reads": "다 자란 밭 옆에서 사람이 아무것도 안 심고 지나가고, 빈 밭을 지나쳐 불가로 가서 몸을 쬔다",
+      "spec": {
+        "frames": "/3d/ep16s-5/outro/frames"
+      },
+      "lines": [
+        {
+          "text": "다음 편에서는, 집도 밭도 있는데\n왜 굶어 죽었을까요.",
+          "say": "다음 편에서는, 집도 밭도 있는데 왜 굶어 죽었을까요.",
+          "en": "Next: a house, a field —\nso why did they starve?",
+          "pauseAfter": 130
+        },
+        {
+          "text": "곳간에 조금이라도 남으면\n아무도 씨를 안 뿌리고 있었거든요.",
+          "say": "곳간에 조금이라도 남으면 아무도 씨를 안 뿌리고 있었거든요.",
+          "en": "If any food was left in store,\nnobody planted at all.",
+          "pauseAfter": 0
+        }
+      ],
+      "checks": {
+        "edge": "3D 전면 그림 — 상자를 끝까지 채우는 것이 설계다 (notes/3d-rewrite.md)"
+      }
+    }
+  ],
+  "notes": {
+    "기본 도형": "**「같은 판을 두 번 보여 주고, 두 번째에만 흔적을 켠다.」** 네 그림이 그 변주다.\n· **SH(nostory)** = 아무도 안 돌아보는 죽음과 **빈 비석 둘.** 밀스톤 이전의 판이다.\n· **S1(replay)** = 같은 마을이 **다시 돌아가고** 같은 자리에서 둘이 무너진다 — 이번엔 옆에 집과 밭이 보인다.\n· **S2(threechanges)** = 비석 옆에 **도구가 서고** 둘이 갈린다. 16-1 이 만든 어휘를 착지에서 되받는다.\n· **S3(alreadythere)** = 실 · 막대 · 격자가 **이미 켜져 있다** — 다섯 편이 쓴 계기가 한 화면에 모인다.\n🔑 이 편만 **형제 넷의 그림을 일부러 다 불러온다.** 착지 편이라 그것이 결론의 몸이다.",
+    "색 규약": "뜻층은 **보라 하나**(비석 옆 도구 = 그 사람에게 닿은 자리). 계기(실·막대·격자)는 계기층이라 예산 밖이고, 그래서 마지막 샷에 계기가 셋이나 떠도 뜻층은 1색이다.",
+    "화면의 수": "화면에 글자로 뜨는 수는 0개다. 「셋」·「며칠치」는 자막이 지고 화면은 **개수와 길이**만 진다. ⚠️ HUD·아웃트로 카드의 회차 번호와 형제 라벨의 수는 기계 파생이라 이 편이 못 고친다.",
+    "비유": "없음."
+  }
+}

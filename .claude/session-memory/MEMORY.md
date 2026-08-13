@@ -1,4 +1,5 @@
-- [3D 네이티브 전환 — 여기서 시작](video-3d-figure-is-blender-model.md) — 시작점 문서 셋, 코드/산출물 위치, 밟은 함정. **새 세션은 이것부터.**
+- [3D 네이티브 전환 — 여기서 시작](video-3d-figure-is-blender-model.md) — 시작점 문서, 코드/산출물 위치, 밟은 함정. **새 세션은 이것부터.**
+  🔴 **ep16s 를 만든다면 `notes/ep16s-runbook.md`** — 원문·5편 분할·절차·구멍 열. 급소는 「글자 없는 세계에서 이름을 어떻게 그리나」.
 - [판정을 들으면 어느 층인지부터](video-3d-pipeline-state.md) — 카메라 → 그림 어휘 → 동작 곡선 → 그 순간 뭘 하는가. 위에서부터 의심하라.
 - [「역동적이지 않다」는 골반과 곡선 문제였다](video-motion-vocabulary.md) — 숫자로 잡은 원인, 날씨는 소품이 아니라 반응.
 - [뼈 각도는 추론하면 틀린다 — 재라](video-motion-axis-measure-first.md) — 실측 대응표, 그리고 검사가 지켜 주고 있던 chop 위상 뒤집힘.

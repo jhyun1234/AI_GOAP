@@ -3,7 +3,7 @@
 - [「역동적이지 않다」는 골반과 곡선 문제였다](video-motion-vocabulary.md) — 숫자로 잡은 원인, 날씨는 소품이 아니라 반응.
 - [뼈 각도는 추론하면 틀린다 — 재라](video-motion-axis-measure-first.md) — 실측 대응표, 그리고 검사가 지켜 주고 있던 chop 위상 뒤집힘.
 - [블렌더를 보면서 고치고, 병렬로 굽는다](video-blender-live-and-bake.md) — live.py · bake.py · GUI 에서만 터지는 함정 넷.
-- [표준 작업 방식 — 줄마다 몸짓·크기를 계약한다](video-line-by-line-contract.md) — **새 회차는 이 절차로.**
+- [표준 작업 방식 — 줄마다 몸짓·크기를 계약한다](video-line-by-line-contract.md) — **새 회차는 이 절차로.** 자막은 입장권이다(안 깎는다). 글쓰기 정본은 `Docs/3D_대본_문법.md`.
 - [동작은 자막 줄마다 사건을 따라간다](video-animation-must-react.md) — talk·nod·collapse·startle. 2·3 완료, 1 은 업로드 끝.
 - [소품은 조각이 여럿이다 — 하나만 반환하면 남는다](video-prop-parts-must-return-all.md) — 지붕·돌 테두리로 두 번 밟았다.
 - [넓게 잡으려면 셋을 같이 넓힌다](video-wide-shots-need-room.md) — 바닥·마을 바깥·카메라 높이. 나가는 사람은 축 위에서 찍어라.

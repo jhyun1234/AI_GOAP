@@ -25,6 +25,7 @@ metadata:
 **How to apply:**
 - 소품을 켜고 끄거나 키울 거면 **그 소품 전용 show/grow 를 `village.py` 에 만든다.**
   이미 있는 것: `house_show` · `house_grow` · `house_parts` · `pit_show`.
+  🔑 새로 만든 `village.grave()` 는 **처음부터 조각 목록을 반환한다** — 이 교훈을 적용한 첫 소품이다.
   🔴 부르는 쪽에서 `hide_render` 를 직접 만지지 마라 — 조각이 늘면 그날 또 터진다.
 - 새 소품을 만들면 **조각 목록을 반환하거나 show 함수를 같이 만든다.** 대표 하나만
   돌려주는 것이 기본값이면 안 된다.

@@ -1,0 +1,252 @@
+{
+  "id": "ep16s-4",
+  "order": 16,
+  "act": "M13 사건과 흔적",
+  "stage": "shorts-cut",
+  "voice": "../voice.json",
+  "source": {
+    "post": "2026-08-04-unity-goap-m13-events-and-traces.html",
+    "url": "https://gamedevclaude.blogspot.com/2026/08/claude-code-ai-unity-goap.html",
+    "title": "M13 사건과 흔적",
+    "published": "2026-08-04 KST",
+    "note": "5편 분할의 4편. 이 편이 맡은 사건 — 원문 「문제」절의 관계 삭제와 「10단계 — 죽음이 지우지 못한 것 (C3)」이다. ①'주민이 사라질 때 호출되는 정리 함수가 관계 기록을 양방향으로 삭제하고 있었던 겁니다. 단짝이 죽으면 남은 사람의 기억에서도 그 관계가 통째로 없어졌습니다. 상실이 생존자에게 전달될 통로 자체가 없었던 거죠.' ②처음 계획에는 그 함수가 'M13의 유일한 수술'이라고 적혀 있었다 ③'그런데 결국 그 함수는 한 글자도 안 고쳤습니다. 지우기 전에 사진을 찍어 두는 것으로 충분했으니까요.' — 죽는 순간, 관계 기록이 지워지기 전에 단짝과 원한을 스냅샷으로 떠서 생애 기록에 남긴다 ④'무덤을 조사하거나 회고에서 드릴다운했을 때 \"누구의 단짝이었다\"가 함께 뜹니다' ⑤'산 사람의 관계 목록에서 죽은 사람이 지워지는 것은 그대로 옳습니다.' 🔴 형제 몫은 안 썼다 — 비석 이름 16-1 · 알림 칸 16-2 · 명부 16-3 · 회상 대조 16-5. 🔴 관계는 **두 사람을 잇는 실**이 지고(대본 §0 계약), 굳은 실(보라)이 「지워지기 전에 찍은 사진」이다."
+  },
+  "hud": {
+    "title": "16-4편 · 죽음이 관계까지 지웠다",
+    "aiHook": "Claude Code로 만든 유니티 GOAP AI",
+    "outro": "Claude Code로만 만드는 GOAP AI 마을 게임 개발일지"
+  },
+  "hook": "단짝이 죽자\n그 사이도 사라졌다",
+  "outro": {
+    "source": "M13 사건과 흔적",
+    "part": "5편 중 4편",
+    "next": "16-5편 · 같은 판인데 회상이 달라진 이야기",
+    "siblings": [
+      "16-1편 · 하루에 일곱이 죽었는데 누가 죽었는지 모른다면요? 비석에 아무것도 안 적혀 있었거든요.",
+      "16-2편 · 굶는 사람이 있다고 뜨는데 누군지 모른다면요? 알림 칸이 한 개뿐이라 일곱 건이 서로를 지우고 있었거든요.",
+      "16-3편 · 죽은 사람들 기록을 모아 놨는데 한 명이 다 덮으면요? 게으름뱅이 하나가 명령을 아홉 번 거부한 게 전부였거든요.",
+      {
+        "label": "16-4편 · 단짝이 죽었는데 남은 사람 기억에서도 사라진다면요? 뒷정리가 그 줄을 양쪽에서 끊고 있었거든요.",
+        "me": true
+      },
+      "16-5편 · 똑같은 판을 다시 켰는데 이번엔 이야기가 남는다면요? 새로 만든 건 거의 없고 콘솔에 있던 걸 화면으로 옮겼을 뿐이거든요."
+    ]
+  },
+  "youtube": {
+    "title": "단짝이 죽었는데 남은 사람 기억에서도 사라진다면요? 뒷정리가 그 줄을 양쪽에서 끊고 있었거든요. · 유니티 GOAP 개발일지 16-4편 #shorts",
+    "blurb": "혼자 만드는 유니티 마을 시뮬레이션에서, 죽음이 관계까지 지우고 있던 이야기입니다.\n\n이 마을에서는 둘이 친해지면 둘 사이에 줄이 하나 이어집니다. 사이가 나빠져도 줄은 남습니다. 원한도 관계니까요. 그런데 한 사람이 죽으면 뒷정리를 맡은 함수가 그 줄을 끊고 있었습니다. 죽은 쪽만이 아니라 산 사람 쪽에서도요. 그러면 상실이 남은 사람에게 도착할 길이 아예 없습니다.\n\n처음 계획에는 그 함수가 이번 밀스톤의 유일한 수술이라고 적어 뒀습니다. 조건을 넣어 죽은 사람의 기록은 안 지우게 만들 생각이었거든요.\n\n그런데 결국 그 함수는 한 글자도 안 고쳤습니다. 지워지기 전에 사진을 한 장 찍어 두는 것으로 충분했으니까요. 죽는 순간의 단짝과 원한을 그 사람 생애 기록에 남기면, 무덤을 눌렀을 때 「누구의 단짝이었다」가 함께 뜹니다.\n\n산 사람의 관계 목록에서 죽은 사람이 빠지는 건 그대로 옳습니다. 고칠 곳은 거기가 아니라, 사라지기 전에 남길 자리였습니다.\n\n죽음이 못 지우는 게 하나 생겼습니다.\n\n(같은 글에서 나온 5편 중 4편 — 무덤 일곱이 다 똑같았던 이야기는 16-1편, 알림 한 칸이 일곱 건을 지운 이야기는 16-2편, 한 사람이 명부를 다 덮은 이야기는 16-3편, 같은 판을 다시 켰더니 회상이 달라진 이야기는 16-5편)",
+    "tags": [
+      "유니티",
+      "Unity",
+      "GOAP",
+      "게임개발",
+      "인디게임",
+      "게임AI",
+      "개발일지",
+      "ClaudeCode",
+      "게임기획",
+      "시뮬레이션"
+    ],
+    "categoryId": "28",
+    "privacy": "private",
+    "en": {
+      "_": "스튜디오 → 자막/언어 → 번역 추가 → 영어(미국). 태그는 언어별로 안 나뉘므로 여기 없다.",
+      "title": "Death was erasing friendships too · Unity GOAP Devlog #16-4 #shorts",
+      "blurb": "Death was erasing relationships in my solo Unity village sim.\n\nWhen two villagers grow close, a line forms between them. If they fall out, the line stays — a grudge is a relationship too. But when someone died, the cleanup function cut that line, and not only on the dead side. It cut the living side as well, so loss had no route to reach the survivor.\n\nMy plan called that function the one piece of surgery this milestone needed. I was going to add a branch so records of the dead were spared.\n\nIn the end I did not change a single character of it. Taking a snapshot before the erase was enough. Recording who your best friend and your grudge were at the moment of death means that pressing the grave later shows \"was the closest friend of.\"\n\nRemoving the dead from a living villager's relationship list is still correct. The fix was never in the erase — it was in keeping something before it.\n\nNow there is one thing death cannot erase.\n\n(Part 4 of 5 from the same devlog — seven identical graves is #16-1, one alert slot erasing seven events is #16-2, one villager covering the roster is #16-3, the same run recalled differently is #16-5)"
+    }
+  },
+  "shots": [
+    {
+      "id": "SH",
+      "chapter": "훅",
+      "kind": "cutties",
+      "source": "원문 「문제」절 — '주민이 사라질 때 호출되는 정리 함수가 관계 기록을 양방향으로 삭제하고 있었던 겁니다. 단짝이 죽으면 남은 사람의 기억에서도 그 관계가 통째로 없어졌습니다.' 🔴 제목 핵심어(단짝 · 죽 · 사라진)가 이 두 줄에 있다.",
+      "reads": "마주 선 두 사람 사이에 실 두 가닥이 걸려 있다. 한 사람이 무너지자 두 가닥이 다 사라지고, 남은 사람은 그대로 서 있다",
+      "spec": {
+        "frames": "/3d/ep16s-4/hook/frames"
+      },
+      "lines": [
+        {
+          "text": "제일 친했던\n단짝이 죽었는데,",
+          "say": "제일 친했던 단짝이 죽었는데,",
+          "en": "The closest friend\nof someone died,",
+          "pauseAfter": 130
+        },
+        {
+          "text": "남은 사람 기억에서도\n그 사이가 사라졌어요.",
+          "say": "남은 사람 기억에서도 그 사이가 사라졌어요.",
+          "en": "and the bond vanished\nfrom the survivor too.",
+          "pauseAfter": 150
+        }
+      ],
+      "checks": {
+        "edge": "3D 전면 그림 — 상자를 끝까지 채우는 것이 설계다 (notes/3d-rewrite.md)"
+      }
+    },
+    {
+      "id": "S0",
+      "chapter": "인트로",
+      "kind": "intro",
+      "source": "시리즈 공용 브랜딩 — 문안은 `Docs/영상_25초_전환_실행명세서.md` §2-C(ADR-V25-8), 그림은 `engine/intro-brand.js`(ADR-V25-11 예외).",
+      "reads": "위쪽 터미널 창이 명령을 한 자씩 치고, 명령이 끝날 때마다 아래 미니 맵으로 강조색 커서가 날아가 나무 · 집 · 주민 둘을 차례로 내려놓는다",
+      "spec": {
+        "frames": "/3d/_intro/frames"
+      },
+      "lines": [
+        {
+          "text": "Claude Code로만 만드는, 스스로\n생각하고 행동하는 AI 마을 개발일지",
+          "say": "클로드 코드로만 만드는, 에이아이 마을 개발일지입니다.",
+          "en": "An AI village that thinks and acts\non its own — built only with Claude Code",
+          "pauseAfter": 744
+        }
+      ],
+      "checks": {
+        "edge": "3D 전면 그림 — 상자를 끝까지 채우는 것이 설계다 (notes/3d-rewrite.md)"
+      }
+    },
+    {
+      "id": "S1",
+      "chapter": "뒷정리가 양쪽을 끊었다",
+      "kind": "bothsides",
+      "source": "원문 「문제」절 — '단짝이 죽으면 남은 사람의 기억에서도 그 관계가 통째로 없어졌습니다. 상실이 생존자에게 전달될 통로 자체가 없었던 거죠.' 🔴 「원한도 관계다」는 원문의 관계 기록이 단짝과 원한을 함께 들고 있다는 서술(10단계 '죽는 순간의 단짝과 원한을 스냅샷')에서 왔다.",
+      "reads": "두 사람이 마주 서서 이야기하자 실이 생기고, 다른 둘은 등지고 선 채로도 실이 걸린다. 한 사람이 무너지며 실이 툭 끊기고 멀리 선 사람 쪽 끝도 같이 사라진 뒤, 남은 사람은 둘러보다 그냥 밭을 간다",
+      "spec": {
+        "frames": "/3d/ep16s-4/body1/frames"
+      },
+      "lines": [
+        {
+          "text": "둘이 친해지면\n사이에 줄이 하나 이어져요.",
+          "say": "둘이 친해지면 사이에 줄이 하나 이어져요.",
+          "en": "When two grow close,\na line links them.",
+          "pauseAfter": 130
+        },
+        {
+          "text": "사이가 나빠져도\n줄은 남고요.",
+          "say": "사이가 나빠져도 줄은 남고요.",
+          "en": "Fall out, and the line\nstill stays.",
+          "pauseAfter": 130
+        },
+        {
+          "text": "그런데 한 사람이 죽으면\n뒷정리가 그 줄을 끊었어요.",
+          "say": "그런데 한 사람이 죽으면 뒷정리가 그 줄을 끊었어요.",
+          "en": "But when one died, the cleanup\ncut that line.",
+          "pauseAfter": 150
+        },
+        {
+          "text": "죽은 쪽만이 아니라\n산 사람 쪽에서도요.",
+          "say": "죽은 쪽만이 아니라 산 사람 쪽에서도요.",
+          "en": "Not just the dead side —\nthe living side as well.",
+          "pauseAfter": 130
+        },
+        {
+          "text": "그러면 상실이 남은 사람한테\n도착할 길이 없어요.",
+          "say": "그러면 상실이 남은 사람한테 도착할 길이 없어요.",
+          "en": "Then loss has no route\nto reach the survivor.",
+          "pauseAfter": 180
+        }
+      ],
+      "checks": {
+        "edge": "3D 전면 그림 — 상자를 끝까지 채우는 것이 설계다 (notes/3d-rewrite.md)"
+      }
+    },
+    {
+      "id": "S2",
+      "chapter": "한 글자도 안 고쳤다",
+      "kind": "snapshot",
+      "source": "원문 「10단계」 — '처음 계획할 때 저는 관계를 지우는 그 함수를 \"M13의 유일한 수술\"이라고 적어 뒀습니다. … 그런데 결국 그 함수는 한 글자도 안 고쳤습니다. 지우기 전에 사진을 찍어 두는 것으로 충분했으니까요.' / '죽는 순간, 관계 기록이 지워지기 전에 단짝과 원한을 스냅샷으로 찍어 생애 기록에 남깁니다.'",
+      "reads": "끊긴 실 끝이 허공에 떠 있고 화면은 그대로 아무것도 안 바뀐다. 이어 끊기기 직전의 실이 보라로 굳어 무덤 쪽에 남고, 비석 옆 도구에서 실 두 가닥이 뻗는다",
+      "spec": {
+        "frames": "/3d/ep16s-4/body2/frames"
+      },
+      "lines": [
+        {
+          "text": "고칠 자리는 그 정리 함수라고\n적어 뒀었는데,",
+          "say": "고칠 자리는 그 정리 함수라고 적어 뒀었는데,",
+          "en": "I had written that the cleanup\nwas the thing to fix.",
+          "pauseAfter": 130
+        },
+        {
+          "text": "결국 한 글자도\n안 고쳤어요.",
+          "say": "결국 한 글자도 안 고쳤어요.",
+          "en": "In the end I changed\nnot one character of it.",
+          "pauseAfter": 150
+        },
+        {
+          "text": "지워지기 전에 사진을\n한 장 찍어 뒀거든요.",
+          "say": "지워지기 전에 사진을 한 장 찍어 뒀거든요.",
+          "en": "I took a snapshot\njust before the erase.",
+          "pauseAfter": 130
+        },
+        {
+          "text": "죽는 순간의 단짝과 원한을\n그 사람 기록에 남긴 거예요.",
+          "say": "죽는 순간의 단짝과 원한을 그 사람 기록에 남긴 거예요.",
+          "en": "The friend and the grudge at death\nnow live in that person's record.",
+          "pauseAfter": 180
+        }
+      ],
+      "checks": {
+        "edge": "3D 전면 그림 — 상자를 끝까지 채우는 것이 설계다 (notes/3d-rewrite.md)"
+      }
+    },
+    {
+      "id": "S3",
+      "chapter": "죽음이 못 지운 것",
+      "kind": "keptbond",
+      "source": "원문 「10단계」 — '무덤을 조사하거나 회고에서 드릴다운했을 때 \"누구의 단짝이었다\"가 함께 뜹니다.' / '산 사람의 관계 목록에서 죽은 사람이 지워지는 것은 그대로 옳습니다.'",
+      "reads": "무덤에서 뻗은 실이 산 사람에게 이어지고, 산 사람 곁의 실은 없는 채로 남는다. 무덤에서 뻗은 그 실은 그대로 걸려 있다",
+      "spec": {
+        "frames": "/3d/ep16s-4/body3/frames"
+      },
+      "lines": [
+        {
+          "text": "이제 무덤을 누르면 누구의\n단짝이었는지가 같이 떠요.",
+          "say": "이제 무덤을 누르면 누구의 단짝이었는지가 같이 떠요.",
+          "en": "Press the grave now and it shows\nwhose closest friend they were.",
+          "pauseAfter": 130
+        },
+        {
+          "text": "산 사람 목록에서 죽은 사람이\n빠지는 건 그대로 옳고요.",
+          "say": "산 사람 목록에서 죽은 사람이 빠지는 건 그대로 옳고요.",
+          "en": "Dropping the dead from a living\nvillager's list is still correct.",
+          "pauseAfter": 150
+        },
+        {
+          "text": "죽음이 못 지우는 게\n하나 생겼어요.",
+          "say": "죽음이 못 지우는 게 하나 생겼어요.",
+          "en": "Now there's one thing\ndeath cannot erase.",
+          "pauseAfter": 180
+        }
+      ],
+      "checks": {
+        "edge": "3D 전면 그림 — 상자를 끝까지 채우는 것이 설계다 (notes/3d-rewrite.md)"
+      }
+    },
+    {
+      "id": "SO",
+      "chapter": "아웃트로",
+      "kind": "nextpeek",
+      "source": "다음 편(`ep16s-5`)이 맡을 사건에서 뽑았다 — 원문 마지막 절의 회상 대조('그 끝에서 제 회상이 실제로 다른 문장이 됐습니다'). 🔴 앞 글의 예고가 아니라 그 편이 실제로 지는 사건을 열어서 뽑았다(런북 함정 8).",
+      "reads": "마을이 다시 돌아간다 — 밭 갈고 나무 패고 물을 긷는다",
+      "spec": {
+        "frames": "/3d/ep16s-4/outro/frames"
+      },
+      "lines": [
+        {
+          "text": "다음 편에서는, 같은 판을\n다시 켰더니 회상이 달라졌어요.",
+          "say": "다음 편에서는, 같은 판을 다시 켰더니 회상이 달라졌어요.",
+          "en": "Next: same run, replayed —\nand the memory came out different.",
+          "pauseAfter": 0
+        }
+      ],
+      "checks": {
+        "edge": "3D 전면 그림 — 상자를 끝까지 채우는 것이 설계다 (notes/3d-rewrite.md)"
+      }
+    }
+  ],
+  "notes": {
+    "기본 도형": "**「실은 끊어지는 것이 아니라 옮겨 걸리는 것이다.」** 네 그림이 그 변주다.\n· **SH(cutties)** = 두 가닥이 한꺼번에 사라진다. 명제를 한 화면에.\n· **S1(bothsides)** = 그 끊김을 **양쪽에서** 다시 본다 — 죽은 쪽과 산 사람 쪽.\n· **S2(snapshot)** = 되받아 **뒤집는다.** 끊기기 직전의 실이 굳어 무덤 쪽에 남는다.\n· **S3(keptbond)** = 굳은 실이 **무덤에서 산 사람에게** 걸린다. 방향이 반대가 됐다.\n🔑 **아웃트로(nextpeek)는 축을 바꾼다** — 다음 편은 실이 아니라 **같은 판의 회상**이다.",
+    "색 규약": "뜻층은 **보라 하나**(그 사람에게 닿은 자리 = 굳은 실 · 비석 옆 도구). 살아 있는 관계의 실은 **계기층 시안**이라 예산 밖이고, 그래서 「살아 있는 줄 ↔ 굳은 줄」이 색으로 갈린다. 🔑 16-1 과 같은 보라를 쓰는 것은 같은 뜻(그 사람에게 닿은 자리)이기 때문이다.",
+    "화면의 수": "화면에 글자로 뜨는 수는 0개다. 「두 가닥」·「한 장」은 자막이 지고 화면은 **가닥 수**만 진다. ⚠️ HUD·아웃트로 카드의 회차 번호와 형제 라벨의 수는 기계 파생이라 이 편이 못 고친다.",
+    "비유": "없음."
+  }
+}

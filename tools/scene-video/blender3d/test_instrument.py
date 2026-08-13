@@ -53,6 +53,22 @@ def test_instrument_colour_is_not_reused_by_the_world():
     assert "meaning_mat('instrument'" not in src
 
 
+
+
+def test_gauge_scale_spreads_this_episode_numbers():
+    """🔴 **수치가 안 보이면 밋밋하다**(2026-08-13 지시). 그래서 막대가 생겼는데,
+    0~100 을 그대로 담으면 92 와 105 가 13% 차이라 화면에서 구별이 안 된다.
+    이 회차가 말하는 수 넷(92·95·100·105)이 눈금에서 **충분히 벌어져야** 한다."""
+    k = {v: instrument.gauge_k(v) for v in (92, 95, 100, 105)}
+    assert k[105] - k[92] > 0.35, ('도망 92 → 105 가 화면에서 안 보인다', k)
+    assert k[100] - k[95] > 0.12, ('고집쟁이 95 가 배고픔 100 아래로 안 보인다', k)
+    assert 0.0 < k[92] and k[105] < 1.0, ('눈금 끝에 붙어 잘린다', k)
+
+
+def test_gauge_scale_clamps():
+    assert instrument.gauge_k(0) == 0.0 and instrument.gauge_k(999) == 1.0
+
+
 if __name__ == '__main__':
     from _check import run
     run(globals())

@@ -29,6 +29,13 @@ SPOTS = {
                                        #    2.6° 밖에 안 떨어져 **불타는 우물**로 보였다
     'tree':  Vector((4.6, 1.1, 0)),
     'fire':  Vector((-0.2, 1.0, 0)),
+    # 🔑 식량 자원 노드(게임 `ResourceType.RawFood`). 채집 동작이 설 자리다 —
+    #    이 마을에 「캘 곳」이 없어서 채집이 허공을 젓고 있었다.
+    # 🔴 **행진 통로에 놓지 마라.** 여섯은 x −1.31 줄로 서서 마을을 가로지른다.
+    #    (−0.75, −3.5) 에 뒀더니 훅의 궤적 검사가 「0.34 m 뚫는다」로 막았다.
+    #    그래서 통로 밖에 두고, **캐는 사람이 걸어온다**(render_outro). 자원이 사람을
+    #    찾아가는 게 아니라 사람이 자원을 찾아가는 것이 이 게임이다.
+    'bush':  Vector((1.1, -2.9, 0)),
 }
 
 
@@ -112,50 +119,76 @@ def flame(spot):
     for dx, dy, r, h in TONGUES:
         c = _cone((spot.x + dx, spot.y + dy, FLAME_Z + h / 2), r, h, mat, verts=4)
         c.rotation_euler = (dy * 1.6, -dx * 1.6, 0)      # 바깥으로 살짝 눕는다
+        # 🔑 눕는 각을 **적어 둔다.** `flicker` 가 매 프레임 새로 계산하는데, 기울기를
+        #    현재값에 더하면 프레임마다 쌓여서 불이 드러눕는다(바람 인자 lean 을 넣을 때 겪었다).
+        c['_rot0'] = (c.rotation_euler.x, c.rotation_euler.y)
         out.append(c)
     return out
 
 
-def flicker(parts, t, k=1.0):
+def flicker(parts, t, k=1.0, lean=0.0):
     """불이 **가만히 있으면 불이 아니다.** 정적 게이트에도 그대로 걸린다.
-    k 는 불이 붙는 정도(0 이면 꺼진 것) — 인트로가 불을 지필 때 쓴다."""
+    k 는 불이 붙는 정도(0 이면 꺼진 것) — 인트로가 불을 지필 때 쓴다.
+
+    🔑 `lean` 은 **바람**이다(+X 쪽으로 눕는다). 바람은 눈에 안 보이므로 불이 대신 보여 준다 —
+       눕고, 낮아지고, 더 빨리 떤다. 한기를 색 면으로 그리는 대신 쓰는 것이 이것이다."""
+    a = abs(lean)
     for i, o in enumerate(parts):
-        p = 2 * math.pi * (FLICKER_HZ * t + i * 0.37)
+        rx0, ry0 = o.get('_rot0', (o.rotation_euler.x, o.rotation_euler.y))
+        p = 2 * math.pi * ((FLICKER_HZ + 2.6 * a) * t + i * 0.37)     # 바람이 불면 빨라진다
         o.scale = (k * (1 + 0.10 * math.sin(p * 1.3)),
                    k * (1 + 0.10 * math.cos(p * 1.7)),
-                   k * (1 + 0.22 * math.sin(p)))
-        # 🔴 x·y 는 건드리지 마라 — 혀가 바깥으로 눕는 각이다(flame 이 넣어 둔다).
-        o.rotation_euler = (o.rotation_euler.x, o.rotation_euler.y, 0.25 * math.sin(p * 0.8))
+                   k * (1 + 0.22 * math.sin(p)) * (1 - 0.35 * a))     # 눕는 만큼 낮아진다
+        # 🔴 x·y 는 **기록해 둔 원래 각에서** 다시 계산한다. 현재값에 더하면 매 프레임 쌓인다.
+        o.rotation_euler = (rx0, ry0 - lean * 1.15, 0.25 * math.sin(p * 0.8))
         o.hide_render = k <= 0.02          # 🔴 스케일 0 으로 끄면 밑색이 남는다(함정 ⑥)
 
 
-def cold_front(width=0.95, span=30.0):
-    """겨울이 마을을 가로질러 스친다. 반환: 띠 하나. 처음에는 꺼져 있다.
-
-    🔴 한기(`chill`)는 **뜻층**이다 — 부르는 순간 그 프레임의 유채색 둘 중 하나를 쓴다.
-       불과 같은 규약이고, 불이 켜져 있으면 그 프레임은 이미 상한이다.
-    🔑 인트로의 초록 획과 **같은 도형**을 쓴다. 「무언가가 마을을 훑고 지나갔다」는 이
-       파이프라인에서 이미 한 번 세운 어휘라, 다른 도형을 새로 만들면 어휘만 늘어난다."""
-    # 🔴 **넓은 면에 strength 1.0 을 쓰지 마라**(stage.meaning_mat 주석). 첫 판은 화면을
-    #    가로지르는 네온 띠가 돼서 마을보다 띠가 주인공이었다. 넓게·어둡게 깔아야
-    #    「지나가는 한기」이지 「바닥에 그은 선」이 아니다.
-    b = _cube((0, 0, 0.02), (width, span, 0.03),
-              stage.meaning_mat('chill', strength=0.42, albedo_scale=0.32))
-    b.hide_render = True
-    return b
+# ── 눈 ────────────────────────────────────────────────
+# 🔴 눈은 **세계층**이다(무채색). 한기를 뜻층 색 면으로 그리던 것을 걷어낸 자리에 온다 —
+#    색 예산을 안 쓰면서 「겨울」이 0.3 초 안에 읽히는 유일한 관습 기호다.
+# 🔴 알베도는 지붕(0.28)보다 밝고 주민(sRGB 0.85)보다 어두워야 한다. 눈이 주인공보다
+#    밝으면 마을을 보러 온 화면에서 눈이 주인공이 된다(README 의 EARTH_LEVEL 과 같은 이유).
+SNOW_N = 140
+SNOW_ALBEDO = 0.38
+SNOW_BOX = (12.0, 12.0)         # 덮는 범위. 카메라가 조망으로 오르므로 마을보다 넉넉히
+SNOW_TOP, SNOW_FALL = 4.4, 4.0  # 시작 높이 · 한 바퀴 도는 낙하 거리
+SNOW_SIZE = 0.026
+SNOW_SPEED = 0.52               # m/s — 눈은 느리게 내린다. 빠르면 비가 된다
 
 
-def sweep(front, u, a=-13.0, b=13.0, axis='x'):
-    """u 0→1 로 마을을 가로지른다. 범위 밖이면 **렌더에서 뺀다**(함정 ⑥).
+def snow(center=(0.0, 1.2), n=SNOW_N):
+    """눈발. 반환: `snowfall` 에 그대로 넘기는 목록 [(객체, x, y, 위상)].
 
-    🔑 `axis='y'` 면 띠를 눕혀 **앞뒤로** 밀어 준다. 카메라가 보는 쪽으로 다가와야
-       「다가온다」가 되지, 화면 옆을 스치면 「지나간다」가 된다 — 둘은 다른 말이다."""
-    front.hide_render = not (0.0 < u < 1.0)
-    if axis == 'y':
-        front.rotation_euler = (0, 0, math.pi / 2)
-        front.location.y = a + (b - a) * u
-    else:
-        front.location.x = a + (b - a) * u
+    🔴 자리를 `random` 으로 뿌리지 마라 — **결정성 게이트가 깨진다**(같은 입력에 같은 프레임).
+       무리수 배수의 소수부로 뿌린다(황금비 산포). 씨앗도 상태도 없다."""
+    m = stage.world_mat((SNOW_ALBEDO,) * 3)
+    out = []
+    for i in range(n):
+        gx, gy, gz = (i * 0.7548776662) % 1.0, (i * 0.5698402909) % 1.0, (i * 0.4114206) % 1.0
+        x = center[0] + (gx - 0.5) * SNOW_BOX[0]
+        y = center[1] + (gy - 0.5) * SNOW_BOX[1]
+        f = _cube((x, y, SNOW_TOP - gz * SNOW_FALL), (SNOW_SIZE,) * 3, m)
+        f.hide_render = True
+        out.append((f, x, y, gz))
+    return out
+
+
+def snowfall(parts, t, wind=0.0, k=1.0):
+    """눈을 내린다. `wind` 는 +X 쪽으로 미는 세기(불의 `lean` 과 같은 값을 준다).
+
+    🔑 바람이 셀수록 **옆으로 눕고 빨리 지나간다.** 그게 「몰아친다」다 —
+       같은 눈이 세로로만 떨어지면 아무리 많아도 조용한 눈이다."""
+    for o, x, y, ph in parts:
+        u = (ph + t * SNOW_SPEED * (1 + 1.8 * abs(wind)) / SNOW_FALL) % 1.0
+        fall = u * SNOW_FALL
+        o.location = (x + wind * fall * 1.5 + 0.10 * math.sin(9.1 * ph + 2.3 * t),
+                      y + 0.08 * math.cos(7.7 * ph + 1.9 * t),
+                      SNOW_TOP - fall)
+        # 🔴 `o.scale = (k, k, k)` 로 쓰지 마라. `_cube` 는 **크기를 스케일로 준다** —
+        #    덮어쓰면 눈송이가 기본 큐브 크기(1m)가 돼서 화면이 흰 상자로 덮인다(실제로 그랬다).
+        o.scale = (SNOW_SIZE * k,) * 3
+        o.hide_render = k <= 0.02
 
 
 _MATS = None
@@ -230,6 +263,121 @@ def tree(x, y, s=1.0):
     lower = _cone((x, y, 0.95 * s), 0.66 * s, 0.85 * s, m['leaf'], verts=6)
     _cone((x, y, 1.45 * s), 0.44 * s, 0.70 * s, m['leaf'], verts=6)
     return lower
+
+
+# ── 도구 ──────────────────────────────────────────────
+# 🔴 `chop`·`mine`·`hammer` 는 **도구가 없으면 서로 구별이 안 된다.** 셋 다 「팔을 들었다
+#    내린다」이기 때문이다. 게임의 `AnimKind` 가 이 넷을 이름으로 갈라 놓은 이유가 그것이다.
+# 🔴 자루는 **+Y 를 따라 눕힌다** — `stage.hold` 가 뼈 로컬 +Y(손이 뻗은 방향)에 붙인다.
+#    `_cyl` 은 Z 로 서므로 X 축 -90° 로 눕혀야 +Y 가 된다.
+# 🔴 유채색을 쓰지 마라. 도구는 **세계층**이다(돌·나무).
+HAFT_R = 0.016
+
+
+def _haft(length, mat, y0=0.0):
+    o = _cyl((0, y0 + length / 2, 0), HAFT_R, length, mat)
+    o.rotation_euler = (math.radians(-90), 0, 0)
+    return o
+
+
+def _tool(name, parts):
+    """부품들을 빈 오브젝트 하나에 매단다. `stage.hold` 는 이 하나만 손에 붙인다."""
+    root = bpy.data.objects.new(name, None)
+    bpy.context.collection.objects.link(root)
+    for p in parts:
+        p.parent = root
+        p.matrix_parent_inverse.identity()
+    return root
+
+
+def axe(s=1.0):
+    """도끼 — Clear(벌목) · `AnimKind.Chop`. 자루 + 두꺼운 등 + **얇은 날.**
+
+    🔴 머리를 **상자 하나로 두지 마라.** 옆에서 보면 주걱으로 읽힌다(첫 판이 그랬다) —
+       이 문서 맨 위 규칙 그대로다. 도구 머리는 **등(두껍고 짧다) + 날(얇고 길다)** 둘로
+       갈라야 그 도구가 된다. 아래 셋도 같은 규칙을 쓴다.
+    🔑 날은 자루에 **직각으로** 뻗는다(+Z). 자루 축에 나란히 두면 몽둥이다.
+    🔴 날을 **상자로 두지 마라.** 옆에서 보면 자루 위에 얹힌 T자 막대가 된다(두 판 그랬다).
+       날은 **삼각 쐐기**여야 하고, 넓은 면이 스윙 평면(자루축 × 날 방향)을 향해야 한다.
+       X 로 납작하게 눌러 그 면을 만든다 — 그래야 어느 각도에서든 「쐐기」로 읽힌다."""
+    m = mats()
+    poll = _cube((0, 0.290 * s, 0.005 * s), (0.038 * s, 0.060 * s, 0.052 * s), m['stone'])
+    blade = _cone((0, 0.300 * s, 0.055 * s), 0.088 * s, 0.115 * s, m['stone'], verts=3)
+    blade.scale = (0.17, 1.0, 1.0)              # 납작한 쐐기 — 넓은 면이 스윙 평면이다
+    return _tool('axe', [_haft(0.38 * s, m['earth'], -0.06 * s), poll, blade])
+
+
+def pickaxe(s=1.0):
+    """곡괭이 — Clear(채석) · `AnimKind.Mine`. 자루 + **양쪽으로 뻗은 뿔 둘.**
+    🔑 도끼와 갈리는 것은 **뾰족함과 좌우 대칭**이다. 날이 면이면 도끼, 뿔이면 곡괭이다."""
+    m = mats()
+    parts = [_haft(0.40 * s, m['earth'], -0.07 * s),
+             _cube((0, 0.30 * s, 0), (0.030 * s, 0.042 * s, 0.042 * s), m['stone'])]
+    for z, r, h, flip in ((0.105 * s, 0.030 * s, 0.130 * s, 0.0),
+                          (-0.085 * s, 0.026 * s, 0.100 * s, math.pi)):
+        horn = _cone((0, 0.30 * s, z), r, h, m['stone'], verts=4)
+        horn.rotation_euler = (flip, 0, 0)
+        parts.append(horn)
+    return _tool('pickaxe', parts)
+
+
+def hammer(s=1.0):
+    """망치 — Build·Repair·Craft · `AnimKind.Hammer`. **짧은 자루 + 뭉툭한 머리.**
+    🔑 도끼·곡괭이와 갈리는 것은 **자루가 짧다**는 것이다. 긴 자루에 뭉툭한 머리를 달면
+       그건 망치가 아니라 메다 — 실루엣에서 자루 길이가 먼저 읽힌다."""
+    m = mats()
+    head = _cube((0, 0.215 * s, 0), (0.048 * s, 0.050 * s, 0.115 * s), m['stone'])
+    claw = _cube((0, 0.215 * s, -0.080 * s), (0.030 * s, 0.036 * s, 0.050 * s), m['stone'])
+    return _tool('hammer', [_haft(0.26 * s, m['earth'], -0.05 * s), head, claw])
+
+
+def wateringcan(s=1.0):
+    """물뿌리개 — Farm(Plant)·Tend · `AnimKind.Water`. 통 + **주둥이.**
+    🔴 통만 만들면 양동이다. **주둥이가 이 물건을 물뿌리개로 만든다** — 기울였을 때
+       물이 나가는 쪽이 보여야 「준다」가 된다.
+    🔑 물은 안 그린다. 유채색이면 뜻층 예산을 쓰고, 무채색이면 안 보인다 —
+       기울인 주둥이가 그 말을 대신한다."""
+    m = mats()
+    body = _cyl((0, 0.19 * s, 0), 0.072 * s, 0.135 * s, m['stone'], verts=8)
+    spout = _cyl((0, 0.24 * s, 0.105 * s), 0.018 * s, 0.150 * s, m['stone'])
+    spout.rotation_euler = (math.radians(-38), 0, 0)
+    grip = _cube((0, 0.19 * s, 0.090 * s), (0.020 * s, 0.075 * s, 0.014 * s), m['earth'])
+    return _tool('wateringcan', [body, spout, grip])
+
+
+def _blob(loc, r, mat, squash=0.62):
+    """저폴리 덩이 하나(20면). 🔴 부드럽게 만들지 마라 — 이 마을은 전부 플랫 셰이딩이다."""
+    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=1, radius=r, location=loc)
+    o = bpy.context.object
+    o.scale = (1.0, 1.0, squash)
+    o.data.materials.append(mat)
+    return o
+
+
+def bush(x, y, s=1.0):
+    """덤불 — 게임의 **식량 자원 노드**(`ResourceType.RawFood`)다. 반환: 가운데 덩이.
+
+    🔴 나무로 대신하지 마라. 이 마을 나무는 **층진 원뿔 둘, 침엽수**라 열매가 안 달린다.
+       주민을 나무 옆에 세워 팔을 뻗게 했더니 「무엇을 향해 뻗었는지」가 없어서 동작이
+       통째로 안 읽혔다 — 판정 한 판을 그렇게 버렸다.
+    🔴 열매를 유채색 점으로 찍지 마라. 그 순간 뜻층 예산을 쓴다(설계 §2).
+       덤불은 **세계층**이고, 「먹을 것이 있는 곳」은 자리와 크기로 말한다.
+    🔑 높이는 주민 키(0.95)의 절반 안쪽 — 허리께다. 그래야 **굽혀서 따는** 동작이 산다.
+       나무만 하게 만들면 또 팔을 머리 위로 들어야 하고, 이 캐릭터는 손이 정수리를 못 넘는다.
+    🔴 덩이 셋을 붙여 놓으면 **이끼 낀 돌**로 읽힌다(첫 판이 그랬다). 나무가 층진 잎 둘로
+       나무가 된 것과 같은 규칙이다 — 덩이를 **떼어 놓고 높이를 어긋내고**, 사이로 잔가지가
+       삐져나와야 「덤불」이다. 매끈한 덩어리는 지형이지 식물이 아니다."""
+    m = mats()
+    _cyl((x, y, 0.05 * s), 0.05 * s, 0.10 * s, m['earth'])           # 밑동
+    # 🔑 잔가지가 잎 사이로 **삐져나온다.** 이게 없으면 덩이 무더기다
+    for dx, dy, tilt in ((-0.10, 0.13, 0.30), (0.15, 0.05, -0.26), (0.02, -0.15, 0.18)):
+        tw = _cyl((x + dx * s, y + dy * s, 0.28 * s), 0.017 * s, 0.44 * s, m['earth'])
+        tw.rotation_euler = (tilt, tilt * 0.7, 0)
+    core = _blob((x, y, 0.28 * s), 0.27 * s, m['leaf'], squash=0.58)
+    # 🔑 곁덩이는 **떼어 놓고 높이를 어긋낸다.** 붙이면 다시 한 덩어리가 된다
+    _blob((x - 0.30 * s, y + 0.11 * s, 0.17 * s), 0.19 * s, m['leaf'], squash=0.66)
+    _blob((x + 0.27 * s, y - 0.13 * s, 0.21 * s), 0.17 * s, m['leaf'], squash=0.54)
+    return core
 
 
 def well(spot):
@@ -325,6 +473,7 @@ def build():
 
     return {'ground': ground, 'houses': houses, 'trees': trees,
             'field': field(SPOTS['field']), 'well': well(SPOTS['well']),
+            'bush': bush(SPOTS['bush'].x, SPOTS['bush'].y),
             'campfire': _fire_pit(SPOTS['fire'], m['stone'], m['char'])}
 
 

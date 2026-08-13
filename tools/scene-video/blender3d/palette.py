@@ -31,8 +31,30 @@ HEX = {
     #    한기와 27.9° 밖에 안 벌어져 판정 여유를 두 배로 잡을 수 없었다. 가운데로 옮기니
     #    여섯 색의 최소 간격이 32° 로 고르게 벌어진다.
     'instrument': '#5CF4FF',   # 계기층 — 공중에만 뜬다
+    # ── 행동 수치 색 (2026-08-13 사용자 지시) ────────────────────────────
+    # 🔴 **계기층의 확장이지 뜻층이 아니다.** `MEANING` 에 안 들어가므로 게이트의
+    #    「한 프레임 2색」 예산 밖이다 — 막대가 붉은 덩이·모닥불과 안 싸운다.
+    # 🔴 **넷은 안 들어간다.** 남은 색상각을 완전 탐색해 보니 새 색 넷이면 최소 간격이
+    #    29.1° 로 문턱(HUE_TOL×2 = 30°) 아래다 — 그 상태면 여가색과 성격 보라가
+    #    경계에서 서로로 잡혀 **뜻층 예산이 잘못 세어진다.** 셋이면 31.9° 로 산다.
+    #    그래서 범주 넷 중 **셋만 새 색이고, 「여가·그 밖」은 이미 있는 계기 시안**이다.
+    'need_body':   '#F1FF5C',   # 65°  몸 — 배고픔·휴식·간식·치료 (앰버 32° 옆: 삶·온기)
+    'need_work':   '#92FF5C',   # 100° 일 — 채집·농사·건설·수리 (초록 152° 옆: 시스템)
+    'need_threat': '#FF5CE4',   # 310° 위협 — 도망·방어 (빨강 0° 옆인데 안 헷갈린다)
 }
 MEANING = ('green', 'amber', 'chill', 'red', 'violet')
+# 계기층 = 시안 + 행동 수치 넷. 🔑 「수치는 공중에만 뜬다」는 규약은 그대로다.
+NEED = ('need_body', 'need_work', 'need_threat', 'instrument')
+INSTRUMENT = ('instrument', 'need_body', 'need_work', 'need_threat')
+
+# 행동 → 범주. 🔑 목표 30개에 색 30개는 못 준다(자리가 셋뿐이다) — **범주**에 준다.
+#    게임이 목표를 늘려도 여기 한 줄만 늘면 된다.
+NEED_OF = {
+    'hunger': 'need_body', 'rest': 'need_body', 'snack': 'need_body', 'heal': 'need_body',
+    'gather': 'need_work', 'farm': 'need_work', 'build': 'need_work', 'repair': 'need_work',
+    'flee': 'need_threat', 'defend': 'need_threat',
+    'leisure': 'instrument', 'social': 'instrument', 'explore': 'instrument',
+}
 BG = '#0E1117'                 # 엔진이 깔고 있는 배경. 3D 는 알파로 비우고 엔진이 합성한다
 
 MAX_MEANING_PER_FRAME = 2      # 🔴 규약. 게이트가 이 수를 본다

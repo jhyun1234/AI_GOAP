@@ -58,7 +58,9 @@ def test_earth_is_world_layer_not_a_meaning_color():
 
 
 def test_meaning_hues_are_far_enough_apart_to_tell_apart():
-    names = list(palette.MEANING) + ['instrument']
+    """🔴 **행동 수치 색 넷까지 여기 들어온다**(2026-08-13). 색을 더 넣고 싶어지면
+    이 검사가 먼저 막는다 — 남은 자리가 없다는 것이 값으로 증명된다."""
+    names = list(palette.MEANING) + list(palette.INSTRUMENT)
     for i, a in enumerate(names):
         for b in names[i + 1:]:
             d = abs(((palette.HUES[a] - palette.HUES[b] + 180) % 360) - 180)

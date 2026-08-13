@@ -7,7 +7,7 @@
   4.49~5.99  ④ 초록 획이 훑고 지나가며 **코드가 나머지를 채운다**
   5.99~7.49  ⑤ 마을로 **컷 ↓**
   7.49~8.99  ⑥ 군무가 깨진다 — 여섯이 처음으로 서로 다른 동작을 한다
-  8.99~10.49 ⑦ 여섯이 서로 다른 곳으로 걸어간다
+  8.99~10.49 ⑦ 여섯이 서로 다른 곳으로 **걸어서** 간다(하던 일을 놓고 걷기로 갈아탄다)
 
 🔴 이 편의 컷 **둘째이자 마지막**이 ⑤ 다(설계 §4-1). 본문2 에서 여기까지는 컷이 없다 —
    개발자 시점 카메라를 `instrument.DEV_CAM` 으로 공유하는 이유다.
@@ -35,6 +35,8 @@ NB = 7
 BEAT = DUR / NB
 assert BEAT <= 1.5, '비트가 홀드 상한을 넘었다: %.2f 초' % BEAT
 CUT_AT = 4.0 * BEAT                      # ⑤ 마을로 내려가는 컷
+WALK_AT = 6.0 * BEAT                     # ⑦ 여섯이 제 쪽으로 **걸어** 나가기 시작한다
+WALK_SPAN = DUR - WALK_AT
 
 # 손으로 채우면 백여든 칸(성격 여섯 × 일 서른), 실제로 적은 것은 서른여섯 줄.
 # 🔑 수를 여기서 만들지 않는다 — 대본이 말하는 수다("손으로 백여든 칸", "서른여섯 줄만").
@@ -55,6 +57,13 @@ bpy.ops.wm.read_factory_settings(use_empty=True)
 village.build()
 arms = unison.place()
 fire = village.flame(village.SPOTS['fire'])
+
+# 🔴 도끼를 **쥐여 준다.** 맨손이면 `chop`·`mine`·`hammer` 가 전부 「팔을 들었다 내린다」로
+#    같아진다(PROPS.md 「도구 넷」). 갈라짐이 사건인 샷에서 그건 갈라짐을 지우는 것이다.
+# 🔑 갈라지기 전에는 여섯이 같은 걷기를 하므로 도끼가 보이면 안 된다 — 프레임 루프에서 켠다.
+CHOPPER = unison.BREAK.index('chop')
+AXE = stage.hold(arms[CHOPPER], village.axe(), 'hand.R', (0.0, 0.02, 0.0))
+AXE_PARTS = list(AXE.children)
 
 # 본문1 이 남긴 자리에서 시작한다(⑤ 가 컷이라 그림은 안 이어지지만, 여섯이 순간이동해
 # 있으면 같은 마을로 안 읽힌다 — 마을 샷끼리는 자리를 이어 둔다).
@@ -80,18 +89,17 @@ cam = stage.light_camera()
 cam.data.lens = instrument.DEV_LENS
 stage.key_from_view(*instrument.DEV_CAM)
 
-# ⑦ 여섯이 흩어져 가는 쪽. 🔴 무리 중심에서 **바깥으로** 뻗는다 — 안쪽으로 보내면
-#    서로 겹쳐서 「갈라졌다」가 아니라 「뭉쳤다」가 된다.
-CX = sum(x for x, _ in HOME) / 6
-CY = sum(y for _, y in HOME) / 6
-AWAY = [math.atan2(y - CY, x - CX) + (i - 2.5) * 0.16 for i, (x, y) in enumerate(HOME)]
+# ⑦ 여섯이 걸어 나가는 쪽. 🔴 `unison.SPLIT_FAN` 이 정본이다 — 아웃트로가 그 자리를
+#    이어받아 걸어다니므로, 여기서 각을 따로 적으면 그날 두 샷이 갈라진다.
+AWAY = unison.SPLIT_FAN
 
 VCAM = ((4.60, -9.60, 3.30), (-1.80, 0.10, 0.80))     # ⑤ 컷이 내려앉는 자리
 # 🔴 낮게 붙이면 여섯이 겹쳐서 「갈라졌다」가 안 보인다. 갈라짐은 **간격**이 보여야 한다.
 
-print('[body3] %d비트 · %.2f초 · %d칸 → %d칸 · 컷 %.2f초' % (NB, DUR, N_FULL, N_KEEP, CUT_AT))
+print('[body3] %d비트 · %.2f초 · %d칸 → %d칸 · 컷 %.2f초 · ⑦ %.2f초부터 %.2fm 걸어 나간다'
+      % (NB, DUR, N_FULL, N_KEEP, CUT_AT, WALK_AT, motions.WALK_SPEED * WALK_SPAN))
 
-for fi in range(NF):
+def draw(fi):
     t = fi / FPS
     b = t / BEAT
 
@@ -125,14 +133,22 @@ for fi in range(NF):
 
     # ── ⑥⑦ 마을 — 군무가 깨진다 ──────────────────
     k = 1.0 if b >= 5.0 else 0.0                  # ⑥ 여섯이 서로 다른 동작
-    # ⑦ 서로 다른 쪽으로 벌어진다. 🔴 BREAK 에서 걷는 사람은 하나뿐이라 그것만으로는
-    #    「궤적이 갈라진다」가 안 보인다 — **여섯 다** 제 쪽으로 벌어져야 간격이 생긴다.
-    drift = 1.15 * ease((b - 6.0) / 1.0)
+    # ⑦ 서로 다른 쪽으로 **걸어** 나간다. 🔴 BREAK 에서 걷는 사람은 하나뿐이라 그것만으로는
+    #    「궤적이 갈라진다」가 안 보인다 — **여섯 다** 제 쪽으로 걸어가야 간격이 생긴다.
+    # 🔴 앞 판은 하던 일(밭일·장작)을 그대로 한 채 자리만 밀려서 **미끄러졌다.**
+    #    나아가는 거리는 걸음이 만든다 — `WALK_SPEED × 걸은 시간`이지 눈대중이 아니다.
+    wt = min(max(t - WALK_AT, 0.0), WALK_SPAN)
+    drift = motions.WALK_SPEED * wt
+    ww = ease(wt / unison.BLEND)
+    # 도끼는 **갈라진 뒤에만** 손에 있다. 군무 구간에 보이면 여섯이 같은 일을 하는 그림이 깨진다
+    for p in AXE_PARTS:
+        p.hide_render = k < 0.5
+
     for i, (arm, (x, y)) in enumerate(zip(arms, HOME)):
         name = unison.motion_at(t, i, k)
-        stage.pose(arm, motions.MOTIONS[name](t))
+        stage.pose(arm, motions.blend(motions.MOTIONS[name](t), motions.walk(wt), ww))
         arm.location = (x + drift * math.cos(AWAY[i]), y + drift * math.sin(AWAY[i]), 0)
-        arm.rotation_euler = (0, 0, AWAY[i] + math.pi if drift > 0.02
+        arm.rotation_euler = (0, 0, AWAY[i] + math.pi if wt > 0
                               else unison.FACE + HEADING)
 
     village.flicker(fire, t)
@@ -153,8 +169,5 @@ for fi in range(NF):
     if abs(t - CUT_AT) < 1.0 / FPS:                # 컷 순간 빛도 같이 옮긴다
         stage.key_from_view(*VCAM)
 
-    bpy.context.view_layer.update()
-    bpy.context.scene.render.filepath = os.path.join(OUT, '%04d.png' % fi)
-    bpy.ops.render.render(write_still=True)
 
-print('[body3] %d frames -> %s' % (NF, OUT))
+stage.bake(OUT, NF, FPS, draw, 'body3')

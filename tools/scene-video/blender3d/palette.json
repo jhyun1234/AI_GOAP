@@ -5,6 +5,9 @@
   "earth": "#8A8074",
   "green": "#00FF88",
   "instrument": "#5CF4FF",
+  "need_body": "#F1FF5C",
+  "need_threat": "#FF5CE4",
+  "need_work": "#92FF5C",
   "red": "#FF5C5C",
   "violet": "#C77DFF"
  },
@@ -15,6 +18,9 @@
   "earth": 32.7,
   "green": 152.0,
   "instrument": 184.0,
+  "need_body": 65.2,
+  "need_threat": 309.9,
+  "need_work": 100.1,
   "red": 0.0,
   "violet": 274.2
  },
@@ -35,6 +41,9 @@
   "earth": 0.159,
   "green": 1.0,
   "instrument": 0.639,
+  "need_body": 0.639,
+  "need_threat": 0.639,
+  "need_work": 0.639,
   "red": 0.639,
   "violet": 0.51
  }

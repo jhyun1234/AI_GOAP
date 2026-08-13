@@ -84,9 +84,9 @@
           "pauseAfter": 160
         },
         {
-          "text": "그런데 여섯이\n하루 종일 똑같이 움직였어요.",
+          "text": "그런데 6명이\n하루 종일 똑같이 움직였어요.",
           "say": "그런데 여섯이 하루 종일 똑같이 움직였어요.",
-          "en": "But all six moved the same\nall day long.",
+          "en": "But all 6 moved the same\nall day long.",
           "pauseAfter": 200
         },
         {
@@ -190,21 +190,21 @@
       },
       "lines": [
         {
-          "text": "주민이 하는 일은\n서른 가지인데,",
+          "text": "주민이 하는 일은\n30가지인데,",
           "say": "주민이 하는 일은 서른 가지인데,",
-          "en": "The villagers have\nthirty things to do.",
+          "en": "The villagers have\n30 things to do.",
           "pauseAfter": 120
         },
         {
-          "text": "성격이 닿는 자리는\n셋뿐이었어요.",
+          "text": "성격이 닿는 자리는\n3개뿐이었어요.",
           "say": "성격이 닿는 자리는 셋뿐이었어요.",
-          "en": "Personality reached\nonly three of them.",
+          "en": "Personality reached\nonly 3 of them.",
           "pauseAfter": 140
         },
         {
-          "text": "여섯이 다 걸린 건\n겨울 비축, 하나였고요.",
+          "text": "6명이 다 걸린 건\n겨울 비축, 1개였고요.",
           "say": "여섯이 다 걸린 건 겨울 비축 하나였고요.",
-          "en": "All six touched just one:\nstocking up for winter.",
+          "en": "All 6 touched just 1:\nstocking up for winter.",
           "pauseAfter": 200
         }
       ],
@@ -245,22 +245,22 @@
       },
       "lines": [
         {
-          "text": "성격 여섯에 일 서른이면\n손으로 백여든 칸이에요.",
-          "say": "성격 여섯에 일 서른이면 손으로 백여든 칸이에요.",
-          "en": "Six personalities times thirty tasks\nis 180 cells by hand.",
+          "text": "성격 6 × 일 30이면\n손으로 180칸이에요.",
+          "say": "성격 여섯에 일 서른이면 손으로 백팔십 칸이에요.",
+          "en": "6 personalities × 30 tasks\nis 180 cells by hand.",
           "pauseAfter": 120
         },
         {
-          "text": "서른여섯 줄만 적으니\n나머지는 코드가 채웠어요.",
+          "text": "36줄만 적으니\n나머지는 코드가 채웠어요.",
           "say": "서른여섯 줄만 적으니 나머지는 코드가 채웠어요.",
           "en": "I wrote just 36 rows.\nThe code filled the rest.",
           "pauseAfter": 150
         },
         {
-          "text": "여섯이 드디어\n다르게 움직였어요.",
+          "text": "6명이 드디어\n다르게 움직였어요.",
           "say": "여섯이 드디어 다르게 움직였어요.",
-          "en": "At last the six\nmoved differently.",
-          "pauseAfter": 200
+          "en": "At last the 6\nmoved differently.",
+          "pauseAfter": 100
         }
       ],
       "sfx": [

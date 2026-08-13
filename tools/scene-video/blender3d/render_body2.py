@@ -83,7 +83,7 @@ for t_ in threads:
 print('[body2] 6비트 · %.2f초 · 칸 %d×%d=%d · 보라 %s · 남는 칸 %d'
       % (DUR, COLS, ROWS, COLS * ROWS, LIT, SOLE))
 
-for fi in range(NF):
+def draw(fi):
     t = fi / FPS
     b = t / BEAT                                   # 지금 몇 번째 비트인가(실수)
 
@@ -122,8 +122,5 @@ for fi in range(NF):
 
     village.flicker(fire, t)
 
-    bpy.context.view_layer.update()
-    bpy.context.scene.render.filepath = os.path.join(OUT, '%04d.png' % fi)
-    bpy.ops.render.render(write_still=True)
 
-print('[body2] %d frames -> %s' % (NF, OUT))
+stage.bake(OUT, NF, FPS, draw, 'body2')

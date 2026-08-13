@@ -30,6 +30,12 @@ BAND_W, BAND_H, BAND_Y = 970, 846, 420
 #               키라이트가 SUN 이라 **마을 어디에 서 있든 같은 값**이다(아래 light_camera).
 #    LANE_LEVEL — 길 알베도. EXPOSURE 로 나눠 써서 **노출을 바꿔도 길 밝기는 안 변한다.**
 #                 우리 2D 트랙(흰색 12% ≈ sRGB 0.17)과 같은 밝기가 되게 맞춘 값이다.
+# 🔴 인트로 길이 — **45 편이 공유하는 하나의 값**이다. 회차가 이 값에 맞추지, 인트로가
+#    회차에 맞추지 않는다. 각 편의 S0 `pauseAfter` 를 이 길이가 되게 준다.
+#    실측(2026-08-13): 말 2993ms 편은 쉼 1800 · 말 4049ms 편은 쉼 744 · 꼬리는 늘 350.
+#    🔑 가장 긴 S0(4.599초)보다 커야 한다 — `pauseAfter` 는 **늘릴 수만 있다.**
+INTRO_SEC = 5.143
+
 EXPOSURE = 1.85
 LANE_LEVEL = 0.015
 DEPTH_STEP = 0.085         # 뒤로 한 칸 갈 때마다 어두워지는 비율(lib.js DEPTH 명도 계단)
@@ -175,6 +181,21 @@ def shot_seconds(ep, shot_id):
     return (sum(l['dur'] + l.get('pause', 0) for l in s['lines']) + 350) / 1000.0
 
 
+def shot_lines(ep, shot_id):
+    """그 샷 자막 줄들의 (시작초, 길이초). 🔴 **강조는 대본이 정한다** — 어느 수치를 언제
+    키울지 손으로 적으면 대본이 바뀌는 날 어긋난다(2026-08-13 지시: 「대본에 맞게 막대를
+    보이고 강조해라」). `timed.json` 이 정본이다."""
+    import json
+    d = json.load(open(os.path.join(SV_ROOT, 'episodes', ep, 'build', 'timed.json'),
+                       encoding='utf-8'))
+    s = next(x for x in d['shots'] if x['id'] == shot_id)
+    out, t = [], 0.0
+    for l in s['lines']:
+        out.append((t, l['dur'] / 1000.0))
+        t += (l['dur'] + l.get('pause', 0)) / 1000.0
+    return out
+
+
 def shot_spec(ep, shot_id):
     """샷의 `spec` 블록. 칸 수·불 켜지는 칸 같은 수는 여기서 읽는다 — 두 군데 적으면 갈라진다."""
     import json
@@ -265,6 +286,17 @@ def instrument_mat(strength=1.0):
     return _mat('instrument', (0.0, 0.05, 0.06), emit=PALETTE['instrument'], strength=strength)
 
 
+def need_mat(name, strength=1.0):
+    """행동 수치 색(계기층 확장). 🔴 **세계 물체에 붙이지 마라** — 계기는 공중에만 뜬다.
+    🔑 `MEANING` 에 없으므로 뜻층 「한 프레임 2색」 예산 밖이다(palette.py 주석)."""
+    assert name in palette.INSTRUMENT, '계기층 색이 아니다: %s' % name
+    # 🔴 알베도를 **그 색에서** 뽑는다. 시안 고정값(0,0.05,0.06)을 쓰면 노랑·자홍 막대가
+    #    그 시안에 물들어 탁해진다 — 처음 판이 그랬다(프레임 시트로 잡았다).
+    c = PALETTE[name]
+    return _mat('%s_%d' % (name, round(strength * 100)),
+                tuple(v * 0.10 for v in c), emit=c, strength=strength)
+
+
 def gate(objs, on):
     """게이트가 0 이면 **렌더에서 뺀다.**
     🔴 스케일 0 이나 발광 0 으로 끄면 안 된다 — 납작해진 채 밑색이 그대로 보여서, 흰색만
@@ -312,9 +344,115 @@ def rigged(col=None, loc=(0, 0, 0), rot_z=90):
     return mesh, arm
 
 
+ROOT = '@root'      # 회전이 아니라 **골반 이동**. (앞, 위, 왼쪽) 미터. motions.ROOT 와 같은 값
+SQUASH = '@squash'  # (k, 0, 0). k>0 **눌림**(납작·넓게) · k<0 **늘어남**(길쭉·좁게)
+SQUASH_MAX = 0.30   # 🔴 넘기면 사람이 아니라 젤리가 된다. 이 마을은 만화가 아니다
+
+
 def pose(arm, spec):
-    """{뼈이름: (x, y, z) 라디안} 을 통째로 적용한다. 안 적힌 뼈는 0 으로 되돌린다."""
+    """{뼈이름: (x, y, z) 라디안} 을 통째로 적용한다. 안 적힌 뼈는 0 으로 되돌린다.
+
+    `spec[ROOT]` 는 뼈가 아니라 **골반 이동**이다 — (앞, 위, 왼쪽) 미터.
+    🔴 몸통이 공간에서 안 움직이면 팔다리만 도는 인형이 된다. 걸을 때 오르내리지 않고
+       도끼를 내리쳐도 안 주저앉으면 **무게가 없다** — 「역동적이지 않다」의 정체가 그것이다.
+    🔴 축은 **실측한 것이다**(추론하지 마라. 이 프로젝트가 부호로 네 번 헛돌았다):
+       `hips.location` 로컬 X → 월드 +Y · 로컬 Y → 월드 +Z(위) · 로컬 Z → 월드 +X.
+       그런데 **정면이 -X 다**(rig.py 39행) — 그래서 앞은 로컬 Z **음수**다.
+       그리고 rig.py 가 **L 뼈를 +Y 에** 두므로 월드 +Y 는 **왼쪽**이다.
+    """
     for pb in arm.pose.bones:
         pb.rotation_euler = (0, 0, 0)
+        pb.location = (0, 0, 0)
+    fwd, up, side = spec.get(ROOT, (0.0, 0.0, 0.0))
+    arm.pose.bones['hips'].location = (side, up, -fwd)
+
+    # 스쿼시 & 스트레치 — 관절 회전으로는 못 만드는 층이다. 부딪히면 눌리고 빠르면 늘어난다.
+    # 🔴 **부피를 보존한다.** 세로만 줄이면 사람이 그냥 작아진다 — 눌린 만큼 옆으로 퍼져야
+    #    「눌렸다」로 읽힌다. 가로를 1/√(세로)로 준다.
+    # 🔑 아마추어 원점이 **발바닥**이라 이 배율이 발을 땅에 붙인 채 키만 바꾼다.
+    #    눌리면 주저앉고 늘어나면 솟는다 — 원점이 허리였으면 발이 땅을 뚫었다.
+    k = max(-SQUASH_MAX, min(SQUASH_MAX, spec.get(SQUASH, (0.0, 0.0, 0.0))[0]))
+    sz = 1.0 - k
+    sxy = 1.0 / math.sqrt(sz)
+    arm.scale = (sxy, sxy, sz)
     for name, rot in spec.items():
-        arm.pose.bones[name].rotation_euler = rot
+        if name not in (ROOT, SQUASH):      # 🔴 뼈가 아닌 키는 여기서 다 걸러야 한다
+            arm.pose.bones[name].rotation_euler = rot
+
+
+def hold(arm, tool, bone='hand.R', loc=(0.0, 0.0, 0.0), rot_x=0.0):
+    """도구를 주민 손에 붙인다. 회차마다 다시 짜지 않게 여기 한 곳에 둔다.
+
+    🔴 블렌더의 뼈 자식은 **뼈 꼬리**에 붙는다 — `hand.R` 은 손끝이다. 그래서 `loc` 은
+       손끝 기준이고, **뼈의 로컬 +Y 가 손이 뻗은 방향**이다(뼈 축이 뼈를 따라 Y 다).
+       도구는 그 규약에 맞춰 **자루가 +Y 를 따라 눕도록** 만든다(`village.axe` 등).
+    🔴 `matrix_parent_inverse` 를 안 비우면 도구가 만든 자리(원점)만큼 어긋난다 —
+       GLB 임포트에서 이미 한 번 밟은 것과 같은 함정이다(README 함정 ①).
+    """
+    tool.parent = arm
+    tool.parent_type = 'BONE'
+    tool.parent_bone = bone
+    tool.matrix_parent_inverse.identity()
+    tool.rotation_mode = 'XYZ'
+    tool.location = loc
+    tool.rotation_euler = (rot_x, 0.0, 0.0)
+    return tool
+
+
+LIVE = False        # live.py 가 켠다 — 굽지 않고 타임라인만 살린다
+
+
+def _frame_hook(draw):
+    """프레임이 바뀔 때마다 `draw(fi)` 를 부르게 건다. 앞서 건 것은 뗀다."""
+    for h in list(bpy.app.handlers.frame_change_pre):
+        if getattr(h, '_stage_draw', False):
+            bpy.app.handlers.frame_change_pre.remove(h)
+
+    def _on_frame(scene, _depsgraph=None):
+        draw(scene.frame_current)
+
+    _on_frame._stage_draw = True
+    bpy.app.handlers.frame_change_pre.append(_on_frame)
+    return _on_frame
+
+
+def bake(out_dir, nf, fps, draw, tag='bake'):
+    """`draw(fi)` 를 프레임마다 부르게 걸고 샷을 **한 번에** 굽는다.
+
+    🔴 프레임마다 `bpy.ops.render.render(write_still=True)` 를 부르지 않는다.
+       실측 0.288 → 0.267 s/frame(7%). 그보다 큰 이유는 구조다 — 프레임 계산이
+       **핸들러**로 나오면서 GUI 타임라인 재생·스크럽이 렌더와 **같은 코드**를 돈다
+       (`live.py`). 굽는 길과 보는 길이 갈라지지 않는다.
+    🔴 키프레임을 굽는 것이 아니다. 키를 만들면 스크립트가 정본이 아니게 되고
+       결정성 게이트가 검증하는 대상 밖으로 나간다. 계산은 그대로 매 프레임 돈다
+       (실측 214프레임 0.64초 — 렌더 61.6초의 1%다. 여기는 손댈 자리가 아니다).
+
+    `BAKE_RANGE="0:23"` 으로 일부만 굽는다 — 재거나 눈으로 볼 때만 쓴다.
+    """
+    sc = bpy.context.scene
+    sc.render.fps = fps
+    lo, hi = 0, nf - 1
+    rng = os.environ.get('BAKE_RANGE')
+    if rng:
+        a, b = rng.split(':')
+        lo, hi = max(0, int(a)), min(int(b), nf - 1)
+    sc.frame_start, sc.frame_end = lo, hi
+
+    _frame_hook(draw)
+    if LIVE:
+        sc.frame_set(lo)
+        return
+
+    # 🔑 파일 이름이 전과 같다. 경로가 구분자로 끝나면 블렌더가 프레임 번호를 네 자리로
+    #    채워 `0000.png` 로 쓴다 — 프레임마다 `'%04d.png' % fi` 로 쓰던 것과 같은 이름이다.
+    os.makedirs(out_dir, exist_ok=True)
+    # 🔴 **먼저 비운다.** 길이가 줄면(대본을 고치면 흔하다) 앞 판의 꼬리 프레임이 그대로
+    #    남아서 엔진이 읽는다 — 실제로 NF 가 316→315 로 줄며 낡은 `0315.png` 가 남았다.
+    #    범위 렌더(BAKE_RANGE)는 일부러 일부만 굽는 것이므로 안 지운다.
+    if not rng:
+        for f in os.listdir(out_dir):
+            if f.endswith('.png'):
+                os.remove(os.path.join(out_dir, f))
+    sc.render.filepath = os.path.join(out_dir, '')
+    bpy.ops.render.render(animation=True)
+    print('[%s] %d frames (%d~%d) -> %s' % (tag, hi - lo + 1, lo, hi, out_dir))

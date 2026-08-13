@@ -111,6 +111,106 @@ def thread(a, b, mat, w=0.020):
     return o
 
 
+# ── 수치를 띄우는 것들 — 막대와 원판 (2026-08-13 사용자 지시) ───────────────
+# 🔴 **「수치가 하나도 안 보여서 밋밋하다」**가 이 층이 생긴 이유다. 이 세계에는 글자가
+#    없으므로(블렌더 쪽에 폰트가 없다) 수는 **길이와 채움**으로 보여야 한다.
+# 🔑 그래도 규칙은 그대로다 — 이건 **계기층**이고 계기층은 공중에 뜬다. 세계 물체에
+#    칠하지 않으므로 뜻층 예산(설계 §2 · 한 프레임 두 색)을 안 먹는다.
+# 🔴 **2D 도형을 옮겨 그리는 것이 아니다**(runbook §3-0). 막대가 값을 말하고 그 값이
+#    사람의 행동과 **같은 화면에서 함께 움직이는 것**이 3D 에서 새로 되는 일이다.
+# 🔴 크기는 **재서 줄였다.** 0.80 m 는 주민 키(0.95)의 84% 라 여섯이 달면 화면이
+#    막대 숲이 된다(프레임 시트로 잡았다). 0.42 는 머리 위에 얹혀 사람을 안 가린다.
+GAUGE_W, GAUGE_H, GAUGE_GAP = 0.078, 0.42, 0.175
+GAUGE_LO, GAUGE_HI = 85.0, 112.0        # 이 회차 수치대(92·95·100·105)를 담는 눈금 범위
+
+
+def gauge_k(v, lo=GAUGE_LO, hi=GAUGE_HI):
+    """수치 → 채움 비율(0~1). 🔑 **순수 함수라 블렌더 없이 검사된다.**
+    🔴 0~100 을 그대로 쓰지 마라 — 92 와 105 의 차이가 13% 라 화면에서 안 보인다.
+       이 편이 말하는 수는 92·95·100·105 뿐이므로 그 대역만 눈금에 담는다."""
+    return max(0.0, min(1.0, (float(v) - lo) / (hi - lo)))
+
+
+def gauge(loc, w=GAUGE_W, h=GAUGE_H, color='instrument', col=None):
+    """막대 하나(슬라이더). 반환 dict: 홈(어두운 통)과 **채움**(밝은 막대).
+
+    🔑 채움은 **바닥에서 자란다** — 가운데서 커지면 값이 아니라 숨쉬기로 보인다.
+    🔴 홈을 빼지 마라. 채움만 있으면 「얼마나 찼나」가 아니라 「막대가 있다」로만 읽힌다."""
+    import bpy
+    import stage
+    col = col or bpy.context.collection
+    # 🔴 홈은 **그 색을 어둡게** 쓴다. 홈까지 시안으로 두면 막대 넷이 뜰 때 홈들이
+    #    한 덩어리 시안 띠로 뭉쳐서 정작 색 구분이 안 된다.
+    dim = stage.need_mat(color, strength=0.06)   # 홈은 더 어둡게 — 채움과 대비가 커진다
+    lit = stage.need_mat(color, strength=1.0)
+    x, y, z = loc
+    bpy.ops.mesh.primitive_cube_add(size=1, location=(x, y, z + h / 2))
+    track = bpy.context.object
+    track.scale = (w, w * 0.55, h)
+    track.data.materials.append(dim)
+    bpy.ops.mesh.primitive_cube_add(size=1, location=(x, y, z))
+    fill = bpy.context.object
+    fill.scale = (w * 1.15, w * 0.75, 1e-4)
+    fill.data.materials.append(lit)
+    return {'track': track, 'fill': fill, 'base': z, 'h': h, 'w': w, 'k': 0.0, 'm': 1.0,
+            'color': color}
+
+
+def gauge_emph(g, m):
+    """강조 배율. 🔑 **통째로 키운다** — 홈과 채움이 같은 비율로 커지므로 「얼마나 찼나」는
+    안 바뀌고 크기만 커진다. 채움만 키우면 그건 값이 올라간 것으로 읽혀서 거짓말이 된다.
+    🔴 대본이 그 수치를 부르는 동안에만 켠다(줄 시각은 timed.json 이 정본이다)."""
+    g['m'] = max(1.0, m)
+
+
+def gauge_mark(g, k, col=None):
+    """막대에 **문턱 표시**를 단다(비율 k). 🔑 「얼마나 찼나」만으로는 못 말하는 것이 있다 —
+    ep15s-3 의 6타일처럼 **넘으면 안 되는 선**이 있는 수치가 그렇다. 채움이 이 선을 넘는
+    순간이 곧 사건이다."""
+    import bpy
+    import stage
+    bpy.ops.mesh.primitive_cube_add(size=1, location=(0, 0, 0))
+    m = bpy.context.object
+    m.data.materials.append(stage.need_mat(g['color'], strength=1.0))
+    g['mark'], g['mark_k'] = m, max(0.0, min(1.0, k))
+    return m
+
+
+def gauge_at(g, x, y, z):
+    """막대를 **매 프레임 여기에 놓는다.** 🔴 주민에게 묶지 마라 — 사람이 돌면 막대도 같이
+    돌아서 화면에서 눕는다(실측으로 배웠다). 계기는 사람을 따라가되 **늘 화면을 본다.**"""
+    g['base'] = z
+    m, h, w = g['m'], g['h'] * g['m'], g['w'] * g['m']
+    g['track'].scale = (w, w * 0.55, h)
+    g['track'].location = (x, y, z + h / 2)
+    g['fill'].scale = (w * 1.15, w * 0.75, max(h * g['k'], 1e-4))
+    g['fill'].location = (x, y, z + h * g['k'] / 2)
+    if g.get('mark') is not None:
+        g['mark'].scale = (w * 1.9, w * 0.9, w * 0.28)
+        g['mark'].location = (x, y, z + h * g['mark_k'])
+
+
+def gauge_set(g, k):
+    """막대를 k(0~1)만큼 채운다. 🔑 실제 자리·크기는 `gauge_at` 이 매기므로 여기서는 값만 둔다."""
+    g['k'] = max(0.0, min(1.0, k))
+
+
+# ❌ **원판(다이얼)은 걷어냈다** (2026-08-13 사용자 판정: 「원으로 표현하는 데는 한계가
+#    있는 것 같으니 막대기만 사용하자 — 네모로 원을 표현하니 둘의 차이가 안 보인다」).
+#    조각 열넷으로 원을 흉내 내면 「얼마나 찼나」가 각도로만 남는데, 그 각도가 작은 화면에서
+#    길이만큼 안 읽힌다. 값을 견주는 일은 **길이**가 이긴다.
+
+
+def attach(objs, arm, dz=0.0):
+    """계기를 주민에게 **묶는다.** 안 묶으면 사람이 걸어가도 계기는 제자리에 남는다.
+    🔴 역행렬은 `matrix_world` 가 아니라 **`matrix_basis`** 에서 뽑는다(personality_marks 와
+       같은 함정 — 방금 만든 객체의 world 행렬은 아직 단위행렬이다)."""
+    for o in objs:
+        o.parent = arm
+        o.matrix_parent_inverse = arm.matrix_basis.inverted()
+        o.location.z += dz
+
+
 # 주민 여섯이 일하는 자리 — 밭 위 3×2 덩어리.
 # 🔑 흩어 놓지 않는다. 위에서 내려다볼 때 **똑같은 여섯이 각 잡고 늘어선 것**이
 #    이 편의 사건 ①이고, 개발자 시점에서도 그게 먼저 읽혀야 한다.

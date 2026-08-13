@@ -81,7 +81,7 @@ print('[hook] %d비트 · %.2f초 · 이동 %.2fm · 소품 최소 여유 %.2fm 
          (lambda p: (p[0] ** 2 + p[1] ** 2) ** 0.5)(unison.march(DUR, BEAT)),
          _worst[0], _worst[1]))
 
-for fi in range(NF):
+def draw(fi):
     t = fi / FPS
 
     # ── ① 표식이 뜬다. 여섯이 **동시에** 뜨는 것도 군무다 ──
@@ -113,8 +113,5 @@ for fi in range(NF):
 
     village.flicker(fire, t)
 
-    bpy.context.view_layer.update()
-    bpy.context.scene.render.filepath = os.path.join(OUT, '%04d.png' % fi)
-    bpy.ops.render.render(write_still=True)
 
-print('[hook] %d frames -> %s' % (NF, OUT))
+stage.bake(OUT, NF, FPS, draw, 'hook')

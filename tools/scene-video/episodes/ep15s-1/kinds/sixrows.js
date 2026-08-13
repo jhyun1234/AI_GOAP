@@ -7,4 +7,4 @@
       이름은 샷의 **역할**이고 파일 내용은 **그림**이다 — 3D 로 바뀐 것은 뒤쪽뿐이다.
    🔴 옛 2D 도형판은 git 에 있다(이 커밋 직전). 3D 판정이 뒤집히면 거기서 꺼내라.
 */
-export { default } from './scene3d.js';
+export { default } from '../../../engine/scene3d.js';

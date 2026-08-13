@@ -1,0 +1,258 @@
+{
+  "id": "ep16s-1",
+  "order": 16,
+  "act": "M13 사건과 흔적",
+  "stage": "shorts-cut",
+  "voice": "../voice.json",
+  "source": {
+    "post": "2026-08-04-unity-goap-m13-events-and-traces.html",
+    "url": "https://gamedevclaude.blogspot.com/2026/08/claude-code-ai-unity-goap.html",
+    "title": "M13 사건과 흔적",
+    "published": "2026-08-04 KST",
+    "note": "5편 분할의 1편. 이 편이 맡은 사건은 하나다 — 원문 「문제」절과 「1단계 — 무덤에 이름을 새겼다 (A)」다. ①Day 45 에 주민 일곱이 죽었는데 화면에 남은 것은 아무것도 안 적힌 무덤 일곱뿐이었다('그 원에는 아무것도 안 적혀 있습니다' · '그중 누가 제가 아침에 지켜보던 그 주민인지 알 수 없었습니다') ②가진 것은 사망 카운터 +1 뿐이었다('누가 죽었냐고? 사망 카운터 +1. 내가 가진 건 그게 전부인데') ③이름을 넘기는 시점을 죽는 순간(아직 살아 있는 함수 안)으로 잡아 비석에 새겼다 ④크기로 두 번 걸렸다 — 무덤 루트가 0.5배로 축소돼 있어 이름표만 반토막 날 뻔했고, 고친 뒤에는 주민 이름표와 설정값 하나를 공유해서 비석만 키울 수가 없었다(비석 전용 값 = 주민 값의 1.5배로 분리). 🔴 분할 형제(16-2~16-5)가 지는 몫은 한 조각도 안 썼다 — 알림 한 칸이 일곱 건을 덮은 것은 16-2, 명부를 한 사람이 덮은 것은 16-3, 죽음이 관계까지 지운 것은 16-4, 같은 판의 회상이 달라진 것은 16-5. 🔴 이 세계에는 글자가 없다. 그래서 원문의 '{shortName} · Day {day}' 는 화면에 글자로 못 오르고, 「그 사람이 쓰던 도구가 비석 옆에 선다」로 진다(대본 §0 계약 · 다섯 편 공통). 수(일곱 · Day 45 · +1)는 전부 자막이 진다."
+  },
+  "hud": {
+    "title": "16-1편 · 무덤 일곱이 다 똑같았다",
+    "aiHook": "Claude Code로 만든 유니티 GOAP AI",
+    "outro": "Claude Code로만 만드는 GOAP AI 마을 게임 개발일지"
+  },
+  "hook": "일곱이 죽었는데\n누가 죽었는지 몰랐다",
+  "outro": {
+    "source": "M13 사건과 흔적",
+    "part": "5편 중 1편",
+    "next": "16-2편 · 굶는 사람이 있다는데 누군지 모르던 이야기",
+    "siblings": [
+      {
+        "label": "16-1편 · 하루에 일곱이 죽었는데 누가 죽었는지 모른다면요? 비석에 아무것도 안 적혀 있었거든요.",
+        "me": true
+      },
+      "16-2편 · 굶는 사람이 있다고 뜨는데 누군지 모른다면요? 알림 칸이 한 개뿐이라 일곱 건이 서로를 지우고 있었거든요.",
+      "16-3편 · 죽은 사람들 기록을 모아 놨는데 한 명이 다 덮으면요? 게으름뱅이 하나가 명령을 아홉 번 거부한 게 전부였거든요.",
+      "16-4편 · 단짝이 죽었는데 남은 사람 기억에서도 사라진다면요? 뒷정리가 그 줄을 양쪽에서 끊고 있었거든요.",
+      "16-5편 · 똑같은 판을 다시 켰는데 이번엔 이야기가 남는다면요? 새로 만든 건 거의 없고 콘솔에 있던 걸 화면으로 옮겼을 뿐이거든요."
+    ]
+  },
+  "youtube": {
+    "title": "하루에 일곱이 죽었는데 누가 죽었는지 모른다면요? 비석에 아무것도 안 적혀 있었거든요. · 유니티 GOAP 개발일지 16-1편 #shorts",
+    "blurb": "혼자 만드는 유니티 마을 시뮬레이션에서, 하루에 주민 일곱 명이 죽은 판을 지켜본 이야기입니다.\n\n죽은 자리에는 무덤이 하나씩 남습니다. 그런데 그 무덤에는 아무것도 안 적혀 있었습니다. 화면을 채운 일곱 개를 보면서 저는 그중 누가 아침까지 지켜보던 그 주민인지 알 수 없었습니다. 코드 주석에는 이 무덤이 「영구 흔적」이라고 적어 뒀는데, 정작 남은 건 좌표뿐이었습니다. 제가 가진 정보는 사망 숫자가 하나 늘었다는 것뿐이었고요.\n\n고치는 방향은 새로 짓는 게 아니라 이미 있는 걸 화면으로 옮기는 것이었습니다. 이름을 언제 넘기느냐가 문제였는데, 오브젝트가 파괴되는 시점에 읽으면 파괴 순서와 기록 정리가 얽힙니다. 그래서 죽는 순간, 그러니까 주민이 아직 살아 있는 함수 안에서 이름을 넘기게 했습니다.\n\n그런데 크기로 두 번 걸렸습니다. 계획서에는 무덤 오브젝트의 맨 위에 이름표를 붙이라고 적혀 있었는데, 옛 코드가 그 자리를 절반으로 줄여 그리고 있었습니다. 그대로 붙였으면 이름표만 반토막이 났을 겁니다. 한 칸 아래로 내려서 해결했더니 이번엔 글씨가 너무 작아 화면을 확대해야 읽혔습니다. 원인은 방금 「통일」한 그 지점이었어요. 비석 이름표가 주민 머리 위 이름표와 설정값 하나를 같이 쓰고 있어서, 비석만 키우면 주민 것까지 커졌거든요. 비석 전용 값을 따로 떼어 내고서야 끝났습니다.\n\n작은 수정이지만 판이 달라졌습니다. 이제 무덤 앞에 서면 여기 누가 묻혔는지 알 수 있습니다.\n\n(같은 글에서 나온 5편 중 1편 — 굶는 사람이 있다는 알림에 누군지가 없던 이야기는 16-2편, 명부를 한 사람이 통째로 덮은 이야기는 16-3편, 죽음이 관계까지 지운 이야기는 16-4편, 같은 판을 다시 켰더니 회상이 달라진 이야기는 16-5편)",
+    "tags": [
+      "유니티",
+      "Unity",
+      "GOAP",
+      "게임개발",
+      "인디게임",
+      "게임AI",
+      "개발일지",
+      "ClaudeCode",
+      "게임기획",
+      "시뮬레이션"
+    ],
+    "categoryId": "28",
+    "privacy": "private",
+    "en": {
+      "_": "스튜디오 → 자막/언어 → 번역 추가 → 영어(미국). 태그는 언어별로 안 나뉘므로 여기 없다.",
+      "title": "Seven died in one day and I couldn't tell who · Unity GOAP Devlog #16-1 #shorts",
+      "blurb": "Seven villagers died in a single day in my solo Unity village sim.\n\nEach death leaves a grave. But nothing was written on them. Looking at the seven of them, I could not tell which one was the villager I had been watching all morning. My code comment called the grave a \"permanent trace\", yet all it kept was a coordinate. The only thing I really had was a death counter going up by one.\n\nThe fix was not new machinery. It was moving something that already existed onto the screen. The tricky part was when to pass the name: reading it at object destruction time tangles with delayed destruction and record cleanup, so I pass it at the moment of death, inside a function where the villager is still alive.\n\nThen scale bit me twice. The plan said to attach the label to the grave's root, but old code was drawing that root at half size, so the label alone would have come out halved. Moving it one level down fixed that, and then the text was so small I had to zoom in to read it — because the grave label shared a single setting with the villager name tags. Scaling the grave scaled every villager tag too. Only a separate value for gravestones ended it.\n\nSmall change, different run. Now standing in front of a grave tells you who is buried there.\n\n(Part 1 of 5 from the same devlog — the alert that never said who is #16-2, one villager covering the whole roster is #16-3, death erasing relationships is #16-4, the same run recalled differently is #16-5)"
+    }
+  },
+  "shots": [
+    {
+      "id": "SH",
+      "chapter": "훅",
+      "kind": "sevengraves",
+      "source": "원문 「문제: 무덤은 있는데 이름이 없었다」 절 — 'Day 45에 주민 일곱 명이 죽었습니다.' / '그 원에는 아무것도 안 적혀 있습니다.' / '저는 그중 누가 제가 아침에 지켜보던 그 주민인지 알 수 없었습니다.' 🔴 제목의 핵심어(일곱 · 누가 죽었는지)가 이 두 줄에 다 들어 있다 — `check.mjs` 의 제목 이행은 인트로를 건너뛰고 여기서부터 센다. 🔗 앞 편(`ep15s-5`) 아웃트로가 빈 비석 둘을 세워 무대를 깔아 두고 나갔다. 그 그림을 이어받되 수는 원문대로 일곱이다.",
+      "reads": "넓게 잡은 마을에서 일곱이 차례로 배를 움켜쥐고 무너지고, 쓰러진 자리마다 흙더미와 빈 비석이 솟는다. 남은 사람은 계속 밭을 간다 — 일곱이 서로 구별되는 단서가 화면에 하나도 없다",
+      "spec": {
+        "frames": "/3d/ep16s-1/hook/frames"
+      },
+      "lines": [
+        {
+          "text": "하루에 일곱 명이\n죽었어요.",
+          "say": "하루에 일곱 명이 죽었어요.",
+          "en": "Seven villagers died\nin a single day.",
+          "pauseAfter": 130
+        },
+        {
+          "text": "그런데 누가 죽었는지를\n몰랐어요.",
+          "say": "그런데 누가 죽었는지를 몰랐어요.",
+          "en": "But I couldn't tell\nwho they were.",
+          "pauseAfter": 150
+        }
+      ],
+      "checks": {
+        "edge": "3D 전면 그림 — 상자를 끝까지 채우는 것이 설계다 (notes/3d-rewrite.md)"
+      }
+    },
+    {
+      "id": "S0",
+      "chapter": "인트로",
+      "kind": "intro",
+      "source": "시리즈 공용 브랜딩 — 원문에서 뽑은 것이 아니다. 문안은 `Docs/영상_25초_전환_실행명세서.md` §2-C(ADR-V25-8)가 정본으로 못박은 사용자 예시문이고, 그림은 `engine/intro-brand.js`(ADR-V25-11 — 「그림은 회차가 소유한다」의 명시된 예외)다. 이 회차의 `kinds/intro.js` 는 그것을 한 줄로 재수출할 뿐이다.",
+      "reads": "위쪽 터미널 창이 명령을 한 자씩 치고, 명령이 끝날 때마다 아래 미니 맵으로 강조색 커서가 날아가 나무 · 집 · 주민 둘을 차례로 내려놓는다",
+      "spec": {
+        "frames": "/3d/_intro/frames"
+      },
+      "lines": [
+        {
+          "text": "Claude Code로만 만드는, 스스로\n생각하고 행동하는 AI 마을 개발일지",
+          "say": "클로드 코드로만 만드는, 에이아이 마을 개발일지입니다.",
+          "en": "An AI village that thinks and acts\non its own — built only with Claude Code",
+          "pauseAfter": 744
+        }
+      ],
+      "checks": {
+        "edge": "3D 전면 그림 — 상자를 끝까지 채우는 것이 설계다 (notes/3d-rewrite.md)"
+      }
+    },
+    {
+      "id": "S1",
+      "chapter": "일곱이 다 똑같다",
+      "kind": "blankstones",
+      "source": "원문 「문제」절 — '죽은 자리에는 회색 원이 하나씩 남습니다. 무덤입니다. 그런데 그 원에는 아무것도 안 적혀 있습니다.' / '화면을 가득 채운 회색 원 일곱 개를 보면서, 저는 그중 누가 제가 아침에 지켜보던 그 주민인지 알 수 없었습니다.' 🔴 「회색 원」은 2D 시절 게임 화면의 표기다 — 3D 는 이미 `village.grave`(흙더미 + 빈 비석)를 쓰므로 그 소품으로 진다. 없는 것을 부르지 않는다.",
+      "reads": "비석 하나가 흙더미 위로 올라서고, 카메라가 일곱을 훑는데 구별되는 것이 하나도 없다. 한 사람이 무덤 사이를 걷다 서서 둘러보지만 단서가 없다",
+      "spec": {
+        "frames": "/3d/ep16s-1/body1/frames"
+      },
+      "lines": [
+        {
+          "text": "죽은 자리마다\n비석이 하나씩 서요.",
+          "say": "죽은 자리마다 비석이 하나씩 서요.",
+          "en": "Each death leaves\na stone behind.",
+          "pauseAfter": 130
+        },
+        {
+          "text": "그런데 일곱 개가 전부\n똑같이 비어 있었어요.",
+          "say": "그런데 일곱 개가 전부 똑같이 비어 있었어요.",
+          "en": "All seven were blank\nin exactly the same way.",
+          "pauseAfter": 150
+        },
+        {
+          "text": "아침까지 지켜보던 그 사람이\n어느 무덤인지,",
+          "say": "아침까지 지켜보던 그 사람이 어느 무덤인지,",
+          "en": "Which one was the villager\nI watched all morning?",
+          "pauseAfter": 130
+        },
+        {
+          "text": "저도 도무지\n못 찾겠더라고요.",
+          "say": "저도 도무지 못 찾겠더라고요.",
+          "en": "I couldn't find out either.",
+          "pauseAfter": 180
+        }
+      ],
+      "checks": {
+        "edge": "3D 전면 그림 — 상자를 끝까지 채우는 것이 설계다 (notes/3d-rewrite.md)"
+      }
+    },
+    {
+      "id": "S2",
+      "chapter": "죽는 순간에 넘긴다",
+      "kind": "toolmark",
+      "source": "원문 — '\"누가 죽었냐고? 사망 카운터 +1. 내가 가진 건 그게 전부인데.\"' / 「1단계」 '여기서 신경 쓴 건 이름을 언제 넘기느냐였습니다. … 그래서 죽는 순간, 즉 주민이 아직 살아 있는 함수 안에서 이름을 인자로 넘기게 했습니다.' 🔴 원문의 표기 '{shortName} · Day {day}' 는 글자라 화면에 못 오른다 — 대본 §0 계약대로 「그 사람이 쓰던 도구」가 그 자리를 진다(도구 넷은 게임 `AnimKind` 와 짝이라 지어낸 것이 아니다).",
+      "reads": "옆 막대가 한 칸 오르고, 곡괭이를 든 사람이 무너지며 손에서 곡괭이가 굴러 나온다. 빈 비석 옆에 그 곡괭이가 서고, 이어 비석마다 다른 도구가 서서 일곱이 서로 갈린다",
+      "spec": {
+        "frames": "/3d/ep16s-1/body2/frames"
+      },
+      "lines": [
+        {
+          "text": "제가 가진 건 죽은 사람이\n하나 늘었다는 것뿐이었어요.",
+          "say": "제가 가진 건 죽은 사람이 하나 늘었다는 것뿐이었어요.",
+          "en": "All I had was the death count\ngoing up by one.",
+          "pauseAfter": 130
+        },
+        {
+          "text": "그래서 아직 살아 있을 때,\n죽는 그 순간에 넘기게 했어요.",
+          "say": "그래서 아직 살아 있을 때, 죽는 그 순간에 넘기게 했어요.",
+          "en": "So I pass the name at the moment\nof death, while they're still alive.",
+          "pauseAfter": 150
+        },
+        {
+          "text": "이제 비석 옆에 그 사람이\n쓰던 도구가 서요.",
+          "say": "이제 비석 옆에 그 사람이 쓰던 도구가 서요.",
+          "en": "Now the tool they used\nstands by the stone.",
+          "pauseAfter": 130
+        },
+        {
+          "text": "도끼면 나무꾼,\n물뿌리개면 밭 보던 사람이고요.",
+          "say": "도끼면 나무꾼, 물뿌리개면 밭 보던 사람이고요.",
+          "en": "An axe means a woodcutter,\na watering can means a farmer.",
+          "pauseAfter": 180
+        }
+      ],
+      "checks": {
+        "edge": "3D 전면 그림 — 상자를 끝까지 채우는 것이 설계다 (notes/3d-rewrite.md)"
+      }
+    },
+    {
+      "id": "S3",
+      "chapter": "크기로 두 번 걸렸다",
+      "kind": "scalefix",
+      "source": "원문 「1단계」 — '계획서에는 무덤 오브젝트의 루트에 이름표를 붙이라고 적혀 있었는데, 옛 코드가 그 루트를 0.5배로 축소하고 있었습니다. 그대로 붙였으면 이름표만 반토막이 났을 겁니다.' / '크기는 맞췄는데 이름표 글씨가 너무 작아서, 화면을 확대해야 겨우 읽혔거든요.' / '비석 이름표가 주민 이름표와 같은 설정값 하나를 공유하고 있어서 … 비석 전용 크기 값을 따로 만들어(주민 값의 1.5배를 기본으로) 나머지는 건드리지 않고 비석만 키울 수 있게 했습니다.'",
+      "reads": "도구가 절반 크기로 섰다가 무덤이 제 크기로 커지며 따라 커지고, 그래도 작아서 카메라가 다가가야 읽힌다. 마지막에 비석 옆 도구만 커지고 산 사람 머리 위 표식은 그대로다",
+      "spec": {
+        "frames": "/3d/ep16s-1/body3/frames"
+      },
+      "lines": [
+        {
+          "text": "처음엔 도구가\n반토막으로 섰어요.",
+          "say": "처음엔 도구가 반토막으로 섰어요.",
+          "en": "At first the tool stood\nat half size.",
+          "pauseAfter": 130
+        },
+        {
+          "text": "무덤을 반으로 줄여\n그리고 있었거든요.",
+          "say": "무덤을 반으로 줄여 그리고 있었거든요.",
+          "en": "The grave itself was being\ndrawn at half scale.",
+          "pauseAfter": 130
+        },
+        {
+          "text": "이번엔 너무 작아서\n다가가야 보였고요.",
+          "say": "이번엔 너무 작아서 다가가야 보였고요.",
+          "en": "Then it was so small\nyou had to walk up to it.",
+          "pauseAfter": 130
+        },
+        {
+          "text": "그래서 비석 것만 따로\n키울 수 있게 떼어 냈어요.",
+          "say": "그래서 비석 것만 따로 키울 수 있게 떼어 냈어요.",
+          "en": "So I split it off, to size\nthe gravestone one on its own.",
+          "pauseAfter": 150
+        },
+        {
+          "text": "이제 무덤 앞에 서면\n여기 누가 묻혔는지 알아요.",
+          "say": "이제 무덤 앞에 서면 여기 누가 묻혔는지 알아요.",
+          "en": "Now standing at a grave tells you\nwho is buried there.",
+          "pauseAfter": 180
+        }
+      ],
+      "checks": {
+        "edge": "3D 전면 그림 — 상자를 끝까지 채우는 것이 설계다 (notes/3d-rewrite.md)"
+      }
+    },
+    {
+      "id": "SO",
+      "chapter": "아웃트로",
+      "kind": "nextpeek",
+      "source": "다음 편(`ep16s-2`)이 맡을 사건에서 뽑았다 — 원문 「문제」절 '알림 칸이 최신 한 건만 유지하고 덮어쓰는 구조라, 일곱 건이 서로를 지우고 마지막 하나만 남은 겁니다.' 와 「4단계」 '\"굶는 주민 — 식량 0일치\"라는 줄은 누구인지 모르는 정보입니다.' 🔴 앞 글의 예고 문단이 아니라 그 편이 실제로 지는 사건을 열어서 뽑았다(런북 함정 8).",
+      "reads": "공중 격자의 한 칸이 켜졌다 곧 꺼진다 — 아래 마을에서는 누가 그 사람인지 아무 표시가 없다",
+      "spec": {
+        "frames": "/3d/ep16s-1/outro/frames"
+      },
+      "lines": [
+        {
+          "text": "다음 편에서는, 굶는다는\n알림에 누구인지가 없었어요.",
+          "say": "다음 편에서는, 굶는다는 알림에 누구인지가 없었어요.",
+          "en": "Next: the hunger alert still\ndidn't say who was starving.",
+          "pauseAfter": 0
+        }
+      ],
+      "checks": {
+        "edge": "3D 전면 그림 — 상자를 끝까지 채우는 것이 설계다 (notes/3d-rewrite.md)"
+      }
+    }
+  ],
+  "notes": {
+    "기본 도형": "**「사람은 갈리는데 남은 것은 안 갈린다 — 그 간극을 도구 하나로 메운다.」** 네 그림이 그 한 문장의 변주다.\n· **SH(sevengraves)** = 갈려 있던 일곱이 쓰러지고 **똑같은 것 일곱**으로 바뀐다. 이 편의 명제를 한 화면에 세운다.\n· **S1(blankstones)** = 그 똑같음만 **확대**한 것. 사람이 걷다 서서 둘러봐도 단서가 없다.\n· **S2(toolmark)** = 되받아 **뒤집는다** — 무너지는 손에서 굴러 나온 도구가 비석 옆에 서면서 일곱이 다시 갈린다.\n· **S3(scalefix)** = 같은 그림의 **크기만** 바꾼다. 이 편에서 카메라가 움직이는 유일한 구간이고, 그 움직임 자체가 사건이다(3D_대본_문법 §4).\n🔑 **아웃트로(nextpeek)는 축을 바꿨다** — 다음 편의 사건은 무덤이 아니라 **알림 칸**이라 이 판을 끌고 오면 같은 이야기로 읽힌다.",
+    "색 규약": "뜻층은 **보라 하나**로 간다 — 「그 사람에게 닿은 자리」(비석 옆 도구 · S2·S3). 빨강은 이 편에서 안 쓴다(위험이 진행 중인 편이 아니라 **이미 끝난 뒤**의 편이다). 모닥불 앰버를 켜는 샷에서는 한 프레임 2색 상한 안(보라 + 앰버)이고, 계기(막대 · 격자)는 계기층이라 예산 밖이다.",
+    "화면의 수": "화면에 글자로 뜨는 수는 0개다. 일곱 · Day 45 · +1 은 전부 자막이 지고, 화면은 **비석 개수**와 **막대 한 칸**과 **도구 크기 차이**만 진다. ⚠️ 단 HUD·아웃트로 카드에는 회차 번호(`16-1편` · `5편 중 1편` · `16-2편`)와 형제 라벨의 수가 뜬다 — 형제 라벨은 각 편 `youtube.title` 에서 기계 파생하는 칸이라 이 편이 못 고친다.",
+    "비유": "없음."
+  }
+}

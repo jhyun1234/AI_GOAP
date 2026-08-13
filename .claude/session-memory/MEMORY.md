@@ -5,6 +5,7 @@
 - [블렌더를 보면서 고치고, 병렬로 굽는다](video-blender-live-and-bake.md) — live.py · bake.py · GUI 에서만 터지는 함정 넷.
 - [표준 작업 방식 — 줄마다 몸짓·크기를 계약한다](video-line-by-line-contract.md) — **새 회차는 이 절차로.**
 - [동작은 자막 줄마다 사건을 따라간다](video-animation-must-react.md) — talk·nod·collapse·startle. 2·3 완료, 1 은 업로드 끝.
+- [소품은 조각이 여럿이다 — 하나만 반환하면 남는다](video-prop-parts-must-return-all.md) — 지붕·돌 테두리로 두 번 밟았다.
 - [넓게 잡으려면 셋을 같이 넓힌다](video-wide-shots-need-room.md) — 바닥·마을 바깥·카메라 높이. 나가는 사람은 축 위에서 찍어라.
 - [발이 땅에 붙었다 (2본 IK)](video-foot-lock-two-bone-ik.md) — 각을 적지 말고 발 자리를 정해라. 골반 상하는 계산 결과다.
 - [수치는 막대로 띄운다](video-gauges-show-numbers.md) — 글자가 없다. 색표는 범주 넷이고 새 색은 셋이 한계다.

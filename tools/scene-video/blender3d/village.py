@@ -84,17 +84,34 @@ def _fire_pit(spot, stone, char):
        (결정성 게이트가 죽는다) — 번호에서 뽑아 흔든다."""
     x, y = spot.x, spot.y
     ash = _cyl((x, y, 0.025), 0.40, 0.05, char)
+    kids = []
     for i in range(FIRE_STONES):
         a = 2 * math.pi * i / FIRE_STONES
         s = 0.15 + 0.045 * ((i * 3) % 4) / 3
-        _cube((x + FIRE_R * math.cos(a), y + FIRE_R * math.sin(a), s * 0.42),
-              (s, s * 0.86, s * 0.84), stone, rot_z=math.degrees(a) + i * 11)
+        kids.append(_cube((x + FIRE_R * math.cos(a), y + FIRE_R * math.sin(a), s * 0.42),
+                          (s, s * 0.86, s * 0.84), stone, rot_z=math.degrees(a) + i * 11))
     for i in range(FIRE_LOGS):
         a = 2 * math.pi * i / FIRE_LOGS + 0.4
         log = _cyl((x + 0.14 * math.cos(a), y + 0.14 * math.sin(a), 0.20), 0.048, 0.58, char)
         # 안쪽으로 기운 삼각대. Rx 가 꼭대기를 -Y 로 눕히므로 Z 를 a-90° 로 돌려 중심을 향한다
         log.rotation_euler = (math.radians(30), 0, a - math.pi / 2)
+        kids.append(log)
+    # 🔴 **돌과 장작을 반환값에 안 넣던 것이 집 지붕과 같은 버그였다**(2026-08-13, ep15s-4
+    #    프레임에서 잡았다). 부르는 쪽이 `ash.hide_render` 만 만지면 재만 사라지고 **돌 테두리
+    #    아홉이 그대로 남아서**, 아직 짓지도 않은 모닥불 자리가 전부 화면에 보였다.
+    #    자식으로 묶어 두고 `pit_show` 하나가 통째로 켜고 끄게 한다.
+    for k in kids:
+        k.parent = ash
+        k.matrix_parent_inverse = ash.matrix_basis.inverted()
     return ash
+
+
+def pit_show(ash, on):
+    """모닥불 자리를 통째로 렌더에 넣고 뺀다. 🔴 `ash.hide_render` 만 만지지 마라 —
+    돌 테두리와 장작이 남는다(부모의 hide_render 는 자식에게 안 물린다)."""
+    ash.hide_render = not on
+    for c in ash.children_recursive:
+        c.hide_render = not on
 
 
 # 불꽃 혀 — (중심에서의 x, y, 밑반지름, 높이). 🔴 **높이를 다 다르게** 둔다.

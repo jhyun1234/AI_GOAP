@@ -47,7 +47,9 @@ def draw(fi):
         arm.location = HOME[i]
     for parts, pit, t0 in zip(fires, pits, AT):
         on = t > t0
-        pit.hide_render = not on
+        # 🔴 `pit.hide_render` 만 만지면 **돌 테두리 아홉이 남는다**(2026-08-13 ep15s-4 에서
+        #    잡았다) — 아직 안 지은 모닥불 자리가 처음부터 화면에 보이고 있었다.
+        village.pit_show(pit, on)
         for o in parts:
             o.hide_render = not on
         if on:

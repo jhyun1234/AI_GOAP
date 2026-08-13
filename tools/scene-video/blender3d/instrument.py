@@ -146,7 +146,7 @@ def _bar_mat(color, strength):
     return stage.need_mat(color, strength=strength)
 
 
-def gauge(loc, w=GAUGE_W, h=GAUGE_H, color='instrument', col=None):
+def gauge(loc, w=GAUGE_W, h=GAUGE_H, color='instrument', col=None, dim=0.06):
     """막대 하나(슬라이더). 반환 dict: 홈(어두운 통)과 **채움**(밝은 막대).
 
     🔑 채움은 **바닥에서 자란다** — 가운데서 커지면 값이 아니라 숨쉬기로 보인다.
@@ -156,13 +156,15 @@ def gauge(loc, w=GAUGE_W, h=GAUGE_H, color='instrument', col=None):
     col = col or bpy.context.collection
     # 🔴 홈은 **그 색을 어둡게** 쓴다. 홈까지 시안으로 두면 막대 넷이 뜰 때 홈들이
     #    한 덩어리 시안 띠로 뭉쳐서 정작 색 구분이 안 된다.
-    dim = _bar_mat(color, 0.06)                 # 홈은 더 어둡게 — 채움과 대비가 커진다
+    # 🔴 홈 밝기는 **색마다 다르게 필요하다.** 연두(#92FF5C) 처럼 밝은 색은 0.06 이어도
+    #    빛을 받아 밝게 나와서, 비어 있는 막대가 **차 있는 것으로 읽힌다**(ep15s-4 에서 잡았다).
+    dim_m = _bar_mat(color, dim)                # 홈은 더 어둡게 — 채움과 대비가 커진다
     lit = _bar_mat(color, 1.0)
     x, y, z = loc
     bpy.ops.mesh.primitive_cube_add(size=1, location=(x, y, z + h / 2))
     track = bpy.context.object
     track.scale = (w, w * 0.55, h)
-    track.data.materials.append(dim)
+    track.data.materials.append(dim_m)
     bpy.ops.mesh.primitive_cube_add(size=1, location=(x, y, z))
     fill = bpy.context.object
     fill.scale = (w * 1.15, w * 0.75, 1e-4)

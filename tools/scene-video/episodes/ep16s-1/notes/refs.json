@@ -1,0 +1,131 @@
+{
+  "ep": "ep16s-1",
+  "at": "2026-08-14T01:59:06.491Z",
+  "sceneMtime": 1786668590440.0508,
+  "shots": [
+    {
+      "id": "SH",
+      "kind": "sevengraves",
+      "declared": [],
+      "used": [],
+      "hints": [],
+      "missing": []
+    },
+    {
+      "id": "S0",
+      "kind": "intro",
+      "declared": [],
+      "used": [],
+      "hints": [],
+      "missing": []
+    },
+    {
+      "id": "S1",
+      "kind": "blankstones",
+      "declared": [],
+      "used": [],
+      "hints": [
+        "walk"
+      ],
+      "missing": []
+    },
+    {
+      "id": "S2",
+      "kind": "toolmark",
+      "declared": [],
+      "used": [],
+      "hints": [],
+      "missing": []
+    },
+    {
+      "id": "S3",
+      "kind": "scalefix",
+      "declared": [],
+      "used": [],
+      "hints": [],
+      "missing": []
+    },
+    {
+      "id": "SO",
+      "kind": "nextpeek",
+      "declared": [],
+      "used": [],
+      "hints": [],
+      "missing": []
+    }
+  ],
+  "tags": [],
+  "gaps": [],
+  "hinted": [
+    {
+      "id": "S1",
+      "kind": "blankstones",
+      "declared": [],
+      "used": [],
+      "hints": [
+        "walk"
+      ],
+      "missing": []
+    }
+  ],
+  "unknown": [],
+  "refs": {
+    "walk": {
+      "slug": "N0TNQygEYaQ",
+      "title": "Mannequin Walk Cycle Front",
+      "url": "https://youtu.be/N0TNQygEYaQ"
+    }
+  },
+  "missingRefs": [],
+  "ours": {
+    "fps": 30,
+    "frames": 1741,
+    "move": 3.5,
+    "p95": 10.04,
+    "max": 117.62,
+    "stepHist": {
+      "1": 368,
+      "2": 29,
+      "3": 15,
+      "4": 2,
+      "5": 2,
+      "8": 2,
+      "9": 22
+    },
+    "swaps": 440,
+    "perSec": 7.6,
+    "areaMed": 1.5,
+    "areaP90": 6.2,
+    "cuts": 6,
+    "cutGapMed": 12.5,
+    "holds": 21,
+    "holdMax": 4.03,
+    "flashes": 0
+  },
+  "pacing": [
+    {
+      "slug": "jMtftOUuu_c",
+      "holdMax": 1.17,
+      "move": 17.29
+    }
+  ],
+  "band": {
+    "from": [
+      {
+        "slug": "a91EPM7TBX4",
+        "title": "Simulating a village of AI NPCs"
+      },
+      {
+        "slug": "wC9iu7cuQjI",
+        "title": "Creating SMART enemies from scratch! | Devlog"
+      }
+    ],
+    "moveMin": 4.99,
+    "areaP90Min": 7,
+    "holdMaxMax": 26.33,
+    "cutGapMedRange": [
+      4.57,
+      271.67
+    ]
+  }
+}

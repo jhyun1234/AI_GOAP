@@ -1,0 +1,40 @@
+{
+  "slug": "H07CBi9Re4s",
+  "url": "https://youtu.be/H07CBi9Re4s",
+  "title": "How I Made Intelligent NPCs for my Indie Game - Devlog",
+  "channel": "Loooui",
+  "duration": 254,
+  "width": 1920,
+  "height": 1080,
+  "fps": 60,
+  "measured": {
+    "fps": 30,
+    "frames": 7618,
+    "move": 5.14,
+    "p95": 17.36,
+    "max": 581.56,
+    "stepHist": {
+      "1": 1889,
+      "2": 43,
+      "3": 9,
+      "4": 10,
+      "5": 9,
+      "6": 5,
+      "7": 6,
+      "8": 4,
+      "9": 111
+    },
+    "swaps": 2086,
+    "perSec": 8.2,
+    "areaMed": 0.1,
+    "areaP90": 13.2,
+    "cuts": 45,
+    "cutGapMed": 2.13,
+    "holds": 110,
+    "holdMax": 8.7,
+    "flashes": 22
+  },
+  "tag": null,
+  "role": "grammar",
+  "at": "2026-08-14T01:43:16.904Z"
+}

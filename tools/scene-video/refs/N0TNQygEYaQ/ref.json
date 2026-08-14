@@ -8,16 +8,18 @@
   "height": 360,
   "fps": 24,
   "measured": {
-    "fps": 24,
-    "frames": 225,
-    "move": 1.95,
-    "p95": 2.99,
+    "fps": 30,
+    "frames": 281,
+    "move": 1.56,
+    "p95": 2.97,
     "max": 3.09,
     "stepHist": {
       "9": 1
     },
     "swaps": 1,
     "perSec": 0.1,
+    "areaMed": 1.5,
+    "areaP90": 2.4,
     "cuts": 0,
     "cutGapMed": 0,
     "holds": 0,

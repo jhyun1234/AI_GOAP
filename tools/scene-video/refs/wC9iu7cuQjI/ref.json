@@ -1,0 +1,40 @@
+{
+  "slug": "wC9iu7cuQjI",
+  "url": "https://youtu.be/wC9iu7cuQjI",
+  "title": "Creating SMART enemies from scratch! | Devlog",
+  "channel": "Challacade",
+  "duration": 340,
+  "width": 1920,
+  "height": 1080,
+  "fps": 60,
+  "measured": {
+    "fps": 30,
+    "frames": 10194,
+    "move": 9.96,
+    "p95": 32.24,
+    "max": 111.09,
+    "stepHist": {
+      "1": 4092,
+      "2": 52,
+      "3": 4,
+      "4": 1,
+      "5": 1,
+      "6": 1,
+      "7": 3,
+      "8": 2,
+      "9": 63
+    },
+    "swaps": 4219,
+    "perSec": 12.4,
+    "areaMed": 1.1,
+    "areaP90": 22.6,
+    "cuts": 3,
+    "cutGapMed": 271.67,
+    "holds": 62,
+    "holdMax": 26.33,
+    "flashes": 0
+  },
+  "tag": null,
+  "role": "grammar",
+  "at": "2026-08-14T01:42:30.161Z"
+}

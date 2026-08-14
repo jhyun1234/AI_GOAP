@@ -570,7 +570,12 @@ if (timed) {
       아예 없거나 옛 어휘라 여기서 걸면 전부 빨간불이 되고, 그러면 아무도 안 본다. */
 {
   const epDir = path.join(ROOT, 'episodes', EP);
-  const is3D = fs.existsSync(path.join(epDir, 'kinds', '_world.js'));
+  /* 🔴 2026-08-14 판정 근거를 바꿨다. 원래는 `kinds/_world.js` 의 존재로 3D 회차를
+     갈랐는데, **그 파일은 어느 회차에도 없다** — ep15s·ep16s 아홉 편이 전부 3D 인데
+     이 블록이 한 번도 안 돌았다는 뜻이다. 동작 대조 게이트를 만든 이유(ep16s-1 훅의
+     「걸어와 ↔ 다리 정지」)가 정작 ep16s 에서 안 걸린 이유가 이것이다.
+     3D 회차의 진짜 표식은 굽는 자리다 — `blender3d/<ep>/`. */
+  const is3D = fs.existsSync(path.join(ROOT, 'blender3d', EP));
   const refsPath = path.join(epDir, 'notes', 'refs.json');
   if (is3D) {
     if (!fs.existsSync(refsPath)) {
@@ -599,6 +604,29 @@ if (timed) {
         const med = [...R.pacing.map(p => p.holdMax)].sort((a, b) => a - b)[R.pacing.length >> 1];
         add(R.ours.holdMax <= med * 2, '홀드 최장 (리듬 레퍼런스 대비)',
           `우리 ${R.ours.holdMax}초 / 레퍼런스 중앙 ${med}초`, 'warn');
+      }
+
+      /* 문법 밴드 (2026-08-14 신설) — 「처음 보는 사람이 이해하는가」의 자리.
+         지금까지 게이트 50종이 전부 대본·기계 배치를 쟀고, 그림이 읽히는지 재는 검사는
+         하나도 없었다. 다섯 편이 전부 초록인 채로 「전혀 이해 못 했다」가 나온 이유다.
+
+         🔴 **변화 면적을 fail 로 건다.** 경고로 두면 아무도 안 고친다 — 그게 여기까지 온
+            경로다. 밴드는 사용자가 시트를 보고 고른 두 편에서 계산한다(refs.mjs 참고).
+         ⚠️ 움직임 평균은 warn 이다. 면적과 같은 실패를 두 번 세지 않기 위해서고, 둘이
+            갈리는 판(작은 것이 빠르게 움직이는 경우)이 오면 그때 올린다. */
+      if (R.band && R.ours) {
+        const b = R.band, o = R.ours;
+        add(o.areaP90 >= b.areaP90Min, '변화 면적 (문법 밴드)',
+          `우리 상위10% ${o.areaP90}% / 하한 ${b.areaP90Min}% — ` +
+          (o.areaP90 >= b.areaP90Min ? '통과'
+            : `화면의 ${(100 - o.areaP90).toFixed(1)}% 가 매 프레임 그대로다. 볼 것이 작거나 없다`));
+        add(o.move >= b.moveMin, '움직임 평균 (문법 밴드)',
+          `우리 ${o.move} / 하한 ${b.moveMin}`, 'warn');
+        add(o.holdMax <= b.holdMaxMax, '홀드 최장 (문법 밴드 상한)',
+          `우리 ${o.holdMax}초 / 상한 ${b.holdMaxMax}초`, 'warn');
+      } else if (R.ours) {
+        add(true, '문법 밴드 (레퍼런스 부족 · 판정 안 함)',
+          'refs/ 에 grammar 두 편이 있어야 밴드가 선다', 'warn');
       }
     }
   }

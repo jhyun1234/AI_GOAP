@@ -1,0 +1,127 @@
+{
+  "ep": "ep16s-2",
+  "at": "2026-08-14T01:59:08.933Z",
+  "sceneMtime": 1786638325002.053,
+  "shots": [
+    {
+      "id": "SH",
+      "kind": "onecell",
+      "declared": [],
+      "used": [],
+      "hints": [],
+      "missing": []
+    },
+    {
+      "id": "S0",
+      "kind": "intro",
+      "declared": [],
+      "used": [],
+      "hints": [],
+      "missing": []
+    },
+    {
+      "id": "S1",
+      "kind": "overwrite",
+      "declared": [],
+      "used": [],
+      "hints": [],
+      "missing": []
+    },
+    {
+      "id": "S2",
+      "kind": "stayline",
+      "declared": [],
+      "used": [],
+      "hints": [],
+      "missing": []
+    },
+    {
+      "id": "S3",
+      "kind": "perperson",
+      "declared": [],
+      "used": [],
+      "hints": [
+        "idle"
+      ],
+      "missing": []
+    },
+    {
+      "id": "SO",
+      "kind": "nextpeek",
+      "declared": [],
+      "used": [],
+      "hints": [],
+      "missing": []
+    }
+  ],
+  "tags": [],
+  "gaps": [],
+  "hinted": [
+    {
+      "id": "S3",
+      "kind": "perperson",
+      "declared": [],
+      "used": [],
+      "hints": [
+        "idle"
+      ],
+      "missing": []
+    }
+  ],
+  "unknown": [],
+  "refs": {
+    "walk": {
+      "slug": "N0TNQygEYaQ",
+      "title": "Mannequin Walk Cycle Front",
+      "url": "https://youtu.be/N0TNQygEYaQ"
+    }
+  },
+  "missingRefs": [],
+  "ours": {
+    "fps": 30,
+    "frames": 1842,
+    "move": 1.37,
+    "p95": 4.42,
+    "max": 95.3,
+    "stepHist": {
+      "1": 78,
+      "6": 1,
+      "9": 19
+    },
+    "swaps": 98,
+    "perSec": 1.6,
+    "areaMed": 0.1,
+    "areaP90": 2,
+    "cuts": 6,
+    "cutGapMed": 9.63,
+    "holds": 18,
+    "holdMax": 4.73,
+    "flashes": 0
+  },
+  "pacing": [
+    {
+      "slug": "jMtftOUuu_c",
+      "holdMax": 1.17,
+      "move": 17.29
+    }
+  ],
+  "band": {
+    "from": [
+      {
+        "slug": "a91EPM7TBX4",
+        "title": "Simulating a village of AI NPCs"
+      },
+      {
+        "slug": "wC9iu7cuQjI",
+        "title": "Creating SMART enemies from scratch! | Devlog"
+      }
+    ],
+    "moveMin": 4.99,
+    "areaP90Min": 7,
+    "holdMaxMax": 26.33,
+    "cutGapMedRange": [
+      4.57,
+      271.67
+    ]
+  }
+}

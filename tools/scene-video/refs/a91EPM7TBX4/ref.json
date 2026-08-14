@@ -1,0 +1,40 @@
+{
+  "slug": "a91EPM7TBX4",
+  "url": "https://youtu.be/a91EPM7TBX4",
+  "title": "Simulating a village of AI NPCs",
+  "channel": "Starlight Labs",
+  "duration": 123,
+  "width": 2560,
+  "height": 1440,
+  "fps": 30,
+  "measured": {
+    "fps": 30,
+    "frames": 3687,
+    "move": 4.99,
+    "p95": 16.29,
+    "max": 562.99,
+    "stepHist": {
+      "1": 811,
+      "2": 11,
+      "3": 3,
+      "4": 3,
+      "5": 2,
+      "6": 1,
+      "7": 1,
+      "8": 1,
+      "9": 34
+    },
+    "swaps": 867,
+    "perSec": 7.1,
+    "areaMed": 0.2,
+    "areaP90": 7,
+    "cuts": 17,
+    "cutGapMed": 4.57,
+    "holds": 33,
+    "holdMax": 7.9,
+    "flashes": 11
+  },
+  "tag": null,
+  "role": "grammar",
+  "at": "2026-08-14T01:42:02.028Z"
+}

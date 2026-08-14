@@ -1,18 +1,16 @@
-"""ep16s-1 훅 — 4 비트 · 4.81 초. **일곱이 무너지고, 남은 것은 똑같은 무덤 일곱이다.**
-
-자막 두 줄과 몸짓의 대응(🔴 이게 이 샷의 계약이다):
+"""ep16s-1 훅 — 4 비트 · 4.81 초. **한 사람이 무너지고, 그 자리에 빈 비석이 선다.**
 
   0.00~2.23 「하루에 일곱 명이 죽었어요」
-     넓게. 마을 곳곳에서 일곱이 **차례로 배를 움켜쥐고 무너진다**(0.22초 간격).
-     밭 옆 한 사람만 계속 밭을 간다
+     **가깝게(인물 0.50)** 물 주던 사람이 배를 움켜쥐고 무너진다. 카메라가 옆으로
+     흐르며 곧바로 둘이 더 무너진다 — 일곱은 자막이 세고 화면은 **무너짐 자체**를 진다
   2.23~4.81 「그런데 누가 죽었는지를 몰랐어요」
-     쓰러진 자리마다 흙더미와 **빈 비석**이 솟는다. 일곱이 **서로 구별이 안 된다** —
-     그게 이 줄이다. 살아남은 사람은 그쪽을 안 보고 계속 일한다
+     쓰러진 자리마다 흙더미와 **빈 비석**이 솟는다. 밭 옆 한 사람은 계속 일한다 —
+     구별할 단서가 화면에 하나도 없다
 
-🔑 크기 판단: 「일곱」이 한 프레임에 다 들어와야 수가 자막의 거짓말이 안 된다 — 넓게.
-🔴 계기도 유채색도 없다. 이 편의 사건은 **남은 것이 다 똑같다**이고, 색을 켜는 순간
-   그 색이 구별 단서가 되어 사건을 지운다.
-🔴 죽음에 예비 동작을 안 넣었다(`C.fall`). 굶어 죽는 것은 예고가 없다.
+🔴 **2026-08-14 재조정**: 옛 판은 일곱을 한 프레임에 넣으려고 8m 밖에서 잡아 사람이
+   화면의 4% 였다. 지금은 **한 무리씩 크게** 잡고 일곱은 카메라가 옮겨 가며 센다.
+🔴 계기도 유채색도 없다. 남은 것이 다 똑같다는 것이 이 편의 사건이고, 색을 켜면 그 색이
+   구별 단서가 되어 사건을 지운다.
 """
 import os
 import sys
@@ -29,33 +27,45 @@ BEATS = 4
 BEAT = DUR / BEATS
 assert BEAT <= 1.5, '비트가 홀드 상한을 넘었다: %.2f 초' % BEAT
 
+L = [C.line_at(SID, i) for i in range(2)]
 v, arms, graves = C.build()
 HOME = [tuple(a.location) for a in arms]
 for g in graves:
     C.grave_rise(g, 0.0)
+
+# 카메라: 무너지는 사람 → 무리 A → 무리 A·B 사이(비석이 솟는 것을 본다)
+# 🔴 방위는 **그 사람의 앞쪽**에서 딴다(`face_yaw`) — 남쪽 고정이면 뒤통수가 찬다.
+# 🔑 첫 컷의 주인공은 **바깥을 보고 선 사람**(곡괭이)이다 — 마을 안쪽을 보는 사람을
+#    앞에서 잡으면 카메라가 집·밭 사이로 들어가 다른 사람 뒤통수가 화면을 막는다.
+A0 = C.cam_at(1, frac=0.46, lens_mm=C.LENS_CLOSE, yaw=C.face_yaw(1, 22), elev=18,
+              dz=0.70)
+A1 = C.cam_at(C.mid_of(C.GROUP_A), frac=C.FIG_MID, lens_mm=C.LENS_MID,
+              yaw=C.face_yaw(1, 26), elev=19, dz=0.66)
+A2 = C.cam_at(C.mid_of(C.GROUP_A + C.GROUP_B), frac=C.FIG_WIDE, lens_mm=C.LENS_WIDE,
+              yaw=-100, elev=22, dz=0.60)
+KEY = [(0.00, A0[0], A0[1]),
+       (L[1] - 0.15, A1[0], A1[1]),
+       (DUR, A2[0], A2[1])]
+
 cam = stage.light_camera()
-C.lens(cam, C.WIDE_LENS)
-stage.key_from_view(*C.EYE)
+C.lens(cam, C.LENS_MID)
+stage.key_from_view(*A1)
+C.report('hook-16-1', KEY, C.LENS_MID)
 print('[hook-16-1] %d비트 · %.2f초 · 무덤 %d' % (BEATS, DUR, len(graves)))
 
 
 def draw(fi):
     t = fi / C.FPS
     for i in range(len(C.DEAD)):
-        k = C.ease((t - (C.RISE0 + i * C.RISE_GAP)) / 0.55)
+        rise = L[1] + C.RISE0 + i * C.RISE_GAP
+        k = C.ease((t - rise) / 0.50)
         C.grave_rise(graves[i], k)
-        # 🔴 무덤이 반쯤 올라오면 몸을 뺀다 — 둘이 같은 자리에 겹쳐 있으면 한 덩이가 된다
         hide = k > 0.35
-        arms[i].hide_render = hide
-        for ob in arms[i].children:
-            ob.hide_render = hide
+        C.hide_person(arms[i], not hide)
         if not hide:
             C.fall(arms[i], i, HOME[i], t, C.FALL0 + i * C.FALL_GAP)
     C.work(arms[C.LIVE_I], C.CAST[C.LIVE_I][0], t)      # 남은 사람은 계속 밭을 간다
-    u = C.ease(t / DUR)
-    (sx, sy, sz), (ax, ay, az) = C.EYE
-    stage.aim(cam, (sx + 0.25 * u, sy + 0.80 * u, sz - 0.30 * u),
-              (ax + 0.10 * u, ay - 0.45 * u, az - 0.08 * u))
+    C.fly(cam, KEY, t)
 
 
 stage.bake(OUT, NF, C.FPS, draw, 'hook-16-1')

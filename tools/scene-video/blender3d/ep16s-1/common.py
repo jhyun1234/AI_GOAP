@@ -1,23 +1,22 @@
 """ep16s-1 다섯 샷이 공유하는 것 — 마을·죽는 일곱·무덤·도구.
 
-원문(M13 「사건과 흔적」)에서 이 편이 맡은 사건은 하나다: **일곱이 죽었는데 남은 것이
-서로 구별이 안 됐다.** 대본은 `../../notes/ep16s-대본-3D.md` §1 이고, 그림 계약은 같은
-문서 §0 이 다섯 편 공통으로 못박았다:
+🔴 **2026-08-14 전면 재조정.** 첫 판은 게이트를 다 통과하고도 사용자 판정에서
+   「처음 보는 사람이 내용을 전혀 이해 못 한다」로 반려됐다. 완성본 실측이 이유였다:
+   **인물 키가 화면 세로의 4%**(그림판이 화면의 44% · 그 안에서 인물이 10%).
+   자막이 다 말하고 화면은 배경이었다.
 
-  이름          = **그 사람이 쓰던 도구**(도끼·곡괭이·망치·물뿌리개)
-  이름이 없다   = 비석이 비어 있고 그 곁에 아무것도 안 선다
-  이름을 새겼다 = 비석 옆에 그 도구가 선다(뜻층 보라 = 그 사람에게 닿은 자리)
-  수            = 자막이 진다. 화면은 **개수·크기의 차이**만 진다
+   고친 것 셋:
+   ① 그림판 970×846 → **1080×1050** (`stage.BAND_*` · `style.css .vis`)
+   ② 카메라를 좌표가 아니라 **크기에서 역산**한다 — `stage.cam_for(at, frac=…)`.
+      `frac` = 사람 키가 화면 세로에서 차지하는 비율. 이 회차는 **0.28~0.50**
+      (옛 판은 전 샷 0.10~0.32였다).
+   ③ **한 프레임에 일곱을 다 넣지 않는다.** 「수는 자막이 진다」는 규약을 이제 구성에서도
+      지킨다 — 카메라는 한둘을 크게 잡고, 일곱은 **카메라 이동**이 센다.
 
-🔴 **글자를 안 쓴다.** 원문의 비석 표기 '{shortName} · Day {day}' 는 이 세계에 폰트가
-   없어서 화면에 못 오른다. 도구가 그 자리를 진다 — 게임의 `AnimKind` 넷과 짝이라
-   지어낸 것이 아니다.
-🔴 **도구 넷 < 죽은 일곱.** 그래서 「일곱이 갈린다」를 일곱 종류로 그리지 않는다.
-   S2 의 마지막 줄이 잡는 프레임 안에 **네 종류가 다 들어오게** 자리를 골랐고, 뒤쪽 셋은
-   같은 종류가 겹친다(마을에 나무꾼이 둘인 것과 같다). 자막이 부르는 것도 「도끼면
-   나무꾼, 물뿌리개면 밭 보던 사람」이지 「일곱이 다 다르다」가 아니다.
-🔴 **불을 안 켠다.** 이 편의 뜻층은 보라 하나(비석 옆 도구)뿐이라 앰버를 켤 이유가 없다 —
-   한 프레임 2색 예산을 절반만 쓴다.
+그림 계약(대본 §0 · 다섯 편 공통):
+  이름 = **그 사람이 쓰던 도구** · 이름이 없다 = 빈 비석에 아무것도 안 섬 ·
+  이름을 새겼다 = 비석 옆에 그 도구가 선다(뜻층 보라) · 수(일곱·+1)는 자막.
+🔴 불을 안 켠다 — 뜻층은 보라 하나면 된다.
 """
 import math
 import os
@@ -26,7 +25,6 @@ import sys
 import bpy
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import instrument       # noqa: E402
 import motions          # noqa: E402
 import stage            # noqa: E402
 import village          # noqa: E402
@@ -34,44 +32,31 @@ import village          # noqa: E402
 EP = 'ep16s-1'
 FPS = 30
 
-# ── 죽는 일곱 — 무엇을 하다 어디서 쓰러지나 ─────────────────
-# 🔑 **일하다 쓰러진다.** 그래야 손에서 굴러 나온 도구가 「이 사람이 하던 일」이 된다.
-# 🔴 자리는 **소품을 피해서** 골랐다(밭 −2.7,−1.5 · 우물 3.0,−0.4 · 덤불 1.1,−2.9 ·
-#    모닥불 −0.2,1.0 · 나무 −4.8,0.6 / 5.0,1.1 · 집 셋). 겹치면 카메라에서 한 물건이 된다.
-# 🔴 남쪽(−Y)으로 몰지 마라 — 카메라가 전부 남쪽에 있어서 앞줄이 뒷줄을 가린다.
-# 🔴 **첫 판은 8m 로 벌려 놨다가 버렸다.** 일곱이 다 들어오는 카메라가 그만큼 물러나면
-#    주민이 화면 높이의 12분의 1 로 줄어 「사람이 무너진다」가 안 읽힌다(접점 시트로 잡음).
-#    ep15s-5 훅의 실물이 5분의 1 이고, 그 크기를 기준으로 폭을 7.7m 안으로 접었다.
+# ── 죽는 일곱 ────────────────────────────────────────
+# 🔴 **모으고 줄였다.** 옛 판은 7.1m 로 벌려 놔서 일곱이 한 프레임에 들어오려면 카메라가
+#    8m 밖으로 나가야 했고, 그 순간 사람이 안 보였다. 지금은 **세 무리**로 모아 두고
+#    카메라가 무리 하나씩 크게 잡는다 — 일곱은 카메라가 옮겨 가며 센다.
+# 🔴 소품(밭 −2.7,−1.5 · 우물 3.0,−0.4 · 덤불 1.1,−2.9 · 모닥불 −0.2,1.0)을 피해서 골랐다.
 DEAD = [
-    ('chop',   (-3.85,  0.30), (-4.8, 0.6),  'axe'),
-    ('water',  (-2.85, -2.60), 'field',      'wateringcan'),
-    ('mine',   (-1.15, -3.55), None,         'pickaxe'),
-    ('hammer', ( 0.95,  1.35), (0.2, 4.0),   'hammer'),
-    ('water',  (-1.45, -1.55), 'field',      'wateringcan'),
-    ('mine',   ( 2.05, -2.30), None,         'pickaxe'),
-    ('chop',   ( 3.20,  0.55), (5.0, 1.1),   'axe'),
+    ('water',  (-2.55, -2.45), 'field',       'wateringcan'),   # 무리 A
+    ('mine',   (-1.65, -3.15), None,          'pickaxe'),       # 무리 A
+    ('chop',   (-3.35, -3.35), (-4.3, -3.9),  'axe'),           # 무리 A
+    ('hammer', (-0.45, -1.55), (0.2, 4.0),    'hammer'),        # 무리 B
+    ('water',  ( 0.55, -2.35), 'field',       'wateringcan'),   # 무리 B
+    ('mine',   ( 2.05, -1.95), None,          'pickaxe'),       # 무리 C
+    ('chop',   ( 2.75, -3.15), (3.7, -3.5),   'axe'),           # 무리 C
 ]
-# 🔴 **살아남은 한 사람이 있어야 한다.** 「남은 사람은 계속 밭을 간다」가 대본의 훅2 이고,
-#    무덤 사이를 걷다 서서 둘러보는 것도(본문1) 이 사람이다. 죽음만 있는 화면은
-#    「일곱이 죽었다」가 아니라 「아무도 없다」로 읽힌다.
-ALIVE = ('farm', (-3.35, -1.05), 'field')
+GROUP_A, GROUP_B, GROUP_C = (0, 1, 2), (3, 4), (5, 6)
+ALIVE = ('farm', (-3.65, -1.05), 'field')      # 끝까지 밭을 가는 사람
 CAST = DEAD + [ALIVE]
 LIVE_I = len(DEAD)
 
-# 죽는 차례 — 훅 첫 줄(2.23초) 안에서 일곱이 다 무너진다. 0.22초 간격.
-FALL0, FALL_GAP = 0.42, 0.22
-RISE0, RISE_GAP = 2.70, 0.14      # 비석이 솟는 차례(훅 둘째 줄)
+FALL0, FALL_GAP = 0.30, 0.22
+RISE0, RISE_GAP = 0.40, 0.16
 
-# S2 마지막 줄이 잡는 프레임 — 네 종류가 다 들어오는 자리다(도끼·물뿌리개·곡괭이·망치).
-TOOL_SHOWCASE = (0, 1, 2, 4)
-
-# 🔴 거리는 **재서 정했다** — ep15s-5 훅(거리 7.9m · 렌즈 32 · 주민이 화면 높이의 1/5)이
-#    기준이다. 더 물러나면 마을이 작아지는 게 아니라 **빈 바닥이 커진다**(village.py 주석).
-EYE = ((-0.10, -8.10, 3.15), (-0.30, -0.95, 1.00))     # 마을 + 일곱 자리가 한 프레임에
-MID = ((1.85, -6.60, 2.25), (-0.85, -2.30, 0.75))     # 남쪽 무덤 넷 쪽으로
-# 🔴 첫 판(2.6m · 46mm)은 **머리가 화면을 덮어 흰 공 하나**가 됐다(런북 §7). 3.4m · 40mm.
-CLOSE = ((0.30, -6.30, 1.60), (-1.15, -3.50, 0.58))   # 무덤 하나 + 그 옆 도구
-WIDE_LENS, MID_LENS, CLOSE_LENS = 30, 36, 40
+# 🔴 크기 손잡이 — 좌표가 아니라 **사람이 화면에서 얼마나 큰가**로 적는다.
+FIG_WIDE, FIG_MID, FIG_CLOSE = 0.28, 0.38, 0.50
+LENS_WIDE, LENS_MID, LENS_CLOSE = 34, 38, 42
 
 
 def lens(cam, mm):
@@ -98,21 +83,45 @@ def line_at(shot_id, i):
     return stage.shot_lines(EP, shot_id)[i][0]
 
 
+def spot_of(i):
+    return CAST[i][1] if isinstance(i, int) else i
+
+
+def mid_of(idx):
+    """무리의 한가운데. 카메라는 사람이 아니라 **무리**를 겨눌 때가 많다."""
+    pts = [spot_of(i) for i in idx]
+    return (sum(p[0] for p in pts) / len(pts), sum(p[1] for p in pts) / len(pts))
+
+
+def cam_at(who, frac=FIG_MID, lens_mm=LENS_MID, yaw=-90.0, elev=13.0, dz=0.62,
+           off=(0.0, 0.0)):
+    """그 사람(또는 자리)을 **frac 크기로** 잡는 카메라. 반환 (loc, at)."""
+    x, y = spot_of(who)
+    return stage.cam_for((x + off[0], y + off[1], dz), frac=frac, lens=lens_mm,
+                         yaw=yaw, elev=elev)
+
+
+def face_yaw(i, off=32.0):
+    """그 사람의 **앞쪽**에서 잡는 카메라 방위(도).
+
+    🔴 첫 판은 카메라 방위를 −90(남쪽)으로 박아 두고 사람은 제 일감을 보게 세웠다.
+       그래서 화면에 **뒤통수**가 찼다 — 무너지는 순간에도 얼굴 쪽이 안 보였다.
+    🔑 규약상 정면은 `(−cos θ, −sin θ)`(`home_face` 의 반대쪽)이므로 카메라는 거기서
+       `off` 만큼 비껴 선다. 정면 0° 는 평면적이라 30° 안팎이 기본이다."""
+    return math.degrees(home_face(i)) + 180.0 + off
+
+
 def home_face(i):
     _job, (x, y), spot, *_ = CAST[i]
     if not spot:
-        # 🔴 **누운 몸을 정면에서 잡으면 흰 공 하나가 된다**(런북 §7). 카메라가 전부
-        #    남쪽에 있으므로 시선축과 어긋나는 각으로 세운다.
+        # 🔴 누운 몸을 정면에서 잡으면 흰 공 하나가 된다(런북 §7).
         return math.radians(58)
     s = village.SPOTS[spot] if isinstance(spot, str) else spot
     return math.atan2(y - s[1], x - s[0])
 
 
 def build(graves=True):
-    """마을 + 여덟 + (무덤 일곱). 반환 (village, arms, graves).
-
-    🔴 무덤은 **조각 목록**으로 돌려받는다(`village.grave`). 하나만 만지면 나머지가
-       화면에 남는 함정을 이 파이프라인이 두 번 밟았다."""
+    """마을 + 여덟 + (무덤 일곱). 반환 (village, arms, graves)."""
     bpy.ops.wm.read_factory_settings(use_empty=True)
     v = village.build()
     arms = []
@@ -130,7 +139,6 @@ def build(graves=True):
 
 # ── 무덤 · 도구 ────────────────────────────────────────
 def grave_rise(parts, k):
-    """무덤이 솟는다(k 0→1). 조각 **셋을 같이** 움직인다."""
     for o, sc, z0 in parts:
         o.hide_render = k <= 0.02
         o.scale = (sc[0], sc[1], max(sc[2] * k, 1e-4))
@@ -138,7 +146,6 @@ def grave_rise(parts, k):
 
 
 def grave_scale(parts, s):
-    """무덤 전체 크기(원문의 「루트 0.5배 축소」를 그리는 자리). 바닥에 붙인 채 커진다."""
     for o, sc, z0 in parts:
         o.hide_render = False
         o.scale = (sc[0] * s, sc[1] * s, sc[2] * s)
@@ -153,21 +160,29 @@ def grave_show(parts, on):
 TOOL_OF = {'axe': village.axe, 'pickaxe': village.pickaxe,
            'hammer': village.hammer, 'wateringcan': village.wateringcan}
 
+VIOLET = None
 
-def tool(kind, violet=False):
-    """도구 하나. `violet=True` 면 뜻층 보라 — **그 사람에게 닿은 자리**라는 뜻이다."""
+
+def violet():
+    global VIOLET
+    if VIOLET is None:
+        VIOLET = stage.meaning_mat('violet', strength=0.88, albedo_scale=0.16)
+    return VIOLET
+
+
+def tool(kind, tinted=False):
     root = TOOL_OF[kind]()
-    if violet:
-        mat = stage.meaning_mat('violet', strength=0.85, albedo_scale=0.16)
+    if tinted:
+        m = violet()
         for ch in root.children:
             ch.data.materials.clear()
-            ch.data.materials.append(mat)
+            ch.data.materials.append(m)
     return root
 
 
-def tool_stand(root, x, y, s=1.0, face=0.0):
-    """비석 **옆에** 세운다. 자루가 +Y 라 X 로 90° 세우면 머리가 위로 간다."""
-    root.location = (x + 0.42, y - 0.20, 0.0)
+def tool_stand(root, x, y, s=1.5, face=0.0):
+    """비석 옆에 세운다. 🔴 1.0 배는 화면에서 보라 점이다 — 1.5 가 기본이다."""
+    root.location = (x + 0.40, y - 0.18, 0.0)
     root.rotation_mode = 'XYZ'
     root.rotation_euler = (math.radians(90), 0.0, face)
     root.scale = (s, s, s)
@@ -176,10 +191,6 @@ def tool_stand(root, x, y, s=1.0, face=0.0):
 def tool_show(root, on):
     for ch in root.children:
         ch.hide_render = not on
-
-
-def bar(color='need_body'):
-    return instrument.gauge((0, 0, 0), color=color)
 
 
 # ── 사람 ──────────────────────────────────────────────
@@ -212,29 +223,29 @@ def fall(arm, i, home, t, t0):
                                   ease((t - t0) / 0.24)))
 
 
-def dead_hide(arms, gs=None):
-    """무덤이 그 자리를 대신한다 — 죽은 일곱을 렌더에서 뺀다."""
+def hide_person(arm, on):
+    arm.hide_render = not on
+    for ob in arm.children:
+        ob.hide_render = not on
+
+
+def dead_hide(arms):
     for i in range(len(DEAD)):
-        arms[i].hide_render = True
-        for ob in arms[i].children:
-            ob.hide_render = True
+        hide_person(arms[i], False)
 
 
 def walk_to(arm, home, target, t, t0, span):
-    """t0 부터 span 초 동안 target 쪽으로 걷는다. 반환 (자리, 걸은 시간).
-    🔴 나아가는 거리는 `WALK_SPEED × 걸은 시간`이다 — 눈대중이면 발이 미끄러진다."""
     wt = min(max(t - t0, 0.0), span)
     ang = math.atan2(target[1] - home[1], target[0] - home[0])
     d = min(motions.WALK_SPEED * wt,
             math.hypot(target[0] - home[0], target[1] - home[1]))
     p = (home[0] + d * math.cos(ang), home[1] + d * math.sin(ang))
     arm.location = (p[0], p[1], 0)
-    arm.rotation_euler = (0, 0, ang + math.pi)      # 규약: 정면은 (-cos θ, -sin θ)
+    arm.rotation_euler = (0, 0, ang + math.pi)
     return p, wt
 
 
 def walk_pose(arm, wt, blend=0.26):
-    """걷기 ↔ 멈춤 이음새."""
     stage.pose(arm, motions.blend(motions.stop(wt), motions.walk(wt), ease(wt / blend)))
 
 
@@ -243,8 +254,7 @@ def lerp3(a, b, u):
 
 
 def fly(cam, key, t):
-    """(시각, 자리, 겨냥) 목록 위를 지나간다. 🔴 컷이 아니라 이동이다 — 크기가 바뀌는
-    줄에서만 쓴다(3D_대본_문법 §4)."""
+    """(시각, 자리, 겨냥) 목록 위를 지나간다."""
     if t <= key[0][0]:
         loc, at = key[0][1], key[0][2]
     elif t >= key[-1][0]:
@@ -256,3 +266,14 @@ def fly(cam, key, t):
                 loc, at = lerp3(l0, l1, u), lerp3(a0, a1, u)
                 break
     stage.aim(cam, loc, at)
+
+
+def report(tag, key, lens_mm):
+    """이 샷에서 사람이 화면 세로의 몇 할로 보이나를 **굽는 로그에 남긴다.**
+    🔴 「크기를 지켰다」는 주장이 아니라 값이어야 한다(하한 `stage.FIG_MIN`)."""
+    fr = [stage.fig_frac(k[1], k[2], lens_mm) for k in key]
+    lo = min(fr)
+    print('[%s] 인물 크기 %s (하한 %.2f)%s'
+          % (tag, ' · '.join('%.2f' % f for f in fr), stage.FIG_MIN,
+             '  🔴 미달' if lo < stage.FIG_MIN else ''))
+    return lo

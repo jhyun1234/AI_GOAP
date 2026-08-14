@@ -23,7 +23,13 @@ OUT_ROOT = os.environ.get('SCENE_3D_ROOT', r'D:\AI_GOAP-videos\3d')
 #    1080 으로 구우면 `.vis` 에 넣을 때 좌우가 잘리거나 위아래에 빈 띠가 생긴다.
 # 🔑 폭만 줄면 블렌더 sensor fit 이 AUTO 라 **가로 화각은 그대로**고 세로가 넓어진다 —
 #    지금까지 맞춰 둔 가로 구도는 하나도 안 잘린다.
-BAND_W, BAND_H, BAND_Y = 970, 846, 420
+# 🔴 **2026-08-14 개정 — 970×846 → 1080×1050**(style.css `.vis` 와 짝). 사용자 판정
+#    「ep16s 는 처음 보는 사람이 내용을 전혀 이해 못 한다」의 실측 원인이 크기였다:
+#    그림이 화면 세로의 44% 안에 있고 인물 키가 화면의 4% 였다. 좌우 여백을 없애고
+#    아래를 자막 뒤(1470)까지 내렸다 — 자막은 그림 위에 얹힌다.
+# 🔑 가로가 세로보다 크므로 sensor fit AUTO 는 **여전히 가로**다 — 지금까지 맞춰 둔
+#    가로 구도는 안 잘리고, 세로로 더 보인다(H/W 0.872 → 0.972).
+BAND_W, BAND_H, BAND_Y = 1080, 1050, 420
 
 # 🔑 조정 손잡이 둘.
 #    EXPOSURE — 인물의 밝은 면이 sRGB 0.85 근처에 앉는 값. 실측 215/255, 클리핑 0px.
@@ -156,6 +162,42 @@ def light_camera(col=None, res=(BAND_W, BAND_H)):
 # 그 판은 시선 방위 29.3° 에 태양 Z 가 -38° 였다. 즉 태양은 카메라 축에서 23° 옆, 고도 46°
 # 의 거의 정면광이고, 그래서 인물의 밝은 면이 카메라를 본다.
 KEY_ELEV, KEY_REL = 46, -67.3
+
+# ── 카메라 자리를 **인물 크기에서 역산한다** (2026-08-14 신설) ──────────────
+# 🔴 계기: ep16s 다섯 편이 「처음 보는 사람이 내용을 전혀 이해 못 한다」로 반려됐고,
+#    원인이 **인물이 화면 세로의 4%** 였다. 원인의 원인은 카메라 자리를 눈대중 좌표로
+#    적어 온 것이다 — 좌표를 적으면 「이 샷에서 사람이 얼마나 크게 보이나」가 어디에도
+#    안 적히고, 그래서 아무도 그 값을 못 지킨다.
+# 🔑 그래서 손잡이를 **크기(frac)** 로 바꾼다: 「사람 키가 그림판 세로의 몇 할인가」.
+#    거리는 렌즈와 함께 계산된다. 좌표를 다시 안 적어도 규격이 지켜진다.
+SUBJECT_H = 0.95              # 주민 키(m) — rig.py 와 같은 값
+FIG_MIN = 0.28                # 🔴 사건이 있는 샷의 하한. 이보다 작으면 동작이 안 읽힌다
+
+
+def cam_for(at, frac=0.33, lens=40, yaw=-90.0, elev=14.0, subject=SUBJECT_H):
+    """「사람이 그림판 세로의 frac 만큼 보이는」 카메라 자리를 만든다. 반환 (loc, at).
+
+    at   — 겨누는 점 (x, y, z). 보통 인물 가슴께(z 0.55~0.75)
+    frac — 인물 키가 화면 세로에서 차지하는 비율. 0.33 = 3분의 1
+    yaw  — 인물에서 카메라로 가는 방위(도). **-90 이 남쪽**(이 마을의 기본)
+    elev — 올려다보는 각(도). 12~18 이 사람 눈높이 느낌이다
+
+    🔑 세로 화각은 가로 센서(36mm)에서 나온다 — `BAND_H/BAND_W` 가 바뀌면 이 함수가
+       따라 움직이고, 그래서 그림판 규격을 바꿔도 인물 크기는 그대로 유지된다."""
+    half_v = math.atan((BAND_H / BAND_W) * 18.0 / lens)
+    d = subject / max(frac, 1e-3) / (2 * math.tan(half_v))
+    a = math.radians(yaw)
+    e = math.radians(elev)
+    return ((at[0] + d * math.cos(a) * math.cos(e),
+             at[1] + d * math.sin(a) * math.cos(e),
+             at[2] + d * math.sin(e)), tuple(at))
+
+
+def fig_frac(loc, at, lens, subject=SUBJECT_H):
+    """그 자리에서 사람이 화면 세로의 몇 할로 보이나. 🔴 하한(FIG_MIN)은 검사로 지킨다."""
+    d = math.dist(loc, at) or 1e-6
+    half_v = math.atan((BAND_H / BAND_W) * 18.0 / lens)
+    return subject / (2 * d * math.tan(half_v))
 
 
 def key_from_view(loc, at):

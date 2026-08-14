@@ -154,15 +154,15 @@
       },
       "lines": [
         {
-          "text": "제가 가진 건 죽은 사람이\n하나 늘었다는 것뿐이었어요.",
-          "say": "제가 가진 건 죽은 사람이 하나 늘었다는 것뿐이었어요.",
+          "text": "제가 아는 건 죽은 사람이\n하나 늘었다는 것뿐이었어요.",
+          "say": "제가 아는 건 죽은 사람이 하나 늘었다는 것뿐이었어요.",
           "en": "All I had was the death count\ngoing up by one.",
           "pauseAfter": 130
         },
         {
-          "text": "그래서 아직 살아 있을 때,\n죽는 그 순간에 넘기게 했어요.",
-          "say": "그래서 아직 살아 있을 때, 죽는 그 순간에 넘기게 했어요.",
-          "en": "So I pass the name at the moment\nof death, while they're still alive.",
+          "text": "그래서 쓰러지는 그 순간에\n이름을 넘기게 했어요.",
+          "say": "그래서 쓰러지는 그 순간에 이름을 넘기게 했어요.",
+          "en": "So the name is handed over\nat the moment they fall.",
           "pauseAfter": 150
         },
         {
@@ -211,9 +211,9 @@
           "pauseAfter": 130
         },
         {
-          "text": "그래서 비석 것만 따로\n키울 수 있게 떼어 냈어요.",
-          "say": "그래서 비석 것만 따로 키울 수 있게 떼어 냈어요.",
-          "en": "So I split it off, to size\nthe gravestone one on its own.",
+          "text": "그래서 무덤 표시만\n따로 키웠어요.",
+          "say": "그래서 무덤 표시만 따로 키웠어요.",
+          "en": "So I sized the grave marker\non its own.",
           "pauseAfter": 150
         },
         {

@@ -1,6 +1,6 @@
 import {
   ease, clamp, lerp,
-  fitCanvas, mkCanvas, roundRect, tone, disp, setShadow, clearShadow, GLOW
+  fitCanvas, mkCanvas, roundRect, tone, disp, setShadow, clearShadow, GLOW, FAIL_GLOW
 } from '../../../engine/lib.js';
 
 /* misread — 내가 화면을 어떻게 읽었나. 이 편에서 **틀린 쪽**을 그리는 유일한 샷이다.
@@ -63,13 +63,13 @@ export default {
 
     /* ── 앞에 서 있던 것들 — 닿기 전에 꺼진다 ── */
     ctx.save();
-    ctx.strokeStyle = tone('accent');
+    ctx.strokeStyle = tone('fail');
     ctx.lineWidth = 3;
     for (const cx of ENEMY) {
       const a = 1 - ease(clamp((vx - (cx - 70)) / 30));
       if (a <= 0.01) continue;
       ctx.globalAlpha = a;
-      setShadow(ctx, GLOW, 8);
+      setShadow(ctx, FAIL_GLOW, 8);
       ctx.beginPath();
       ctx.moveTo(cx, BASE_Y - TRI_H);
       ctx.lineTo(cx + TRI_HW, BASE_Y);
@@ -82,7 +82,7 @@ export default {
 
     /* ── 지나간 자리 = 가위표 ── */
     ctx.save();
-    ctx.strokeStyle = tone('accent');
+    ctx.strokeStyle = tone('fail');
     ctx.lineWidth = 4;
     ctx.lineCap = 'round';
     ENEMY.forEach((cx, i) => {
@@ -95,7 +95,7 @@ export default {
       if (k <= 0.02) return;
       const r = 9 * k;
       ctx.globalAlpha = k;
-      setShadow(ctx, GLOW, 8);
+      setShadow(ctx, FAIL_GLOW, 8);
       ctx.beginPath();
       ctx.moveTo(cx - r, ROW_Y - r); ctx.lineTo(cx + r, ROW_Y + r);
       ctx.moveTo(cx + r, ROW_Y - r); ctx.lineTo(cx - r, ROW_Y + r);

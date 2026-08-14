@@ -431,16 +431,32 @@ if (timed) {
       `${totalSec.toFixed(1)}초 = 자막 ${subSec.toFixed(1)} + 꼬리 ${(SHOT_TAIL * timed.shots.length).toFixed(2)}` +
       ` (본편 기준 300~600초 · 승격은 W7 뒤)`);
   } else {
-    add(totalSec <= 38, '총 길이 38초 이하',
+    /* 🔄 2026-08-12 사용자 지시 — **쇼츠 길이 상한이 1분대로 열렸다.**
+       ⚠️ 상한이 열린 것이지 길게 만들라는 것이 아니다. 길이는 **비트를 세서** 나오고,
+          늘어난 시간은 사건에 쓴다 — 길이를 늘려 놓고 홀드가 늘어나면 그건 개선이 아니라
+          인계 문서가 이미 잡아 둔 그 문제다. 그 방어는 이 게이트가 아니라
+          「정적 구간 3초 이하」와 샷별 비트 상한(1.5초)이 진다.
+       🔴 그래서 38 을 그냥 지우지 않고 **59 로 올린다.** 상한이 없으면 게이트도 없다.
+       🔄 **2026-08-13 재개정 — 59 → 63(60±3).** 사용자 지시: *"길이 권장대역에 대한
+          게이트(31~38)를 60±3 초까지 해도 돼. 우리의 목표는 처음 보는 사람이 그 영상에서
+          본 것만으로 이해가 되게 하는 것."*
+       🔴 **이건 「길게 만들어라」가 아니라 「설명을 깎지 마라」다.** 앞서 짧은 편들을 보고
+          「화면이 지는 말은 자막에서 뺄 수 있다」고 제안했다가 반려됐다 — 처음 보는 사람은
+          그림만으로 상황을 모른다. **자막은 그림의 중복이 아니라 입장권이다.**
+          그래서 상한만 열고 **하한은 그대로 둔다**(짧아지는 쪽은 여전히 경고다). */
+    add(totalSec <= 63, '총 길이 63초 이하',
       `${totalSec.toFixed(1)}초 = 자막 ${subSec.toFixed(1)} + 꼬리 ${(SHOT_TAIL * timed.shots.length).toFixed(2)}` +
-      ` (목표 33~38초 · 이 값이 실제 mp4 길이다)`);
+      ` (상한 63 = 60±3 · 2026-08-13 지시 · 이 값이 실제 mp4 길이다)`);
     /* 🔄 ADR-V25-17 — **대역은 구조에 종속이다.** ADR-V25-9 의 산식(고정비 최솟값 + 본문
        하한 18)을 그대로 쓰되 고정비가 구조마다 다르다:
          구 구조 = 15.7 + 18 ≈ 33   /   신 구조 = 12.7 + 18 ≈ 31
        (신 고정비 실측 3편: 인트로 3.5 + 훅 2.4~3.0 + 아웃트로 6.8~7.3 = 12.7~13.8)
        상한 38 은 구조와 무관하다 — fail 선이고 절대 시청 시간 실측이 떠받친다. */
+    /* 🔄 2026-08-13 — **상한만 38 → 63 으로 연다.** 하한(구조에서 나온 값)은 그대로다.
+       상한을 왜 대역까지 끌어올리나: 38 을 남겨 두면 지금 회차 넷 중 셋이 **상시 경고**를
+       띄우는데, 이 리포의 원칙이 「상시 켜지는 경고는 경고가 아니다」다. */
     const bandLo = INTRO_FIRST ? 33 : 31;
-    add(totalSec >= bandLo && totalSec <= 38, `총 길이 ${bandLo}~38초 권장대역`,
+    add(totalSec >= bandLo && totalSec <= 63, `총 길이 ${bandLo}~63초 권장대역`,
       `${totalSec.toFixed(1)}초`, 'warn');
   }
 
@@ -459,7 +475,12 @@ if (timed) {
     : 0;
   const outroSec = hasIntro ? durShot(timed.shots.length - 1) : teaserDur + 3.0;
   const bodySec = totalSec - introSec - hookSec - outroSec;
-  if (!WIDE) add(bodySec >= 18 && bodySec <= 22, '본문 18~22초',
+  /* 🔄 2026-08-13 — 상한 22 → **50**. 총 길이가 63 까지 열렸으므로 본문 상한도 같이
+     열지 않으면 총 길이 게이트를 통과한 편이 본문 게이트에서 상시 경고를 띄운다.
+     50 은 계산에서 나왔다: 총 상한 63 − 신 구조 고정비 최솟값(인트로 3.5 + 훅 2.4 +
+     아웃트로 6.8 ≈ 12.7) ≈ 50. **하한 18 은 안 바뀐다** — 본문이 그보다 짧으면 사건을
+     설명 없이 지나친 것이고, 그건 「처음 보는 사람이 이해한다」의 반대다. */
+  if (!WIDE) add(bodySec >= 18 && bodySec <= 50, '본문 18~50초',
     `본문 ${bodySec.toFixed(1)}초 (인트로 ${introSec.toFixed(1)} · 훅 ${hookSec.toFixed(1)}` +
     ` · 아웃트로 ${outroSec.toFixed(1)} 제외)`, 'warn');
   if (hasIntro && !WIDE) {
@@ -470,8 +491,18 @@ if (timed) {
        (「클로드 코드로만 만든 에이아이 마을이에요.」) 실측이 **3.5초**였다. 문안을 더 깎으면
        「로만」이나 「AI」를 잃는데 둘 다 정체성 핵심어다. 3편 전부에 상시 경고가 켜지는 쪽이
        더 나쁘다 — **제안치 전에 그 자리 값부터 본다**를 또 어긴 자리다. */
+    /* 🔄 2026-08-13 — **3D 공용 인트로를 쓰는 편은 판정에서 뺀다.**
+       그 인트로는 회차 소유가 아니라 **시리즈 공용 자산**이고(`blender3d/render_intro.py`,
+       `stage.INTRO_SEC = 5.143`, `test_intro` 가 그 값을 단언한다), 회차 대본이 문안도
+       길이도 못 고친다. 못 고치는 것에 경고를 켜면 **상시 경고**가 되고, 이 리포의 원칙이
+       「상시 켜지는 경고는 경고가 아니다」다. 값은 계속 찍되 판정은 안 한다. */
+    const sharedIntro3d = (scene.shots[introIdx]?.spec?.frames || '').includes('/3d/_intro/');
     const introCap = INTRO_FIRST ? 5.5 : 3.6;
-    add(introSec <= introCap, `인트로 ${introCap}초 이하`, `${introSec.toFixed(1)}초`, 'warn');
+    if (sharedIntro3d)
+      add(true, '인트로 (3D 공용 · 판정 아님)',
+        `${introSec.toFixed(1)}초 — 시리즈 공용 자산이라 회차가 못 고친다 (stage.INTRO_SEC)`);
+    else
+      add(introSec <= introCap, `인트로 ${introCap}초 이하`, `${introSec.toFixed(1)}초`, 'warn');
   }
 
   /* ── 어미 연속 (2026-08-11 신설 · 사용자 승인 「fail ≥4 · warn =3」) ─────
@@ -527,9 +558,87 @@ if (timed) {
     ` · 실측 오차 ±2.0초 — notes.길이 는 이 값을 인용할 것`);
 }
 
+/* ── A-2. 동작 레퍼런스 대조 (2026-08-12 신설) ────────
+   🔴 계기: ep16s-1 의 훅이 `reads` 에 「걸어와」라고 적어 놓고 **다리를 세워 둔 채** 게이트
+      33종을 전부 통과했다. 대본이 약속한 동작과 그림이 하는 동작을 나란히 놓고 본 게이트가
+      하나도 없었기 때문이다. 사용자 판정 여섯 번 중 다섯 번 「밋밋하다」의 진짜 원인이
+      카메라·컷·이펙트가 아니라 **그리는 대상 자체**였던 것과 같은 자리다(3D_전환_인계 §1).
+
+   판정은 `refs.mjs plan` 이 낸 `notes/refs.json` 을 읽어서 한다. 네트워크를 안 탄다 —
+   받는 것은 plan 의 몫이고 여기서는 그 결과만 본다.
+   🔴 **3D 어휘를 쓰는 회차(`kinds/_world.js` 가 있는 회차)에만 건다.** 옛 45편은 사람이
+      아예 없거나 옛 어휘라 여기서 걸면 전부 빨간불이 되고, 그러면 아무도 안 본다. */
+{
+  const epDir = path.join(ROOT, 'episodes', EP);
+  /* 🔴 2026-08-14 판정 근거를 바꿨다. 원래는 `kinds/_world.js` 의 존재로 3D 회차를
+     갈랐는데, **그 파일은 어느 회차에도 없다** — ep15s·ep16s 아홉 편이 전부 3D 인데
+     이 블록이 한 번도 안 돌았다는 뜻이다. 동작 대조 게이트를 만든 이유(ep16s-1 훅의
+     「걸어와 ↔ 다리 정지」)가 정작 ep16s 에서 안 걸린 이유가 이것이다.
+     3D 회차의 진짜 표식은 굽는 자리다 — `blender3d/<ep>/`. */
+  const is3D = fs.existsSync(path.join(ROOT, 'blender3d', EP));
+  const refsPath = path.join(epDir, 'notes', 'refs.json');
+  if (is3D) {
+    if (!fs.existsSync(refsPath)) {
+      add(false, '동작 레퍼런스 대조', `notes/refs.json 이 없다 — \`node tools/scene-video/refs.mjs plan ${EP}\` 를 먼저 돌려라`);
+    } else {
+      const R = JSON.parse(fs.readFileSync(refsPath, 'utf8'));
+      const scenePath = path.join(epDir, 'scene.json');
+      const fresh = Math.abs((R.sceneMtime ?? 0) - fs.statSync(scenePath).mtimeMs) < 1;
+      add(fresh, '동작 대조가 최신',
+        fresh ? `plan ${new Date(R.at).toISOString().slice(0, 16)}`
+          : `scene.json 이 plan 뒤에 바뀌었다 — refs.mjs plan ${EP} 를 다시 돌려라`);
+      add(R.gaps.length === 0, '선언한 동작을 그림이 한다',
+        R.gaps.length
+          ? R.gaps.map(g => `${g.id}(${g.kind}) → ${g.missing.join(', ')} 없음`).join(', ')
+          : (R.tags.length ? `${R.tags.join(', ')} 일치` : '사람 동작 선언 없음'));
+      add((R.hinted ?? []).length === 0, '선언 누락 의심 없음',
+        (R.hinted ?? []).length
+          ? (R.hinted).map(s => `${s.id} → reads 가 ${s.hints.join(',')}`).join(', ') + ' (사람이 아니면 무시)'
+          : '없음', 'warn');
+      add((R.missingRefs ?? []).length === 0, '동작 레퍼런스 보유',
+        (R.missingRefs ?? []).length ? `${R.missingRefs.join(', ')} 를 아직 안 받았다` : '전부 있음', 'warn');
+      /* 홀드는 **경고로만** 둔다. 우리 4.57초 vs 레퍼런스 1.18초는 사실이지만, 이걸 fail 로
+         걸면 회차가 통째로 멈추고 그때 사람이 손대는 것은 박자 양자화다 — 이미 렉으로
+         읽혀 되돌린 길이다(3D_전환_인계 §3). 좁힐 곳은 사건 밀도다. */
+      if (R.ours && (R.pacing ?? []).length) {
+        const med = [...R.pacing.map(p => p.holdMax)].sort((a, b) => a - b)[R.pacing.length >> 1];
+        add(R.ours.holdMax <= med * 2, '홀드 최장 (리듬 레퍼런스 대비)',
+          `우리 ${R.ours.holdMax}초 / 레퍼런스 중앙 ${med}초`, 'warn');
+      }
+
+      /* 문법 밴드 (2026-08-14 신설) — 「처음 보는 사람이 이해하는가」의 자리.
+         지금까지 게이트 50종이 전부 대본·기계 배치를 쟀고, 그림이 읽히는지 재는 검사는
+         하나도 없었다. 다섯 편이 전부 초록인 채로 「전혀 이해 못 했다」가 나온 이유다.
+
+         🔴 **변화 면적을 fail 로 건다.** 경고로 두면 아무도 안 고친다 — 그게 여기까지 온
+            경로다. 밴드는 사용자가 시트를 보고 고른 두 편에서 계산한다(refs.mjs 참고).
+         ⚠️ 움직임 평균은 warn 이다. 면적과 같은 실패를 두 번 세지 않기 위해서고, 둘이
+            갈리는 판(작은 것이 빠르게 움직이는 경우)이 오면 그때 올린다. */
+      if (R.band && R.ours) {
+        const b = R.band, o = R.ours;
+        add(o.areaP90 >= b.areaP90Min, '변화 면적 (문법 밴드)',
+          `우리 상위10% ${o.areaP90}% / 하한 ${b.areaP90Min}% — ` +
+          (o.areaP90 >= b.areaP90Min ? '통과'
+            : `화면의 ${(100 - o.areaP90).toFixed(1)}% 가 매 프레임 그대로다. 볼 것이 작거나 없다`));
+        add(o.move >= b.moveMin, '움직임 평균 (문법 밴드)',
+          `우리 ${o.move} / 하한 ${b.moveMin}`, 'warn');
+        add(o.holdMax <= b.holdMaxMax, '홀드 최장 (문법 밴드 상한)',
+          `우리 ${o.holdMax}초 / 상한 ${b.holdMaxMax}초`, 'warn');
+      } else if (R.ours) {
+        add(true, '문법 밴드 (레퍼런스 부족 · 판정 안 함)',
+          'refs/ 에 grammar 두 편이 있어야 밴드가 선다', 'warn');
+      }
+    }
+  }
+}
+
 /* ── B. 실제 프레임 (헤드리스에서 그려 보고 판정) ───── */
 
 const paletteSkip = {}, edgeSkip = {};
+/* 팔레트 3층 표 — blender3d/palette.py 가 구운 것이다(표는 거기 하나뿐이다).
+   🔴 값을 여기 다시 적지 마라. test_palette 가 구운 것과 파이썬 값을 대조한다. */
+const PAL = JSON.parse(fs.readFileSync(
+  path.join(ROOT, 'blender3d/palette.json'), 'utf8'));
 for (const s of scene.shots) {
   if (s.checks?.palette) paletteSkip[s.id] = s.checks.palette;
   if (s.checks?.edge) edgeSkip[s.id] = s.checks.edge;
@@ -701,6 +810,7 @@ try {
   }
 
   frame = await cdp.evaluate(`(async () => {
+    const PAL = ${JSON.stringify(PAL)};
     const FPS = ${FPS}, N = Math.max(2, Math.floor(window.TOTAL/1000*FPS));
     const per = {};
     let prev = null, prevId = null;
@@ -709,7 +819,7 @@ try {
       const el = document.querySelector('.shot.on');
       const id = el?.dataset.id; if (!id) continue;
       const cv = el.querySelector('canvas');
-      if (!per[id]) per[id] = { frames:0, bad:0, total:0, staticRun:0, maxStatic:0, edgeBot:0, edgeSide:0, edgeSideFrames:0 };
+      if (!per[id]) per[id] = { frames:0, bad:0, total:0, staticRun:0, maxStatic:0, edgeBot:0, edgeSide:0, edgeSideFrames:0, maxMeaning:0, worstMeaning:'' };
       const P = per[id]; P.frames++;
       if (!cv || !cv.width) {
         /* 클립 샷 (롱폼 W5) — 캔버스가 없다. 팔레트·가장자리는 게임 화면의 규격이
@@ -748,7 +858,7 @@ try {
 
          밝기는 알파를 곱해서 낸다. 캔버스가 투명 배경이라 색 채널만 보면 흐릿한 칠도
          255 로 읽혀 움직임이 없는 것처럼 보인다. */
-      let bad = 0, tot = 0;
+      let bad = 0, tot = 0; const hueHits = {};
       const L = new Uint8Array((d.length>>2));
       for (let p = 0; p < d.length; p += 4) {
         const r=d[p], gg=d[p+1], b=d[p+2], a=d[p+3];
@@ -757,24 +867,48 @@ try {
            색이 흔들린다 — 실측으로 (0,255,136,a=12) 이 (0,255,212) 로 읽혔다(색상 152→170).
            검정 위 알파 64 미만은 밝기가 25% 미만이라 색이 뜻을 갖지 못한다. 반올림 잡음을
            위반으로 세면 점검이 늑대 소년이 된다. */
-        if (a < 64) continue;
+        if (a < 120) continue;
         tot++;
         const mx=Math.max(r,gg,b), mn=Math.min(r,gg,b);
-        /* 검정. mx===0 만 거르면 안 된다 — rgb(0,1,0) 같은 값이 채도 1.0 · 색상 120도로
-           계산돼 위반으로 잡힌다(실측: ep00s 한 회차에서 8샷 41만 픽셀). 눈에는 검정이다.
-           최대 채널이 9% 미만이면 색이 아니라 검정으로 본다. */
-        if (mx < 24) continue;
+        /* 🔴 문턱은 **palette.py 값을 쓴다**(satMin 0.25 · lumMin 48). 옛 값(0.14 · 24)을
+           그대로 두면 세계층이 뜻층으로 잡힌다 — 실측으로 흙 지붕(hue 32.7 · 채도 0.21)이
+           **앰버**로, 바닥(hue ~215 · 채도 0.21)이 **한기**로 잡혀 모든 샷이 3색 위반이었다.
+           palette.py 가 earth 를 「색상각이 아니라 **채도로**」 뜻층과 가른 이유가 이것이고,
+           그 값을 여기서 다시 정하면 그 설계가 무효가 된다.
+           🔴 어두운 화소의 채도는 색이 아니라 8비트 반올림 잡음이다 — 그림자 진 지붕
+           (25,21,17)이 채도 0.32 로 앰버가 된다. 밝기로 먼저 거른다. */
+        if (((r*299+gg*587+b*114)/1000) < PAL.lumMin) continue;
         const sat = (mx-mn)/mx;
-        if (sat <= 0.14) continue;                    // 회색 계열 = 검정~흰색 사이
+        if (sat < PAL.satMin) continue;               // 세계층(무채색·earth)은 예산 밖
         let hue;                                      // 0~360
         const c = mx-mn;
         if (mx === r) hue = 60*(((gg-b)/c)%6);
         else if (mx === gg) hue = 60*(((b-r)/c)+2);
         else hue = 60*(((r-gg)/c)+4);
         if (hue < 0) hue += 360;
-        const accent = hue >= 138 && hue <= 168;      // #00FF88 = 152도
-        if (!accent) bad++;
+        /* 🔄 2026-08-13 개정 — **3층 규약**(설계 §2). 옛 규칙은 「강조색 둘 말고는 전부
+           위반」이었는데, 그건 어두운 배경 위 평면 도형판의 것이다. 3D 는 세계층이
+           색을 가지므로 그 규칙이면 모든 프레임이 위반이다(실측 SH 2.8% ~ SO 13.1%).
+           🔴 게이트를 없애지 않고 **재는 것을 바꿨다**(설계 §8):
+              · 세계층(무채색·earth) — 예산 밖. 채도·명도로 갈린다
+              · 뜻층 다섯 — **한 프레임에 둘까지.** 이것이 유일한 방어선이다
+              · 계기층 시안 — 공중 전용이라 예산 밖
+              · 어느 층에도 없는 유채색 = 뜻 없는 색 → 위반
+           🔴 표는 blender3d/palette.py 하나뿐이고, 이 값들은 거기서 구운 palette.json 이다. */
+        let named = '';
+        for (const k in PAL.hues) {
+          const dh = Math.abs(((hue - PAL.hues[k] + 180) % 360) - 180);
+          if (dh <= PAL.hueTol) { named = k; break; }
+        }
+        if (!named) { bad++; continue; }              // 뜻 없는 색
+        if (PAL.meaning.includes(named)) hueHits[named] = (hueHits[named] || 0) + 1;
       }
+      /* 「떴다」는 화면의 minHueFrac 이상을 덮은 것이다. 안티에일리어싱 경계에는 두 색의
+         중간값이 반드시 남는다 — 한 화소도 위반으로 세면 게이트가 늑대 소년이 된다. */
+      let nMean = 0, seen = [];
+      for (const k in hueHits) if (hueHits[k] >= tot * PAL.minHueFrac) { nMean++; seen.push(k); }
+      if (nMean > PAL.maxMeaningPerFrame && nMean > P.maxMeaning) P.worstMeaning = seen.join('+');
+      P.maxMeaning = Math.max(P.maxMeaning, nMean);
       P.bad += bad; P.total += tot;
 
       /* 가장자리에 칠이 닿는가 = 밖으로 나간 것이 잘린 흔적.
@@ -838,7 +972,7 @@ try {
       let h=2166136261;
       if(cv&&cv.width){const d=cv.getContext('2d').getImageData(0,0,cv.width,cv.height).data;
         for(let i=0;i<d.length;i+=11){h^=d[i];h=Math.imul(h,16777619);}}
-      const s=(document.getElementById('cap').textContent||'')+'|'+(el?.style.transform||'')+'|'+(el?.innerHTML||'');
+      const s=(document.getElementById('cap').textContent||'')+'|'+(el?.style.transform||'')+'|'+(el?.style.clipPath||'')+'|'+(el?.innerHTML||'');
       for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}
       return (h>>>0).toString(36);};
     const pass=o=>{const r=[];for(const i of o){window.seek(i/FPS*1000);r.push(sig());}return r;};
@@ -856,14 +990,23 @@ try {
 if (frame) {
   const rows = Object.entries(frame.per);
 
-  const violations = rows
+  /* 팔레트 3층 (설계 §2) — 문이 둘이다.
+     ① 뜻 없는 색: 어느 층에도 없는 유채색. 중구난방은 색이 많아서가 아니라 규칙이 없어서 생긴다
+     ② 뜻층 초과: 한 프레임에 유채색 셋 이상. **이것이 유일한 방어선이다** */
+  const strays = rows
     .filter(([id]) => !paletteSkip[id])
     .map(([id, v]) => ({ id, pct: v.total ? v.bad / v.total * 100 : 0 }))
     .filter(v => v.pct > 0.05);
-  add(violations.length === 0, '3색 팔레트',
-    violations.length
-      ? violations.map(v => `${v.id} ${v.pct.toFixed(2)}%`).join(', ')
+  add(strays.length === 0, '팔레트 3층 · 뜻 없는 색 없음',
+    strays.length
+      ? strays.map(v => `${v.id} ${v.pct.toFixed(2)}%`).join(', ')
       : `위반 없음` + (Object.keys(paletteSkip).length ? ` (선언 예외: ${Object.entries(paletteSkip).map(([k, r]) => `${k}=${r}`).join(', ')})` : ''));
+
+  const over = rows.filter(([id, v]) => !paletteSkip[id] && v.maxMeaning > PAL.maxMeaningPerFrame);
+  add(over.length === 0, `팔레트 3층 · 뜻층 한 프레임 ${PAL.maxMeaningPerFrame}색 이하`,
+    over.length
+      ? over.map(([id, v]) => `${id} ${v.maxMeaning}색 (${v.worstMeaning})`).join(', ')
+      : `최대 ${Math.max(...rows.map(([, v]) => v.maxMeaning))}색 · 계기층 시안은 예산 밖`);
 
   const stat = rows.filter(([, v]) => v.maxStaticSec > 3.0);
   add(stat.length === 0, '정적 구간 3초 이하',

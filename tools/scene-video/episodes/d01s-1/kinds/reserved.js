@@ -1,6 +1,6 @@
 import {
   disp, ease, clamp, lerp, spring,
-  fitCanvas, mkCanvas, roundRect, tone, setShadow, clearShadow, GLOW
+  fitCanvas, mkCanvas, roundRect, tone, setShadow, clearShadow, GLOW, FAIL_GLOW
 } from '../../../engine/lib.js';
 
 /* reserved — 다가간 한 곳에서만 생기고, 나머지는 계속 비어 있다.
@@ -110,8 +110,8 @@ export default {
       const rr = R + amp * Math.sin(t * (4.6 + i * 0.6) + i * 1.7);
       ctx.save();
       ctx.globalAlpha = a;
-      setShadow(ctx, GLOW, 6);
-      ctx.strokeStyle = tone('accent'); ctx.lineWidth = 3;
+      setShadow(ctx, FAIL_GLOW, 6);
+      ctx.strokeStyle = tone('fail'); ctx.lineWidth = 3;
       ctx.setLineDash([9, 8]); ctx.lineDashOffset = -t * 22;
       ctx.beginPath(); ctx.arc(s.x, s.y, rr, 0, Math.PI * 2); ctx.stroke();
       ctx.setLineDash([]);

@@ -1,0 +1,115 @@
+{
+  "ep": "ep16s-5",
+  "at": "2026-08-14T01:59:16.042Z",
+  "sceneMtime": 1786642685623.7544,
+  "shots": [
+    {
+      "id": "SH",
+      "kind": "nostory",
+      "declared": [],
+      "used": [],
+      "hints": [],
+      "missing": []
+    },
+    {
+      "id": "S0",
+      "kind": "intro",
+      "declared": [],
+      "used": [],
+      "hints": [],
+      "missing": []
+    },
+    {
+      "id": "S1",
+      "kind": "replay",
+      "declared": [],
+      "used": [],
+      "hints": [],
+      "missing": []
+    },
+    {
+      "id": "S2",
+      "kind": "threechanges",
+      "declared": [],
+      "used": [],
+      "hints": [],
+      "missing": []
+    },
+    {
+      "id": "S3",
+      "kind": "alreadythere",
+      "declared": [],
+      "used": [],
+      "hints": [],
+      "missing": []
+    },
+    {
+      "id": "SO",
+      "kind": "nextpeek",
+      "declared": [],
+      "used": [],
+      "hints": [],
+      "missing": []
+    }
+  ],
+  "tags": [],
+  "gaps": [],
+  "hinted": [],
+  "unknown": [],
+  "refs": {
+    "walk": {
+      "slug": "N0TNQygEYaQ",
+      "title": "Mannequin Walk Cycle Front",
+      "url": "https://youtu.be/N0TNQygEYaQ"
+    }
+  },
+  "missingRefs": [],
+  "ours": {
+    "fps": 30,
+    "frames": 1795,
+    "move": 1.65,
+    "p95": 4.43,
+    "max": 88.61,
+    "stepHist": {
+      "1": 75,
+      "4": 1,
+      "7": 1,
+      "9": 18
+    },
+    "swaps": 95,
+    "perSec": 1.6,
+    "areaMed": 0.2,
+    "areaP90": 2.2,
+    "cuts": 6,
+    "cutGapMed": 10.23,
+    "holds": 17,
+    "holdMax": 4.93,
+    "flashes": 0
+  },
+  "pacing": [
+    {
+      "slug": "jMtftOUuu_c",
+      "holdMax": 1.17,
+      "move": 17.29
+    }
+  ],
+  "band": {
+    "from": [
+      {
+        "slug": "a91EPM7TBX4",
+        "title": "Simulating a village of AI NPCs"
+      },
+      {
+        "slug": "wC9iu7cuQjI",
+        "title": "Creating SMART enemies from scratch! | Devlog"
+      }
+    ],
+    "moveMin": 4.99,
+    "areaP90Min": 7,
+    "holdMaxMax": 26.33,
+    "cutGapMedRange": [
+      4.57,
+      271.67
+    ]
+  }
+}

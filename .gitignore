@@ -143,3 +143,10 @@ InitTestScene*.unity*
 
 # 디스코드 웹훅 URL — 비밀. 가진 사람은 누구나 그 채널에 글을 쓴다.
 tools/scene-video/.discord-webhook
+
+# blender-mcp 애드온은 서드파티다(github.com/ahujasid). `uvx blender-mcp` 로 받는다 — 리포에 안 담는다.
+tools/scene-video/blender/addon.py
+
+# 파이썬 바이트코드
+__pycache__/
+*.pyc

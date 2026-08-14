@@ -9,8 +9,14 @@ const ROOT = __dirname;
 const PORT = Number(process.env.PORT) || 4173;   // 두 번째 미리보기를 나란히 띄울 때만 바꾼다
 // 게임 클립 라이브러리 (롱폼 W5) — 리포 밖 D: 에 산다 (용량·공개 리포 문제로 복사 금지)
 const CLIPS = path.join(process.env.SCENE_CLIPS_ROOT || 'D:\\AI_GOAP-videos\\clips', 'library');
+/* 블렌더가 구운 3D 레이어 (2026-08-12) — 클립과 같은 이유로 리포 밖 D: 에 산다.
+   🔴 **같은 오리진으로 줘야 한다.** file:// 이나 다른 포트에서 받은 이미지를 캔버스에
+      그리면 캔버스가 오염되어 `getImageData` 가 예외를 던지고, 그 순간 팔레트·정적·
+      잘림·결정성 게이트가 **전부 장님이 된다**. 33종 게이트는 여덟 판 실패하며 쌓은
+      자산이라 버릴 수 없다. blender3d/stage.py 의 OUT_ROOT 와 같은 환경변수를 본다. */
+const THREED = process.env.SCENE_3D_ROOT || 'D:\\AI_GOAP-videos\\3d';
 const TYPES = {
-  '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
+  '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8',
   '.woff2': 'font/woff2', '.png': 'image/png', '.mp3': 'audio/mpeg', '.wav': 'audio/wav',
   '.mp4': 'video/mp4'
@@ -20,8 +26,10 @@ http.createServer((req, res) => {
   let p = decodeURIComponent(req.url.split('?')[0]);
   if (p === '/') p = '/engine/index.html';
   if (p.endsWith('/')) p += 'index.html';
-  const base = p.startsWith('/clips/') ? CLIPS : ROOT;
-  const file = path.join(base, p.startsWith('/clips/') ? p.slice(7) : p);
+  const isClip = p.startsWith('/clips/');
+  const is3d = p.startsWith('/3d/');
+  const base = isClip ? CLIPS : is3d ? THREED : ROOT;
+  const file = path.join(base, isClip ? p.slice(7) : is3d ? p.slice(4) : p);
   if (!file.startsWith(base)) { res.writeHead(403).end(); return; }
   fs.readFile(file, (err, buf) => {
     if (err) { res.writeHead(404, { 'content-type': 'text/plain' }).end('404 ' + p); return; }

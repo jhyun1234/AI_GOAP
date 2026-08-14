@@ -1,0 +1,500 @@
+# 3D 무대 조립 — 회차 샷 스크립트가 공통으로 부른다.
+#
+# 여기 있는 상수는 전부 **실측으로 맞춘 값**이다. 눈대중으로 고치지 마라.
+# 밟은 함정 목록과 그 이유는 README.md 에 있다 — 고치기 전에 읽어라.
+import bpy, math, os, sys
+from mathutils import Vector
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import palette
+
+# 🔴 코드와 산출물을 가른다(설계 §7-2). 모델 원본은 **리포**에 있고, 만들어지는 것은
+#    전부 D 드라이브다. 경로를 절대값으로 박지 않는다 — 리포가 옮겨지면 그 자리가 틀린다.
+#    OUT_ROOT 는 serve.js 의 SCENE_3D_ROOT 와 같은 환경변수를 본다(한쪽만 바뀌면 어긋난다).
+SV_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # tools/scene-video
+MODEL = os.path.join(SV_ROOT, 'blender', 'Shorts.blend')
+MODEL_OBJ = 'geometry_0'
+OUT_ROOT = os.environ.get('SCENE_3D_ROOT', r'D:\AI_GOAP-videos\3d')
+
+# 엔진 `.vis` 상자와 **정확히 같은 크기**여야 한다 — 그 안에 그려야 check.mjs 게이트가 산다.
+# 🔴 1080 이 아니다. 계획 문서가 「쇼츠 폭 그대로」로 적어 뒀는데 실측이 다르다:
+#    무대 CSS 폭 392 × deviceScaleFactor 2.7551 = 1080 이고, `.vis` 는 좌우 20px 여백이
+#    있어 352 CSS = **970** device px 다(style.css:75). 세로는 21.875%~65.9375% = 846 ✓.
+#    1080 으로 구우면 `.vis` 에 넣을 때 좌우가 잘리거나 위아래에 빈 띠가 생긴다.
+# 🔑 폭만 줄면 블렌더 sensor fit 이 AUTO 라 **가로 화각은 그대로**고 세로가 넓어진다 —
+#    지금까지 맞춰 둔 가로 구도는 하나도 안 잘린다.
+# 🔴 **2026-08-14 개정 — 970×846 → 1080×1050**(style.css `.vis` 와 짝). 사용자 판정
+#    「ep16s 는 처음 보는 사람이 내용을 전혀 이해 못 한다」의 실측 원인이 크기였다:
+#    그림이 화면 세로의 44% 안에 있고 인물 키가 화면의 4% 였다. 좌우 여백을 없애고
+#    아래를 자막 뒤(1440)까지 내렸다 — 자막은 그림 위에 얹힌다.
+# 🔑 가로가 세로보다 크므로 sensor fit AUTO 는 **여전히 가로**다 — 지금까지 맞춰 둔
+#    가로 구도는 안 잘리고, 세로로 더 보인다(H/W 0.872 → 0.944).
+BAND_W, BAND_H, BAND_Y = 1080, 1020, 420
+
+# 🔑 조정 손잡이 둘.
+#    EXPOSURE — 인물의 밝은 면이 sRGB 0.85 근처에 앉는 값. 실측 215/255, 클리핑 0px.
+#               키라이트가 SUN 이라 **마을 어디에 서 있든 같은 값**이다(아래 light_camera).
+#    LANE_LEVEL — 길 알베도. EXPOSURE 로 나눠 써서 **노출을 바꿔도 길 밝기는 안 변한다.**
+#                 우리 2D 트랙(흰색 12% ≈ sRGB 0.17)과 같은 밝기가 되게 맞춘 값이다.
+# 🔴 인트로 길이 — **45 편이 공유하는 하나의 값**이다. 회차가 이 값에 맞추지, 인트로가
+#    회차에 맞추지 않는다. 각 편의 S0 `pauseAfter` 를 이 길이가 되게 준다.
+#    실측(2026-08-13): 말 2993ms 편은 쉼 1800 · 말 4049ms 편은 쉼 744 · 꼬리는 늘 350.
+#    🔑 가장 긴 S0(4.599초)보다 커야 한다 — `pauseAfter` 는 **늘릴 수만 있다.**
+INTRO_SEC = 5.143
+
+EXPOSURE = 1.85
+LANE_LEVEL = 0.015
+DEPTH_STEP = 0.085         # 뒤로 한 칸 갈 때마다 어두워지는 비율(lib.js DEPTH 명도 계단)
+# 🔴 세계층은 **주인공보다 어두워야 한다.** earth 를 팔레트 값 그대로(선형 0.23) 쓰면
+#    지붕이 sRGB 0.8 로 올라와 주민(0.85)과 맞먹는다 — 마을을 보러 온 게 아닌데 지붕이
+#    제일 밝다. 이 값은 지붕이 sRGB 0.45 근처에 앉게 역산한 것이다. 색상·채도는 안 변한다
+#    (모든 채널에 같은 배율이라 뜻층/세계층 판정에도 영향이 없다).
+EARTH_LEVEL = 0.28
+
+
+def _dimmed(mat, k):
+    """같은 텍스처를 k 배로 어둡게 한 사본. 안개 대신 계단으로 준다 — 우리 팔레트가 계단이다."""
+    m = mat.copy()
+    nt = m.node_tree
+    bsdf = next(n for n in nt.nodes if n.type == 'BSDF_PRINCIPLED')
+    link = bsdf.inputs['Base Color'].links[0]
+    mix = nt.nodes.new('ShaderNodeMixRGB')
+    mix.blend_type = 'MULTIPLY'
+    mix.inputs['Fac'].default_value = 1.0
+    mix.inputs['Color2'].default_value = (k, k, k, 1)
+    nt.links.new(link.from_socket, mix.inputs['Color1'])
+    nt.links.new(mix.outputs['Color'], bsdf.inputs['Base Color'])
+    return m
+
+
+def build(n=6, lane_gap=1.30, lane_len=9.0, lane_w=0.70):
+    """주민 n 명과 그들이 선 길 n 개. 반환: (figures, lanes, camera).
+
+    인물은 **메시를 공유한다** — 여섯이 같은 몸이라는 것이 이 회차의 뜻이다.
+    다른 것은 깊이에 따른 명도뿐이다."""
+    bpy.ops.wm.read_factory_settings(use_empty=True)
+    sc = bpy.context.scene
+    col = bpy.context.collection
+
+    with bpy.data.libraries.load(MODEL, link=False) as (_src, dst):
+        dst.objects = [MODEL_OBJ]
+    base = dst.objects[0]
+    base.parent = None
+    base.matrix_parent_inverse.identity()
+    src_mat = base.data.materials[0]
+
+    lane_mat = bpy.data.materials.new('lane')
+    lane_mat.use_nodes = True                      # ← 함정 ②
+    lb = lane_mat.node_tree.nodes['Principled BSDF']
+    lv = LANE_LEVEL / EXPOSURE
+    lb.inputs['Base Color'].default_value = (lv, lv * 1.07, lv * 1.27, 1)
+    lb.inputs['Roughness'].default_value = 1.0
+    for nm in ('Specular IOR Level', 'Specular'):  # ← 함정 ③
+        if nm in lb.inputs:
+            lb.inputs[nm].default_value = 0.0
+
+    figures, lanes = [], []
+    for i in range(n):
+        y = i * lane_gap
+        bpy.ops.mesh.primitive_plane_add(size=1, location=(0, y, 0))
+        lane = bpy.context.object
+        lane.scale = (lane_len, lane_w, 1)
+        lane.data.materials.append(lane_mat)
+        lanes.append(lane)
+
+        o = base.copy()
+        o.rotation_mode = 'XYZ'                    # ← 함정 ①
+        o.location = (0, y, 0.5)                   # 원점이 몸 한가운데 — 반 키만큼 올려야 발이 바닥
+        o.rotation_euler = (0, 0, math.radians(90))  # 정면(-X)을 카메라(-Y) 쪽으로
+        col.objects.link(o)
+        o.material_slots[0].link = 'OBJECT'
+        o.material_slots[0].material = _dimmed(src_mat, 1.0 - DEPTH_STEP * i)
+        figures.append(o)
+
+    bpy.data.objects.remove(base, do_unlink=True)
+
+    cam = light_camera(col)
+    return figures, lanes, cam
+
+
+def light_camera(col=None, res=(BAND_W, BAND_H)):
+    """빛 셋과 카메라, 그리고 렌더 설정. 이미 열려 있는 .blend 위에도 얹을 수 있게 떼어 뒀다."""
+    sc = bpy.context.scene
+    col = col or bpy.context.collection
+
+    # ── 빛 — 언제나 화면 왼쪽 위(인계 문서 §3) ────────────
+    # 🔴 키라이트는 **SUN 이다.** AREA 로 두면 밝기가 광원까지의 거리에 따라 변해서,
+    #    같은 주민이 마을 어디에 서 있느냐로 밝기가 달라진다. 실제로 훅(광원에서 10.5)에
+    #    맞춰 놓은 노출이 군무 판(8.4)에서 **클리핑**했다. 26×26 짜리 마을을 주민이
+    #    돌아다니는 파이프라인에서 이건 매 샷 다시 맞춰야 하는 함정이다.
+    #    SUN 은 거리 무관이라 한 번 맞추면 어디서나 같다.
+    key = bpy.data.lights.new('key', 'SUN')
+    key.energy = 5.0 * EXPOSURE
+    key.angle = math.radians(9)                    # 그림자 가장자리를 살짝 풀어 준다
+    ko = bpy.data.objects.new('key', key); col.objects.link(ko)
+    ko.rotation_euler = tuple(math.radians(a) for a in (46, 0, -38))
+
+    # 림·필은 자리를 잡아 주는 역할이라 거리 감쇠가 오히려 쓸모 있다 — AREA 로 둔다.
+    for name, energy, size, loc, rot in (
+        ('rim',  260 * EXPOSURE, 6,  (5.5, 6.0, 3.4),  (108, 0, 150)),
+        ('fill',  70 * EXPOSURE, 10, (4.5, -6.0, 1.8), (80, 0, 40)),
+    ):
+        d = bpy.data.lights.new(name, 'AREA'); d.energy = energy; d.size = size
+        ob = bpy.data.objects.new(name, d); col.objects.link(ob)
+        ob.location = loc
+        ob.rotation_euler = tuple(math.radians(a) for a in rot)
+
+    cam_d = bpy.data.cameras.new('cam'); cam_d.lens = 45
+    cam = bpy.data.objects.new('cam', cam_d); col.objects.link(cam)
+    sc.camera = cam
+
+    sc.render.resolution_x, sc.render.resolution_y = res
+    sc.render.film_transparent = True              # 엔진이 PALETTE.bg 위에 합성한다
+    sc.render.image_settings.file_format = 'PNG'
+    sc.render.image_settings.color_mode = 'RGBA'
+    sc.view_settings.view_transform = 'Standard'   # ← 함정 ④ 와 한 몸. 필믹이면 팔레트가 밀린다
+    sc.render.engine = 'BLENDER_EEVEE'             # 5.2 의 enum 은 EEVEE 하나다
+    sc.eevee.taa_render_samples = 64
+    return cam
+
+
+# 키라이트를 **카메라 기준**으로 돌리는 값. 승인된 판(훅 5비트)에서 역산했다 —
+# 그 판은 시선 방위 29.3° 에 태양 Z 가 -38° 였다. 즉 태양은 카메라 축에서 23° 옆, 고도 46°
+# 의 거의 정면광이고, 그래서 인물의 밝은 면이 카메라를 본다.
+KEY_ELEV, KEY_REL = 46, -67.3
+
+# ── 카메라 자리를 **인물 크기에서 역산한다** (2026-08-14 신설) ──────────────
+# 🔴 계기: ep16s 다섯 편이 「처음 보는 사람이 내용을 전혀 이해 못 한다」로 반려됐고,
+#    원인이 **인물이 화면 세로의 4%** 였다. 원인의 원인은 카메라 자리를 눈대중 좌표로
+#    적어 온 것이다 — 좌표를 적으면 「이 샷에서 사람이 얼마나 크게 보이나」가 어디에도
+#    안 적히고, 그래서 아무도 그 값을 못 지킨다.
+# 🔑 그래서 손잡이를 **크기(frac)** 로 바꾼다: 「사람 키가 그림판 세로의 몇 할인가」.
+#    거리는 렌즈와 함께 계산된다. 좌표를 다시 안 적어도 규격이 지켜진다.
+SUBJECT_H = 0.95              # 주민 키(m) — rig.py 와 같은 값
+FIG_MIN = 0.28                # 🔴 사건이 있는 샷의 하한. 이보다 작으면 동작이 안 읽힌다
+
+
+def cam_for(at, frac=0.33, lens=40, yaw=-90.0, elev=14.0, subject=SUBJECT_H):
+    """「사람이 그림판 세로의 frac 만큼 보이는」 카메라 자리를 만든다. 반환 (loc, at).
+
+    at   — 겨누는 점 (x, y, z). 보통 인물 가슴께(z 0.55~0.75)
+    frac — 인물 키가 화면 세로에서 차지하는 비율. 0.33 = 3분의 1
+    yaw  — 인물에서 카메라로 가는 방위(도). **-90 이 남쪽**(이 마을의 기본)
+    elev — 올려다보는 각(도). 12~18 이 사람 눈높이 느낌이다
+
+    🔑 세로 화각은 가로 센서(36mm)에서 나온다 — `BAND_H/BAND_W` 가 바뀌면 이 함수가
+       따라 움직이고, 그래서 그림판 규격을 바꿔도 인물 크기는 그대로 유지된다."""
+    half_v = math.atan((BAND_H / BAND_W) * 18.0 / lens)
+    d = subject / max(frac, 1e-3) / (2 * math.tan(half_v))
+    a = math.radians(yaw)
+    e = math.radians(elev)
+    return ((at[0] + d * math.cos(a) * math.cos(e),
+             at[1] + d * math.sin(a) * math.cos(e),
+             at[2] + d * math.sin(e)), tuple(at))
+
+
+def fig_frac(loc, at, lens, subject=SUBJECT_H):
+    """그 자리에서 사람이 화면 세로의 몇 할로 보이나. 🔴 하한(FIG_MIN)은 검사로 지킨다."""
+    d = math.dist(loc, at) or 1e-6
+    half_v = math.atan((BAND_H / BAND_W) * 18.0 / lens)
+    return subject / (2 * d * math.tan(half_v))
+
+
+def key_from_view(loc, at):
+    """키라이트를 이 샷의 카메라에 맞춰 돌린다. **샷마다 한 번** 부른다.
+
+    🔴 예전에는 태양 방위가 월드 좌표에 박혀 있었다. 카메라나 인물을 반대쪽으로 돌리는
+       순간 인물이 통째로 역광이 된다 — 주민을 마을 안쪽으로 돌려세운 판에서 실제로 그랬다.
+       조명이 좋은 각도인지는 **화면** 문제인데 월드 각도로 적으면 언젠가 반드시 어긋난다.
+    🔴 매 프레임 부르지 마라. 카메라가 팬하는 동안 그림자가 같이 돌면 해가 움직여 보인다.
+    🔑 노출은 안 건드린다. 키라이트가 SUN 이라 방향만 바뀌고 광량은 그대로다."""
+    view_az = math.degrees(math.atan2(at[1] - loc[1], at[0] - loc[0]))
+    bpy.data.objects['key'].rotation_euler = (
+        math.radians(KEY_ELEV), 0, math.radians(view_az + KEY_REL))
+
+
+def shot_seconds(ep, shot_id):
+    """이 샷이 몇 초인가. 🔑 **대본이 정본이다** — 렌더 스크립트에 길이를 손으로 적지 마라.
+    엔진 타임라인이 이 값으로 돌기 때문에 어긋나면 그림과 소리가 통째로 밀린다."""
+    import json
+    d = json.load(open(os.path.join(SV_ROOT, 'episodes', ep, 'build', 'timed.json'),
+                       encoding='utf-8'))
+    s = next(x for x in d['shots'] if x['id'] == shot_id)
+    return (sum(l['dur'] + l.get('pause', 0) for l in s['lines']) + 350) / 1000.0
+
+
+def shot_lines(ep, shot_id):
+    """그 샷 자막 줄들의 (시작초, 길이초). 🔴 **강조는 대본이 정한다** — 어느 수치를 언제
+    키울지 손으로 적으면 대본이 바뀌는 날 어긋난다(2026-08-13 지시: 「대본에 맞게 막대를
+    보이고 강조해라」). `timed.json` 이 정본이다."""
+    import json
+    d = json.load(open(os.path.join(SV_ROOT, 'episodes', ep, 'build', 'timed.json'),
+                       encoding='utf-8'))
+    s = next(x for x in d['shots'] if x['id'] == shot_id)
+    out, t = [], 0.0
+    for l in s['lines']:
+        out.append((t, l['dur'] / 1000.0))
+        t += (l['dur'] + l.get('pause', 0)) / 1000.0
+    return out
+
+
+def shot_spec(ep, shot_id):
+    """샷의 `spec` 블록. 칸 수·불 켜지는 칸 같은 수는 여기서 읽는다 — 두 군데 적으면 갈라진다."""
+    import json
+    d = json.load(open(os.path.join(SV_ROOT, 'episodes', ep, 'scene.json'), encoding='utf-8'))
+    return next(x for x in d['shots'] if x['id'] == shot_id)['spec']
+
+
+def aim(cam, loc, at):
+    cam.location = loc
+    cam.rotation_euler = (Vector(at) - Vector(loc)).to_track_quat('-Z', 'Y').to_euler()
+
+
+# ── 팔레트 3층 (설계 §2) ──────────────────────────────
+# 4색 규약(bg/ink/accent/sub)은 **어두운 배경 위 평면 도형**을 위해 만든 것이었다. 그 규약이
+# 하던 일(요소를 서로 떼어놓기)을 3D 에서는 빛과 형태가 이미 한다. 그래서 색을 늘리되
+# **뜻 없는 색은 안 늘린다** — 중구난방은 색이 많아서가 아니라 색에 규칙이 없어서 생긴다.
+#
+#   세계층  무채색 + earth  — 지형·건물·나무·주민 몸. **예산에 안 들어간다**
+#   뜻층    다섯            — **한 프레임에 최대 둘.** 이것이 유일한 방어선이다
+#   계기층  instrument      — 마을 위에 뜨는 수치·표 전용. 세계 물체에 절대 안 쓴다
+#
+# 🔴 색을 이 표 밖에서 만들지 마라. 그리고 **표는 palette.py 하나뿐이다** — 여기서
+#    다시 적으면 갈라진다. palette.py 는 bpy 를 안 만져서 테스트·게이트도 같은 표를 읽는다.
+PALETTE = palette.LINEAR
+MEANING = palette.MEANING
+
+ACCENT_LIN = PALETTE['green']      # 옛 이름 — 기존 샷 스크립트가 아직 쓴다
+INK_LIN = (0.62, 0.62, 0.63)       # 인물 알베도와 같은 대역 — 흰 도형이 인물보다 튀지 않게
+
+
+def _mat(name, base, emit=None, strength=0.0):
+    m = bpy.data.materials.new(name)
+    m.use_nodes = True                              # ← 함정 ②
+    b = m.node_tree.nodes['Principled BSDF']
+    b.inputs['Base Color'].default_value = (*base, 1)
+    b.inputs['Roughness'].default_value = 1.0
+    for nm in ('Specular IOR Level', 'Specular'):   # ← 함정 ③
+        if nm in b.inputs:
+            b.inputs[nm].default_value = 0.0
+    if emit:
+        b.inputs['Emission Color'].default_value = (*emit, 1)
+        b.inputs['Emission Strength'].default_value = strength
+    return m
+
+
+def ink_mat(k=1.0):
+    """흰 도형 — 아직 켜지지 않은 것."""
+    return _mat('ink', tuple(c * k for c in INK_LIN))
+
+
+WORLD_SAT_MAX = 0.34       # 선형 채도 상한. 이걸 넘으면 렌더에서 뜻층으로 잡힌다
+
+
+def world_mat(albedo=(0.06, 0.06, 0.065), earth=False):
+    """세계층 — 지형·건물·나무·주민 몸. 유채색 예산에 안 들어간다.
+
+    🔴 알베도 채도를 **여기서 막는다.** 손으로 적은 값 하나가 규약을 깬 적이 있다 —
+       밭 이랑을 (0.050, 0.038, 0.028) 로 뒀더니 선형 채도 0.44 라 렌더에서 앰버로 잡혔다.
+       기억해서 지킬 규칙은 언젠가 안 지켜진다."""
+    base = tuple(c * EARTH_LEVEL for c in PALETTE['earth']) if earth else albedo
+    mx, mn = max(base), min(base)
+    sat = 0.0 if mx <= 0 else (mx - mn) / mx
+    assert sat <= WORLD_SAT_MAX, '세계층 알베도 채도가 너무 높다: %s (%.2f)' % (base, sat)
+    return _mat('world', base)
+
+
+def meaning_mat(name, strength=1.0, albedo_scale=0.10):
+    """뜻층 다섯 중 하나.
+
+    🔴 **strength 는 1.0 을 넘을 수 없다.** 넘기면 클리핑이 밝기가 아니라 **색상 자체를
+       파괴한다** — 팔레트 다섯을 2.2 로 찍어 봤더니 앰버는 노랑, 한기는 시안, 보라는
+       마젠타로 밀려 probe 가 다섯 중 둘만 알아봤다(초록·적색만 살아남는데, 그 둘은
+       한 채널이 0 이라 클리핑돼도 색상각이 안 움직이기 때문이다).
+       view_transform 이 Standard 라 **strength 1.0 이면 화면에 정확히 그 16진값이 나온다** —
+       더 올릴 이유가 없다.
+    🔴 넓은 면에는 1.0 도 쓰지 마라. 화면 3분의 1을 덮는 면을 최대 밝기로 발광시키면 눈이
+       아픈 덩어리가 된다(실측). 넓은 면은 albedo_scale 을 0.35 근처로 올리고
+       strength 를 0.5 근처로 내려 **빛을 받게** 해라 — 그래야 형태가 산다."""
+    assert name in MEANING, '뜻층이 아니다: %s' % name
+    assert 0.0 <= strength <= 1.0, 'strength 1.0 초과는 색상을 파괴한다: %s' % strength
+    c = PALETTE[name]
+    return _mat('meaning_' + name, tuple(v * albedo_scale for v in c), emit=c, strength=strength)
+
+
+def instrument_mat(strength=1.0):
+    """계기층 — 마을 **위에 뜨는** 수치·표 전용. 세계 물체에 붙이지 마라.
+    그래야 초록·한기와 안 헷갈린다(계기는 물체에 안 붙고 공중에만 뜬다)."""
+    return _mat('instrument', (0.0, 0.05, 0.06), emit=PALETTE['instrument'], strength=strength)
+
+
+def need_mat(name, strength=1.0):
+    """행동 수치 색(계기층 확장). 🔴 **세계 물체에 붙이지 마라** — 계기는 공중에만 뜬다.
+    🔑 `MEANING` 에 없으므로 뜻층 「한 프레임 2색」 예산 밖이다(palette.py 주석)."""
+    assert name in palette.INSTRUMENT, '계기층 색이 아니다: %s' % name
+    # 🔴 알베도를 **그 색에서** 뽑는다. 시안 고정값(0,0.05,0.06)을 쓰면 노랑·자홍 막대가
+    #    그 시안에 물들어 탁해진다 — 처음 판이 그랬다(프레임 시트로 잡았다).
+    c = PALETTE[name]
+    return _mat('%s_%d' % (name, round(strength * 100)),
+                tuple(v * 0.10 for v in c), emit=c, strength=strength)
+
+
+def gate(objs, on):
+    """게이트가 0 이면 **렌더에서 뺀다.**
+    🔴 스케일 0 이나 발광 0 으로 끄면 안 된다 — 납작해진 채 밑색이 그대로 보여서, 흰색만
+       있어야 할 프레임에 강조색이 남는다(샷4 첫 판에서 실제로 그랬다). 규약은
+       「흰색과 강조색을 같은 픽셀에 안 겹친다」이고, 그건 안 보이는 것까지 포함이다."""
+    for o in objs:
+        o.hide_render = not on
+
+
+RIG_BLEND = os.path.join(OUT_ROOT, 'models', 'villager_rigged.blend')   # 산출물이다 — D 드라이브
+_rig_src = None
+
+
+def rigged(col=None, loc=(0, 0, 0), rot_z=90):
+    """리깅된 주민 한 명. 반환 (mesh, armature).
+
+    포즈는 `arm.pose.bones[이름].rotation_euler` — **X 앞뒤 · Z 좌우 · Y 비틀림**(rig.py).
+    🔴 여럿을 세울 때도 **아마추어는 한 명당 하나**여야 한다. 메시 여럿을 한 아마추어에
+       묶으면 전부 그 아마추어 자리로 끌려간다(변형이 아마추어 공간에서 계산된다).
+       메시 데이터는 공유하므로 늘어나는 것은 객체 헤더뿐이다."""
+    global _rig_src
+    col = col or bpy.context.collection
+    if _rig_src is None:
+        with bpy.data.libraries.load(RIG_BLEND, link=False) as (_s, dst):
+            dst.objects = ['villager', 'villager_rig']
+        m0 = next(o for o in dst.objects if o.type == 'MESH')
+        a0 = next(o for o in dst.objects if o.type == 'ARMATURE')
+        _rig_src = (m0, a0)
+
+    m0, a0 = _rig_src
+    arm = a0.copy(); arm.data = a0.data.copy()       # 포즈는 객체별이라 데이터도 복사한다
+    mesh = m0.copy()                                 # 메시 데이터는 공유
+    col.objects.link(arm); col.objects.link(mesh)
+    mesh.parent = arm
+    mesh.matrix_parent_inverse.identity()
+    mesh.location = (0, 0, 0)
+    for md in mesh.modifiers:
+        if md.type == 'ARMATURE':
+            md.object = arm
+    arm.rotation_mode = 'XYZ'
+    arm.location = loc
+    arm.rotation_euler = (0, 0, math.radians(rot_z))
+    for pb in arm.pose.bones:
+        pb.rotation_mode = 'XYZ'
+    return mesh, arm
+
+
+ROOT = '@root'      # 회전이 아니라 **골반 이동**. (앞, 위, 왼쪽) 미터. motions.ROOT 와 같은 값
+SQUASH = '@squash'  # (k, 0, 0). k>0 **눌림**(납작·넓게) · k<0 **늘어남**(길쭉·좁게)
+SQUASH_MAX = 0.30   # 🔴 넘기면 사람이 아니라 젤리가 된다. 이 마을은 만화가 아니다
+
+
+def pose(arm, spec):
+    """{뼈이름: (x, y, z) 라디안} 을 통째로 적용한다. 안 적힌 뼈는 0 으로 되돌린다.
+
+    `spec[ROOT]` 는 뼈가 아니라 **골반 이동**이다 — (앞, 위, 왼쪽) 미터.
+    🔴 몸통이 공간에서 안 움직이면 팔다리만 도는 인형이 된다. 걸을 때 오르내리지 않고
+       도끼를 내리쳐도 안 주저앉으면 **무게가 없다** — 「역동적이지 않다」의 정체가 그것이다.
+    🔴 축은 **실측한 것이다**(추론하지 마라. 이 프로젝트가 부호로 네 번 헛돌았다):
+       `hips.location` 로컬 X → 월드 +Y · 로컬 Y → 월드 +Z(위) · 로컬 Z → 월드 +X.
+       그런데 **정면이 -X 다**(rig.py 39행) — 그래서 앞은 로컬 Z **음수**다.
+       그리고 rig.py 가 **L 뼈를 +Y 에** 두므로 월드 +Y 는 **왼쪽**이다.
+    """
+    for pb in arm.pose.bones:
+        pb.rotation_euler = (0, 0, 0)
+        pb.location = (0, 0, 0)
+    fwd, up, side = spec.get(ROOT, (0.0, 0.0, 0.0))
+    arm.pose.bones['hips'].location = (side, up, -fwd)
+
+    # 스쿼시 & 스트레치 — 관절 회전으로는 못 만드는 층이다. 부딪히면 눌리고 빠르면 늘어난다.
+    # 🔴 **부피를 보존한다.** 세로만 줄이면 사람이 그냥 작아진다 — 눌린 만큼 옆으로 퍼져야
+    #    「눌렸다」로 읽힌다. 가로를 1/√(세로)로 준다.
+    # 🔑 아마추어 원점이 **발바닥**이라 이 배율이 발을 땅에 붙인 채 키만 바꾼다.
+    #    눌리면 주저앉고 늘어나면 솟는다 — 원점이 허리였으면 발이 땅을 뚫었다.
+    k = max(-SQUASH_MAX, min(SQUASH_MAX, spec.get(SQUASH, (0.0, 0.0, 0.0))[0]))
+    sz = 1.0 - k
+    sxy = 1.0 / math.sqrt(sz)
+    arm.scale = (sxy, sxy, sz)
+    for name, rot in spec.items():
+        if name not in (ROOT, SQUASH):      # 🔴 뼈가 아닌 키는 여기서 다 걸러야 한다
+            arm.pose.bones[name].rotation_euler = rot
+
+
+def hold(arm, tool, bone='hand.R', loc=(0.0, 0.0, 0.0), rot_x=0.0):
+    """도구를 주민 손에 붙인다. 회차마다 다시 짜지 않게 여기 한 곳에 둔다.
+
+    🔴 블렌더의 뼈 자식은 **뼈 꼬리**에 붙는다 — `hand.R` 은 손끝이다. 그래서 `loc` 은
+       손끝 기준이고, **뼈의 로컬 +Y 가 손이 뻗은 방향**이다(뼈 축이 뼈를 따라 Y 다).
+       도구는 그 규약에 맞춰 **자루가 +Y 를 따라 눕도록** 만든다(`village.axe` 등).
+    🔴 `matrix_parent_inverse` 를 안 비우면 도구가 만든 자리(원점)만큼 어긋난다 —
+       GLB 임포트에서 이미 한 번 밟은 것과 같은 함정이다(README 함정 ①).
+    """
+    tool.parent = arm
+    tool.parent_type = 'BONE'
+    tool.parent_bone = bone
+    tool.matrix_parent_inverse.identity()
+    tool.rotation_mode = 'XYZ'
+    tool.location = loc
+    tool.rotation_euler = (rot_x, 0.0, 0.0)
+    return tool
+
+
+LIVE = False        # live.py 가 켠다 — 굽지 않고 타임라인만 살린다
+
+
+def _frame_hook(draw):
+    """프레임이 바뀔 때마다 `draw(fi)` 를 부르게 건다. 앞서 건 것은 뗀다."""
+    for h in list(bpy.app.handlers.frame_change_pre):
+        if getattr(h, '_stage_draw', False):
+            bpy.app.handlers.frame_change_pre.remove(h)
+
+    def _on_frame(scene, _depsgraph=None):
+        draw(scene.frame_current)
+
+    _on_frame._stage_draw = True
+    bpy.app.handlers.frame_change_pre.append(_on_frame)
+    return _on_frame
+
+
+def bake(out_dir, nf, fps, draw, tag='bake'):
+    """`draw(fi)` 를 프레임마다 부르게 걸고 샷을 **한 번에** 굽는다.
+
+    🔴 프레임마다 `bpy.ops.render.render(write_still=True)` 를 부르지 않는다.
+       실측 0.288 → 0.267 s/frame(7%). 그보다 큰 이유는 구조다 — 프레임 계산이
+       **핸들러**로 나오면서 GUI 타임라인 재생·스크럽이 렌더와 **같은 코드**를 돈다
+       (`live.py`). 굽는 길과 보는 길이 갈라지지 않는다.
+    🔴 키프레임을 굽는 것이 아니다. 키를 만들면 스크립트가 정본이 아니게 되고
+       결정성 게이트가 검증하는 대상 밖으로 나간다. 계산은 그대로 매 프레임 돈다
+       (실측 214프레임 0.64초 — 렌더 61.6초의 1%다. 여기는 손댈 자리가 아니다).
+
+    `BAKE_RANGE="0:23"` 으로 일부만 굽는다 — 재거나 눈으로 볼 때만 쓴다.
+    """
+    sc = bpy.context.scene
+    sc.render.fps = fps
+    lo, hi = 0, nf - 1
+    rng = os.environ.get('BAKE_RANGE')
+    if rng:
+        a, b = rng.split(':')
+        lo, hi = max(0, int(a)), min(int(b), nf - 1)
+    sc.frame_start, sc.frame_end = lo, hi
+
+    _frame_hook(draw)
+    if LIVE:
+        sc.frame_set(lo)
+        return
+
+    # 🔑 파일 이름이 전과 같다. 경로가 구분자로 끝나면 블렌더가 프레임 번호를 네 자리로
+    #    채워 `0000.png` 로 쓴다 — 프레임마다 `'%04d.png' % fi` 로 쓰던 것과 같은 이름이다.
+    os.makedirs(out_dir, exist_ok=True)
+    # 🔴 **먼저 비운다.** 길이가 줄면(대본을 고치면 흔하다) 앞 판의 꼬리 프레임이 그대로
+    #    남아서 엔진이 읽는다 — 실제로 NF 가 316→315 로 줄며 낡은 `0315.png` 가 남았다.
+    #    범위 렌더(BAKE_RANGE)는 일부러 일부만 굽는 것이므로 안 지운다.
+    if not rng:
+        for f in os.listdir(out_dir):
+            if f.endswith('.png'):
+                os.remove(os.path.join(out_dir, f))
+    sc.render.filepath = os.path.join(out_dir, '')
+    bpy.ops.render.render(animation=True)
+    print('[%s] %d frames (%d~%d) -> %s' % (tag, hi - lo + 1, lo, hi, out_dir))

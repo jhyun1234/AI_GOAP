@@ -1,0 +1,40 @@
+{
+  "slug": "jMtftOUuu_c",
+  "url": "https://youtu.be/jMtftOUuu_c",
+  "title": "액션 애니 낙서",
+  "channel": "simDdang_심땅",
+  "duration": 26,
+  "width": 1920,
+  "height": 1080,
+  "fps": 60,
+  "measured": {
+    "fps": 30,
+    "frames": 774,
+    "move": 17.29,
+    "p95": 85.33,
+    "max": 975.25,
+    "stepHist": {
+      "1": 115,
+      "2": 96,
+      "3": 61,
+      "4": 15,
+      "5": 9,
+      "6": 3,
+      "7": 2,
+      "8": 2,
+      "9": 7
+    },
+    "swaps": 310,
+    "perSec": 12,
+    "areaMed": 0,
+    "areaP90": 12.5,
+    "cuts": 15,
+    "cutGapMed": 0.83,
+    "holds": 7,
+    "holdMax": 1.17,
+    "flashes": 9
+  },
+  "at": "2026-08-12T07:13:07.793Z",
+  "tag": null,
+  "role": "pacing"
+}

@@ -1,0 +1,56 @@
+{
+ "houses": [
+  "Cube",
+  "Cube.003",
+  "Cube.006"
+ ],
+ "trees": [
+  "Cone.003",
+  "Cone.005",
+  "Cone.007",
+  "Cone.009"
+ ],
+ "house_height": 1.85,
+ "fire": {
+  "stones": 7,
+  "logs": 4,
+  "ash": "Cylinder.013"
+ },
+ "house_verts": 24,
+ "parts": {
+  "field": 12,
+  "well": 7,
+  "tree": 4,
+  "fire": 13
+ },
+ "spots": [
+  [
+   -2.7,
+   -1.5
+  ],
+  [
+   3.0,
+   -0.4
+  ],
+  [
+   4.6,
+   1.1
+  ],
+  [
+   -0.2,
+   1.0
+  ]
+ ],
+ "materials": [
+  "world",
+  "world.001",
+  "world.002",
+  "world.003",
+  "world.004",
+  "world.005",
+  "world.006",
+  "world.007"
+ ],
+ "meaning_materials": [],
+ "instrument_materials": []
+}

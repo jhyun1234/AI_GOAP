@@ -1,0 +1,37 @@
+{
+  "slug": "zG-iWod-tCI",
+  "url": "https://youtu.be/zG-iWod-tCI",
+  "title": "Designing a Tactics AI System for Our Indie Tactics Game - SoTF Devlog #1",
+  "channel": "TwoPM Studios",
+  "duration": 1198,
+  "width": 1280,
+  "height": 720,
+  "fps": 60,
+  "measured": {
+    "fps": 30,
+    "frames": 29128,
+    "move": 0.4,
+    "p95": 0.51,
+    "max": 754.41,
+    "stepHist": {
+      "1": 57,
+      "2": 3,
+      "5": 1,
+      "6": 1,
+      "8": 1,
+      "9": 50
+    },
+    "swaps": 113,
+    "perSec": 0.1,
+    "areaMed": 0,
+    "areaP90": 0.3,
+    "cuts": 30,
+    "cutGapMed": 28.17,
+    "holds": 49,
+    "holdMax": 148.8,
+    "flashes": 10
+  },
+  "tag": null,
+  "role": "grammar",
+  "at": "2026-08-14T01:44:16.982Z"
+}

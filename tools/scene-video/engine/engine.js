@@ -30,6 +30,12 @@ const LDIR = LANG === 'ko' ? `${EPD}/build` : `${EPD}/build/${LANG}`;
 let scene = null, shots = [], lines = [], TOTAL = 0, kinds = {};
 let clipLayer = null, clipCanvas = null;   // 게임 클립 레이어 (롱폼 W5) — buildDom 이 만든다
 const failedKinds = [];   // 로드에 실패한 그림 — check.mjs 가 읽는다
+/* seek 한 번 동안 kind 들이 걸어 둔 「아직 못 그렸다」 약속들.
+   🔴 클립(W5)이 쓰던 것과 **같은 장치**다. 그림 재료가 디코딩되기 전에 캡처되면 그 프레임만
+      빈 자리로 나오는데, 그건 게이트가 통과시키는 조용한 사고다(실측 147프레임).
+      약속을 여기 걸면 render/check 가 프레임마다 await 한다.
+   🔴 약속 안에서 **다시 그려야** 한다. 기다리기만 하고 안 그리면 이미 빈 프레임이 찍힌다. */
+const drawWaits = [];
 
 /* ── 로드 ─────────────────────────────────────────── */
 async function boot() {
@@ -202,7 +208,10 @@ function buildTimeline(timed) {
     });
     const dur = (ls.at(-1).t + ls.at(-1).dur) - ls[0].t + SHOT_TAIL * 1000;
     // 샷 시작 기준 상대 시각 — kind 가 "몇 번째 자막이 말해질 때" 를 알 수 있게 한다
-    const rel = ls.map(l => ({ t: (l.t - ls[0].t) / 1000, dur: l.dur / 1000 }));
+    // text 도 함께 준다 — 2026-08-12. 몸짓을 **말의 종류**에서 뽑기 때문이다(figure.js
+    // gestureOf: 물음표면 갸웃, 느낌표면 번쩍). 문장을 안 주면 kind 가 shot.lines 로
+    // 우회해야 하는데 그쪽은 ms 라 단위가 갈린다 — 갈린 단위는 반드시 한쪽에서 틀린다.
+    const rel = ls.map(l => ({ t: (l.t - ls[0].t) / 1000, dur: l.dur / 1000, text: l.text }));
     shots.push({ ...s, i: si, t: ls[0].t, dur, lines: ls, rel });
     t = ls[0].t + dur;
   });
@@ -397,6 +406,52 @@ function prime(step = 400) {
   }
 }
 
+/* ── 샷 진입 모션 ──────────────────────────────────
+   `shot.enter` 로 고른다. 기본값 'up' 은 종전 동작 그대로라, 이 필드를 안 쓰는 회차는
+   한 프레임도 안 바뀐다(엔진 수정이 과거 회차를 안 건드린다는 증명).
+
+   왜 늘렸나: 진입 모션이 하나뿐이면 샷이 여섯이든 열이든 **여섯 번 똑같이 들어온다.**
+   컷이 바뀐 걸 눈이 알아채도 "또 같은 방식"으로 읽혀서 리듬이 안 생긴다.
+
+   🔴 scale() 은 여전히 금지다(아래 seek 의 주석 — fitCanvas 가 transform 적용 뒤 크기를
+      읽어 백킹스토어가 매 프레임 달라진다). **확대하고 싶으면 lib.js 의 `camAt`** 를
+      써라 — 그쪽은 캔버스 ctx 를 스케일해서 엘리먼트 크기를 안 건드린다.
+   🔑 clip-path 는 안전하다 — 페인트 단계만 건드리고 레이아웃·getBoundingClientRect 에
+      영향이 없다. 쓸기(wipe·wipe-x)와 조리개(iris)가 여기서 나온다.
+   e 는 0~1 진입 진행률(ts 의 순수 함수)이라 seek 의 순수성은 그대로다. */
+function applyEnter(el, kind, e) {
+  el.style.clipPath = '';
+  switch (kind) {
+    case 'side':                                   // 옆에서 밀려 들어온다
+      el.style.opacity = 0.12 + 0.88 * e;
+      el.style.transform = `translateX(${((1 - e) * -18).toFixed(2)}px)`;
+      break;
+    case 'wipe':                                   // 아래에서 위로 쓸어 올린다
+      el.style.opacity = 1;
+      el.style.transform = 'none';
+      el.style.clipPath = `inset(${((1 - e) * 100).toFixed(2)}% 0 0 0)`;
+      break;
+    case 'wipe-x':                                 // 왼쪽에서 오른쪽으로 쓸어 연다
+      el.style.opacity = 1;
+      el.style.transform = 'none';
+      el.style.clipPath = `inset(0 ${((1 - e) * 100).toFixed(2)}% 0 0)`;
+      break;
+    case 'iris':                                   // 가운데서 조리개가 열린다
+      el.style.opacity = 1;
+      el.style.transform = 'none';
+      /* 105% — 100% 는 상자에 내접하는 원이라 네 귀퉁이가 끝까지 안 열린다 */
+      el.style.clipPath = `circle(${(e * 105).toFixed(1)}% at 50% 50%)`;
+      break;
+    case 'cut':                                    // 하드 컷 — 첫 프레임부터 완성
+      el.style.opacity = 1;
+      el.style.transform = 'none';
+      break;
+    default:                                       // 'up' — 종전 기본값
+      el.style.opacity = 0.12 + 0.88 * e;
+      el.style.transform = `translateY(${((1 - e) * 12).toFixed(2)}px)`;
+  }
+}
+
 /* ── seek : 유일한 그리기 경로 ────────────────────── */
 function seek(t) {
   t = Math.max(0, Math.min(TOTAL, t));
@@ -418,6 +473,7 @@ function seek(t) {
      렌더는 프레임마다 seek 을 await 하므로(awaitPromise) currentTime 이 실제로
      그 프레임에 도착한 뒤 캡처된다 — play() 로 흘리면 결정성이 깨진다 (명세 ⚠️). */
   let clipWait = null;
+  drawWaits.length = 0;
   if (clipLayer) {
     const clipOn = !!(act.clip && act.clipVideo && act.clipVideo.readyState >= 2);
     clipLayer.hidden = !clipOn;
@@ -448,6 +504,7 @@ function seek(t) {
     const p = Math.min(1, (t - s.t) / s.dur);
     const ts = (t - s.t) / 1000;
 
+
     /* 샷 진입 — 컷이 아니라 짧게 밀어 넣는다. 하드 컷만 이어 붙이면 샷이 바뀐 걸
        놓치는 프레임이 생긴다. 가이드 한도(translateY ±30px) 안이고, ts 의 함수라
        seek 의 순수성은 그대로다 — 어느 시각으로 뛰어도 같은 그림.
@@ -458,8 +515,7 @@ function seek(t) {
        흔들린다(실측: 30fps 2,924프레임 중 74프레임 불일치). translate 는 박스
        크기를 바꾸지 않으므로 안전하다. */
     const ek = Math.min(1, ts / ENTER), e = ek * ek * (3 - 2 * ek);
-    s.el.style.opacity = 0.12 + 0.88 * e;
-    s.el.style.transform = `translateY(${((1 - e) * 12).toFixed(2)}px)`;
+    applyEnter(s.el, s.enter, e);
 
     /* cue(i) — i번째 자막에 맞물린 0~1 진행률.
        가이드(SKILL.md): 모든 reveal 은 그 내용을 말하는 자막 시작 ±20프레임 안에서 터져야 한다.
@@ -476,6 +532,9 @@ function seek(t) {
 
     kinds[s.kind]?.draw?.(s.el, {
       spec: s.spec || {}, shot: s, scene, images,
+      /** 그림 재료가 아직 안 왔을 때 — 약속을 걸고 **그 안에서 다시 그려라**. */
+      wait: p => drawWaits.push(p),
+      fail: why => { if (!failedKinds.includes(why)) failedKinds.push(why); },
       p, t: ts, dur: s.dur / 1000, abs: t / 1000,
       lines: s.rel, cue, since, nLines: s.rel.length
     });
@@ -498,8 +557,9 @@ function seek(t) {
   // 앵커(1550)보다 내려가 쇼츠 가림 영역 쪽으로 밀린다 — 바닥 고정이 깨진다.
   cap.style.transform = `translateY(${(k - 1) * 5}px)`;
 
-  // 클립 샷이면 비디오 seek 완료 약속을 돌려준다 — render/check 가 await 한다 (W5)
-  return clipWait;
+  // 클립·3D 프레임의 「아직 못 그렸다」 약속을 돌려준다 — render/check 가 await 한다
+  if (!drawWaits.length) return clipWait;
+  return Promise.all(clipWait ? [clipWait, ...drawWaits] : drawWaits);
 }
 
 /* ── 나레이션 (미리보기 전용) ─────────────────────

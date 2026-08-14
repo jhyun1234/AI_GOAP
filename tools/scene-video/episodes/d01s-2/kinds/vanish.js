@@ -1,6 +1,6 @@
 import {
   ease, clamp, lerp, frac,
-  fitCanvas, mkCanvas, roundRect, tone, disp, setShadow, clearShadow, GLOW
+  fitCanvas, mkCanvas, roundRect, tone, disp, setShadow, clearShadow, GLOW, FAIL_GLOW
 } from '../../../engine/lib.js';
 
 /* vanish — 훅(4단 고정 구조 ②). 「눈앞의 증발」 그 장면 하나만 되풀이한다.
@@ -101,8 +101,8 @@ export default {
     if (ba > 0.01) {
       ctx.save();
       ctx.globalAlpha = ba;
-      setShadow(ctx, GLOW, 8);
-      ctx.strokeStyle = tone('accent');
+      setShadow(ctx, FAIL_GLOW, 8);
+      ctx.strokeStyle = tone('fail');
       ctx.lineWidth = 3;
       for (const [cx, by] of BAND) { tri(ctx, cx, by); ctx.stroke(); }
       clearShadow(ctx);

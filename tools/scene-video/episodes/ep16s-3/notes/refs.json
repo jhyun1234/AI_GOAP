@@ -1,0 +1,114 @@
+{
+  "ep": "ep16s-3",
+  "at": "2026-08-14T01:59:11.358Z",
+  "sceneMtime": 1786640597969.338,
+  "shots": [
+    {
+      "id": "SH",
+      "kind": "rosterflood",
+      "declared": [],
+      "used": [],
+      "hints": [],
+      "missing": []
+    },
+    {
+      "id": "S0",
+      "kind": "intro",
+      "declared": [],
+      "used": [],
+      "hints": [],
+      "missing": []
+    },
+    {
+      "id": "S1",
+      "kind": "recordsdie",
+      "declared": [],
+      "used": [],
+      "hints": [],
+      "missing": []
+    },
+    {
+      "id": "S2",
+      "kind": "ninerefusals",
+      "declared": [],
+      "used": [],
+      "hints": [],
+      "missing": []
+    },
+    {
+      "id": "S3",
+      "kind": "foldrows",
+      "declared": [],
+      "used": [],
+      "hints": [],
+      "missing": []
+    },
+    {
+      "id": "SO",
+      "kind": "nextpeek",
+      "declared": [],
+      "used": [],
+      "hints": [],
+      "missing": []
+    }
+  ],
+  "tags": [],
+  "gaps": [],
+  "hinted": [],
+  "unknown": [],
+  "refs": {
+    "walk": {
+      "slug": "N0TNQygEYaQ",
+      "title": "Mannequin Walk Cycle Front",
+      "url": "https://youtu.be/N0TNQygEYaQ"
+    }
+  },
+  "missingRefs": [],
+  "ours": {
+    "fps": 30,
+    "frames": 1849,
+    "move": 1.43,
+    "p95": 4.11,
+    "max": 89.7,
+    "stepHist": {
+      "1": 75,
+      "6": 1,
+      "9": 18
+    },
+    "swaps": 94,
+    "perSec": 1.5,
+    "areaMed": 0.1,
+    "areaP90": 1.4,
+    "cuts": 6,
+    "cutGapMed": 9.47,
+    "holds": 17,
+    "holdMax": 4.37,
+    "flashes": 0
+  },
+  "pacing": [
+    {
+      "slug": "jMtftOUuu_c",
+      "holdMax": 1.17,
+      "move": 17.29
+    }
+  ],
+  "band": {
+    "from": [
+      {
+        "slug": "a91EPM7TBX4",
+        "title": "Simulating a village of AI NPCs"
+      },
+      {
+        "slug": "wC9iu7cuQjI",
+        "title": "Creating SMART enemies from scratch! | Devlog"
+      }
+    ],
+    "moveMin": 4.99,
+    "areaP90Min": 7,
+    "holdMaxMax": 26.33,
+    "cutGapMedRange": [
+      4.57,
+      271.67
+    ]
+  }
+}

@@ -33,6 +33,7 @@
 
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 import { spawnSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import { findFfmpeg } from './lib-node.mjs';
@@ -103,6 +104,13 @@ const SAMPLE_FPS = 30;
    문턱 0.10 · 불응기 0.4초는 **정답을 아는 판**으로 골랐다:
    ep16s-1 = 여섯 샷 + 꼬리 카드 = 컷 6회. 아래 selftest 가 이걸 지킨다. */
 const SCENE_THR = 0.10, CUT_REFRACT_S = 0.4;
+
+/* 문턱을 고른 그 판의 지문 (ep16s-1/build/video.mp4 · 2026-08-14 3D 재작업본).
+   🔴 selftest 가 **빌드 산출물**을 재기 때문에 필요하다 — build/ 는 gitignore 이고
+   기기마다 다른 것이 놓여 있다. 실제로 게임 워크트리엔 2D 시절 mp4(8/12)가 남아
+   있어서 같은 경로가 컷 0회를 냈다. 지문이 없으면 「기기에 따라 빨간불」이 되고,
+   그런 검사는 곧 아무도 안 본다. 다시 구웠으면 컷 수를 눈으로 확인하고 갱신해라. */
+const TUNED_MD5 = '923ca5870457837556a09eb51f56f7b7';
 
 function cutTimes(file, fps = 30, thr = SCENE_THR) {
   const r = run(FF, ['-v', 'error', '-i', file,
@@ -506,6 +514,12 @@ switch (cmd) {
   case 'selftest': {
     const f = path.join(ROOT, 'episodes', 'ep16s-1', 'build', 'video.mp4');
     if (!fs.existsSync(f)) { console.log('건너뜀 — ep16s-1/build/video.mp4 가 없다'); break; }
+    const md5 = crypto.createHash('md5').update(fs.readFileSync(f)).digest('hex');
+    if (md5 !== TUNED_MD5) {
+      console.log(`건너뜀 — 문턱을 고른 그 판이 아니다 (지문 ${md5.slice(0, 8)} ≠ ${TUNED_MD5.slice(0, 8)}).`);
+      console.log('   ep16s-1 을 다시 구웠다면 컷 수를 눈으로 확인하고 TUNED_MD5 를 갱신해라.');
+      break;
+    }
     const t = cutTimes(f, 30);
     const ok = t.length === 6;
     console.log(`${ok ? '🟢' : '🔴'} ep16s-1 컷 ${t.length}회 (기대 6) — ${t.map(v => v.toFixed(1)).join(', ')}`);

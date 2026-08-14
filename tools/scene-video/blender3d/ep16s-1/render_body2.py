@@ -51,11 +51,13 @@ DROP_AT = FALL_AT + 0.40
 HX, HY = C.spot_of(HERO)
 
 K0 = C.cam_at(C.mid_of((LATE, 3)), frac=0.34, lens_mm=C.LENS_MID, yaw=-96, elev=19, dz=0.55)
-# 🔴 +24° 쪽은 옆 무덤이 **앞을 가린다**(접점 시트). 반대쪽으로 돌아 들어간다.
-K1 = C.cam_at(HERO, frac=0.48, lens_mm=C.LENS_CLOSE, yaw=C.face_yaw(HERO, -38), elev=17,
-              dz=0.66)
-K2 = C.cam_at(HERO, frac=0.45, lens_mm=C.LENS_CLOSE, yaw=C.face_yaw(HERO, -22), elev=16,
-              dz=0.50)
+# 🔴 두 번 되돌렸다: +24° 는 옆 무덤이 앞을 가렸고, −38° 는 **무너진 몸을 정면에서**
+#    잡아 화면이 흰 공 하나가 됐다(런북 §7). 무너짐은 **옆에서** 봐야 접힌 몸이 읽힌다.
+#    🔴 옆도 서쪽은 안 된다 — 그쪽에 옆 무덤 둘이 있어 몸을 가린다. **동남쪽**이 답이다.
+K1 = C.cam_at(HERO, frac=0.46, lens_mm=C.LENS_CLOSE, yaw=C.face_yaw(HERO, 82), elev=20,
+              dz=0.72)
+K2 = C.cam_at(HERO, frac=0.44, lens_mm=C.LENS_CLOSE, yaw=C.face_yaw(HERO, 100), elev=18,
+              dz=0.58)
 K3 = C.cam_at(C.mid_of(C.GROUP_A), frac=0.30, lens_mm=C.LENS_MID, yaw=-88, elev=20, dz=0.50)
 K4 = C.cam_at(C.mid_of(C.GROUP_A), frac=0.30, lens_mm=C.LENS_MID, yaw=-116, elev=18, dz=0.50)
 KEY = [(0.00, K0[0], K0[1]),

@@ -720,6 +720,72 @@ def attack(t):
             'shin.L': (R(10) * max(k, 0.0), 0, 0)}
 
 
+# ── 전쟁 어휘 (M32) ─────────────────────────────────────
+# 🔴 `attack`(맨손)에서 갈라져 나온 둘이다. **모캡을 안 쓴 이유**: 이 둘은 새 곡선이 아니라
+#    `attack` 곡선의 변주라, 손으로 짜야 나머지 22종과 **같은 사람**으로 남는다
+#    (모캡은 예비 동작이 짧고 고르다 — 섞으면 한 사람 안에서 스타일이 갈린다).
+SLASH_CYCLE, SLASH_WIND = 0.85, 0.33
+THRUST_CYCLE, THRUST_AIM = 0.70, 0.43
+
+
+def _swing(u, wind, hit, dip):
+    """예비(음수) → 가속 타격 → 되돌아옴. `attack` 과 **같은 뼈대**를 셋이 나눠 쓴다."""
+    if u < wind:
+        return -dip * math.sin(math.pi * u / wind)
+    v = (u - wind) / (1 - wind)
+    return (v / hit) ** 2.1 if v < hit else 1 - _ease((v - hit) / (1 - hit))
+
+
+def slash(t):
+    """검을 휘두른다 — 주민 검 공격 1 (`Player_Attack_OnlyWeapon` 행 0·3·6). 주기 0.85 초.
+
+    🔴 `attack` 과 갈리는 것은 **축**이다. 주먹은 앞(X)으로 나가고 칼은 **가로(Z)로 지나간다.**
+       X 만 크게 쓰면 「칼 들고 주먹질」이 되고 옆에서 보면 둘이 구분이 안 된다.
+    🔑 **허리가 칼을 던진다.** 팔만 돌리면 칼끝이 몸을 못 지나간다 — 비틀림(Y)이 주역이고
+       골반이 상체보다 **반 박자 먼저** 돈다. 그 시차가 곧 힘이다.
+    🔴 칼끝이 몸 앞에서 **멈추면 안 된다.** 호는 몸을 지나 반대편까지 간다 — 멈추면 찌르기다.
+    🔑 `ROOT` 는 0.06 으로 `attack`(0.10)보다 **작다.** 휘두름은 파고드는 게 아니라 스치는 것이다."""
+    k = _swing((t % SLASH_CYCLE) / SLASH_CYCLE, SLASH_WIND, 0.38, 0.40)
+    w, s = max(-k, 0.0), max(k, 0.0)
+    return {ROOT: (0.06 * s, -0.010 * s, 0.0),
+            SQUASH: (0.12 * w - 0.06 * s, 0.0, 0.0),
+            # 예비는 뒤로 감고(Z 음수) 타격은 몸 앞을 가로지른다(Z 양수)
+            'upperarm.R': (R(-20) * s - R(55) * w, 0, R(95) * s - R(80) * w),
+            'forearm.R': (R(-12) - R(70) * (1 - s), 0, 0),   # 폄이 칼끝 속도를 만든다
+            'hand.R': (R(10) * s - R(25) * w, 0, 0),         # 마지막 손목 스냅
+            'upperarm.L': (R(35) * w - R(25) * s, 0, R(12)), # 대측 반동
+            'forearm.L': (R(-60) - R(15) * s, 0, 0), 'hand.L': (R(-10), 0, 0),
+            'spine': (0, R(18) * w - R(22) * s, 0),          # 비틀림이 주역
+            'hips': (0, R(10) * w - R(12) * s, 0),           # 상체보다 먼저 돈다
+            'neck': (0, R(6) * s, 0), 'head': (0, R(9) * s, 0),
+            'thigh.L': (R(-16) * s, 0, 0), 'thigh.R': (R(9) * s, 0, 0),
+            'shin.L': (R(10) * s, 0, 0)}
+
+
+def thrust(t):
+    """검으로 찌른다 — 주민 검 공격 2 (행 1·4·7). 주기 0.70 초 (휘두름보다 짧다).
+
+    🔑 **이 동작의 정체는 `ROOT` 하나다.** 팔이 나가는 게 아니라 **몸이 간다** — 0.22 는
+       `slash`(0.06)의 3.7 배다. 그 수가 없으면 이건 그냥 팔 뻗기다.
+    🔴 **허리를 비틀지 마라.** 비틀면 `slash` 와 구분이 안 된다 — 여기가 둘이 갈리는 자리고,
+       그래서 `spine` 의 Y 를 6° 로 묶어 둔다(0 이면 뻣뻣하고 20° 면 휘두름이 된다).
+    🔴 찌름은 짧고 **뺌은 길다**(0.22 : 0.78). 같은 속도로 빼면 겁먹은 것으로 읽힌다.
+    🔑 손목은 **안 쓴다**(`hand.R` 0). 손목을 쓰면 칼끝이 흔들려 찌르기가 안 된다."""
+    k = _swing((t % THRUST_CYCLE) / THRUST_CYCLE, THRUST_AIM, 0.22, 0.50)
+    w, s = max(-k, 0.0), max(k, 0.0)
+    return {ROOT: (0.22 * s, 0.0, 0.0),                      # ← 이 동작의 정체
+            SQUASH: (0.14 * w - 0.12 * s, 0.0, 0.0),
+            'upperarm.R': (R(-92) * s - R(35) * w, 0, R(-6)),  # Z 고정 — 호가 없다
+            'forearm.R': (R(-4) - R(91) * (1 - s), 0, 0),      # 폄의 폭 = 찌르기의 길이
+            'hand.R': (0, 0, 0),
+            'upperarm.L': (R(25) * w - R(15) * s, 0, R(14)),
+            'forearm.L': (R(-70), 0, 0), 'hand.L': (R(-10), 0, 0),
+            'spine': (R(-12) * s, R(6) * w - R(6) * s, 0),     # 앞으로 기울고, 거의 안 돈다
+            'neck': (R(-3) * s, 0, 0), 'head': (R(-2) * s, 0, 0),
+            'thigh.L': (R(-24) * s, 0, 0), 'shin.L': (R(18) * s, 0, 0),  # 앞발이 크게(런지)
+            'thigh.R': (R(6) * s, 0, 0), 'foot.R': (R(20) * s, 0, 0)}    # 뒤꿈치가 든다
+
+
 def look_around(t):
     """둘러본다 — Explore·Wander·ManTower 가 쓴다. 주기 3.2 초.
 
@@ -895,7 +961,8 @@ def sequence(names, t, beat, span=0.30):
     return blend(MOTIONS[names[i - 1]](t), cur, _ease((t - i * beat) / span))
 
 
-MOTIONS = {'look_up' : look_up, 'walk': walk, 'stop': stop, 'farm': farm,
+MOTIONS = {'slash': slash, 'thrust': thrust,
+           'look_up' : look_up, 'walk': walk, 'stop': stop, 'farm': farm,
            'chop': chop, 'draw': draw, 'warm': warm, 'eat': eat,
            'huddle': huddle, 'reach': reach, 'freeze': freeze,
            # 게임의 액션·`AnimKind` 에서 온 것들(Assets/Scripts/M0/Data/ActionSO.cs)

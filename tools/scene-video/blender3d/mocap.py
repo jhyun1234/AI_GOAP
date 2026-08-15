@@ -30,6 +30,10 @@ import os
 DIR = os.path.dirname(os.path.abspath(__file__))
 MOCAP = os.path.join(DIR, 'mocap')
 
+# `stage.ROOT` 와 같은 값이어야 한다. `stage` 를 import 하면 bpy 가 딸려 와서 이 모듈이
+# 블렌더 밖에서 안 돌므로(자체 점검이 그 위에 선다) 값만 맞춘다.
+ROOT = '@root'
+
 _cache = {}
 
 
@@ -67,6 +71,11 @@ def load(name, dur=None, loop=True, gain=1.0):
         for nm in bones:
             pa, pb = a[nm], b[nm]
             out[nm] = tuple(gain * (pa[c] + (pb[c] - pa[c]) * k) for c in range(3))
+        # 🔴 골반 이동에는 `gain` 을 안 먹인다. 회전은 부풀려도 자세지만 이동을 부풀리면
+        #    발이 땅을 뚫거나 사람이 미끄러진다 — 접지는 과장의 대상이 아니다.
+        if ROOT in a:
+            pa, pb = a[ROOT], b[ROOT]
+            out[ROOT] = tuple(pa[c] + (pb[c] - pa[c]) * k for c in range(3))
         return out
 
     f.__name__ = f'mocap_{name}'
@@ -82,13 +91,17 @@ def demo():
         t_ = table(name)
         f = load(name, dur=2.0)
         p0, pm, p1 = f(0.0), f(1.0), f(1.999)
-        assert set(p0) == set(t_['bones']), f'{name}: 뼈 목록이 다르다'
+        assert set(p0) == set(t_['bones']) | {ROOT}, f'{name}: 키 목록이 다르다'
         for pose in (p0, pm, p1):
             for nm, r in pose.items():
                 assert len(r) == 3, f'{name}.{nm}: 성분이 3이 아니다'
-                assert all(abs(v) < 4 * math.pi for v in r), f'{name}.{nm}: 각이 튄다 {r}'
+                if nm == ROOT:
+                    # 🔴 골반이 키(0.95m)의 절반을 넘게 움직이면 축·배율이 틀린 것이다.
+                    assert all(abs(v) < 0.5 for v in r), f'{name} @root 가 튄다 {r}'
+                else:
+                    assert all(abs(v) < 4 * math.pi for v in r), f'{name}.{nm}: 각이 튄다 {r}'
         # 보간이 실제로 값을 만드는가 (표가 상수면 파일럿이 무의미하다)
-        moved = max(abs(pm[nm][c] - p0[nm][c]) for nm in p0 for c in range(3))
+        moved = max(abs(pm[nm][c] - p0[nm][c]) for nm in t_['bones'] for c in range(3))
         assert moved > 0.05, f'{name}: 0초와 1초의 포즈가 같다 ({moved:.4f})'
         # loop=False 는 끝에서 멈춘다
         g = load(name, dur=2.0, loop=False)

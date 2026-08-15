@@ -26,7 +26,9 @@ AT = {'look_up': 0.35, 'walk': 0.25 / motions.WALK_HZ, 'stop': 0.0,
       'look_around': 0.8,                    # 고개가 한쪽 끝에 가 있는 순간
       'mine': 0.87 * 1.25,                   # 뿔이 박히는 순간
       'hammer': 0.90 * 0.75,                 # 망치가 닿는 순간
-      'water': 0.30 * 2.6}                   # 통이 가장 기운 순간
+      'water': 0.30 * 2.6,
+      'slash': motions.SLASH_CYCLE * 0.55,     # 칼이 몸 앞을 지나는 순간
+      'thrust': motions.THRUST_CYCLE * 0.52}   # 팔이 다 펴진 순간                   # 통이 가장 기운 순간
 
 bpy.ops.wm.read_factory_settings(use_empty=True)
 # 🔴 rot_z 135 는 정면 벡터가 시선과 **정확히 수직**이라 완전한 옆모습이 나온다(실측).

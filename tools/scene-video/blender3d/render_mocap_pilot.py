@@ -29,7 +29,10 @@ COLS = int(os.environ.get("PILOT_COLS", 8))
 #    맡으므로 여기서는 **목표 길이**를 그대로 적는다 (`3D_대본_문법.md` §5 규약).
 ROWS = [
     ('mocap_shoot', mocap.load('shoot', dur=1.6), 1.6),
+    ('mocap_flinch', mocap.load('flinch', dur=0.55, loop=False), 0.55),
+    ('mocap_limp', mocap.load('limp', dur=1.4), 1.4),
     ('hand_attack', motions.MOTIONS['attack'], 0.9),
+    ('hand_walk', motions.MOTIONS['walk'], 1.0 / motions.WALK_HZ),
 ]
 
 bpy.ops.wm.read_factory_settings(use_empty=True)

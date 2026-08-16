@@ -50,18 +50,8 @@ MonoBehaviour:
   - "...나중에요"
   - "피곤하면 실수해요. 그거 싫어요"
   - "...쉬는 것도 일이에요"
-  MoodLineChance: 0.2
+  MoodLineChance: 0
   FleeRadiusMult: 1
   Traits:
-  - Trait: 0
-    Value: 20
-  - Trait: 1
-    Value: 0
-  - Trait: 2
-    Value: -70
-  - Trait: 3
-    Value: 0
-  - Trait: 4
-    Value: 60
   - Trait: 5
     Value: 30

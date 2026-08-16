@@ -31,7 +31,8 @@ MonoBehaviour:
   InitialSatiety: 70
   InitialFatigue: 20
   InitialSatietyVariance: 15
-  SatietyDecayPerGameDay: 150
+  SatietyDecayPerGameDay: 100
+  StarvingBelowSatiety: 0
   BodyCarryCap: 48
   HomeStorageCap: 90
   DangerMemoryDecayPerDay: 3

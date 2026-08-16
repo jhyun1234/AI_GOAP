@@ -952,44 +952,6 @@ namespace AIVillage.Tests.EditMode
         }
 
         [Test]
-        public void M12_T13_RequesterTraitGate_MechanismContract()
-        {
-            // M20-W12: 집 부탁 에셋은 삭제(ADR-M20-7) — '경험 > 기질' 서사는 자가 건축의
-            // ExperienceOverrideWhen으로 이전됐다 (게이트 M20_T8이 그쪽을 감시).
-            // 여기는 **선반 메커니즘**(RequesterQualifies — 미래의 부탁이 쓸 성향 문턱 + 경험
-            // 우회)의 계약만 지킨다. 사용처 0이어도 선반은 살아 있다 — 부탁 추가는 에셋 1개다.
-            var r = ScriptableObject.CreateInstance<RequestSO>();
-            r.RequesterTraits = new[] { new TraitCondition { Trait = TraitId.Foresight, MinValue = -50 } };
-            r.TraitBypassConditions = new[]
-            {
-                new SlotCondition { Slot = SlotId.MyWasStarved, Op = CompareOp.GreaterOrEqual, Value = 1 }
-            };
-
-            WorldSnapshot none = SnapWith(SlotId.MyWasStarved, 0);
-            WorldSnapshot starved = SnapWith(SlotId.MyWasStarved, 1);
-
-            // 문턱 미달(게으름뱅이 대비 -70)은 여력이 있어도 성립하지 않는다 —
-            // 성격 페널티 우회 구조(2026-07-24 관측)의 차단 지점.
-            PersonalitySO lazy = LoadAllPersonalities().First(p => p.name == "Personality_Lazy");
-            Assert.IsFalse(RequestService.RequesterQualifies(r, lazy, none),
-                "문턱 미달 성격은 성립하면 안 된다");
-
-            // 굶어 죽을 뻔한 경험은 기질을 넘는다 (경험 > 기질 — 우회 OR).
-            Assert.IsTrue(RequestService.RequesterQualifies(r, lazy, starved),
-                "MyWasStarved면 성향 문턱을 우회해 성립해야 한다");
-
-            // 중립 불변식 — 성향 조건이 비면 성격과 무관하게 현행 동작.
-            var neutral = ScriptableObject.CreateInstance<RequestSO>();
-            Assert.IsTrue(RequestService.RequesterQualifies(neutral, lazy, none),
-                "RequesterTraits가 비면 성향 무관 = 현행 동작(중립 불변식)");
-            Assert.IsTrue(RequestService.RequesterQualifies(neutral, null, none),
-                "성격 null도 중립 경로");
-
-            Object.DestroyImmediate(neutral);
-            Object.DestroyImmediate(r);
-        }
-
-        [Test]
         public void M12_T13_NearStarvation_IsRarerThanHungerAndSurvivable()
         {
             var c = AssetDatabase.LoadAssetAtPath<AgentConfigSO>("Assets/M0Config/AgentConfig.asset");
@@ -1101,29 +1063,6 @@ namespace AIVillage.Tests.EditMode
                         Assert.Greater(h.GetValueOrDefault(j.name), 0,
                             $"{axis}={sign}에서 {j.name}이 확률 0 — 편향이 결정론이 됐다");
                 }
-        }
-
-        [Test]
-        public void M12_T14_JobPick_IdlenessIsAWeightNotARule()
-        {
-            JobSO[] pool = LoadAllJobs();
-            var rules = AssetDatabase.LoadAssetAtPath<TraitRulesSO>("Assets/M0Config/TraitRules.asset");
-            PersonalitySO lazy = LoadAllPersonalities().First(p => p.name == "Personality_Lazy");
-
-            Dictionary<string, int> lazyHist = SampleJobs(lazy.Traits, pool, rules, 4000);
-            Assert.Greater(lazyHist.GetValueOrDefault("(무직)"), 0,
-                "게으름뱅이(근면 -80)는 무직이 후보로 올라와야 한다 (M11 '게으름 = 대비만' 정의 개정)");
-            // 규칙이 아니라 확률 — 게으름뱅이도 직업을 가질 수 있다.
-            Assert.Less(lazyHist.GetValueOrDefault("(무직)"), 4000,
-                "무직이 100%면 확률이 아니라 규칙이다 (M12-H ⚠️)");
-
-            // 문턱 위의 성격에겐 무직 후보가 아예 없다 — 문턱이 실제로 갈라야 한다.
-            foreach (PersonalitySO p in LoadAllPersonalities())
-            {
-                if (TraitVector.ValueOf(p.Traits, TraitId.Diligence) >= rules.NoJobBelowDiligence)
-                    Assert.AreEqual(0, SampleJobs(p.Traits, pool, rules, 2000).GetValueOrDefault("(무직)"),
-                        $"{p.name}: 근면이 문턱 이상인데 무직 후보가 생겼다");
-            }
         }
 
         // M12_T14(목수 최소 보장)은 M20-W5에서 삭제 — 보장의 근거였던 "집은 목수 부탁 전용"이

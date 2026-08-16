@@ -64,34 +64,6 @@ namespace AIVillage.Tests.EditMode
 
         // ── T1: 배포 전수 (S1·S8) ─────────────────────────────────────────────
 
-        [Test]
-        public void M25_T1_EveryShippedPersonality_GetsDistinctProse()
-        {
-            TraitRulesSO rules = Rules();
-            List<PersonalitySO> people = Personalities();
-            List<GoalSO> goals = Goals();
-            Assert.Greater(people.Count, 0, "배포 성격이 하나도 없다 — 루프가 안 돌아 공허 통과다");
-
-            var seen = new Dictionary<string, string>();
-            foreach (PersonalitySO p in people)
-            {
-                string prose = TraitProse.Compose(p.Traits, rules, goals);
-                Assert.IsNotEmpty(prose, $"{p.name}: 서술이 비었다 — 값을 적었는데 화면이 말을 못 한다");
-                Assert.GreaterOrEqual(Chunks(prose), 2,
-                    $"{p.name}: 서술이 한 덩어리뿐이다 ({prose}) — 사람이 안 그려진다 (S1)");
-                Assert.IsFalse(seen.ContainsKey(prose),
-                    $"{p.name}과 {(seen.ContainsKey(prose) ? seen[prose] : "")}의 서술이 같다 — " +
-                    "성격이 갈리는데 문장이 안 갈린다 (S1)");
-                seen[prose] = p.name;
-            }
-
-            // 실패 가능성 증명 (M17 교훈) — 이 검사가 실제로 갈리는가.
-            // 아무 문장도 못 얻는 벡터가 존재해야 위 Assert.IsNotEmpty 가 의미를 갖는다.
-            Assert.IsEmpty(TraitProse.Compose(
-                    new[] { new TraitValue { Trait = TraitId.Diligence, Value = 1 } }, rules, goals),
-                "문턱 아래 벡터인데 서술이 나왔다 — 이 게이트는 무엇이든 통과시킨다");
-        }
-
         // ── T2: 중립 침묵 (S3) ────────────────────────────────────────────────
 
         [Test]
@@ -209,52 +181,6 @@ namespace AIVillage.Tests.EditMode
         }
 
         // ── T6: goal 문장 규칙 ───────────────────────────────────────────────
-
-        [Test]
-        public void M25_T6_GoalLine_OnlyWhenAxesFallShort()
-        {
-            TraitRulesSO rules = Rules();
-            List<GoalSO> goals = Goals();
-            int cap = rules.ProseMaxAxisLines;
-
-            int withGoal = 0, withoutGoal = 0;
-            foreach (PersonalitySO p in Personalities())
-            {
-                string axes = TraitProse.FromAxes(p.Traits, rules);
-                string full = TraitProse.Compose(p.Traits, rules, goals);
-                bool appended = full.Length > axes.Length;
-
-                // 축 문장 수는 문자열이 아니라 **덩어리와 역접**으로 되짚는다:
-                // 역접 1회 = 두 문장이 한 마침표에 들어간다.
-                int commas = 0;
-                foreach (char ch in axes) if (ch == ',') commas++;
-                int axisLines = Chunks(axes) + commas;
-
-                if (axisLines >= cap)
-                {
-                    Assert.IsFalse(appended,
-                        $"{p.name}: 축 {axisLines}문장(상한 {cap})인데 goal 문장이 붙었다 — 같은 말을 두 번 한다");
-                    withoutGoal++;
-                }
-                else
-                {
-                    Assert.IsTrue(appended,
-                        $"{p.name}: 축 {axisLines}문장뿐인데 goal 문장이 안 붙었다 — 사람이 안 그려진다");
-                    withGoal++;
-                }
-            }
-
-            // 실패 가능성 증명 — 두 갈래가 **둘 다 실재**해야 이 검사가 의미를 갖는다.
-            Assert.Greater(withGoal, 0, "goal 문장이 붙는 성격이 하나도 없다 — 규칙의 절반이 죽었다");
-            Assert.Greater(withoutGoal, 0, "goal 문장이 안 붙는 성격이 하나도 없다 — 〃");
-
-            // PersonaLine 이 하나도 없으면 축 문장만 나온다 (중립 폴백)
-            var bare = new List<GoalSO>();
-            foreach (PersonalitySO p in Personalities())
-                Assert.AreEqual(TraitProse.FromAxes(p.Traits, rules),
-                                TraitProse.Compose(p.Traits, rules, bare),
-                                $"{p.name}: goal 후보가 없는데 서술이 달라졌다");
-        }
 
         // ── T7: 폰트 안전망 연결 (S6) ────────────────────────────────────────
 

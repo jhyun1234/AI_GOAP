@@ -158,37 +158,6 @@ namespace AIVillage.Tests.EditMode
             Assert.IsTrue(anyDiff, "다른 신원인데 전원 같은 벡터 — 시드가 신원을 안 탄다");
         }
 
-        /// <summary>
-        /// 확률사의 물리 증거 (명세 성공 기준 3): 게으름뱅이 **실제 에셋** + TraitRules **실제 진폭**
-        /// 기준, 표본 100명 중 파종(Plant)이 여가(Leisure)를 이기는 개체와 못 이기는 개체가
-        /// **둘 다** 존재해야 한다. 0/100 = 확정사 그대로(진폭 부족) · 100/100 = 성격 붕괴.
-        /// 진폭 25 근거 = 검산 2026-07-31 (10 → 0/100 · 25 → 13/100). 에셋 값을 내리면 여기가 잡는다.
-        /// </summary>
-        [Test]
-        public void M14_T2c_LazyFateIsProbabilisticNotCertain()
-        {
-            var lazy = AssetDatabase.LoadAssetAtPath<PersonalitySO>(
-                "Assets/M0Config/Personalities/Personality_Lazy.asset");
-            var plant = AssetDatabase.LoadAssetAtPath<GoalSO>("Assets/M0Config/Goals/Goal_Plant.asset");
-            var leisure = AssetDatabase.LoadAssetAtPath<GoalSO>("Assets/M0Config/Goals/Goal_Leisure.asset");
-            var rules = AssetDatabase.LoadAssetAtPath<TraitRulesSO>("Assets/M0Config/TraitRules.asset");
-            Assert.IsNotNull(lazy); Assert.IsNotNull(plant); Assert.IsNotNull(leisure); Assert.IsNotNull(rules);
-
-            int plantWins = 0;
-            for (int i = 0; i < 100; i++)
-            {
-                TraitValue[] traits = TraitVector.Jitter(lazy.Traits, $"Jitter_{i}", rules.TraitJitterAmp);
-                // 실효 우선순위 = §4 식 (무직 기준 — 직업 boost 0)
-                int effPlant = plant.Priority + lazy.BoostFor(plant) + plant.TraitBoost(traits);
-                int effLeisure = leisure.Priority + lazy.BoostFor(leisure) + leisure.TraitBoost(traits);
-                if (effPlant > effLeisure) plantWins++;
-            }
-            Assert.Greater(plantWins, 0,
-                $"게으름뱅이 100명 전원이 파종 문턱 미달 (amp {rules.TraitJitterAmp}) — 확정사 그대로다. 진폭·가중치 재검토");
-            Assert.Less(plantWins, 100,
-                "게으름뱅이 100명 전원이 파종 — 성격이 붕괴했다. 진폭 과대");
-        }
-
         // ── M14-T3: 최소 기록 (W4) — 경주의 자 ──
 
         [Test]

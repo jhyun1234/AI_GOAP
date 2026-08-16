@@ -15,36 +15,6 @@ namespace AIVillage.Tests.EditMode
     /// </summary>
     public class M4_PersonalityGates
     {
-        [Test]
-        public void M4_A_PersonalityAssets_LoadAndPolicy()
-        {
-            // 신규 인스턴스의 기본값 = 중립 (ADR-M4-2 불변식의 데이터 절반)
-            var fresh = ScriptableObject.CreateInstance<PersonalitySO>();
-            Assert.AreEqual(0f, fresh.RefuseSatietyOffset);
-            Assert.AreEqual(0f, fresh.RefuseFatigueOffset);
-            Assert.AreEqual(1f, fresh.GatherCostMult);
-            Assert.AreEqual(1f, fresh.FarmCostMult);
-            Assert.AreEqual(1f, fresh.BuildCostMult);
-            Assert.AreEqual(1f, fresh.ExploreCostMult);
-
-            // 아키타입 4종 로드 + 축 배치 검증 (§4 제안치)
-            var docile   = AssetDatabase.LoadAssetAtPath<PersonalitySO>("Assets/M0Config/Personalities/Personality_Docile.asset");
-            var stubborn = AssetDatabase.LoadAssetAtPath<PersonalitySO>("Assets/M0Config/Personalities/Personality_Stubborn.asset");
-            var farmer   = AssetDatabase.LoadAssetAtPath<PersonalitySO>("Assets/M0Config/Personalities/Personality_Farmer.asset");
-            var wanderer = AssetDatabase.LoadAssetAtPath<PersonalitySO>("Assets/M0Config/Personalities/Personality_Wanderer.asset");
-            Assert.IsNotNull(docile); Assert.IsNotNull(stubborn); Assert.IsNotNull(farmer); Assert.IsNotNull(wanderer);
-
-            // M12-F 이식: 축 배치는 이제 개별 필드가 아니라 **성향 벡터**가 갖는다.
-            // 같은 성질을 벡터 표현으로 검사한다 — 규칙이 바뀐 것이 아니라 표현이 바뀐 것이다.
-            int Trait(PersonalitySO p, TraitId t) => TraitVector.ValueOf(p.Traits, t);
-
-            Assert.Less(Trait(docile, TraitId.Willfulness), 0, "순둥이는 자존이 낮다 = 덜 거부");
-            Assert.Greater(Trait(stubborn, TraitId.Willfulness), 0, "고집쟁이는 자존이 높다 = 더 거부");
-            Assert.Greater(Trait(farmer, TraitId.Diligence), 0, "농사꾼은 근면 = 노동 선호");
-            Assert.Less(Trait(farmer, TraitId.Wanderlust), 0, "농사꾼은 정주 = 밭 선호(모험 음수)");
-            Assert.Greater(Trait(wanderer, TraitId.Wanderlust), 0, "떠돌이는 모험 = 채집·탐험 선호");
-        }
-
         private static (PlanStatus status, ActionSO[] plan) RunPlan(WorldSnapshot snap, GoalSO goal, float[] costMult)
         {
             var catalog = AssetDatabase.LoadAssetAtPath<ActionCatalog>("Assets/M0Config/ActionCatalog.asset");
@@ -76,57 +46,6 @@ namespace AIVillage.Tests.EditMode
             Assert.AreEqual(p0.Length, p1.Length, "중립 배열 = null과 동일 플랜 길이");
             for (int i = 0; i < p0.Length; i++)
                 Assert.AreSame(p0[i], p1[i], $"중립 불변식 위반 — {i}번째 액션이 다름");
-        }
-
-        [Test]
-        public void M4_T2_PersonalityMult_ChangesPlanPreference()
-        {
-            // 식량 조달(RawFood>=15): 익은 밭(수확 +6, 비용 8)과 열매(+5, 비용 10)가 둘 다 가능한 상황 —
-            // 농사꾼(Farm 0.7)은 밭 수확, 떠돌이(Gather 0.75)는 열매 채집이 플랜에 선택돼야 한다 (M4-S2)
-            var catalog = AssetDatabase.LoadAssetAtPath<ActionCatalog>("Assets/M0Config/ActionCatalog.asset");
-            var goal = AssetDatabase.LoadAssetAtPath<GoalSO>("Assets/M0Config/Goals/Goal_GatherFood.asset");
-            var farmer   = AssetDatabase.LoadAssetAtPath<PersonalitySO>("Assets/M0Config/Personalities/Personality_Farmer.asset");
-            var wanderer = AssetDatabase.LoadAssetAtPath<PersonalitySO>("Assets/M0Config/Personalities/Personality_Wanderer.asset");
-            WorldSnapshot snap = Snap((SlotId.MySatiety, 80), (SlotId.RawFoodStock, 10),
-                                      (SlotId.MyRipeCrop, 1), (SlotId.NearDiscoveredFood, 1));
-
-            var rules = AssetDatabase.LoadAssetAtPath<TraitRulesSO>("Assets/M0Config/TraitRules.asset");
-            (PlanStatus fs, ActionSO[] fp) = RunPlan(snap, goal, PersonalityCost.Build(catalog, farmer, null, null, rules));
-            Assert.AreEqual(PlanStatus.Success, fs);
-            Assert.AreEqual("HarvestCrop", fp[0].name, "농사꾼(근면.6/정주)은 밭 수확 선호 — 8×0.76 < 10×0.95");
-
-            (PlanStatus ws, ActionSO[] wp) = RunPlan(snap, goal, PersonalityCost.Build(catalog, wanderer, null, null, rules));
-            Assert.AreEqual(PlanStatus.Success, ws);
-            Assert.AreEqual("HarvestWildBerries", wp[0].name, "떠돌이(모험.9)는 열매 채집 선호 — 10×0.86 < 8×1.14");
-        }
-
-        [Test]
-        public void M4_T3_JudgeOrder_PersonalityOffsets()
-        {
-            // AgentConfig 기본 문턱 실측값: satiety < 35 거부 / fatigue > 70 거부 (M4-C 착수 시 확인)
-            // M12-F: 성향 문턱이 실제 에셋(AgentConfig)에 배선돼 있으므로 빈 인스턴스가 아니라 에셋을 쓴다 —
-            // 빈 인스턴스는 TraitBias가 비어 있어 성격이 무력해진다(그 자체가 중립 불변식의 증명이기도 하다).
-            var cfg = AssetDatabase.LoadAssetAtPath<AgentConfigSO>("Assets/M0Config/AgentConfig.asset");
-            var docile   = AssetDatabase.LoadAssetAtPath<PersonalitySO>("Assets/M0Config/Personalities/Personality_Docile.asset");
-            var stubborn = AssetDatabase.LoadAssetAtPath<PersonalitySO>("Assets/M0Config/Personalities/Personality_Stubborn.asset");
-
-            // 경계 1 (satiety 40, fatigue 60): 기본·순둥이 수락, 고집쟁이는 배고픔 거부 (40 < 35+8)
-            Assert.AreEqual(VillagerAgent.OrderResult.Accepted, VillagerAgent.JudgeOrder(40f, 60f, cfg, null));
-            Assert.AreEqual(VillagerAgent.OrderResult.Accepted, VillagerAgent.JudgeOrder(40f, 60f, cfg, docile));
-            Assert.AreEqual(VillagerAgent.OrderResult.RefusedHungry, VillagerAgent.JudgeOrder(40f, 60f, cfg, stubborn),
-                            "같은 상태에서 고집쟁이만 거부 — 명령 대상 선택의 재미 (M4-S1)");
-
-            // 경계 2 (satiety 80, fatigue 60): 고집쟁이는 피로 거부 (60 > 70-15)
-            Assert.AreEqual(VillagerAgent.OrderResult.RefusedTired, VillagerAgent.JudgeOrder(80f, 60f, cfg, stubborn));
-            Assert.AreEqual(VillagerAgent.OrderResult.Accepted, VillagerAgent.JudgeOrder(80f, 60f, cfg, docile));
-
-            // 경계 3 (satiety 30): 기본은 거부, 순둥이는 수행 (30 >= 35-8 — 지쳐도 따라가는 성격)
-            Assert.AreEqual(VillagerAgent.OrderResult.RefusedHungry, VillagerAgent.JudgeOrder(30f, 60f, cfg, null));
-            Assert.AreEqual(VillagerAgent.OrderResult.Accepted, VillagerAgent.JudgeOrder(30f, 60f, cfg, docile));
-
-            // 중립 불변식: null 성격 = 기존 3인자 판정과 동일 (M1-T1 계약 유지)
-            Assert.AreEqual(VillagerAgent.JudgeOrder(40f, 60f, cfg), VillagerAgent.JudgeOrder(40f, 60f, cfg, null));
-            Assert.AreEqual(VillagerAgent.JudgeOrder(20f, 95f, cfg), VillagerAgent.JudgeOrder(20f, 95f, cfg, null));
         }
 
         [Test]

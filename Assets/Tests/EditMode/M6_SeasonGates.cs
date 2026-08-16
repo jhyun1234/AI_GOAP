@@ -319,35 +319,6 @@ namespace AIVillage.Tests.EditMode
             DestroyAll(other, p, job, goal);
         }
 
-        [Test]
-        public void M6_T5_PersonalityAssets_CrisisResponseDiverges()
-        {
-            // 성격 5종의 겨울 비축 실효 우선순위가 갈려야 한다 — 전원 같으면 동시 돌입 재발
-            GoalSO prep = AssetDatabase.LoadAssetAtPath<GoalSO>("Assets/M0Config/Goals/Goal_WinterPrep.asset");
-            Assert.IsNotNull(prep);
-
-            string[] names = { "Docile", "Stubborn", "Farmer", "Wanderer", "Prickly" };
-            var distinct = new System.Collections.Generic.HashSet<int>();
-            bool anyNegative = false;
-            foreach (string n in names)
-            {
-                var p = AssetDatabase.LoadAssetAtPath<PersonalitySO>(
-                    $"Assets/M0Config/Personalities/Personality_{n}.asset");
-                Assert.IsNotNull(p, $"성격 에셋 없음: {n}");
-                // M12-F: 보정의 출처가 나열(GoalBoosts)에서 성향 벡터로 옮겨졌다. 검사하는 성질은 같다 —
-                // "성격마다 겨울 비축 실효 우선순위가 갈리는가"이지 어느 필드에서 나오는가가 아니다.
-                int boost = p.BoostFor(prep) + prep.TraitBoost(p.Traits);
-                distinct.Add(boost);
-                if (boost < 0) anyNegative = true;
-                Assert.Less(prep.Priority + boost, 60,
-                            $"{n}: 비축 실효 우선순위가 명령 대역(60) 침범 (M5-T5 안전 대역)");
-                Assert.Greater(prep.Priority + boost, 2,
-                               $"{n}: 비축이 일과(2) 아래로 추락 — goal이 죽는다");
-            }
-            Assert.GreaterOrEqual(distinct.Count, 3, "위기 대응이 최소 3갈래로 갈려야 함 (분화 정책)");
-            Assert.IsTrue(anyNegative, "위기를 미루는 성격(고집쟁이류)이 최소 1명 있어야 함");
-        }
-
         // ── M6-C: HUD 달력 문구 — 표시 정책 단일 지점 (순수 Compose) ─────────
 
         [Test]

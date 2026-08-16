@@ -50,18 +50,8 @@ MonoBehaviour:
   - "지쳤다고. 나중에 해."
   - "쉬는 것도 내 마음대로야."
   - "오늘은 여기까지 하기로 정했어."
-  MoodLineChance: 0.2
+  MoodLineChance: 0
   FleeRadiusMult: 1
   Traits:
-  - Trait: 0
-    Value: 40
-  - Trait: 1
-    Value: -30
-  - Trait: 2
-    Value: -40
-  - Trait: 3
-    Value: 0
-  - Trait: 4
-    Value: 90
   - Trait: 5
     Value: -60

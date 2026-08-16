@@ -44,18 +44,8 @@ MonoBehaviour:
   - "오늘 밭일이 고됐어요, 좀 쉬고요"
   - "밭일은 몸이 밑천인데, 좀 쉬어야죠"
   - "해 뜨면 다시 할게요"
-  MoodLineChance: 0.2
+  MoodLineChance: 0
   FleeRadiusMult: 1
   Traits:
-  - Trait: 0
-    Value: 60
-  - Trait: 1
-    Value: 80
-  - Trait: 2
-    Value: 20
-  - Trait: 3
-    Value: -60
-  - Trait: 4
-    Value: 0
   - Trait: 5
     Value: -20

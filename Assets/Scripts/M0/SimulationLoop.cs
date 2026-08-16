@@ -1061,7 +1061,10 @@ namespace AIVillage.M0
             }
             else
             {
-                Debug.LogWarning("[M0SimulationLoop] WorldConfig.SeasonCycle 비어 있음 — 계절 없이 진행 (M5 동작).");
+                // M32-W1: 계절 없음이 **정상 상태**가 됐다 (사용자 판정 2026-08-16 — 전쟁 축의
+                // 시계는 계절이 아니라 Day N 과 정찰이다). 경고에서 정보로 강등 — 매 실행 뜨는
+                // 경고는 "경고 0건" 건강 기준을 무디게 만든다.
+                Debug.Log("[M0SimulationLoop] 계절 없음 — 시계는 Day N 하나다 (M32-W1).");
             }
             // 식량 수지 (M9-G, M11-D 개인화) — 가치표는 config.FoodSources에서 파생, 인원 입력은
             // 제거됨 (식량은 개인 단위). 부상 수(M10-A)는 provider 패턴 — 파생 슬롯의 원천은 집계 하나뿐

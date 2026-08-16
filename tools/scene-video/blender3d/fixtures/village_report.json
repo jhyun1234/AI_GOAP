@@ -10,35 +10,42 @@
   "Cone.007",
   "Cone.009"
  ],
- "house_height": 1.85,
+ "house_height": 3.311,
+ "subject_height": 1.7,
+ "scale": 1.7895,
  "fire": {
   "stones": 7,
   "logs": 4,
-  "ash": "Cylinder.013"
+  "ash": "Cylinder.017"
  },
  "house_verts": 24,
  "parts": {
   "field": 12,
   "well": 7,
   "tree": 4,
-  "fire": 13
+  "fire": 13,
+  "bush": 7
  },
  "spots": [
   [
-   -2.7,
-   -1.5
+   -4.832,
+   -2.684
   ],
   [
-   3.0,
-   -0.4
+   5.368,
+   -0.716
   ],
   [
-   4.6,
-   1.1
+   8.232,
+   1.968
   ],
   [
-   -0.2,
-   1.0
+   -0.358,
+   1.789
+  ],
+  [
+   1.968,
+   -5.189
   ]
  ],
  "materials": [

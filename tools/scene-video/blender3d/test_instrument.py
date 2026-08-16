@@ -45,14 +45,11 @@ def test_work_block_keeps_six_apart_and_together():
             assert d < 2.6, (i, j, round(d, 2))       # 한 덩어리로 보여야 한다
 
 
-def test_instrument_colour_is_not_reused_by_the_world():
-    """🔴 시안이 세계 물체에 붙으면 초록·한기와 구별이 안 된다(설계 §2)."""
-    src = open(os.path.join(HERE, 'render_body2.py'), encoding='utf-8').read()
-    assert 'instrument_mat' in src
-    assert "world_mat('instrument'" not in src
-    assert "meaning_mat('instrument'" not in src
-
-
+# 🔴 여기 있던 `test_instrument_colour_is_not_reused_by_the_world` 는 `render_body2.py`
+#    (ep16s 회차 스크립트)의 소스를 읽어서 규약을 확인했다. 그 파일이 철거되면서 같이
+#    지웠다 — **검사가 지키던 규약은 살아 있다**(시안은 계기층 전용). 새 회차 스크립트가
+#    생기면 그때 그 파일을 대상으로 다시 세운다. 없는 파일을 읽는 검사를 남기면
+#    「초록이니까 지켜지고 있다」는 거짓 신호가 된다.
 
 
 def test_gauge_scale_spreads_this_episode_numbers():

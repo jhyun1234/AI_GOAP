@@ -17,6 +17,15 @@ import stage
 OUT = os.path.join(stage.OUT_ROOT, 'models', 'village.blend')
 REPORT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'fixtures', 'village_report.json')
 
+# 🔴 이 파일의 숫자는 **전부 옛 주민 키(0.95m) 기준**이다. 하나하나 다시 잡지 않는다 —
+#    그 숫자마다 「왜 이 값인가」가 주석으로 달려 있고(모닥불과 2.6° · 통로 3.06m ·
+#    지평선 200), 손으로 옮기면 그 근거가 통째로 거짓말이 된다.
+#    대신 다 짓고 나서 **한 번에 곱한다.** 비율은 그대로 살고 축척만 사람 키로 온다.
+# 🔑 그래서 바깥에서 마을 좌표를 쓸 때는 `village.at()` 을 거쳐야 한다. 날것 상수는
+#    지어지기 전의 단위다.
+BUILT_FOR_H = 0.95                # 아래 숫자들이 전제한 주민 키
+SCALE = stage.SUBJECT_H / BUILT_FOR_H
+
 HOUSES = [(-3.4, 2.6, 25), (0.2, 4.0, -10), (3.6, 2.2, -32)]     # x, y, 회전(도)
 TREES = [(-4.8, 0.6), (5.0, 1.1), (-2.4, 5.4), (3.1, 5.8)]
 TREE_SIZES = (1.00, 0.86, 1.12, 0.93)     # 넷이 같은 크기면 마을이 아니라 배경 무늬가 된다
@@ -372,6 +381,21 @@ def _haft(length, mat, y0=0.0):
     return o
 
 
+# 쥘 때 이 도구만 기본 자세가 다르다 (도) — `stage.GRIP_ROT` 을 대신한다.
+# 🔑 기본(자루가 손바닥을 가로지른다)으로 되는 것은 **자루가 있는 것들**이다.
+#    자루가 없거나 축이 다른 물건은 여기 적는다. 표가 아니라 **예외 목록**이다 —
+#    셋 넘게 쌓이면 그건 규약이 틀렸다는 뜻이니 그때 규약을 고쳐라.
+GRIP_ROT = {
+    # 물뿌리개는 손잡이에 **매달린다.** 네 각을 굽어 보고 고른 값 — 통이 손 아래로
+    # 내려가고 주둥이가 앞아래를 본다. 0 이면 옆으로 삐져나와 상자로 읽힌다.
+    'wateringcan': (-60.0, 0.0, -90.0),
+}
+
+
+def grip_rot(tool_name, default=(0.0, 0.0, -90.0)):
+    return GRIP_ROT.get(tool_name, default)
+
+
 def _tool(name, parts):
     """부품들을 빈 오브젝트 하나에 매단다. `stage.hold` 는 이 하나만 손에 붙인다."""
     root = bpy.data.objects.new(name, None)
@@ -428,12 +452,17 @@ def wateringcan(s=1.0):
     🔴 통만 만들면 양동이다. **주둥이가 이 물건을 물뿌리개로 만든다** — 기울였을 때
        물이 나가는 쪽이 보여야 「준다」가 된다.
     🔑 물은 안 그린다. 유채색이면 뜻층 예산을 쓰고, 무채색이면 안 보인다 —
-       기울인 주둥이가 그 말을 대신한다."""
+       기울인 주둥이가 그 말을 대신한다.
+    🔴 **원점은 손잡이다.** 도구 넷 중 이것만 자루가 없어서, 원점을 통 밑에 두면
+       `stage.hold` 이 통을 주먹에 붙이려다 물건이 손에서 19cm 떨어져 뜬다(첫 판이 그랬다).
+       쥐는 자리를 원점에 두는 것이 도구가 지켜야 할 규약이고, 자루 있는 셋은 이미 그렇다.
+    """
     m = mats()
-    body = _cyl((0, 0.19 * s, 0), 0.072 * s, 0.135 * s, m['stone'], verts=8)
-    spout = _cyl((0, 0.24 * s, 0.105 * s), 0.018 * s, 0.150 * s, m['stone'])
+    gy, gz = 0.19 * s, 0.090 * s            # 손잡이 자리 — 아래 부품들이 이만큼 물러난다
+    body = _cyl((0, 0, -gz), 0.072 * s, 0.135 * s, m['stone'], verts=8)
+    spout = _cyl((0, 0.05 * s, 0.105 * s - gz), 0.018 * s, 0.150 * s, m['stone'])
     spout.rotation_euler = (math.radians(-38), 0, 0)
-    grip = _cube((0, 0.19 * s, 0.090 * s), (0.020 * s, 0.075 * s, 0.014 * s), m['earth'])
+    grip = _cube((0, 0, 0), (0.020 * s, 0.075 * s, 0.014 * s), m['earth'])
     return _tool('wateringcan', [body, spout, grip])
 
 
@@ -616,6 +645,35 @@ def obstacles(exclude=()):
     return out
 
 
+def at(name):
+    """작업 자리의 **지어진 뒤 좌표**(Vector). 🔴 바깥에서는 `SPOTS` 를 직접 읽지 마라 —
+    그건 축척을 곱하기 전의 단위라, 주민을 그 자리에 세우면 마을 한복판이 아니라
+    어중간한 데 선다."""
+    return SPOTS[name] * SCALE
+
+
+def _apply_scale(k, objs=None):
+    """마을을 k 배 한다. 부모 없는 것만 만지면 자식은 따라온다."""
+    if abs(k - 1.0) < 1e-9:
+        return
+    for o in (objs if objs is not None else bpy.context.scene.objects):
+        if o.parent is None:
+            o.location = o.location * k
+            o.scale = o.scale * k
+
+
+def add(fn, *a, **kw):
+    """`build()` **뒤에** 소품을 하나 더 놓는다. 반환 fn 의 반환값.
+
+    🔴 그냥 부르면 안 된다. 축척은 `build()` 끝에서 한 번 곱하고 끝나므로, 그 뒤에 만든
+       것은 혼자 옛 크기로 남는다 — 마을이 커진 판에서 덤불만 작아 보였던 자리다.
+       좌표도 **날것으로 준다**(이 함수가 같이 곱한다)."""
+    before = set(bpy.context.scene.objects)
+    out = fn(*a, **kw)
+    _apply_scale(SCALE, [o for o in bpy.context.scene.objects if o not in before])
+    return out
+
+
 def build():
     """마을을 짓는다. 반환 dict 의 값은 전부 bpy 오브젝트다."""
     m = mats()
@@ -633,10 +691,12 @@ def build():
     houses = [house(x, y, rz) for x, y, rz in HOUSES]
     trees = [tree(x, y, TREE_SIZES[i % len(TREE_SIZES)]) for i, (x, y) in enumerate(TREES)]
 
-    return {'ground': ground, 'houses': houses, 'trees': trees,
-            'field': field(SPOTS['field']), 'well': well(SPOTS['well']),
-            'bush': bush(SPOTS['bush'].x, SPOTS['bush'].y),
-            'campfire': _fire_pit(SPOTS['fire'], m['stone'], m['char'])}
+    out = {'ground': ground, 'houses': houses, 'trees': trees,
+           'field': field(SPOTS['field']), 'well': well(SPOTS['well']),
+           'bush': bush(SPOTS['bush'].x, SPOTS['bush'].y),
+           'campfire': _fire_pit(SPOTS['fire'], m['stone'], m['char'])}
+    _apply_scale(SCALE)      # 🔴 마지막이다. 이 뒤에 뭘 더 놓으면 그것만 축척이 다르다
+    return out
 
 
 if __name__ == '__main__':
@@ -651,14 +711,19 @@ if __name__ == '__main__':
     json.dump({
         'houses': [h.name for h in v['houses']],
         'trees': [t.name for t in v['trees']],
-        'house_height': HOUSE_TOP,
+        # 🔴 **지어진 뒤의 미터**를 적는다. 날것 상수를 적으면 게이트가 축척을 못 본다 —
+        #    마을을 사람 키로 키운 판에서 「집이 1.85m」라고 적혀 있으면 그건 거짓말이다.
+        'house_height': round(HOUSE_TOP * SCALE, 3),
+        'subject_height': round(stage.SUBJECT_H, 3),   # 게이트가 **비율**로 재게 짝을 준다
+        'scale': round(SCALE, 4),
         'fire': {'stones': FIRE_STONES, 'logs': FIRE_LOGS, 'ash': v['campfire'].name},
         # 🔑 「소품이 몇 조각인가」를 값으로 남긴다. 상자 하나로 되돌아가는 것을 검사가 막는다.
         'house_verts': len(v['houses'][0].data.vertices),
         'parts': {n: sum(1 for o in bpy.context.scene.objects if o.type == 'MESH'
-                         and (o.matrix_world.translation.xy - Vector((sp.x, sp.y))).length < 1.15)
+                         and (o.matrix_world.translation.xy
+                              - (sp.xy * SCALE)).length < 1.15 * SCALE)
                   for n, sp in SPOTS.items()},
-        'spots': [[round(s.x, 3), round(s.y, 3)] for s in SPOTS.values()],
+        'spots': [[round(s.x * SCALE, 3), round(s.y * SCALE, 3)] for s in SPOTS.values()],
         'materials': sorted(used),
         'meaning_materials': sorted(m for m in used if m.startswith('meaning_')),
         'instrument_materials': sorted(m for m in used if m.startswith('instrument')),

@@ -7,6 +7,7 @@ from mathutils import Vector
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import palette
+import mixamo      # 🔴 한 방향이다 — mixamo 는 stage 를 안 부른다(부르면 순환한다)
 
 # 🔴 코드와 산출물을 가른다(설계 §7-2). 모델 원본은 **리포**에 있고, 만들어지는 것은
 #    전부 D 드라이브다. 경로를 절대값으로 박지 않는다 — 리포가 옮겨지면 그 자리가 틀린다.
@@ -170,14 +171,18 @@ KEY_ELEV, KEY_REL = 46, -67.3
 #    안 적히고, 그래서 아무도 그 값을 못 지킨다.
 # 🔑 그래서 손잡이를 **크기(frac)** 로 바꾼다: 「사람 키가 그림판 세로의 몇 할인가」.
 #    거리는 렌즈와 함께 계산된다. 좌표를 다시 안 적어도 규격이 지켜진다.
-SUBJECT_H = 0.95              # 주민 키(m) — rig.py 와 같은 값
+# 🔴 여기서 숫자를 적지 않는다. 키는 **캐릭터가 정한다** — `mixamo.build` 가 굽는 값이고,
+#    그 값이 마을 축척(`village.SCALE`)까지 끌고 간다. 두 곳에 적으면 갈라진다.
+SUBJECT_H = mixamo.H          # 주민 키(m)
 FIG_MIN = 0.28                # 🔴 사건이 있는 샷의 하한. 이보다 작으면 동작이 안 읽힌다
 
 
 def cam_for(at, frac=0.33, lens=40, yaw=-90.0, elev=14.0, subject=SUBJECT_H):
     """「사람이 그림판 세로의 frac 만큼 보이는」 카메라 자리를 만든다. 반환 (loc, at).
 
-    at   — 겨누는 점 (x, y, z). 보통 인물 가슴께(z 0.55~0.75)
+    at   — 겨누는 점 (x, y, z). 보통 인물 가슴께 = **`0.58~0.79 × SUBJECT_H`**
+           🔴 미터를 적지 마라. 앞 판에 `0.55~0.75` 라고 적혀 있었는데 그건 주민이
+              0.95m 이던 시절의 값이라, 1.70m 판에서 그대로 쓰면 무릎을 겨눈다.
     frac — 인물 키가 화면 세로에서 차지하는 비율. 0.33 = 3분의 1
     yaw  — 인물에서 카메라로 가는 방위(도). **-90 이 남쪽**(이 마을의 기본)
     elev — 올려다보는 각(도). 12~18 이 사람 눈높이 느낌이다
@@ -265,7 +270,8 @@ PALETTE = palette.LINEAR
 MEANING = palette.MEANING
 
 ACCENT_LIN = PALETTE['green']      # 옛 이름 — 기존 샷 스크립트가 아직 쓴다
-INK_LIN = (0.62, 0.62, 0.63)       # 인물 알베도와 같은 대역 — 흰 도형이 인물보다 튀지 않게
+INK_LIN = (0.62, 0.62, 0.63)       # 흰 도형. 🔴 인물 알베도(palette.FIGURE_LIN)와 **다르다** —
+                                   #    같은 값을 주면 인물이 순백으로 클리핑한다(실측 37.9%)
 
 
 def _mat(name, base, emit=None, strength=0.0):
@@ -348,96 +354,45 @@ def gate(objs, on):
         o.hide_render = not on
 
 
-RIG_BLEND = os.path.join(OUT_ROOT, 'models', 'villager_rigged.blend')   # 산출물이다 — D 드라이브
-_rig_src = None
+# ── 주민 ─────────────────────────────
+# 🔴 이 자리에 **옛 리그 API 가 있었다**(`rigged`·`pose`·`ROOT`·`SQUASH`). 전부 지웠다 —
+#    코드로 지은 사람과 손으로 짠 포즈 표를 쓰지 않기로 했기 때문이다(2026-08-16).
+#    사람은 `mixamo.spawn`, 동작은 `mixamo.play` 다. 여기서 다시 감싸지 않는다 —
+#    한 겹 얹으면 그 겹이 곧 두 번째 출처가 된다.
+
+# 🔴 **쥐는 자세는 실측이다.** 손뼈(`mixamorig:RightHand`) 로컬에서 재 보면:
+#      +Y = 손가락이 뻗는 쪽 (뼈 축 · 꼬리가 Y +10.98 단위)
+#      검지 X **+2.8** · 새끼 X **−4.7**  → **손바닥을 가로지르는 축은 X 다**
+#      엄지 Z **+2.2**                     → 엄지 쪽이 +Z
+#    즉 **쥔 자루는 +Y 가 아니라 +X 를 따라 눕는다.** 도구는 자루가 +Y 인 채로 지어지므로
+#    Z 로 −90° 돌려 얹는다((0,1,0) → (1,0,0)).
+#    🔴 이걸 안 하면 도구가 손끝에서 아래로 **늘어진다** — 쥔 게 아니라 매달린 그림이 된다
+#       (첫 판이 그랬다. 옛 리그에서도 같은 자리를 밟았다).
+GRIP_ROT = (0.0, 0.0, -90.0)          # 도
+# 주먹 한가운데 — **뼈 꼬리(손끝) 기준**이다. 위 실측에서 손가락 밑동이 Y +11~12.8 이고
+# 꼬리가 +10.98 이므로, 주먹 중심은 꼬리보다 손목 쪽으로 조금 물러난 자리다.
+GRIP_LOC = (-0.010, -0.037, 0.009)    # 미터
 
 
-def rigged(col=None, loc=(0, 0, 0), rot_z=90):
-    """리깅된 주민 한 명. 반환 (mesh, armature).
+def hold(arm, tool, bone='mixamorig:RightHand', loc=GRIP_LOC, rot=GRIP_ROT, size=1.0):
+    """도구를 주민 손에 **쥐여 준다.** `loc`·`size` 는 월드 미터, `rot` 은 도.
 
-    포즈는 `arm.pose.bones[이름].rotation_euler` — **X 앞뒤 · Z 좌우 · Y 비틀림**(rig.py).
-    🔴 여럿을 세울 때도 **아마추어는 한 명당 하나**여야 한다. 메시 여럿을 한 아마추어에
-       묶으면 전부 그 아마추어 자리로 끌려간다(변형이 아마추어 공간에서 계산된다).
-       메시 데이터는 공유하므로 늘어나는 것은 객체 헤더뿐이다."""
-    global _rig_src
-    col = col or bpy.context.collection
-    if _rig_src is None:
-        with bpy.data.libraries.load(RIG_BLEND, link=False) as (_s, dst):
-            dst.objects = ['villager', 'villager_rig']
-        m0 = next(o for o in dst.objects if o.type == 'MESH')
-        a0 = next(o for o in dst.objects if o.type == 'ARMATURE')
-        _rig_src = (m0, a0)
-
-    m0, a0 = _rig_src
-    arm = a0.copy(); arm.data = a0.data.copy()       # 포즈는 객체별이라 데이터도 복사한다
-    mesh = m0.copy()                                 # 메시 데이터는 공유
-    col.objects.link(arm); col.objects.link(mesh)
-    mesh.parent = arm
-    mesh.matrix_parent_inverse.identity()
-    mesh.location = (0, 0, 0)
-    for md in mesh.modifiers:
-        if md.type == 'ARMATURE':
-            md.object = arm
-    arm.rotation_mode = 'XYZ'
-    arm.location = loc
-    arm.rotation_euler = (0, 0, math.radians(rot_z))
-    for pb in arm.pose.bones:
-        pb.rotation_mode = 'XYZ'
-    return mesh, arm
-
-
-ROOT = '@root'      # 회전이 아니라 **골반 이동**. (앞, 위, 왼쪽) 미터. motions.ROOT 와 같은 값
-SQUASH = '@squash'  # (k, 0, 0). k>0 **눌림**(납작·넓게) · k<0 **늘어남**(길쭉·좁게)
-SQUASH_MAX = 0.30   # 🔴 넘기면 사람이 아니라 젤리가 된다. 이 마을은 만화가 아니다
-
-
-def pose(arm, spec):
-    """{뼈이름: (x, y, z) 라디안} 을 통째로 적용한다. 안 적힌 뼈는 0 으로 되돌린다.
-
-    `spec[ROOT]` 는 뼈가 아니라 **골반 이동**이다 — (앞, 위, 왼쪽) 미터.
-    🔴 몸통이 공간에서 안 움직이면 팔다리만 도는 인형이 된다. 걸을 때 오르내리지 않고
-       도끼를 내리쳐도 안 주저앉으면 **무게가 없다** — 「역동적이지 않다」의 정체가 그것이다.
-    🔴 축은 **실측한 것이다**(추론하지 마라. 이 프로젝트가 부호로 네 번 헛돌았다):
-       `hips.location` 로컬 X → 월드 +Y · 로컬 Y → 월드 +Z(위) · 로컬 Z → 월드 +X.
-       그런데 **정면이 -X 다**(rig.py 39행) — 그래서 앞은 로컬 Z **음수**다.
-       그리고 rig.py 가 **L 뼈를 +Y 에** 두므로 월드 +Y 는 **왼쪽**이다.
+    🔴 블렌더의 뼈 자식은 **뼈 꼬리**에 붙는다 — 손뼈의 꼬리는 손끝이다. `loc` 은 그 기준.
+    🔴 `matrix_parent_inverse` 를 안 비우면 도구가 만든 자리(원점)만큼 어긋난다.
+    🔴 **아마추어 스케일을 되나눠야 한다.** Mixamo 리그는 객체 스케일 0.0094 를 달고
+       있어서(FBX 가 cm 로 들어온다), 그냥 매달면 도구가 **100분의 1** 이 된다 —
+       첫 판에서 도끼·검이 화면에서 통째로 사라졌다. 위치도 같은 배율을 먹으므로
+       `loc` 도 같이 되나눈다. 그래야 부르는 쪽이 미터로 말할 수 있다.
     """
-    for pb in arm.pose.bones:
-        pb.rotation_euler = (0, 0, 0)
-        pb.location = (0, 0, 0)
-    fwd, up, side = spec.get(ROOT, (0.0, 0.0, 0.0))
-    arm.pose.bones['hips'].location = (side, up, -fwd)
-
-    # 스쿼시 & 스트레치 — 관절 회전으로는 못 만드는 층이다. 부딪히면 눌리고 빠르면 늘어난다.
-    # 🔴 **부피를 보존한다.** 세로만 줄이면 사람이 그냥 작아진다 — 눌린 만큼 옆으로 퍼져야
-    #    「눌렸다」로 읽힌다. 가로를 1/√(세로)로 준다.
-    # 🔑 아마추어 원점이 **발바닥**이라 이 배율이 발을 땅에 붙인 채 키만 바꾼다.
-    #    눌리면 주저앉고 늘어나면 솟는다 — 원점이 허리였으면 발이 땅을 뚫었다.
-    k = max(-SQUASH_MAX, min(SQUASH_MAX, spec.get(SQUASH, (0.0, 0.0, 0.0))[0]))
-    sz = 1.0 - k
-    sxy = 1.0 / math.sqrt(sz)
-    arm.scale = (sxy, sxy, sz)
-    for name, rot in spec.items():
-        if name not in (ROOT, SQUASH):      # 🔴 뼈가 아닌 키는 여기서 다 걸러야 한다
-            arm.pose.bones[name].rotation_euler = rot
-
-
-def hold(arm, tool, bone='hand.R', loc=(0.0, 0.0, 0.0), rot_x=0.0):
-    """도구를 주민 손에 붙인다. 회차마다 다시 짜지 않게 여기 한 곳에 둔다.
-
-    🔴 블렌더의 뼈 자식은 **뼈 꼬리**에 붙는다 — `hand.R` 은 손끝이다. 그래서 `loc` 은
-       손끝 기준이고, **뼈의 로컬 +Y 가 손이 뻗은 방향**이다(뼈 축이 뼈를 따라 Y 다).
-       도구는 그 규약에 맞춰 **자루가 +Y 를 따라 눕도록** 만든다(`village.axe` 등).
-    🔴 `matrix_parent_inverse` 를 안 비우면 도구가 만든 자리(원점)만큼 어긋난다 —
-       GLB 임포트에서 이미 한 번 밟은 것과 같은 함정이다(README 함정 ①).
-    """
+    k = 1.0 / (arm.matrix_world.to_scale().x or 1.0)
     tool.parent = arm
     tool.parent_type = 'BONE'
     tool.parent_bone = bone
     tool.matrix_parent_inverse.identity()
     tool.rotation_mode = 'XYZ'
-    tool.location = loc
-    tool.rotation_euler = (rot_x, 0.0, 0.0)
+    tool.location = tuple(v * k for v in loc)
+    tool.rotation_euler = tuple(math.radians(a) for a in rot)
+    tool.scale = tuple(v * k * size for v in tool.scale)
     return tool
 
 

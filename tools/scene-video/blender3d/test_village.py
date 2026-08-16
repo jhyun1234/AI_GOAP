@@ -27,21 +27,31 @@ def test_village_has_the_pieces():
     assert len(r['trees']) >= 3, r['trees']
 
 
-def test_scale_makes_sense_next_to_a_1m_villager():
-    """집이 주민보다 훨씬 크거나 작으면 축척이 깨져 마을로 안 읽힌다."""
+def test_scale_makes_sense_next_to_the_villager():
+    """집이 주민보다 훨씬 크거나 작으면 축척이 깨져 마을로 안 읽힌다.
+
+    🔴 **미터가 아니라 비율로 잰다.** 앞 판은 `1.4 <= 집높이 <= 2.6` 이었는데, 주민 키가
+       0.95 에서 1.70 으로 바뀌자 그 창은 「집이 사람 허리께」도 통과시킨다 —
+       재는 자리가 틀린 게이트다. 짝이 되는 값은 언제나 **그때의 주민 키**다."""
     r = _report()
-    assert 1.4 <= r['house_height'] <= 2.6, r['house_height']
+    ratio = r['house_height'] / r['subject_height']
+    assert 1.5 <= ratio <= 2.7, (ratio, r['house_height'], r['subject_height'])
 
 
 def test_work_spots_are_far_enough_apart():
     """여섯의 궤적이 **겹치는 것**이 이 회차의 그림이다. 자리가 붙어 있으면 안 보인다."""
     r = _report()
     xs = r['spots']
-    assert len(xs) == 4, xs
+    # 🔴 `== 4` 였는데 `bush`(식량 자원 노드)가 늘면서 이 검사가 조용히 죽어 있었다.
+    #    자리 수를 못 박으면 자리를 하나 더 놓는 날 검사부터 고쳐야 한다 — 이 검사가
+    #    보는 것은 **개수가 아니라 간격**이다.
+    assert len(xs) >= 4, xs
+    # 🔴 절대 미터로 재면 마을 축척이 바뀔 때마다 거짓말이 된다 — **주민 키의 배수**다.
+    gap = 1.9 * r['subject_height']
     for i in range(len(xs)):
         for j in range(i + 1, len(xs)):
             d = ((xs[i][0] - xs[j][0]) ** 2 + (xs[i][1] - xs[j][1]) ** 2) ** 0.5
-            assert d > 1.8, (i, j, round(d, 2))
+            assert d > gap, (i, j, round(d, 2), round(gap, 2))
 
 
 def test_village_uses_no_meaning_or_instrument_color():

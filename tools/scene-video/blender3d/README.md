@@ -5,6 +5,21 @@
 **새 회차를 만든다면: [`../notes/2026-08-13-새-회차-runbook.md`](../notes/2026-08-13-새-회차-runbook.md)**
 **소품 어휘집: [`PROPS.md`](./PROPS.md)** — 집·나무·우물·밭·모닥불을 다시 만들지 마라.
 좌표만 주면 어디서나 다시 선다. 「무엇이 그것처럼 보이게 하는가」를 네 판 고쳐서 적어 뒀다.
+**사람과 동작: [`MIXAMO.md`](./MIXAMO.md)** — 받는 법과 장바구니. 🔴 다운로드는 사람 몫이다.
+
+> ## 🔄 2026-08-16 — 사람은 이제 Mixamo 것이다
+>
+> 코드로 지은 리그·모델(`rig.py`·`model.py`)과 손으로 짠 동작 22종(`motions.py`),
+> 그리고 그 둘을 잇던 리타기팅(`mocap2pose.py`·`mocap.py`)을 **전부 지웠다**(약 9,800줄).
+> 사람은 `mixamo.spawn`, 동작은 `mixamo.play` 다.
+>
+> **왜** — 캐릭터와 동작이 같은 뼈대(`mixamorig:*`)를 쓰면 옮길 것이 없다. 옛 판이 밟은
+> 지뢰 여덟(오일러 짐벌 · roll 임의값 · 레스트 차이 43° · 자동 웨이트 폭발 · 척추 3→1 ·
+> 축 켤레)은 전부 「남의 뼈대를 우리 뼈대로 옮긴다」에서 나왔고, 그 전제를 지우면 같이 사라진다.
+>
+> **딸려온 것** — 주민 키가 0.95 → **1.70m** 이고, 마을은 `village.SCALE`(1.789)로 통째로
+> 커진다. 🔴 마을 좌표를 바깥에서 쓸 때는 `village.at()` 을 거쳐라. 날것 `SPOTS` 는
+> 지어지기 전의 단위다. `build()` 뒤에 소품을 더 놓을 때는 `village.add()` 다.
 
 블렌더가 **1080 × 846 알파 PNG** 를 굽고, 엔진 캔버스가 그것을 `drawImage` 로 그린 뒤
 자막·HUD·계기층을 위에 얹는다. 그 크기는 쇼츠 1920 중 자막·HUD 를 뺀 안전 띠(y 420~1266)다.
@@ -20,12 +35,21 @@
 
 ```bash
 BL="C:/Program Files/Blender Foundation/Blender 5.2/blender.exe"
-"$BL" --background --factory-startup --python rig.py        # 주민 뼈대 → villager_rigged.blend
+"$BL" --background --factory-startup --python mixamo.py -- build   # 사람+동작 → ybot.blend
+"$BL" --background --factory-startup --python mixamo.py -- demo    # 자체 점검
+"$BL" --background --factory-startup --python village.py           # 마을 → village.blend
+
+"$BL" --background --factory-startup --python render_mixamo_check.py  # 동작이 읽히나
+"$BL" --background --factory-startup --python render_village_look.py  # 축척이 맞나
 
 python bake.py                    # 샷 여섯을 동시에 굽는다(기본 -j 3)
 python bake.py hook body1 -j 2    # 고른 것만
 python bake.py --range 0:23       # 샷마다 앞 24프레임만 — 재거나 눈으로 볼 때
 ```
+
+🔴 `bake.py` 가 부르던 회차 샷 스크립트(`render_body*`·`render_hook`·`render_outro`)는
+철거됐다. **새 회차를 만들기 전까지 `bake.py` 는 굽을 것이 없다** — 이건 고장이 아니라
+아직 안 지은 것이다.
 
 GUI 블렌더에서 굽지 않고 보려면 [`live.py`](./live.py) 다. BlenderMCP 로 붙은 창에서:
 ```python
@@ -58,13 +82,31 @@ import live; ns = live.show('render_body1.py'); live.frame(ns, 3.4)
    알베도를 0.035 까지 떨어뜨려도 밝다. `Specular IOR Level = 0` 으로 끈다.
 4. `view_transform` 이 `'Standard'`(롤오프 없음)라 **광량을 올리면 바로 흰색 클리핑.**
    그 상태에서 어두운 바닥이 중간 회색으로 올라와 「바닥이 밝다」로 오진하게 된다.
-5. **뼈 roll 을 자동 계산에 맡기면 축이 뼈마다 갈린다**(팔은 X+ 가 뒤, 다리는 X+ 가 앞).
-   `calculate_roll(type='GLOBAL_POS_X')` 로 고정해 **X = 앞뒤 · Z = 좌우 · Y = 비틀림** 을
-   전 뼈 공통으로 쓴다. 팔다리는 뼈가 아래를 향하므로 **X 음수가 앞**이다.
+5. ~~뼈 roll~~ → **Mixamo 뼈대를 쓰면서 사라졌다.** 우리가 뼈를 안 놓으니 roll 도 없다.
 6. 유채색 물체를 **스케일 0 이나 발광 0 으로 끄면 밑색이 남는다.** 흰색만 있어야 할
    프레임에 유채색이 남아 규약을 깬다. `stage.gate()` 가 `hide_render` 로 렌더에서 뺀다.
 
-## 발은 땅에 붙는다 — 다리는 IK 로 역산한다 (2026-08-13)
+## Mixamo 판에서 새로 밟은 지뢰 다섯 (2026-08-16)
+
+1. **키가 1/100 이 된다.** Mixamo 메시는 자기 스케일 0.01 을 부모 역행렬 100 으로 상쇄하는데,
+   `mesh.parent = arm` **대입 자체가 그 역행렬을 리셋한다.** 복사해 두고 다시 넣어야 한다.
+2. **사람이 반만 선다.** Y Bot 은 메시가 **둘**이다(몸통·관절). 하나만 복제하면 반이 없다.
+3. **걸음마다 3m 씩 튄다.** 스케일을 `transform_apply` 로 구워 넣으면 뼈만 100배가 되고
+   액션의 골반 이동 키는 안 따라온다. **회전만 굽고 스케일은 객체에 남긴다.**
+4. **블렌더 4.4+ 는 `action.fcurves` 가 없다**(5.2 에서 제거). 슬롯 액션이라
+   레이어→스트립→채널백을 타야 한다(`mixamo.fcurves`).
+5. **쿼터니언 노름이 1 을 벗어난다**(실측 0.9954). 성분을 fcurve 별로 따로 보간하기
+   때문이다. `play` 가 마지막에 정규화한다.
+
+그리고 인물 알베도는 **`stage.INK_LIN`(0.62)과 다르다**. 같은 값을 주면 인물의 37.9%가
+순백으로 클리핑한다 — 도형은 평평해서 정면광을 한 면으로만 받고 사람은 굽은 면이다.
+`palette.FIGURE_LIN`(0.30)이 단일 출처다.
+
+## ~~발은 땅에 붙는다 — 다리는 IK 로 역산한다~~ (2026-08-13, 철거됨)
+
+🔴 아래는 **`motions.py` 시절의 기록**이다. 그 파일과 함께 지워졌다. 남겨 두는 이유는
+결론이 아니라 **재는 법** 때문이다 — 모캡으로 바꿔도 「디딘 발이 미끄러지는가」는
+여전히 물어야 하고, 그때 재는 자리와 문턱(2cm · 골반 가속도 0.016)이 여기 적혀 있다.
 
 걷기·뛰기의 다리는 **`motions.py` 가 각을 적지 않는다.** 발이 있어야 할 자리를 먼저 정하고
 허벅지·정강이를 두 뼈 IK 로 역산한다(`_gait_plan` → `_foot` → `_legs` → `_leg_ik`).

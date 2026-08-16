@@ -151,7 +151,7 @@ tools/scene-video/blender/addon.py
 __pycache__/
 *.pyc
 
-# 모캡 원본·파생 (Mixamo) — 라이선스상 재배포 금지라 리포에 안 싣는다.
-# 코드(mocap2pose.py)로 각자 기기에서 다시 굽는다.
-tools/scene-video/blender3d/mocap/*.fbx
-tools/scene-video/blender3d/mocap/*.pose.json
+# Mixamo 원본 (캐릭터·동작) — 라이선스상 재배포 금지라 리포에 안 싣는다.
+# 각자 mixamo.com 에서 받아서 `mixamo.py build` 로 각자 기기에서 굽는다.
+tools/scene-video/blender3d/mixamo/*.fbx
+tools/scene-video/blender3d/mixamo/clips/*.fbx

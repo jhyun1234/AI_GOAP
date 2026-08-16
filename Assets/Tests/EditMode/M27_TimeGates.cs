@@ -62,7 +62,7 @@ namespace AIVillage.Tests.EditMode
         }
 
         [Test]
-        public void M27_T2_HungerRhythmAndWinterStockpileHoldRealtime()
+        public void M27_T2_HungerRhythmAndSupplyStockpileHoldRealtime()
         {
             WorldConfigSO w = World();
             AgentConfigSO a = Agent();
@@ -79,13 +79,12 @@ namespace AIVillage.Tests.EditMode
             float mealSec = (a.InitialSatiety - p0Line) / a.SatietyDecayPerGameDay * daySec;
             AssertBand("식사 간격(만복→P0선)", mealSec, 120f, 360f); // 율 ×6 되돌림(감쇠 25 복원)이면 1,200초로 튄다
 
-            // 겨울 비축 가능성 — 상한 총량(단위×포만/단위)이 위기 계절의 필요 포만을 덮는가.
-            // 단위 환산은 배포 EatRawFood에서 읽는다 (수치 발명 금지, ADR-M0-2).
-            SeasonSO winter = null;
-            foreach (SeasonSO s in w.SeasonCycle)
-                if (s != null && s.IsCrisis) winter = s;
-            Assert.IsNotNull(winter, "위기 계절(IsCrisis)이 SeasonCycle에 없다");
-
+            // 보급 비축 가능성 — 상한 총량(단위×포만/단위)이 **나흘치 보급**을 덮는가.
+            // 🔄 M32(2026-08-16): 기준이 「겨울 나기」에서 「나흘치 보급」으로 바뀌었다. 겨울이
+            //    SeasonCycle 에서 내려가 잴 대상이 없어졌지만, 재던 것(용량 짝 48/90 회귀)은
+            //    전쟁 축에서 더 중요해진다 — 포위·원정 중 곳간이 며칠을 버티는가가 그 자리다.
+            //    나흘은 발명한 값이 아니라 舊 겨울 길이(DurationDays 4)의 승계다 (ADR-M0-2).
+            const float SUPPLY_DAYS = 4f;
             var eat = AssetDatabase.LoadAssetAtPath<ActionSO>("Assets/M0Config/Actions/EatRawFood.asset");
             Assert.IsNotNull(eat, "EatRawFood 로드");
             int unitGain = 0;
@@ -93,15 +92,15 @@ namespace AIVillage.Tests.EditMode
                 if (e.Slot == SlotId.MySatiety) unitGain = Mathf.Max(unitGain, e.Value);
             Assert.Greater(unitGain, 0, "EatRawFood에 포만 효과가 없다 — 단위 환산 불가");
 
-            float winterNeed = winter.DurationDays * a.SatietyDecayPerGameDay * winter.SatietyDecayMult;
+            float supplyNeed = SUPPLY_DAYS * a.SatietyDecayPerGameDay;
             float capSatiety = (a.BodyCarryCap + a.HomeStorageCap) * unitGain;
-            Assert.GreaterOrEqual(capSatiety, winterNeed,
-                $"저장 상한 총량({capSatiety:0.#} 포만)이 겨울 필요({winterNeed:0.#})보다 작다 — " +
+            Assert.GreaterOrEqual(capSatiety, supplyNeed,
+                $"저장 상한 총량({capSatiety:0.#} 포만)이 나흘치 보급({supplyNeed:0.#})보다 작다 — " +
                 "비축이 산술적으로 불가능 (율을 올리고 용량 짝을 빠뜨렸는가? 명세 §W3)");
 
             // 실패 가능성 증명 — 舊 상한(8+15)이 이 검사를 통과한다면 용량 짝 회귀를 못 잡는 그물이다.
-            Assert.Less((8 + 15) * (float)unitGain, winterNeed,
-                "舊 상한(몸8+집15)이 겨울 필요를 덮는다 — 이 검사는 빈 그물이다 (겨울·율 값 재확인)");
+            Assert.Less((8 + 15) * (float)unitGain, supplyNeed,
+                "舊 상한(몸8+집15)이 나흘치 보급을 덮는다 — 이 검사는 빈 그물이다 (감쇠율 재확인)");
         }
     }
 }

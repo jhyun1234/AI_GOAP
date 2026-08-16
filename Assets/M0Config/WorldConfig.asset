@@ -39,24 +39,15 @@ MonoBehaviour:
   - {fileID: 11400000, guid: b2e8f4a6c1d94073a8e5f6b2d90c4a38, type: 2}
   - {fileID: 11400000, guid: 42a0aaccf8874c8a8dd0efab36d42543, type: 2}
   TraitRules: {fileID: 11400000, guid: 7f4d1a3b6c8e42f09b5a2d7e14c93b05, type: 2}
-  Chatters:
-  - {fileID: 11400000, guid: 7c9ae1ce31904ed4b315800dff15c14f, type: 2}
-  - {fileID: 11400000, guid: 48ccea3142fe4a859a1bedc03c7df6b0, type: 2}
-  - {fileID: 11400000, guid: d18b5562234b475cbf76a07ef7d80900, type: 2}
+  Chatters: []
   ChatterIntervalSec: 5
   ChatterChance: 0.5
   ChatterCooldownSec: 45
   BuddyThreshold: 20
   GrudgeThreshold: -20
-  Requests:
-  - {fileID: 11400000, guid: 4fdca1c64979469496b3211ddb80c0ef, type: 2}
-  - {fileID: 11400000, guid: 38ac8e70b7914c4ba155a1cec4894066, type: 2}
+  Requests: []
   RequestIntervalSec: 5
   RequestCooldownSec: 90
-  ReportErrandGoal: {fileID: 11400000, guid: aa6b2978caa84d9abb5197a6b56ffc5e, type: 2}
-  ReportTimeoutSec: 60
-  MoneyBasePrice: 10
-  PriceCapPct: 400
   ProfilerIntervalDays: 1
   HudResources:
   - Slot: 0

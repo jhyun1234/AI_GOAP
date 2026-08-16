@@ -15,10 +15,10 @@ MonoBehaviour:
   DisplayName: "겨울"
   DurationDays: 4
   IsCrisis: 1
-  RegenMult: 0
-  GrowthMult: 0
-  SatietyDecayMult: 1.75
-  ForageFrozen: 1
+  RegenMult: 1
+  GrowthMult: 1
+  SatietyDecayMult: 1
+  ForageFrozen: 0
   ForecastLines:
   - "겨울이 오고 있어..."
   - "먹을 걸 모아둬야 할 텐데."

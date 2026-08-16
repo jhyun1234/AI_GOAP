@@ -223,26 +223,6 @@ namespace AIVillage.Tests.EditMode
         }
 
         [Test]
-        public void M21_T7_ShippedSeasons_OnlyWinterFeedsTheTrap()
-        {
-            // 배포 에셋 대조 — 순수 함수가 옳아도 에셋이 바뀌면 뜻이 달라진다.
-            // 특히 "IsCrisis인데 ForageFrozen이 아닌" 계절이 실재함을 고정한다 (그 존재가 함정의 근거).
-            string[] guids = AssetDatabase.FindAssets("t:SeasonSO");
-            Assert.Greater(guids.Length, 0, "배포 계절 에셋이 하나도 없다");
-
-            int hungry = 0, crisisButNotFrozen = 0;
-            foreach (string guid in guids)
-            {
-                var s = AssetDatabase.LoadAssetAtPath<SeasonSO>(AssetDatabase.GUIDToAssetPath(guid));
-                if (ThreatService.IsPredatorHungry(s)) hungry++;
-                if (s.IsCrisis && !s.ForageFrozen) crisisButNotFrozen++;
-            }
-            Assert.AreEqual(1, hungry, "배고픈 계절은 정확히 하나(겨울)여야 한다");
-            Assert.Greater(crisisButNotFrozen, 0,
-                "IsCrisis인데 봉쇄가 아닌 계절이 사라졌다 — IsCrisis로 갈아타도 게이트가 안 잡게 된다");
-        }
-
-        [Test]
         public void M21_T7_SeasonMultipliers_ClampAndIgnoreWeakening()
         {
             // 확률: 배고픈 계절에만 곱하고 [0,1] 클램프

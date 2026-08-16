@@ -170,8 +170,9 @@ namespace AIVillage.Tests.EditMode
             Assert.IsTrue(SlotIds.IsHomeStock(SlotId.MyHomeCookedFood));
             Assert.IsFalse(SlotIds.IsPersonalStock(SlotId.TreasureValue),
                 "빚은 소지품이 아니다 (M17-W7) — 넣으면 TransferTo가 '빚을 남에게 주는' 경로를 연다");
-            Assert.AreEqual(51, SlotIds.Count,
-                "슬롯 예산 51/52 (M22-4차 W2 ClearPendingCount 추가 — 2026-08-10. **잔여 1칸**). " +
+            Assert.AreEqual(52, SlotIds.Count,
+                "슬롯 예산 52/72 (M32-W7 NearDiscoveredGame 추가 — 2026-08-16, 사용자 승인 1칸. "
+                + "M30 §2 장부의 빈 칸 51을 썼다 — 광물 52~55·공방 57~62 예약은 그대로). " +
                 "🔴 이 칸은 M24 2·3차 예약분 2칸 중 하나를 깎은 것이다 (ADR-C-4): 개간 goal 은 " +
                 "트리거가 필요하고 트리거는 슬롯으로만 걸리는데, 기존 슬롯 재사용은 전부 거짓말이 " +
                 "된다 — DefensePlannedCount 는 '지을 수 있는' 계획의 수라 막힌 칸을 더하면 목수 " +

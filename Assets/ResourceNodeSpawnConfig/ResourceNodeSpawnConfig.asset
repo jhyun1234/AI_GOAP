@@ -175,3 +175,23 @@ MonoBehaviour:
     nodeColor: {r: 1, g: 0.84313726, b: 0, a: 1}
     depletedColor: {r: 0.33333334, g: 0.33333334, b: 0.33333334, a: 1}
     nodeSize: 0.9
+  - resourceType: 8
+    nodeCountPer10kTiles: 5
+    maxAmount: 24
+    regenPerDay: 6
+    minDistanceFromBase: 25
+    allowedTerrain: []
+    adjacentTerrain: []
+    clusterCountPer10kTiles: 2
+    minNodesPerCluster: 2
+    maxNodesPerCluster: 4
+    clusterSpreadRadius: 3
+    minClusterSpacing: 14
+    nodeSprite: {fileID: -330711141, guid: 0d47530f809898c4c8d603803577d780, type: 3}
+    nodeSpriteVariants:
+    - {fileID: -330711141, guid: 0d47530f809898c4c8d603803577d780, type: 3}
+    - {fileID: 947695361, guid: 3110b26b03c15ad42a33e8968ab9eedb, type: 3}
+    depletedBelowRatio: 0.25
+    nodeColor: {r: 0.8, g: 0.5, b: 0.45, a: 1}
+    depletedColor: {r: 0.33333334, g: 0.33333334, b: 0.33333334, a: 1}
+    nodeSize: 0.9

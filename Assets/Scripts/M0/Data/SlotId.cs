@@ -147,11 +147,18 @@ namespace AIVillage.M0
                                   // (ADR-C-4). 기존 슬롯 재사용이 전부 거짓말이 되기 때문:
                                   // DefensePlannedCount 는 "지을 수 있는" 계획의 수라 막힌
                                   // 칸을 더하면 목수 goal 이 공회전한다 (M5 자가 재검토 🔴).
+        NearDiscoveredGame  = 51, // 논리형 파생 — 근처에 발견된 사냥감 노드가 있는가 (M32-W7,
+                                  // 원천 = DiscoveryService). 사용자 승인 1칸(2026-08-16).
+                                  // 🔴 승인 문서의 번호는 63이었으나 51로 넣는다: PlannerGateway 가
+                                  // 잡에 복사하는 것은 0~Count-1 **연속 구간**이라, 63을 쓰면
+                                  // 안 쓰는 51~62 열두 칸이 매 계획마다 딸려온다 (ADR-M30-2 —
+                                  // 계획 비용은 슬롯 수에 선형). 51은 M30 §2 장부의 빈 칸이라
+                                  // 광물(52~55)·공방(57~62) 예약을 건드리지 않는다.
     }
 
     public static class SlotIds
     {
-        public const int Count = 51;
+        public const int Count = 52;
 
         /// <summary>전역 스톡 슬롯 여부 — EffectApplier/러너가 공유하는 유일한 판정.
         /// ⚠️ 개인 스톡(MyRawFood 등)을 여기 넣으면 안 된다 (명세 M11-A ⚠️①) —
@@ -218,6 +225,7 @@ namespace AIVillage.M0
                 case ResourceType.Wood:    return SlotId.NearDiscoveredWood;
                 case ResourceType.RawFood: return SlotId.NearDiscoveredFood;
                 case ResourceType.Stone:   return SlotId.NearDiscoveredStone;
+                case ResourceType.Game:    return SlotId.NearDiscoveredGame;  // M32-W7
                 default:                   return null;
             }
         }

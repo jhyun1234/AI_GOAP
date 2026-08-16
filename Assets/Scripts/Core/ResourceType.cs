@@ -26,9 +26,13 @@ namespace AIVillage.Core
         Iron       = 4,  // 철광석: 고급 건설 및 무기
         Copper     = 5,  // 구리: 중급 자원, 침략 트리거 조건 포함
         Silver     = 6,  // 은: 희귀 자원, 침략 트리거 조건 포함
-        Diamond    = 7   // 다이아: 광물 사다리 3티어 (M29 W3) — 산악 가장 깊은 곳.
+        Diamond    = 7,  // 다이아: 광물 사다리 3티어 (M29 W3) — 산악 가장 깊은 곳.
                          // 🔴 배치만 있고 스톡 슬롯은 없다 (철·은과 같은 상태) — 채굴 루프는 공방 축
                          //    (M30 §2 예약 구획 52~56). `SlotId.StockOf`가 null 을 답하는 것이 정상.
+        Game       = 8   // 사냥감 (M32-W7): 돼지·양 등 정지 노드. 잡으면 고기가 **MyRawFood 로**
+                         // 들어온다 — 스톡 슬롯은 없다(철·은과 같은 상태). 발견 플래그만
+                         // NearDiscoveredGame(51) 로 따로 갖는다: 이게 없으면 사냥과 열매 채집이
+                         // 같은 노드를 보게 되어 "보급 방법 추가"가 아니라 그림 교체가 된다.
     }
 
     // ItemType(폐기된 PickUpDroppedItem용)·Season enum(SeasonSO 에셋 체계 M6가 정본)은

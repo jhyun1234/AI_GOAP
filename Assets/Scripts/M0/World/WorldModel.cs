@@ -205,6 +205,7 @@ namespace AIVillage.M0
             slots[(int)SlotId.NearDiscoveredWood]  = Discovered(ResourceType.Wood);   // DiscoveryService
             slots[(int)SlotId.NearDiscoveredFood]  = Discovered(ResourceType.RawFood);
             slots[(int)SlotId.NearDiscoveredStone] = Discovered(ResourceType.Stone);
+            slots[(int)SlotId.NearDiscoveredGame]  = Discovered(ResourceType.Game);   // M32-W7 사냥
             slots[(int)SlotId.AtBuildSite] = 0; // W6에서 사용
             // Empty/Ripe의 유일한 원천은 FarmService (ADR-M2-4) — 미배선(테스트 등)이면 0.
             // 값은 개수 (ADR-M3-2) — 익은 밭 N개면 한 플랜에 수확 N회가 담긴다.

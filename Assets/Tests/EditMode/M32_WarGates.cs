@@ -62,9 +62,11 @@ namespace AIVillage.Tests.EditMode
 
         // ── M32-T2: 판 종료 판정 (W2) ─────────────────────────────────────────
         //
-        // 이 게이트가 지키는 것은 **끝이 한 번뿐이라는 것**이다. 전멸과 함락은 같은 프레임에
-        // 성립할 수 있고(적이 중심에 선 순간 마지막 주민이 죽는다), 그때 둘 다 뜨거나 함락이
-        // 이기면 같은 끝이 두 번 세어진다.
+        // 🔑 **끝나는 조건은 하나다 — 마을이 0명이 되는 것.** 함락은 그 죽음이 **전부 적의 손**
+        // 이었을 때의 이름이다 (사용자 판정 2026-08-16). 적이 마을에 들어온 것만으로는 아무것도
+        // 끝나지 않는다 — 들어온 적은 싸워서 물리칠 수 있어야 게임이다.
+        // 이 게이트가 막는 회귀: ①생존자가 있는데 판이 끝나는 것 ②굶어 죽은 사람이 섞였는데
+        // 「적에게 함락됐다」고 말하는 것 ③아무도 안 죽은 판이 함락으로 읽히는 것.
 
         [Test]
         public void M32_T2_ResolveRunEnd_FullTruthTable()
@@ -73,26 +75,55 @@ namespace AIVillage.Tests.EditMode
             const M0SimulationLoop.RunEndReason WIPED = M0SimulationLoop.RunEndReason.Wiped;
             const M0SimulationLoop.RunEndReason OVERRUN = M0SimulationLoop.RunEndReason.Overrun;
 
-            // 래치가 이미 내려갔으면 무엇이 참이든 None — 한 판은 한 번 끝난다 (8건 중 4건)
+            // 래치가 이미 내려갔으면 무엇이 참이든 None — 한 판은 한 번 끝난다 (8건 전수)
             foreach (bool ever in new[] { false, true })
                 foreach (int alive in new[] { 0, 3 })
-                    foreach (bool breach in new[] { false, true })
-                        Assert.AreEqual(NONE, M0SimulationLoop.ResolveRunEnd(true, ever, alive, breach),
-                            $"래치 후 재판정 (ever={ever}, alive={alive}, breach={breach})");
+                    foreach (bool combat in new[] { false, true })
+                        Assert.AreEqual(NONE, M0SimulationLoop.ResolveRunEnd(true, ever, alive, combat),
+                            $"래치 후 재판정 (ever={ever}, alive={alive}, combat={combat})");
 
-            // 舊 전멸 진리표 (M10-T6과 같은 결과 — 중립 불변식)
-            Assert.AreEqual(NONE,  M0SimulationLoop.ResolveRunEnd(false, false, 0, false), "주민이 있던 적 없음 = 시작 전");
-            Assert.AreEqual(NONE,  M0SimulationLoop.ResolveRunEnd(false, true, 1, false),  "생존자 있음");
-            Assert.AreEqual(WIPED, M0SimulationLoop.ResolveRunEnd(false, true, 0, false),  "있던 마을이 0명 = 전멸");
+            // 🔴 생존자가 한 명이라도 있으면 **어떤 사유로도** 판은 안 끝난다
+            foreach (bool combat in new[] { false, true })
+            {
+                Assert.AreEqual(NONE, M0SimulationLoop.ResolveRunEnd(false, true, 1, combat),
+                    $"생존자 1명 = 판 계속 (combat={combat})");
+                Assert.AreEqual(NONE, M0SimulationLoop.ResolveRunEnd(false, true, 8, combat),
+                    $"생존자 8명 = 판 계속 (combat={combat})");
+                Assert.AreEqual(NONE, M0SimulationLoop.ResolveRunEnd(false, false, 0, combat),
+                    $"주민이 있던 적 없음 = 시작 전 (combat={combat})");
+            }
 
-            // 함락 — 사람이 살아 있는 채로 끝난다
-            Assert.AreEqual(OVERRUN, M0SimulationLoop.ResolveRunEnd(false, true, 5, true), "중심 침범 = 함락");
-            Assert.AreEqual(OVERRUN, M0SimulationLoop.ResolveRunEnd(false, false, 5, true),
-                "주민 이력과 무관하게 중심이 뚫리면 함락 (전멸 전제와 별개 축)");
+            // 0명 = 끝. 사유는 죽음의 출처로 갈린다
+            Assert.AreEqual(WIPED, M0SimulationLoop.ResolveRunEnd(false, true, 0, false),
+                "굶주림 등이 섞였다 = 전멸 (적이 다 한 일이 아니다)");
+            Assert.AreEqual(OVERRUN, M0SimulationLoop.ResolveRunEnd(false, true, 0, true),
+                "전원이 적에게 죽었다 = 함락");
+        }
 
-            // 🔑 동시 성립 = 전멸 우선 (사람이 다 죽은 마을에 「함락」은 두 번 세는 것)
-            Assert.AreEqual(WIPED, M0SimulationLoop.ResolveRunEnd(false, true, 0, true),
-                "전멸과 함락이 같은 프레임에 성립하면 전멸이다");
+        [Test]
+        public void M32_T2_AllDeathsByCombat_NeedsEveryDeathAndAtLeastOne()
+        {
+            Assert.IsFalse(M0SimulationLoop.AllDeathsByCombat(null), "명부 없음 = 함락 아님");
+            Assert.IsFalse(M0SimulationLoop.AllDeathsByCombat(Roster()), "빈 명부 = 함락 아님 (빈 검사 함정)");
+            Assert.IsFalse(M0SimulationLoop.AllDeathsByCombat(Roster(ExitCause.Alive)),
+                "아무도 안 죽었으면 함락이 아니다");
+            Assert.IsTrue(M0SimulationLoop.AllDeathsByCombat(Roster(ExitCause.Combat)), "한 명, 전투사");
+            Assert.IsTrue(M0SimulationLoop.AllDeathsByCombat(
+                Roster(ExitCause.Combat, ExitCause.Combat, ExitCause.Combat)), "전원 전투사");
+            Assert.IsFalse(M0SimulationLoop.AllDeathsByCombat(
+                Roster(ExitCause.Combat, ExitCause.Starvation)), "한 명이라도 굶어 죽었으면 전멸이다");
+            Assert.IsFalse(M0SimulationLoop.AllDeathsByCombat(
+                Roster(ExitCause.Combat, ExitCause.Unknown)), "사유 불명이 섞여도 함락이라 단정하지 않는다");
+        }
+
+        private static System.Collections.Generic.List<VillagerRecord> Roster(params ExitCause[] causes)
+        {
+            var list = new System.Collections.Generic.List<VillagerRecord>();
+            for (int i = 0; i < causes.Length; i++)
+                list.Add(new VillagerRecord { ShortName = $"주민{i}", PersonalityName = "순둥이",
+                                              JobName = "사냥꾼", BornDay = 0f, LeftDay = 5f,
+                                              Cause = causes[i] });
+            return list;
         }
 
         [Test]
@@ -105,19 +136,6 @@ namespace AIVillage.Tests.EditMode
                         Assert.AreEqual(!shown && ever && alive == 0,
                             M0SimulationLoop.ShouldShowGameOver(shown, ever, alive),
                             $"舊 전멸 판정 불변 (shown={shown}, ever={ever}, alive={alive})");
-        }
-
-        [Test]
-        public void M32_T2_IsCenterBreached_IsManhattanAndInclusive()
-        {
-            Assert.IsTrue(M0SimulationLoop.IsCenterBreached(0, 0, 3), "중심 그 칸");
-            Assert.IsTrue(M0SimulationLoop.IsCenterBreached(3, 0, 3), "경계 = 들어온 것");
-            Assert.IsTrue(M0SimulationLoop.IsCenterBreached(-2, 1, 3), "맨해튼 3 = 경계 안");
-            Assert.IsFalse(M0SimulationLoop.IsCenterBreached(2, 2, 3), "맨해튼 4 = 밖 (체비쇼프였다면 참이 된다)");
-            Assert.IsFalse(M0SimulationLoop.IsCenterBreached(4, 0, 3), "한 칸 밖");
-            Assert.IsTrue(M0SimulationLoop.IsCenterBreached(0, 0, 0), "반경 0 = 기지 타일 정확히");
-            Assert.IsFalse(M0SimulationLoop.IsCenterBreached(1, 0, 0), "반경 0에서 옆 칸은 아니다");
-            Assert.IsFalse(M0SimulationLoop.IsCenterBreached(1, 0, -5), "음수 반경은 0으로 (에셋 사고 방어)");
         }
 
         [Test]

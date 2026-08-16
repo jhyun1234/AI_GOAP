@@ -25,11 +25,6 @@ namespace AIVillage.M0
         [Tooltip("게임 시작 시 기지 주변 자동 발견 반경 (舊 _baseDiscoverRadius 12)")]
         public int BaseDiscoverRadius = 12;
 
-        [Tooltip("함락 반경 (M32-W2, 제안치 3) — 적이 기지 타일에서 맨해튼 이 거리 안에 들어오면 " +
-                 "판이 끝난다. 마을 반경(VillageRadiusFraction)과 다른 자다: 저건 집이 서는 범위고 " +
-                 "이건 **중심에 닿았다**의 경계다. 0이면 기지 타일 정확히 그 칸.")]
-        [Min(0)] public int OverrunRadius = 3;
-
         [Tooltip("마을 반경 = 맵 절반 크기의 이 비율 (M11-K, 0~1). 기지 기준 체비쇼프. 집은 이 안에만 " +
                  "선다. 절대값이 아니라 비율이라 맵이 커지면 마을도 자동으로 넓게 퍼진다(사용자 지시). " +
                  "0.8 = 맵 100이면 반경 ~39(가장자리 여백 남김). 실효 반경 = EffectiveVillageRadius().")]

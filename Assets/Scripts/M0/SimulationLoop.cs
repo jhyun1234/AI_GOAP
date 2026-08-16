@@ -822,7 +822,7 @@ namespace AIVillage.M0
         /// M32-W2 이후로는 <see cref="ResolveRunEnd"/>의 전멸 가지를 부르는 얇은 껍질이다 —
         /// 진리표가 두 벌이 되지 않게 계산은 한 곳에만 둔다 (ADR-M0-3 정신).</summary>
         public static bool ShouldShowGameOver(bool alreadyShown, bool everHadAgents, int aliveCount)
-            => ResolveRunEnd(alreadyShown, everHadAgents, aliveCount, centerBreached: false)
+            => ResolveRunEnd(alreadyShown, everHadAgents, aliveCount, allDeathsByCombat: false)
                == RunEndReason.Wiped;
 
         /// <summary>판이 끝나는 사유 (M32-W2) — 표시 문구의 유일한 분기 키.
@@ -835,22 +835,34 @@ namespace AIVillage.M0
         }
 
         /// <summary>판 종료 판정 (순수 — 게이트 M32-T2). 舊 ShouldShowGameOver 확장:
-        /// 인자가 늘었을 뿐 **전멸 경로의 진리표는 한 글자도 안 바뀐다** (중립 불변식).
-        /// 🔑 함락을 전멸보다 **뒤에** 본다: 둘이 같은 프레임에 성립하면 「전멸」이다 —
-        /// 사람이 다 죽은 마을에 「함락됐다」는 같은 끝을 두 번 세는 것이다.</summary>
+        /// **끝나는 조건은 하나다 — 마을이 0명이 되는 것.** 늘어난 것은 사유 구분뿐이다.
+        /// 🔑 **함락 = 전원이 적에게 죽은 것**(사용자 판정 2026-08-16). 적이 마을에 들어온
+        /// 것만으로는 아무것도 끝나지 않는다 — 들어온 적은 싸워서 물리칠 수 있다.
+        /// 한 명이라도 다른 사유(아사 등)로 죽었으면 「전멸」이다: 적이 다 한 일이 아니다.</summary>
         public static RunEndReason ResolveRunEnd(bool alreadyShown, bool everHadAgents,
-                                                 int aliveCount, bool centerBreached)
+                                                 int aliveCount, bool allDeathsByCombat)
         {
             if (alreadyShown) return RunEndReason.None;
-            if (everHadAgents && aliveCount <= 0) return RunEndReason.Wiped;
-            if (centerBreached) return RunEndReason.Overrun;
-            return RunEndReason.None;
+            if (!everHadAgents || aliveCount > 0) return RunEndReason.None;
+            return allDeathsByCombat ? RunEndReason.Overrun : RunEndReason.Wiped;
         }
 
-        /// <summary>함락 반경 안에 들어왔는가 (순수 — 게이트 M32-T2). 거리는 맨해튼:
-        /// 노드 배치(minDistanceFromBase)·위협 우회 판정과 같은 자를 쓴다.</summary>
-        public static bool IsCenterBreached(int dx, int dy, int radius)
-            => Mathf.Abs(dx) + Mathf.Abs(dy) <= Mathf.Max(0, radius);
+        /// <summary>이 판의 죽음이 전부 전투였는가 (순수 — 게이트 M32-T2). 빈 명부는 false —
+        /// 아무도 안 죽은 판을 함락이라 부를 수는 없다 (빈 검사 함정 차단).
+        /// 살아 있는 사람(Alive)은 세지 않는다: 전멸 시점의 명부에는 없어야 정상이지만,
+        /// 있으면 그건 전멸이 아니므로 판정이 여기까지 오지 않는다.</summary>
+        public static bool AllDeathsByCombat(IReadOnlyList<VillagerRecord> roster)
+        {
+            if (roster == null) return false;
+            int deaths = 0;
+            foreach (VillagerRecord r in roster)
+            {
+                if (r.Cause == ExitCause.Alive) continue;
+                deaths++;
+                if (r.Cause != ExitCause.Combat) return false;
+            }
+            return deaths > 0;
+        }
 
         /// <summary>
         /// 사망 기록 (M10-A → M13-A 이름) — 호출처는 VillagerAgent.Die()·StarveToDeath() 2곳뿐
@@ -1519,25 +1531,28 @@ namespace AIVillage.M0
 
                 // 판 종료 검사 (M10-F 전멸 + M32-W2 함락) — 1회 래치. 화면만 덮고 시뮬·위협 틱은
                 // 지속 (빈 마을의 위협도 풍경 — ADR 유지, 함락도 같은 규약을 따른다).
-                bool centerBreached = Threats != null
-                                      && Threats.AnyHostileAtCenter(_worldConfig.OverrunRadius);
+                // 회고 = 통계 대신 명부 (M13-C1). 사유 판정도 이 명부가 원천이다 —
+                // "전부 전투로 죽었는가"는 명부 말고 답할 수 있는 곳이 없다 (ADR-M0-3).
+                // ⚠️ 조립은 **마을이 빈 순간에만** — RosterByBirth 는 매번 새 리스트를 만들고
+                //    정렬한다. 이 가드는 판정의 사본이 아니라 비용 차단이다 (판정은 아래 한 곳).
+                IReadOnlyList<VillagerRecord> roster =
+                    _agents.Count == 0 && !_gameOverShown ? Chronicle.RosterByBirth() : null;
                 RunEndReason endReason = ResolveRunEnd(_gameOverShown, _everHadAgents,
-                                                       _agents.Count, centerBreached);
+                                                       _agents.Count, AllDeathsByCombat(roster));
                 if (endReason != RunEndReason.None)
                 {
                     _gameOverShown = true;
                     Wanderers?.Resolve(false); // 진행 중 제안 정리 — 프롬프트 소거·후보 퇴장 (이중 호출 안전)
-                    // 회고 = 통계 대신 명부 (M13-C1). 명부가 비면 舊 통계 문구로 폴백 (반례 ③ⓐ —
-                    // 이론상 도달 불가하지만, 빈 회고 화면보다 숫자가 낫다).
-                    IReadOnlyList<VillagerRecord> roster = Chronicle.RosterByBirth();
+                    // 명부가 비면 舊 통계 문구로 폴백 (반례 ③ⓐ — 이론상 도달 불가하지만,
+                    // 빈 회고 화면보다 숫자가 낫다).
                     // (M32-W1: 역대 최고 기록·판 아카이브 철거 — 마감 화면은 **이 판의 명부**만 남는다.
                     //  M32-W2: 그 자리에 들어온 새 자가 사유(전멸/함락)다.)
-                    Hud?.ShowGameOver(roster.Count > 0
+                    Hud?.ShowGameOver(roster != null && roster.Count > 0
                         ? SeasonHud.ComposeGameOver((int)GameTime, SettleCount, roster, endReason)
                         : SeasonHud.ComposeGameOver((int)GameTime, DeathCount, 0, SettleCount)); // 이탈 축 휴면 — 0 (항목 자동 감춤)
                     if (endReason == RunEndReason.Overrun)
-                        Debug.Log($"[M0Sim] 함락 — Day {(int)GameTime} (적이 기지 반경 " +
-                                  $"{_worldConfig.OverrunRadius} 안에 들어왔다 · 생존 {_agents.Count}명)");
+                        Debug.Log($"[M0Sim] 함락 — Day {(int)GameTime} " +
+                                  $"(주민 {DeathCount}명이 전원 적에게 죽었다 · 정착 {SettleCount})");
                     else
                         Debug.Log($"[M0Sim] 전멸 — Day {(int)GameTime} (사망 {DeathCount} · " +
                                   $"정착 {SettleCount} · 최대 {PeakPopulation}명)");

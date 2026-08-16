@@ -19,6 +19,7 @@ MonoBehaviour:
   BaseTileX: 0
   BaseTileY: 0
   BaseDiscoverRadius: 12
+  OverrunRadius: 3
   SeasonCycle: []
   ForecastDays: 0.5
   SeasonPrologueDays: 0

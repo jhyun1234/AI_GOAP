@@ -52,6 +52,20 @@ namespace AIVillage.M0
         /// (집 배치·디버그 둘레와 같은 자, ADR-M0-2). 미배선 = 원점 = 舊 기본 기지 좌표(중립).</summary>
         private Vector2Int VillageCenter
             => _config != null ? new Vector2Int(_config.BaseTileX, _config.BaseTileY) : Vector2Int.zero;
+
+        /// <summary>중심에 닿은 적이 있는가 (M32-W2 함락 판정의 원천 — 판정 자체는 순수 함수
+        /// `M0SimulationLoop.IsCenterBreached`가 한다. 여기는 개체 목록을 아는 쪽이라 훑기만).
+        /// 물러나는 중(도주·퇴장)은 세지 않는다 — 등을 보인 적에게 마을이 함락되지는 않는다.</summary>
+        public bool AnyHostileAtCenter(int radius)
+        {
+            Vector2Int c = VillageCenter;
+            foreach (ThreatAgent t in _active)
+            {
+                if (t == null || t.IsFleeing || t.IsExiting) continue;
+                if (M0SimulationLoop.IsCenterBreached(t.TileX - c.x, t.TileY - c.y, radius)) return true;
+            }
+            return false;
+        }
         // 함정을 밟아 본 종족 (M24-1차 W5, TrapLearning) — 키 = 에셋 이름. 세이브 대상 (ADR-M0-10).
         // 🔑 "학습"을 확률이 아니라 **경험**으로 둔 이유: 결정성(ADR-M10R-2)을 지키면서
         // 플레이어가 인과를 짚을 수 있게 — "한 번 걸렸더니 그 뒤로 피한다".

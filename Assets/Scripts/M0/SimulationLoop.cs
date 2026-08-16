@@ -818,9 +818,39 @@ namespace AIVillage.M0
         private bool _gameOverShown;
         // (M32-W1: 아카이브 자리 _archiveRunIndex·ArchiveRunIndex 는 판 아카이브와 함께 철거)
 
-        /// <summary>전멸 래치 판정 (순수 — 게이트 M10-T6): 주민이 있었던 마을이 0명이 된 첫 순간만.</summary>
+        /// <summary>전멸 래치 판정 (순수 — 게이트 M10-T6): 주민이 있었던 마을이 0명이 된 첫 순간만.
+        /// M32-W2 이후로는 <see cref="ResolveRunEnd"/>의 전멸 가지를 부르는 얇은 껍질이다 —
+        /// 진리표가 두 벌이 되지 않게 계산은 한 곳에만 둔다 (ADR-M0-3 정신).</summary>
         public static bool ShouldShowGameOver(bool alreadyShown, bool everHadAgents, int aliveCount)
-            => !alreadyShown && everHadAgents && aliveCount == 0;
+            => ResolveRunEnd(alreadyShown, everHadAgents, aliveCount, centerBreached: false)
+               == RunEndReason.Wiped;
+
+        /// <summary>판이 끝나는 사유 (M32-W2) — 표시 문구의 유일한 분기 키.
+        /// append-only: 새 사유는 뒤에만 붙인다.</summary>
+        public enum RunEndReason
+        {
+            None    = 0,
+            Wiped   = 1, // 전멸 — 주민이 있었던 마을이 0명 (M10-F 계승)
+            Overrun = 2, // 함락 — 저쪽이 마을 중심에 닿았다 (M32 신설)
+        }
+
+        /// <summary>판 종료 판정 (순수 — 게이트 M32-T2). 舊 ShouldShowGameOver 확장:
+        /// 인자가 늘었을 뿐 **전멸 경로의 진리표는 한 글자도 안 바뀐다** (중립 불변식).
+        /// 🔑 함락을 전멸보다 **뒤에** 본다: 둘이 같은 프레임에 성립하면 「전멸」이다 —
+        /// 사람이 다 죽은 마을에 「함락됐다」는 같은 끝을 두 번 세는 것이다.</summary>
+        public static RunEndReason ResolveRunEnd(bool alreadyShown, bool everHadAgents,
+                                                 int aliveCount, bool centerBreached)
+        {
+            if (alreadyShown) return RunEndReason.None;
+            if (everHadAgents && aliveCount <= 0) return RunEndReason.Wiped;
+            if (centerBreached) return RunEndReason.Overrun;
+            return RunEndReason.None;
+        }
+
+        /// <summary>함락 반경 안에 들어왔는가 (순수 — 게이트 M32-T2). 거리는 맨해튼:
+        /// 노드 배치(minDistanceFromBase)·위협 우회 판정과 같은 자를 쓴다.</summary>
+        public static bool IsCenterBreached(int dx, int dy, int radius)
+            => Mathf.Abs(dx) + Mathf.Abs(dy) <= Mathf.Max(0, radius);
 
         /// <summary>
         /// 사망 기록 (M10-A → M13-A 이름) — 호출처는 VillagerAgent.Die()·StarveToDeath() 2곳뿐
@@ -1487,8 +1517,13 @@ namespace AIVillage.M0
                 // 전멸 후 정지 (M10-F): 수락 주체(플레이어의 마을)가 없다 — 재건과 함께 M11에서 개정.
                 if (!_gameOverShown) Wanderers?.Tick(GameTime);
 
-                // 전멸 검사 (M10-F) — 1회 래치. 화면만 덮고 시뮬·위협 틱은 지속 (빈 마을의 위협도 풍경).
-                if (ShouldShowGameOver(_gameOverShown, _everHadAgents, _agents.Count))
+                // 판 종료 검사 (M10-F 전멸 + M32-W2 함락) — 1회 래치. 화면만 덮고 시뮬·위협 틱은
+                // 지속 (빈 마을의 위협도 풍경 — ADR 유지, 함락도 같은 규약을 따른다).
+                bool centerBreached = Threats != null
+                                      && Threats.AnyHostileAtCenter(_worldConfig.OverrunRadius);
+                RunEndReason endReason = ResolveRunEnd(_gameOverShown, _everHadAgents,
+                                                       _agents.Count, centerBreached);
+                if (endReason != RunEndReason.None)
                 {
                     _gameOverShown = true;
                     Wanderers?.Resolve(false); // 진행 중 제안 정리 — 프롬프트 소거·후보 퇴장 (이중 호출 안전)
@@ -1496,12 +1531,16 @@ namespace AIVillage.M0
                     // 이론상 도달 불가하지만, 빈 회고 화면보다 숫자가 낫다).
                     IReadOnlyList<VillagerRecord> roster = Chronicle.RosterByBirth();
                     // (M32-W1: 역대 최고 기록·판 아카이브 철거 — 마감 화면은 **이 판의 명부**만 남는다.
-                    //  기록 경주의 자였던 「겨울 N번」이 사라졌고, 새 자는 W2 함락이 가져온다.)
+                    //  M32-W2: 그 자리에 들어온 새 자가 사유(전멸/함락)다.)
                     Hud?.ShowGameOver(roster.Count > 0
-                        ? SeasonHud.ComposeGameOver((int)GameTime, SettleCount, roster)
+                        ? SeasonHud.ComposeGameOver((int)GameTime, SettleCount, roster, endReason)
                         : SeasonHud.ComposeGameOver((int)GameTime, DeathCount, 0, SettleCount)); // 이탈 축 휴면 — 0 (항목 자동 감춤)
-                    Debug.Log($"[M0Sim] 전멸 — Day {(int)GameTime} (사망 {DeathCount} · 정착 {SettleCount} · " +
-                              $"최대 {PeakPopulation}명)");
+                    if (endReason == RunEndReason.Overrun)
+                        Debug.Log($"[M0Sim] 함락 — Day {(int)GameTime} (적이 기지 반경 " +
+                                  $"{_worldConfig.OverrunRadius} 안에 들어왔다 · 생존 {_agents.Count}명)");
+                    else
+                        Debug.Log($"[M0Sim] 전멸 — Day {(int)GameTime} (사망 {DeathCount} · " +
+                                  $"정착 {SettleCount} · 최대 {PeakPopulation}명)");
                 }
 
                 // 계절 줄 (M19-W4: 재정 인자 9종은 화폐와 함께 철거 — 계절·예보만 남는다)

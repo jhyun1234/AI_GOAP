@@ -619,15 +619,28 @@ namespace AIVillage.M0
         /// M10-T6 보존을 위해 유지된다 (명세 §3 — 시그니처 변경 금지, 호출처는 명부 우선).
         /// </summary>
         public static string ComposeGameOver(int day, int settles, IReadOnlyList<VillagerRecord> roster)
+            => ComposeGameOver(day, settles, roster, M0SimulationLoop.RunEndReason.Wiped);
+
+        /// <summary>사유가 갈리는 마감 화면 (M32-W2, 순수 — 게이트 M32-T3). 명부는 같고
+        /// **머리줄과 맺음말만** 사유를 따른다: 전멸은 "아무도 남지 않았다", 함락은 생존자가
+        /// 있는 채로 끝나므로 "마을이 넘어갔다"다 — 둘을 한 문장으로 뭉치면 함락 판에서
+        /// 살아 있는 사람들이 죽은 것처럼 읽힌다.</summary>
+        public static string ComposeGameOver(int day, int settles, IReadOnlyList<VillagerRecord> roster,
+                                             M0SimulationLoop.RunEndReason reason)
         {
             // 명부 = 목차 (2026-07-30 개정 — 연대기 서브라인 제거). Day가 쌓이면 사건이 명부를
             // 덮어 읽을 수 없었다 (인스펙터 원칙 ③ "탭으로 깊이를 접는다"). 깊이는 클릭 드릴다운
             // (TryPickGameOverRosterIndex → ShowGameOverDetail)이 맡는다.
+            bool overrun = reason == M0SimulationLoop.RunEndReason.Overrun;
             var sb = new System.Text.StringBuilder(256);
-            sb.Append($"마을의 마지막 날 — Day {day}\n\n");
+            sb.Append(overrun
+                ? $"마을이 함락됐다 — Day {day}\n\n"
+                : $"마을의 마지막 날 — Day {day}\n\n");
             foreach (VillagerRecord r in roster)
                 sb.Append($"{r.ShortName} — {r.PersonalityName}, {r.JobName}. {KrLifeSpan(r)}\n");
-            sb.Append($"\n정착 {settles} · 아무도 남지 않았다.");
+            sb.Append(overrun
+                ? $"\n정착 {settles} · 적이 마을 한복판에 섰다."
+                : $"\n정착 {settles} · 아무도 남지 않았다.");
             return sb.ToString();
         }
 

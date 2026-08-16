@@ -23,11 +23,7 @@ MonoBehaviour:
   ForecastDays: 0.5
   SeasonPrologueDays: 0
   Disasters: []
-  Threats:
-  - {fileID: 11400000, guid: eb3e34e7bb109a9b6bee31a93bf18a03, type: 2}
-  - {fileID: 11400000, guid: 0ffd4da0f5a71d9ca50de29edf3cb91b, type: 2}
-  - {fileID: 11400000, guid: 2c23c91444f0f0b92467d163e56679c6, type: 2}
-  - {fileID: 11400000, guid: 716d6af9517c043fda663202af02c8f6, type: 2}
+  Threats: []
   ThreatReliefStackMax: 3
   ThreatReliefDelayDays: 0.3
   ResidentHatchSightMult: 1.5

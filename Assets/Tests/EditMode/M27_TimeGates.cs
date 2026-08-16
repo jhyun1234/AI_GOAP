@@ -56,9 +56,17 @@ namespace AIVillage.Tests.EditMode
             AssertBand("사망 자비 지연", w.ThreatReliefDelayDays * daySec, 120f, 420f);
 
             // 예고 창 — 배포 위협 에셋 전수 (T5 교훈: 손 값이 아니라 배포 값으로).
-            Assert.Greater(w.Threats.Length, 0, "위협 에셋이 없다 — 공허 통과");
-            foreach (ThreatSO t in w.Threats)
+            // 🔄 M32(2026-08-16): 원천을 WorldConfig.Threats 등록 목록에서 **에셋 전수**로 옮겼다.
+            //    웨이브 습격을 등록 해제(Threats: [])했지만 예고 창 대역은 여전히 계약이다 —
+            //    W5 거울 마을의 출진 예고가 이 눈금을 물려받는다. 등록 목록을 읽으면 "등록이
+            //    비어서 통과"라는 빈 그물이 된다.
+            string[] threatGuids = AssetDatabase.FindAssets("t:ThreatSO");
+            Assert.Greater(threatGuids.Length, 0, "위협 에셋이 하나도 없다 — 공허 통과");
+            foreach (string guid in threatGuids)
+            {
+                var t = AssetDatabase.LoadAssetAtPath<ThreatSO>(AssetDatabase.GUIDToAssetPath(guid));
                 AssertBand($"{t.name} 예고 창", t.WarnDays * daySec, 60f, 300f);
+            }
         }
 
         [Test]

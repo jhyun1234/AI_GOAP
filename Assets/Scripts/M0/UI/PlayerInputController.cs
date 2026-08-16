@@ -85,9 +85,6 @@ namespace AIVillage.M0
         private VillagerAgent _selected;
         private GameObject _ring;
         private Camera _camera;
-        // 연대기 패널의 행 캐시 (M15-W3) — 여는 순간의 목록과 클릭 매핑을 일치시킨다.
-        // 목록 문구와 같은 순서 = BuildChronicleRows 단일 출처.
-        private readonly List<ChronicleArchive.RunEntry> _chronicleRows = new List<ChronicleArchive.RunEntry>();
         private AIVillage.UI.CameraController _cameraCtrl; // 상태줄 클릭 점프 (M13-B 후속) — null이면 점프 생략
 #if UNITY_EDITOR
         private int _debugRaceIdx = -1; // 디버그 종족 순환 소환 커서 (첫 누름 = 0번 종족)
@@ -233,31 +230,7 @@ namespace AIVillage.M0
 
             // (M19-W4: 세율 T 키·발행 M 키는 화폐와 함께 철거 — 촌장의 손은 명령·보상만 남는다)
 
-            // 연대기 토글 (M15-W3) — C 키 하나가 유일한 열람 통로 (게임 중·전멸 화면 공용).
-            // 파일 IO는 여는 순간 1회뿐 (⚠️ 매 프레임 Load 금지). 행 목록은 클릭 매핑용 캐시 —
-            // BuildChronicleRows가 목록 문구와 같은 순서를 보장한다 (단일 출처).
-            if (Input.GetKeyDown(KeyCode.C))
-            {
-                SeasonHud hud = M0SimulationLoop.Instance.Hud;
-                if (hud != null)
-                {
-                    if (hud.ChronicleShown) hud.ToggleChronicle(null);
-                    else
-                    {
-                        // 전멸 후엔 현재 판이 이미 아카이브에 마감돼 있다 — 진행 중 행을 겹치지 않는다.
-                        // 진행 중엔 반대로 현재 판의 저장분(첫 겨울 이후 존재)을 목록에서 제외한다 —
-                        // 라이브 행과 같은 판이 두 줄로 겹친다 (Play 검증에서 발견, 2026-07-31).
-                        bool over = hud.GameOverShown;
-                        ChronicleArchive.RunEntry current = over
-                            ? null : M0SimulationLoop.Instance.SnapshotCurrentRun(ended: false);
-                        _chronicleRows.Clear();
-                        _chronicleRows.AddRange(SeasonHud.BuildChronicleRows(
-                            ChronicleArchive.Load().Runs, current,
-                            over ? -1 : M0SimulationLoop.Instance.ArchiveRunIndex));
-                        hud.ToggleChronicle(SeasonHud.ComposeChronicleList(_chronicleRows, current != null));
-                    }
-                }
-            }
+            // (M32-W1: 연대기 열람 C 키 철거 — 판 아카이브와 역대 최고 기록이 사라졌다.)
 
             // 배속 (M10 관측 도구) — 숫자키 1=1× 2=2× 3=4× 4=8× (기본 배열 기준, Inspector 조정 가능)
             // ⚠️ 구조 목록이 열려 있으면 숫자는 **환자 선택**이다 (M26-2차 W7) — 배속에 양보하지 않는다.
@@ -319,16 +292,6 @@ namespace AIVillage.M0
             if (Input.GetMouseButtonDown(0))
             {
                 SeasonHud seasonHud = M0SimulationLoop.Instance.Hud;
-
-                // 연대기 패널 클릭 (M15-W3) — 패널이 최상단 오버레이이므로 모든 판독보다 먼저.
-                // 판 줄이 아니어도 클릭을 소비한다 — 뒤에 겹친 회고 명부·주민·무덤 오클릭 방지.
-                if (seasonHud != null && seasonHud.ChronicleShown)
-                {
-                    if (seasonHud.TryPickChronicleRunIndex(Input.mousePosition, out int runIdx)
-                        && runIdx < _chronicleRows.Count)
-                        seasonHud.ShowChronicleDetail(SeasonHud.ComposeRunDetail(_chronicleRows[runIdx]));
-                    return;
-                }
 
                 // 회고 명부 클릭 (M13 — 드릴다운): 명부의 이름 줄 = 그 사람의 연대기를 하단에.
                 // 회고 화면이 최상단 오버레이이므로 다른 판독보다 먼저다.

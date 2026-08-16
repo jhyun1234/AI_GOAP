@@ -58,7 +58,7 @@ namespace AIVillage.EditorTools
             {
                 _lastQ = q;
                 Debug.Log($"[Soak] real={real:F0}s day={day:F2} scale={Time.timeScale} " +
-                          $"사망={_sim.DeathCount} 정착={_sim.SettleCount} 겨울넘김={_sim.WintersSurvived}");
+                          $"사망={_sim.DeathCount} 정착={_sim.SettleCount}");
             }
 
             if (!_fast && day >= 1f)
@@ -80,7 +80,7 @@ namespace AIVillage.EditorTools
             if (day >= 13f || real > 4500)
             {
                 Debug.Log($"[Soak] 종료 — day={day:F2} real={real:F0}s day1실측={_day1RealSec:F1}s " +
-                          $"사망={_sim.DeathCount} 정착={_sim.SettleCount} 겨울넘김={_sim.WintersSurvived} " +
+                          $"사망={_sim.DeathCount} 정착={_sim.SettleCount} " +
                           $"최고인구={_sim.PeakPopulation}");
                 SessionState.SetBool(ACTIVE, false);
                 EditorApplication.Exit(day >= 13f ? 0 : 3); // 3 = 시간 초과 (Day 13 미달)

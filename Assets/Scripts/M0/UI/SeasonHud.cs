@@ -631,32 +631,6 @@ namespace AIVillage.M0
             return sb.ToString();
         }
 
-        /// <summary>
-        /// 전멸 회고 + 경주 기록 (M14-W4, 순수 — 게이트 M14-T3). 명부 오버로드 위에 기록 2줄:
-        /// 이번 판(넘긴 겨울·생존일·최대 인구)과 역대 최고. best는 **저장 후** 값이라 이번 판이
-        /// 최고면 자기 자신이 찍힌다 — newRecord가 그 사실을 문구로 밝힌다.
-        /// "N번째 겨울에 쓰러졌다"가 아니라 "겨울 N번을 넘기고"다 — 여름 전멸에서도 어색하지 않은
-        /// 전천후 문형 (명세 🟡 문구 조정의 이행).
-        /// </summary>
-        public static string ComposeGameOver(int day, int settles, IReadOnlyList<VillagerRecord> roster,
-                                             int winters, int peakPop,
-                                             RunRecordStore.RunRecord best, bool newRecord,
-                                             int repels = 0)
-        {
-            // 격퇴 줄 (M21-W9) — 0회면 생략 (이탈 0 감춤과 같은 규율: 없는 축은 잡음이다)
-            string run = $"겨울 {winters}번을 넘기고 Day {day}에 쓰러졌다 · 최대 {peakPop}명"
-                       + (repels > 0 ? $" · 격퇴 {repels}회" : string.Empty);
-            string record = best == null || (best.BestWinters == 0 && best.BestDay == 0)
-                ? "첫 기록이다."
-                : (newRecord ? "<color=#FFD966>신기록!</color> " : "역대 최고: ")
-                  + $"겨울 {best.BestWinters}번 · Day {best.BestDay} · 최대 {best.BestPeakPop}명"
-                  + (best.BestRepels > 0 ? $" · 격퇴 {best.BestRepels}회" : string.Empty);
-            // 힌트 줄 (M15-W3, 확정 보완 1) — 전멸 화면은 이미 현재 판 명부라 아카이브 패널을
-            // 자동으로 겹치지 않는다 (같은 정보 두 형태 = 오독). 열람 통로는 C 토글 하나.
-            return ComposeGameOver(day, settles, roster) + $"\n\n{run}\n{record}"
-                 + "\n<color=#B8B8B8>C — 역대 연대기</color>";
-        }
-
         /// <summary>생애 구간 문구 — 생존 중(-1 센티넬)은 열린 구간으로 (Day 0 사망과 구별, 명세 §5.3).</summary>
         private static string KrLifeSpan(VillagerRecord r)
             => r.Cause == ExitCause.Alive
@@ -787,68 +761,6 @@ namespace AIVillage.M0
 
         // ── 연대기 패널 (M15-W3) — 판 목록 + 판 상세. 한 패널을 두 지점(게임 중 C 토글 ·
         // 전멸 화면 힌트)에서 연다. 표현 전용 — 시뮬레이션 상태를 쓰지 않는다 (ADR-M13-4 정신). ──
-        private GameObject _chroniclePanel; // _chronicle(ChronicleService)과 구별 — 이쪽은 오버레이
-        private TextMeshProUGUI _chronicleList;
-        private TextMeshProUGUI _chronicleDetail;
-
-        /// <summary>연대기 패널 표시 중인가 — PlayerInputController의 키·클릭 분기용.</summary>
-        public bool ChronicleShown => _chroniclePanel != null && _chroniclePanel.activeSelf;
-
-        /// <summary>표시 행 구성 (순수) — 진행 중 판(있으면)이 맨 위, 그 뒤 저장된 판 최신순.
-        /// 클릭 인덱스 매핑의 단일 출처 — ComposeChronicleList와 호출자가 같은 목록을 쓴다.
-        /// skipIndex = 현재 판의 저장 자리 (첫 겨울 이후 존재) — 라이브 행과 같은 판이 두 줄로
-        /// 겹치지 않게 제외한다 (Play 검증에서 발견된 중복, 2026-07-31). -1 = 제외 없음.</summary>
-        public static List<ChronicleArchive.RunEntry> BuildChronicleRows(
-            IReadOnlyList<ChronicleArchive.RunEntry> archived, ChronicleArchive.RunEntry current,
-            int skipIndex = -1)
-        {
-            var rows = new List<ChronicleArchive.RunEntry>((archived?.Count ?? 0) + 1);
-            if (current != null) rows.Add(current);
-            if (archived != null)
-                for (int i = archived.Count - 1; i >= 0; i--) // 최신이 위
-                    if (i != skipIndex) rows.Add(archived[i]);
-            return rows;
-        }
-
-        /// <summary>판 목록 문구 (M15-W3, 순수 — 게이트 M15-T4). 헤더 2줄(제목·빈 줄) 뒤가 목록 —
-        /// TryPickChronicleRunIndex의 오프셋과 한 몸. 빈 목록 = 안내 한 줄.</summary>
-        public static string ComposeChronicleList(IReadOnlyList<ChronicleArchive.RunEntry> rows,
-                                                  bool firstIsCurrent)
-        {
-            var sb = new System.Text.StringBuilder(256);
-            sb.Append("연대기 — 지난 마을들\n\n");
-            if (rows == null || rows.Count == 0)
-            {
-                sb.Append("아직 기록된 마을이 없다.");
-                return sb.ToString();
-            }
-            for (int i = 0; i < rows.Count; i++)
-            {
-                ChronicleArchive.RunEntry r = rows[i];
-                if (i > 0) sb.Append('\n');
-                if (i == 0 && firstIsCurrent)
-                    // 진행 중 판 — 번호는 store만 알므로 안 붙인다 ("이번 판"이면 충분)
-                    sb.Append($"▶ 이번 판 — 겨울 {r.Winters} · Day {r.LastDay} · 최대 {r.PeakPop}명");
-                else
-                    sb.Append($"판 {r.RunNumber} — 겨울 {r.Winters} · Day {r.LastDay} · 최대 {r.PeakPop}명" +
-                              $" · {(r.Ended ? "전멸" : "중단")} · {r.EndedAt}");
-            }
-            return sb.ToString();
-        }
-
-        /// <summary>판 상세 = 명부 (M15-W3, 순수 — 게이트 M15-T4). 한 줄 = 한 사람,
-        /// ComposeGraveInfo와 같은 문형 (VillagerEntry판 — 아카이브·현재 판 공용).</summary>
-        public static string ComposeRunDetail(ChronicleArchive.RunEntry run)
-        {
-            if (run == null) return "";
-            var sb = new System.Text.StringBuilder(256);
-            sb.Append(run.RunNumber > 0 ? $"판 {run.RunNumber}" : "이번 판");
-            sb.Append($" — 겨울 {run.Winters} · Day {run.LastDay} · 최대 {run.PeakPop}명 · {(run.Ended ? "전멸" : "진행 중")}");
-            sb.Append(ComposeRunEconomy(run.PeakPricePct, run.TaxTotal, run.MintTotal));
-            foreach (ChronicleArchive.VillagerEntry v in run.Roster)
-                sb.Append('\n').Append(ComposeArchiveGrave(v));
-            return sb.ToString();
-        }
 
         /// <summary>판의 경제 한 줄 (M17-W6, 순수 — 게이트 M17-T7).
         ///
@@ -871,28 +783,6 @@ namespace AIVillage.M0
             if (mintTotal > 0) sb.Append($" · 발행 {ComposeMoney(mintTotal)}");
             return sb.ToString();
         }
-
-        /// <summary>아카이브 명부 한 줄 (순수) — ComposeGraveInfo의 VillagerEntry판.
-        /// 생존 중(현재 판)은 † 없이 열린 구간으로 (죽지 않은 사람에게 비석을 세우지 않는다).</summary>
-        public static string ComposeArchiveGrave(ChronicleArchive.VillagerEntry v)
-        {
-            bool alive = v.Cause == (int)ExitCause.Alive;
-            string span = alive
-                ? $"Day {v.BornDay}~, 생존"
-                : $"Day {v.BornDay}~{v.LeftDay}, {KrCause((ExitCause)v.Cause)}";
-            string line = $"{(alive ? "" : "† ")}{v.ShortName} — {v.Personality}, {v.Job}. {span}";
-            if (!string.IsNullOrEmpty(v.BuddyShort))
-                line += $" · {v.BuddyShort}의 단짝이었다";
-            if (!string.IsNullOrEmpty(v.GrudgeShort))
-                line += $" · <color=#FF8A65>{v.GrudgeShort}에게 원한이 있었다</color>";
-            if (!string.IsNullOrEmpty(v.LifeEvents))
-                line += $" · <color=#B8B8B8>{v.LifeEvents}</color>";
-            return line;
-        }
-
-        /// <summary>판 목록 클릭 판독 (M15) — 회고 명부와 같은 공용부. 헤더 2줄 뒤가 목록.</summary>
-        public bool TryPickChronicleRunIndex(Vector2 screenPos, out int runIndex)
-            => TryPickComposedLine(_chronicleList, screenPos, 2, out runIndex);
 
         // ── 구조 명령 목록 (M26-2차 W7 · W8 후속 개정 2026-08-11) ──────────────────
         //
@@ -959,66 +849,6 @@ namespace AIVillage.M0
             // 프레임(양피지) 위는 진갈색, 프레임 없는 폴백은 舊 프롬프트 계열 색 유지
             _rescue.color = frame != null ? new Color(0.30f, 0.19f, 0.09f)
                                           : new Color(1f, 0.85f, 0.6f);
-        }
-
-        /// <summary>연대기 패널 토글 — 열 때 목록 텍스트를 받고 상세는 비운다. 닫기 = SetActive
-        /// (재생성 없음). 열 때 SetAsLastSibling — 전멸 오버레이가 나중에 생겨도 그 위로 뜬다.</summary>
-        public void ToggleChronicle(string listText)
-        {
-            if (ChronicleShown)
-            {
-                _chroniclePanel.SetActive(false);
-                // 전멸 화면 복원 — 열 때 숨겼던 것 (겹침 수정, 2026-07-31). GameOverShown은
-                // null 검사라 래치·클릭 분기에 영향 없다.
-                if (_gameOver != null) _gameOver.SetActive(true);
-                return;
-            }
-            if (_chroniclePanel == null) BuildChroniclePanel();
-            _chronicleList.SetSafe(listText ?? "");
-            _chronicleDetail.SetSafe("판을 클릭하면 그 마을의 명부가 여기 펼쳐진다.");
-            // 전멸 화면과 겹치면 두 겹의 밝은 글자가 서로를 뚫고 읽힌다 (Play 검증 스크린샷) —
-            // 반투명 배경으로는 못 가리므로 여는 동안 숨긴다.
-            if (_gameOver != null) _gameOver.SetActive(false);
-            _chroniclePanel.transform.SetAsLastSibling();
-            _chroniclePanel.SetActive(true);
-        }
-
-        /// <summary>판 상세 표시 — 클릭한 판의 명부를 하단에 (다른 판 클릭 시 교체).</summary>
-        public void ShowChronicleDetail(string detailText)
-        {
-            if (_chronicleDetail != null) _chronicleDetail.SetSafe(detailText);
-        }
-
-        private void BuildChroniclePanel()
-        {
-            Transform canvas = _calendar.rectTransform.parent; // ShowGameOver와 같은 캔버스 재사용
-
-            _chroniclePanel = new GameObject("Chronicle");
-            _chroniclePanel.transform.SetParent(canvas, false);
-            var bg = _chroniclePanel.AddComponent<UnityEngine.UI.Image>();
-            bg.color = new Color(0f, 0f, 0f, 0.85f); // 전멸 오버레이보다 살짝 진하게 — 겹쳐도 구분
-            bg.raycastTarget = false; // 클릭 소비는 PlayerInputController가 담당 (기존 판독 순서 규약)
-            RectTransform bgRt = bg.rectTransform;
-            bgRt.anchorMin = Vector2.zero;
-            bgRt.anchorMax = Vector2.one;
-            bgRt.offsetMin = bgRt.offsetMax = Vector2.zero;
-
-            // 판이 쌓이면 길어진다 — 회고 명부와 동일한 오토사이즈 방침
-            _chronicleList = MakeOverlayText("ChronicleList", _chroniclePanel.transform,
-                                             16f, 36f, new Color(1f, 0.92f, 0.85f));
-            RectTransform listRt = _chronicleList.rectTransform;
-            listRt.anchorMin = listRt.anchorMax = new Vector2(0.5f, 0.5f);
-            listRt.pivot = new Vector2(0.5f, 0f);
-            listRt.anchoredPosition = new Vector2(0f, -20f); // 화면 상반부 = 목록
-            listRt.sizeDelta = new Vector2(900f, 340f);
-
-            _chronicleDetail = MakeOverlayText("ChronicleDetail", _chroniclePanel.transform,
-                                               14f, 26f, new Color(0.92f, 0.9f, 0.78f)); // 드릴다운과 같은 톤
-            RectTransform detailRt = _chronicleDetail.rectTransform;
-            detailRt.anchorMin = detailRt.anchorMax = new Vector2(0.5f, 0.5f);
-            detailRt.pivot = new Vector2(0.5f, 1f);
-            detailRt.anchoredPosition = new Vector2(0f, -60f); // 하반부 = 명부 상세
-            detailRt.sizeDelta = new Vector2(1100f, 300f);
         }
 
         /// <summary>

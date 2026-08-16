@@ -799,54 +799,12 @@ namespace AIVillage.M0
         /// <summary>누적 사망 수 (M10-A) — 쓰기는 RecordDeath뿐. 세이브 대상 (ADR-M0-10).</summary>
         public int DeathCount { get; private set; }
 
-        /// <summary>넘긴 봉쇄 계절(겨울) 수 (M14-W4) — 쓰기는 계절 전환 핸들러 1곳 ("이전이 봉쇄,
-        /// 지금은 아님"일 때 +1 — 봉쇄 술어라 여름 위기를 세지 않는다, ADR-M14-2). 세이브 대상.</summary>
-        public int WintersSurvived { get; private set; }
-
         /// <summary>최대 동시 생존 인구 (M14-W4) — 쓰기는 RegisterAgent뿐. 세이브 대상.</summary>
         public int PeakPopulation { get; private set; }
 
         /// <summary>이번 판 적습 격퇴 수 (M21-W9) — 쓰기는 OnRaidRepelled 구독 1곳
         /// (무리 전원이 전투로 물러난 사건 단위 — 마리 단위 아님). 세이브 대상 (ADR-M0-10).</summary>
         public int RepelCount { get; private set; }
-
-        /// <summary>현재 판 스냅샷 (M15-W2 — 저장과 열람이 같은 함수: 직렬화 경로가 평소
-        /// 열람으로도 검증된다, 명세 확정 보완 3). World+UI를 둘 다 아는 조립자는 여기뿐
-        /// (ComposeGameOver 호출부 선례 — World→UI 역참조 금지). RunNumber는 안 채운다
-        /// (ChronicleArchive.Apply가 부여). EndedAt = 벽시계 — 게임 밖 이력이 목적.</summary>
-        public ChronicleArchive.RunEntry SnapshotCurrentRun(bool ended)
-        {
-            var entry = new ChronicleArchive.RunEntry
-            {
-                EndedAt = System.DateTime.Now.ToString("yyyy-MM-dd HH:mm"),
-                Winters = WintersSurvived,
-                LastDay = (int)GameTime,
-                PeakPop = PeakPopulation,
-                Settles = SettleCount,
-                Ended   = ended,
-                RunSeed = RunSeed,   // M26-1차 W2 — 이 판의 지도 (ADR-T-4)
-                // M19-W4: 화폐 철거 — 세 필드는 append-only 규약(ADR-M14-3)으로 잔류하되
-                // 기록은 중립값 (옛 판 아카이브는 그대로 표시된다. ComposeRunEconomy는
-                // 100/0/0이면 항목을 감춘다 — 새 판에는 경제 줄이 아예 안 나온다)
-                PeakPricePct = 100,
-                TaxTotal     = 0,
-                MintTotal    = 0,
-            };
-            foreach (VillagerRecord r in Chronicle.RosterByBirth())
-                entry.Roster.Add(new ChronicleArchive.VillagerEntry
-                {
-                    ShortName   = r.ShortName,
-                    Personality = r.PersonalityName,
-                    Job         = r.JobName,
-                    BornDay     = (int)r.BornDay,
-                    LeftDay     = (int)r.LeftDay, // -1 센티넬 그대로 (생존 중)
-                    Cause       = (int)r.Cause,
-                    BuddyShort  = string.IsNullOrEmpty(r.BuddyIdAtExit) ? "" : SeasonHud.ToShortName(r.BuddyIdAtExit),
-                    GrudgeShort = string.IsNullOrEmpty(r.GrudgeIdAtExit) ? "" : SeasonHud.ToShortName(r.GrudgeIdAtExit),
-                    LifeEvents  = SeasonHud.ComposeLifeEvents(r), // 묶음 요약 재사용 (실사 ③, ADR-M15-3)
-                });
-            return entry;
-        }
 
         private bool _prevSeasonFrozen; // 겨울 결산 판정용 — 직전 계절의 봉쇄 여부
 
@@ -858,13 +816,7 @@ namespace AIVillage.M0
         // 전멸 종료 (M10-F) — 화면만 덮고 틱은 계속 돈다 (관찰 샌드박스 유지, 재건은 M11).
         private bool _everHadAgents;
         private bool _gameOverShown;
-        // 이번 판의 아카이브 자리 (M15-W2). -1 = 아직 안 씀. 세이브 대상 아님 — 판 = 프로세스
-        // 수명 (M10-F "새 시작은 재실행"). static 금지 — Enter Play Mode(도메인 리로드 꺼짐)에서 오염.
-        private int _archiveRunIndex = -1;
-
-        /// <summary>이번 판의 아카이브 인덱스 (M15 — 패널이 현재 판의 저장분을 목록에서 제외할 때
-        /// 쓴다: 첫 겨울 이후엔 라이브 행과 저장 행이 같은 판이라 겹쳐 보인다). -1 = 아직 저장 없음.</summary>
-        public int ArchiveRunIndex => _archiveRunIndex;
+        // (M32-W1: 아카이브 자리 _archiveRunIndex·ArchiveRunIndex 는 판 아카이브와 함께 철거)
 
         /// <summary>전멸 래치 판정 (순수 — 게이트 M10-T6): 주민이 있었던 마을이 0명이 된 첫 순간만.</summary>
         public static bool ShouldShowGameOver(bool alreadyShown, bool everHadAgents, int aliveCount)
@@ -1042,20 +994,8 @@ namespace AIVillage.M0
                         ? $"계절이 바뀌었습니다 — {s.DisplayName} · 열매가 얼어 채집할 수 없습니다"
                         : $"계절이 바뀌었습니다 — {s.DisplayName}");
                     if (s.ForageFrozen) LogWinterReadiness(s);
-                    // 겨울 결산 (M14-W4) — 봉쇄 계절을 **넘긴** 전환에서 +1 (봉쇄 술어라 여름 위기를
-                    // 세지 않는다, ADR-M14-2). 기록 저장 지점 ① (⚠️W4-③ — 나머지는 전멸 래치뿐).
-                    // ⚠️ 전멸 후 차단 (자가 재검토 2026-07-31): 전멸 후에도 틱·계절은 계속 돈다
-                    // (M10-F 관찰 샌드박스) — 게이트 없으면 빈 마을이 겨울을 무한히 "넘겨" 기록이 오염된다.
-                    if (_prevSeasonFrozen && !s.ForageFrozen && !_gameOverShown)
-                    {
-                        WintersSurvived++;
-                        bool newBest = RunRecordStore.SaveIfBetter(WintersSurvived, (int)GameTime, PeakPopulation, RepelCount);
-                        // 연대기 갱신 (M15-W2) — 쓰기 지점 ① (ADR-M15-2). 같은 가드 안이라
-                        // 전멸 후 빈 마을의 겨울은 아카이브도 오염 못 한다 (M14 버그 수정 공유).
-                        _archiveRunIndex = ChronicleArchive.SaveRun(_archiveRunIndex, SnapshotCurrentRun(ended: false));
-                        Debug.Log($"[M0Sim] 겨울 {WintersSurvived}번째를 넘겼다 — Day {(int)GameTime}, " +
-                                  $"생존 {_agents.Count}명{(newBest ? " · 역대 최고 갱신" : "")} · 연대기 기록");
-                    }
+                    // (M32-W1: 겨울 결산·역대 최고 기록·판 아카이브는 철거됐다 — 자가 「몇 번째
+                    //  겨울」이었는데 겨울이 사라졌다. 판을 끝내는 것은 이제 함락 하나다.)
                     _prevSeasonFrozen = s.ForageFrozen;
                 };
             }
@@ -1555,18 +1495,13 @@ namespace AIVillage.M0
                     // 회고 = 통계 대신 명부 (M13-C1). 명부가 비면 舊 통계 문구로 폴백 (반례 ③ⓐ —
                     // 이론상 도달 불가하지만, 빈 회고 화면보다 숫자가 낫다).
                     IReadOnlyList<VillagerRecord> roster = Chronicle.RosterByBirth();
-                    // 기록 마감 (M14-W4) — 저장 지점 ② (마지막 생존일·최대 인구 확정, ⚠️W4-③).
-                    bool newRecord = RunRecordStore.SaveIfBetter(WintersSurvived, (int)GameTime, PeakPopulation, RepelCount);
-                    // 연대기 마감 (M15-W2) — 쓰기 지점 ② (ADR-M15-2). 겨울 0번 판도 여기서 처음 남는다.
-                    _archiveRunIndex = ChronicleArchive.SaveRun(_archiveRunIndex, SnapshotCurrentRun(ended: true));
-                    RunRecordStore.RunRecord best = RunRecordStore.Load();
+                    // (M32-W1: 역대 최고 기록·판 아카이브 철거 — 마감 화면은 **이 판의 명부**만 남는다.
+                    //  기록 경주의 자였던 「겨울 N번」이 사라졌고, 새 자는 W2 함락이 가져온다.)
                     Hud?.ShowGameOver(roster.Count > 0
-                        ? SeasonHud.ComposeGameOver((int)GameTime, SettleCount, roster,
-                                                    WintersSurvived, PeakPopulation, best, newRecord,
-                                                    RepelCount) // 격퇴 줄 (M21-W9)
+                        ? SeasonHud.ComposeGameOver((int)GameTime, SettleCount, roster)
                         : SeasonHud.ComposeGameOver((int)GameTime, DeathCount, 0, SettleCount)); // 이탈 축 휴면 — 0 (항목 자동 감춤)
                     Debug.Log($"[M0Sim] 전멸 — Day {(int)GameTime} (사망 {DeathCount} · 정착 {SettleCount} · " +
-                              $"겨울 {WintersSurvived}번 · 최대 {PeakPopulation}명{(newRecord ? " · 역대 최고 갱신" : "")})");
+                              $"최대 {PeakPopulation}명)");
                 }
 
                 // 계절 줄 (M19-W4: 재정 인자 9종은 화폐와 함께 철거 — 계절·예보만 남는다)

@@ -820,39 +820,6 @@ namespace AIVillage.Tests.EditMode
             }));
         }
 
-        [Test]
-        public void M21_T14_RunRecord_OldFileDeserializesWithZeroRepels()
-        {
-            // W9 DoD ③ — 기존 파일(BestRepels 없음) 역직렬화 호환. 필드 부재 = 0.
-            var old = JsonUtility.FromJson<RunRecordStore.RunRecord>(
-                "{\"Version\":1,\"BestWinters\":2,\"BestDay\":30,\"BestPeakPop\":9}");
-            Assert.IsNotNull(old, "옛 스키마 역직렬화");
-            Assert.AreEqual(2, old.BestWinters, "기존 필드 보존");
-            Assert.AreEqual(0, old.BestRepels, "새 필드 부재 = 0 (append-only, ADR-M14-3)");
-        }
-
-        [Test]
-        public void M21_T14_GameOver_ShowsRepelLineOnlyWhenPresent()
-        {
-            var roster = new System.Collections.Generic.List<VillagerRecord>
-            {
-                new VillagerRecord { ShortName = "A", PersonalityName = "순둥이", JobName = "사냥꾼",
-                                     BornDay = 0f, LeftDay = 12f, Cause = ExitCause.Combat },
-            };
-            var best = new RunRecordStore.RunRecord
-            {
-                BestWinters = 1, BestDay = 20, BestPeakPop = 8, BestRepels = 4,
-            };
-            string s = SeasonHud.ComposeGameOver(12, 0, roster, 1, 8, best, newRecord: false, repels: 3);
-            StringAssert.Contains("격퇴 3회", s, "이번 판 격퇴 줄 (W9 — ComposeGameOver)");
-            StringAssert.Contains("격퇴 4회", s, "역대 최다 격퇴 줄");
-            StringAssert.Contains("짐승에게 물려 죽음", s, "전멸 명부가 전투 사망을 말한다 (DoD ②)");
-
-            string none = SeasonHud.ComposeGameOver(12, 0, roster, 1, 8,
-                new RunRecordStore.RunRecord { BestWinters = 1, BestDay = 20 }, false, repels: 0);
-            StringAssert.DoesNotContain("격퇴", none, "격퇴 0회면 줄 생략 (이탈 0 감춤과 같은 규율)");
-        }
-
         // ── M21-T15: MyWasStarved 원인 라우팅 (W10 — 게이트 본대의 마지막 사각지대) ──
 
         [Test]

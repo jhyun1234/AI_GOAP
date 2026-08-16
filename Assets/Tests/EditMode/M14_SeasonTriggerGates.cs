@@ -161,19 +161,6 @@ namespace AIVillage.Tests.EditMode
         // ── M14-T3: 최소 기록 (W4) — 경주의 자 ──
 
         [Test]
-        public void M14_T3_RecordCompare_WintersFirstThenDays()
-        {
-            var best = new RunRecordStore.RunRecord { BestWinters = 2, BestDay = 50 };
-
-            Assert.IsTrue(RunRecordStore.IsBetter(3, 10, best), "(3,10) > (2,50) — 겨울 우선");
-            Assert.IsTrue(RunRecordStore.IsBetter(2, 51, best), "겨울 동률이면 생존일");
-            Assert.IsFalse(RunRecordStore.IsBetter(2, 50, best), "완전 동률 = 갱신 아님");
-            Assert.IsFalse(RunRecordStore.IsBetter(1, 99, best), "겨울이 밀리면 생존일이 길어도 미달");
-            Assert.IsTrue(RunRecordStore.IsBetter(1, 1, new RunRecordStore.RunRecord()),
-                "빈 기록(0,0)은 첫 겨울로 즉시 갱신");
-        }
-
-        [Test]
         public void M14_T3_WinterAlert_PreventionOnlyLine()
         {
             // 중립 불변식 — 새 인자 기본값(-1, null)은 기존 4인자 출력과 완전 동일

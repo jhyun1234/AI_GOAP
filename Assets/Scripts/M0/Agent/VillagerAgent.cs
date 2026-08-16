@@ -2078,9 +2078,21 @@ namespace AIVillage.M0
         /// 세이브 대상 (ADR-M0-10).</summary>
         public bool MyHasWeapon { get; private set; }
 
-        /// <summary>무기 획득의 유일한 문 (M21-W5) — CraftRunner가 재료 지불 가능성을 선검사한
-        /// 직후에만 부른다 (Set MyHasWeapon 효과는 플래너 픽션 — EffectApplier는 논리형을 무시).</summary>
-        public void AcquireWeapon() => MyHasWeapon = true;
+        /// <summary>내가 든 무기 (M32-W3). null = 종류 미상 — 그때 교전 수치는 전부 액션
+        /// 기본값이고 그것이 舊 동작이다 (중립 불변식). **플래너는 이 값을 모른다** — 슬롯 40은
+        /// 여전히 "무기가 있나" 하나뿐이다 (어떤 무기인가는 개인 상태지 계획 인자가 아니다).
+        /// ⚠️ `MyHasWeapon`과 별개인 이유: 무기 종류 미기입 에셋이 **무장 자체를 무효로 만들면**
+        /// 무장 goal 이 영영 안 끝난다 (달성 불가 goal = 무한 재계획).</summary>
+        public WeaponSO MyWeapon { get; private set; }
+
+        /// <summary>무기 획득의 유일한 문 (M21-W5 → M32-W3에서 종류를 받는다) — CraftRunner가
+        /// 재료 지불 가능성을 선검사한 직후에만 부른다 (Set MyHasWeapon 효과는 플래너 픽션 —
+        /// EffectApplier는 논리형을 무시).</summary>
+        public void AcquireWeapon(WeaponSO so)
+        {
+            MyHasWeapon = true;
+            if (so != null) MyWeapon = so;
+        }
 
         /// <summary>내 집 타일 (M11-A) — 집 저장 라우팅·피난 목적지 공용 창구. 원천 = OwnershipService.</summary>
         public bool TryGetHomeTile(out Vector2Int tile)

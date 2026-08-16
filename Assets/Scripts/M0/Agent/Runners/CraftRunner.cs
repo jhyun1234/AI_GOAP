@@ -33,8 +33,9 @@ namespace AIVillage.M0
                         && agent.World.GetStock(e.Slot) < e.Value)
                         return Fail("재료 부족 — 만들다 말았다 (재계획)");
 
-            agent.AcquireWeapon(); // 소유의 유일한 문 (MyWasAttacked 패턴 — 영구·세이브 대상)
-            Debug.Log($"[Craft] {agent.AgentId}: 원시 무기를 만들었다 — 타격이 빨라진다 (MyHasWeapon=1)");
+            agent.AcquireWeapon(_so.Weapon); // 소유의 유일한 문 (MyWasAttacked 패턴 — 영구·세이브 대상)
+            Debug.Log($"[Craft] {agent.AgentId}: {(_so.Weapon != null ? _so.Weapon.DisplayName : "원시 무기")}" +
+                      $"를 만들었다 (MyHasWeapon=1)");
             return RunnerResult.Succeeded;
         }
     }

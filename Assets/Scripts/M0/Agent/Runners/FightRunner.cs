@@ -44,7 +44,25 @@ namespace AIVillage.M0
         /// ⚠️ 배율을 여기서 발명하지 않는다 — 곱 결합·클램프는 전부 HitInterval(순수, 게이트 T8)이 한다.</summary>
         private float Interval(VillagerAgent agent)
             => CombatService.HitInterval(_so.BaseHitSec, agent.CombatDurationMultOfJob(),
-                                         agent.MyHasWeapon, _so.WeaponHitSecMult);
+                                         agent.MyHasWeapon, WeaponIntervalMult(agent));
+
+        // ── 병과 (M32-W3) — 무기가 있으면 그 에셋이, 없으면 액션 기본값이 답한다.
+        //    맨손도 싸운다 (ADR-M21-5·M32-4): 무기는 게이트가 아니라 이 세 숫자의 출처일 뿐이다.
+
+        private float WeaponIntervalMult(VillagerAgent agent)
+            => agent.MyWeapon != null ? agent.MyWeapon.HitIntervalMult : _so.WeaponHitSecMult;
+
+        private float Damage(VillagerAgent agent)
+            => agent.MyWeapon != null ? agent.MyWeapon.Damage : _so.HitDamage;
+
+        /// <summary>이 주민의 사거리 — **활이 검과 다른 유일한 구조 인자**다 (나머지는 숫자).</summary>
+        private int Range(VillagerAgent agent)
+            => agent.MyWeapon != null ? agent.MyWeapon.RangeTiles : _so.StrikeRangeTiles;
+
+        /// <summary>교전 몸짓 — 무기가 있으면 그 무기의 몸짓 (M32-W3). 스프라이트 미배선
+        /// 종류는 몸짓이 안 나올 뿐 판정은 그대로다 (표현과 판정의 분리).</summary>
+        public override AnimKind AnimOverride => _anim;
+        private AnimKind _anim = AnimKind.None;
 
         private static int Dist(VillagerAgent a, ThreatAgent t)
             => Mathf.Abs(a.TileX - t.TileX) + Mathf.Abs(a.TileY - t.TileY);
@@ -63,8 +81,9 @@ namespace AIVillage.M0
             if (!agent.Threats.TryGetNearestFightable(agent.TileX, agent.TileY, agent.FleeRadius(), out _target))
                 return true; // 대상 없음 — Tick이 완료 처리 (실패로 두면 명령이 영영 안 비워진다)
 
+            _anim = agent.MyWeapon != null ? agent.MyWeapon.Anim : AnimKind.None;
             _nextHitAt = Time.time; // 도착 즉시 첫 대 — 달려와서 4초 기다리면 그 사이에 먼저 맞는다
-            if (Dist(agent, _target) <= _so.StrikeRangeTiles) return true; // 이미 사거리 — 제자리
+            if (Dist(agent, _target) <= Range(agent)) return true; // 이미 사거리 — 제자리
 
             // 매복 지점 = 위협의 현재 타일이 아니라 **돌아올 자리** (헤더 주석 참조).
             // 곁 1타일 산개 — 겹쳐 서기·예약 충돌 방지 (TendRunner 패턴)
@@ -86,7 +105,7 @@ namespace AIVillage.M0
             }
 
             int dist = Dist(agent, _target);
-            if (dist > _so.StrikeRangeTiles)
+            if (dist > Range(agent))
             {
                 // 매복 대기 — 舊 "즉시 Fail → 재계획이 또 옛 좌표로"의 헛걸음 순환을 대체.
                 // 기다리는 동안은 몸짓을 끈다 (2026-08-10 Play): 액션은 Running 이지만 아직
@@ -106,13 +125,13 @@ namespace AIVillage.M0
             {
                 _spoke = true;
                 Debug.Log($"[Combat] 교전 시작 — {agent.AgentId} vs {_target.So.DisplayName} " +
-                          $"(간격 {Interval(agent):0.#}초 · 1대 {_so.HitDamage:0.#})");
+                          $"(간격 {Interval(agent):0.#}초 · 1대 {Damage(agent):0.#})");
             }
 
             if (Time.time < _nextHitAt) return RunnerResult.Running;
             _nextHitAt = Time.time + Interval(agent);
 
-            agent.Combat.VillagerHit(agent.AgentId, _so.HitDamage, _target);
+            agent.Combat.VillagerHit(agent.AgentId, Damage(agent), _target);
             // 격퇴·사냥이면 이 대상과의 교전은 끝 — 다음 틱의 재타겟이 다음 상대를 찾거나 완료한다.
             // 여기서 곧바로 Succeeded로 끝내지 않는 이유: 적이 여럿이면 계속 싸워야 한다 (W6 대비).
             return RunnerResult.Running;

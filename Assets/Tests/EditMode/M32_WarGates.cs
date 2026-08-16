@@ -1,7 +1,9 @@
+using System.Linq;
 using AIVillage.Core;
 using AIVillage.M0;
 using NUnit.Framework;
 using UnityEditor;
+using UnityEngine;
 
 namespace AIVillage.Tests.EditMode
 {
@@ -136,6 +138,66 @@ namespace AIVillage.Tests.EditMode
                         Assert.AreEqual(!shown && ever && alive == 0,
                             M0SimulationLoop.ShouldShowGameOver(shown, ever, alive),
                             $"舊 전멸 판정 불변 (shown={shown}, ever={ever}, alive={alive})");
+        }
+
+        // ── M32-T4: 병과 (W3) ────────────────────────────────────────────────
+        //
+        // 재는 것은 **초당 피해**다. 간격·피해를 따로 보면 병과가 갈렸는지 알 수 없다 —
+        // 느리고 센 도끼와 빠르고 약한 검이 같은 값일 수 있고, 그러면 무기는 그림만 다른
+        // 같은 물건이다 (S3: 최대/최소 1.3배 이상).
+
+        [Test]
+        public void M32_T4_ShippedWeapons_FightDifferently()
+        {
+            var fight = AssetDatabase.LoadAssetAtPath<FightActionSO>("Assets/M0Config/Actions/Action_Fight.asset");
+            Assert.IsNotNull(fight, "Action_Fight 로드 — 기준 간격의 출처");
+
+            WeaponSO[] weapons = AssetDatabase.FindAssets("t:WeaponSO", new[] { "Assets/M0Config/Weapons" })
+                .Select(AssetDatabase.GUIDToAssetPath)
+                .Select(AssetDatabase.LoadAssetAtPath<WeaponSO>)
+                .Where(w => w != null)
+                .ToArray();
+            Assert.AreEqual(3, weapons.Length, "배포 무기는 검·활·도끼 셋 (팩에 있는 것만 — ADR-M32-8)");
+
+            float lo = float.MaxValue, hi = 0f;
+            foreach (WeaponSO w in weapons)
+            {
+                float dps = WeaponSO.DamagePerSec(fight.BaseHitSec, 1f, w.HitIntervalMult, w.Damage);
+                Assert.Greater(dps, 0f, $"{w.name}: 초당 피해가 0 — 무기가 아니라 장식이다");
+                lo = Mathf.Min(lo, dps); hi = Mathf.Max(hi, dps);
+                Assert.GreaterOrEqual(w.RangeTiles, 1, $"{w.name}: 사거리 0이면 영영 못 친다");
+            }
+            Assert.GreaterOrEqual(hi / lo, 1.3f,
+                $"초당 피해 최대/최소 = {hi / lo:0.##}배 — 1.3배 미만이면 병과가 그림 차이일 뿐이다 (S3)");
+
+            // 사거리도 갈려야 한다 — 활이 검과 다른 **유일한 구조 인자**다
+            int minRange = weapons.Min(w => w.RangeTiles);
+            int maxRange = weapons.Max(w => w.RangeTiles);
+            Assert.Greater(maxRange, minRange, "사거리가 전부 같으면 활이 검의 별명이다");
+        }
+
+        [Test]
+        public void M32_T4_BareHands_StillFight()
+        {
+            // ADR-M21-5·M32-4: 무기는 게이트가 아니라 배율이다. 맨손 간격이 유한해야 한다.
+            var fight = AssetDatabase.LoadAssetAtPath<FightActionSO>("Assets/M0Config/Actions/Action_Fight.asset");
+            float bare = CombatService.HitInterval(fight.BaseHitSec, 1f, hasWeapon: false, weaponMult: 0.5f);
+            Assert.Greater(bare, 0f, "맨손 타격 간격이 0 이하 = 못 싸운다");
+            Assert.AreEqual(fight.BaseHitSec, bare, 1e-4f, "맨손은 무기 배율을 안 받는다 (중립)");
+
+            var sword = AssetDatabase.LoadAssetAtPath<WeaponSO>("Assets/M0Config/Weapons/Weapon_Sword.asset");
+            Assert.IsNotNull(sword, "검 로드");
+            float armed = CombatService.HitInterval(fight.BaseHitSec, 1f, true, sword.HitIntervalMult);
+            Assert.Less(armed, bare, "검이 맨손보다 느리면 무장할 이유가 없다");
+        }
+
+        [Test]
+        public void M32_T4_CraftAction_NamesItsWeapon()
+        {
+            var craft = AssetDatabase.LoadAssetAtPath<CraftActionSO>("Assets/M0Config/Actions/Action_CraftWeapon.asset");
+            Assert.IsNotNull(craft, "Action_CraftWeapon 로드");
+            Assert.IsNotNull(craft.Weapon,
+                "제작이 만드는 무기가 미지정 — 무장은 되지만 병과 수치가 액션 기본값으로 떨어진다");
         }
 
         [Test]

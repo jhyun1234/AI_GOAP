@@ -14,6 +14,10 @@ namespace AIVillage.M0
     [CreateAssetMenu(menuName = "AIVillage/M0/Action/Craft", fileName = "CraftAction")]
     public sealed class CraftActionSO : ActionSO
     {
+        [Tooltip("이 제작이 만드는 무기 (M32-W3). 비면 종류 미상 — 무장은 되지만 교전 수치는 " +
+                 "액션 기본값(맨손과 같은 자리)이다. 병과를 쓰려면 채운다.")]
+        public WeaponSO Weapon;
+
         public override ActionRunnerBase CreateRunner(VillagerAgent agent) => new CraftRunner(this);
     }
 }

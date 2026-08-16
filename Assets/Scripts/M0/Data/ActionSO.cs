@@ -16,6 +16,11 @@ namespace AIVillage.M0
         Hammer = 3, // 망치질 (건설·수리·제작)
         Water  = 4, // 물뿌리개 (심기·밭 돌보기)
         Attack = 5, // 맨손 타격 (교전 — Player_Attack_NoWeapon 시트)
+        // 병과 몸짓 (M32-W3) — append only (번호가 에셋에 구워져 있다, ADR-M0-9 규약 동형).
+        // 스프라이트 배선 전까지는 몸짓이 안 나올 뿐 판정은 그대로다.
+        Slash  = 6, // 검 (Player_Attack_OnlyWeapon 시트의 칼날 층)
+        Thrust = 7, // 찌르기 — 예약 (같은 시트의 다른 행)
+        Shoot  = 8, // 활 (Bow_Stages 시트)
     }
 
     /// <summary>
